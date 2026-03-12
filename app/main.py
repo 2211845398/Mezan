@@ -1,11 +1,17 @@
 """FastAPI application entry point."""
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from typing import List
+
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, EmailStr
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.database import init_db, close_db
+from app.core.database import get_db, init_db, close_db
+from app.models import User
 
 
 @asynccontextmanager
@@ -28,6 +34,24 @@ app = FastAPI(
     docs_url="/docs" if settings.is_development else None,
     redoc_url="/redoc" if settings.is_development else None,
 )
+
+class UserCreate(BaseModel):
+    """Schema for creating a new user."""
+
+    email: EmailStr
+    full_name: str | None = None
+
+
+class UserRead(BaseModel):
+    """Schema for reading user information."""
+
+    id: int
+    email: EmailStr
+    full_name: str | None = None
+
+    class Config:
+        from_attributes = True
+
 
 # CORS middleware
 app.add_middleware(
@@ -56,3 +80,26 @@ async def health_check():
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
     }
+
+
+@app.post("/users", response_model=UserRead)
+async def create_user(
+    user_in: UserCreate,
+    db: AsyncSession = Depends(get_db),
+) -> UserRead:
+    """Create a new user in the database."""
+    user = User(email=user_in.email, full_name=user_in.full_name)
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@app.get("/users", response_model=List[UserRead])
+async def list_users(
+    db: AsyncSession = Depends(get_db),
+) -> List[UserRead]:
+    """List all users from the database."""
+    result = await db.execute(select(User))
+    users = result.scalars().all()
+    return users
