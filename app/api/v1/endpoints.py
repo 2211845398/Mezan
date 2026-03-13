@@ -1,7 +1,5 @@
 """User CRUD API router."""
 
-from typing import List
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,10 +24,10 @@ async def create_user(
     return user
 
 
-@router.get("/users", response_model=List[UserRead])
+@router.get("/users", response_model=list[UserRead])
 async def list_users(
     db: AsyncSession = Depends(get_db),
-) -> List[UserRead]:
+) -> list[UserRead]:
     """List all users from the database."""
     result = await db.execute(select(User))
     users = result.scalars().all()

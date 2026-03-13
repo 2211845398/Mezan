@@ -1,8 +1,9 @@
 """Database connection and session management."""
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
-from typing import AsyncGenerator
 
 from app.core.config import settings
 
@@ -45,7 +46,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     """Initialize database (create tables)."""
     # Import models so that they are registered with the Base metadata
-    from app.models import users, example  # noqa: F401
+    from app.models import example, users  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
