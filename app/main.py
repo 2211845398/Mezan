@@ -5,9 +5,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1 import auth_router, health_router, users_router
 from app.core.config import settings
-from app.db.database import init_db, close_db
-from app.api.v1 import health_router, users_router, auth_router
+from app.db.database import close_db, init_db
 
 
 @asynccontextmanager
