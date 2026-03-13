@@ -72,5 +72,3 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Alembic versions (will be generated in container)
-alembic/versions/*.py

@@ -16,7 +16,7 @@ echo "Database is ready!"
 
 # Run database migrations
 echo "Running database migrations..."
-uv run alembic upgrade head
+alembic upgrade head
 
 # Execute the main command
 exec "$@"

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import declarative_base
 from typing import AsyncGenerator
 
-from app.config import settings
+from app.core.config import settings
 
 # Create async engine
 engine = create_async_engine(
@@ -31,7 +31,7 @@ Base = declarative_base()
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency function to get database session.
-    
+
     Yields:
         AsyncSession: Database session
     """
@@ -45,7 +45,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     """Initialize database (create tables)."""
     # Import models so that they are registered with the Base metadata
-    from app import models 
+    from app.models import users, example  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

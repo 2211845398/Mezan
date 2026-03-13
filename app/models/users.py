@@ -1,11 +1,11 @@
-"""SQLAlchemy ORM models for the Mezan application."""
+"""SQLAlchemy ORM model for users."""
 
 from datetime import datetime
 
 from sqlalchemy import Integer, String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.database import Base
+from app.db.database import Base
 
 
 class User(Base):
@@ -21,4 +21,3 @@ class User(Base):
         default=datetime.utcnow,
         nullable=False,
     )
-

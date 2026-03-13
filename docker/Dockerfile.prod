@@ -1,50 +1,61 @@
-# Production Dockerfile - minimal and secure
-FROM python:3.12-slim as builder
+# =============================================================================
+# Production Dockerfile — Multi-Stage Build
+# Follows the official Astral uv Docker integration guide.
+#
+# Stage 1 (builder): installs all dependencies + compiles bytecode.
+# Stage 2 (runtime): clean slim image with ONLY the .venv and app source.
+#                     No uv binary, no build tools, no dev dependencies.
+# =============================================================================
 
-# Set working directory
+# ---- Stage 1: Builder -------------------------------------------------------
+FROM python:3.12-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+ENV UV_LINK_MODE=copy
+ENV UV_COMPILE_BYTECODE=1
+
 WORKDIR /app
 
-# Install UV
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Layer 1 – dependencies only (cached until lockfile changes)
+COPY pyproject.toml uv.lock ./
 
-# Copy dependency files
-COPY pyproject.toml ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
 
-# Install dependencies (production only)
-RUN uv sync --frozen --no-dev
+# Layer 2 – full source + final sync with project installation
+COPY . .
 
-# Production stage
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-editable
+
+# ---- Stage 2: Runtime -------------------------------------------------------
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install UV
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
-# Copy dependencies from builder
+# The ONLY things we bring from the builder are the virtual environment
+# and the application source code.  No uv, no pip, no build tools.
 COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/uv.lock /app/uv.lock
-COPY pyproject.toml ./
+COPY --from=builder /app /app
 
-# Copy application code
-COPY . .
+# Put the venv on PATH so uvicorn (and all other installed CLIs) are
+# directly callable without any prefix.
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Create non-root user
+# Create a non-root user for security
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+# Copy entrypoint and make it executable while still root
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 USER appuser
 
-# Expose port
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-# Copy and set entrypoint
-COPY docker/entrypoint.sh /entrypoint.sh
-USER root
-RUN chmod +x /entrypoint.sh
-USER appuser
-
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
