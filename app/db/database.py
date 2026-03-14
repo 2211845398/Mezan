@@ -46,7 +46,20 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     """Initialize database (create tables)."""
     # Import models so that they are registered with the Base metadata
-    from app.models import example, users  # noqa: F401
+    from app.models import (  # noqa: F401
+        audit_log,
+        branch,
+        example,
+        global_config,
+        password_reset_token,
+        permission,
+        pos_terminal,
+        refresh_token,
+        role,
+        role_permission,
+        user_role,
+        users,
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
