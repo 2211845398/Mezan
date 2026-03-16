@@ -2,8 +2,11 @@
 
 from app.models.audit_log import AuditLog
 from app.models.branch import Branch
+from app.models.category import Category
+from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.example import Example
 from app.models.global_config import GlobalConfig
+from app.models.invoice_scan import InvoiceScan
 from app.models.password_reset_token import PasswordResetToken
 from app.models.permission import Permission
 from app.models.pos_terminal import POSTerminal
@@ -12,18 +15,39 @@ from app.models.role import Role
 from app.models.role_permission import RolePermission
 from app.models.user_role import UserRole
 from app.models.users import User
+from app.models.product import Product
+from app.models.purchase_order import PurchaseOrder
+from app.models.purchase_order_line import PurchaseOrderLine
+from app.models.stock_level import StockLevel
+from app.models.stock_movement import StockMovement
+from app.models.goods_receipt import GoodsReceipt
+from app.models.goods_receipt_line import GoodsReceiptLine
+from app.models.transfer_batch import TransferBatch
+from app.models.transfer_line import TransferLine
 
 __all__ = [
     "AuditLog",
     "Branch",
+    "Category",
+    "CategoryAttributeDef",
     "Example",
     "GlobalConfig",
+    "InvoiceScan",
     "PasswordResetToken",
     "Permission",
     "POSTerminal",
     "RefreshToken",
     "Role",
     "RolePermission",
+    "Product",
+    "PurchaseOrder",
+    "PurchaseOrderLine",
+    "StockLevel",
+    "StockMovement",
+    "GoodsReceipt",
+    "GoodsReceiptLine",
+    "TransferBatch",
+    "TransferLine",
     "User",
     "UserRole",
 ]

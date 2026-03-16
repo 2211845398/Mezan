@@ -10,7 +10,8 @@ from app.models.user_role import UserRole
 from app.models.users import User
 from app.utils.security import hash_password
 
-# All permissions used by Epic 1 routes
+# Default permissions used by routes.
+# Important: seeding is idempotent (adds missing permissions if DB already initialized).
 DEFAULT_PERMISSIONS = [
     ("users", "create"),
     ("users", "read"),
@@ -30,30 +31,56 @@ DEFAULT_PERMISSIONS = [
     ("roles", "read"),
     ("roles", "create"),
     ("roles", "update"),
+    # Epic 2: Catalog & Inventory foundations
+    ("catalog", "read"),
+    ("catalog", "create"),
+    ("catalog", "update"),
+    ("catalog", "delete"),
+    ("purchase_orders", "read"),
+    ("purchase_orders", "create"),
+    ("purchase_orders", "update"),
+    ("inventory", "read"),
+    ("inventory", "update"),
+    ("invoice_scans", "read"),
+    ("invoice_scans", "create"),
+    ("invoice_scans", "update"),
+    ("invoice_scans", "validate"),
 ]
 
 ADMIN_ROLE_NAME = "Admin"
 
 
 async def seed_permissions_and_roles(db: AsyncSession) -> None:
-    """Create default permissions and Admin role if they do not exist."""
-    result = await db.execute(select(Permission).limit(1))
-    if result.scalar_one_or_none() is not None:
-        return  # already seeded
-
-    # Create permissions
+    """Create missing default permissions and ensure Admin role has them."""
+    # Ensure permissions exist
+    result = await db.execute(select(Permission))
+    existing = {(p.resource, p.action): p for p in result.scalars().all()}
+    created_any = False
     for resource, action in DEFAULT_PERMISSIONS:
-        db.add(Permission(resource=resource, action=action))
-    await db.flush()
+        if (resource, action) not in existing:
+            perm = Permission(resource=resource, action=action)
+            db.add(perm)
+            created_any = True
+    if created_any:
+        await db.flush()
 
-    # Create Admin role
+    # Ensure Admin role exists
+    result = await db.execute(select(Role).where(Role.name == ADMIN_ROLE_NAME))
+    admin_role = result.scalar_one_or_none()
+    if not admin_role:
+        admin_role = Role(name=ADMIN_ROLE_NAME, description="Full system access", is_system=True)
+        db.add(admin_role)
+        await db.flush()
+
+    # Ensure Admin role has all permissions
     result = await db.execute(select(Permission))
     all_perms = result.scalars().all()
-    admin_role = Role(name=ADMIN_ROLE_NAME, description="Full system access", is_system=True)
-    db.add(admin_role)
-    await db.flush()
-    for p in all_perms:
-        db.add(RolePermission(role_id=admin_role.id, permission_id=p.id))
+    perm_ids = {p.id for p in all_perms}
+    rp_result = await db.execute(select(RolePermission.permission_id).where(RolePermission.role_id == admin_role.id))
+    assigned = {pid for (pid,) in rp_result.all()}
+    for pid in perm_ids - assigned:
+        db.add(RolePermission(role_id=admin_role.id, permission_id=pid))
+
     await db.commit()
 
 

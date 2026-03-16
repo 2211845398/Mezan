@@ -4,20 +4,33 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.api.error_handlers import (
+    app_error_handler,
+    http_exception_handler,
+    request_validation_exception_handler,
+    unhandled_exception_handler,
+)
 from app.api.v1 import (
     audit_router,
     auth_router,
     branches_router,
+    catalog_router,
     config_router,
     health_router,
+    invoice_scans_router,
+    purchase_orders_router,
     roles_router,
     terminals_router,
+    transfers_router,
     users_router,
 )
 from app.core.config import settings
+from app.core.errors import AppError
 from app.db.database import close_db, init_db
 
 
@@ -62,6 +75,12 @@ app = FastAPI(
     redoc_url="/redoc" if settings.is_development else None,
 )
 
+# Global exception handling (frontend-stable envelope)
+app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
 # Middleware: request_id first (innermost), then CORS
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
@@ -81,6 +100,10 @@ app.include_router(config_router, prefix="/api/v1", tags=["config"])
 app.include_router(branches_router, prefix="/api/v1", tags=["branches"])
 app.include_router(terminals_router, prefix="/api/v1", tags=["terminals"])
 app.include_router(roles_router, prefix="/api/v1", tags=["roles"])
+app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(purchase_orders_router, prefix="/api/v1", tags=["purchase_orders"])
+app.include_router(invoice_scans_router, prefix="/api/v1", tags=["invoice_scans"])
+app.include_router(transfers_router, prefix="/api/v1", tags=["transfers"])
 
 
 @app.get("/")
