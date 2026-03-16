@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db.database import get_db
+from app.models.users import User
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
@@ -15,7 +16,6 @@ from app.schemas.auth import (
     RefreshRequest,
     TokenResponse,
 )
-from app.models.users import User
 from app.schemas.users import UserRead
 from app.services import auth_service
 from app.services.auth_service import get_google_authorization_url

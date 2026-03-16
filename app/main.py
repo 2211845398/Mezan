@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1 import (
-    auth_router,
     audit_router,
+    auth_router,
     branches_router,
     config_router,
     health_router,
@@ -42,7 +42,9 @@ async def lifespan(app: FastAPI):
         async with AsyncSessionLocal() as db:
             await seed_permissions_and_roles(db)
             if settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PASSWORD:
-                await seed_default_admin(db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD)
+                await seed_default_admin(
+                    db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD
+                )
     except Exception:
         pass  # DB may not be migrated yet
     yield

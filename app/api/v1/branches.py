@@ -36,7 +36,9 @@ async def create_branch(
     """Create a branch. Requires branches:create."""
     result = await db.execute(select(Branch).where(Branch.code == body.code))
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Branch code already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Branch code already exists"
+        )
     branch = Branch(
         name=body.name,
         code=body.code,

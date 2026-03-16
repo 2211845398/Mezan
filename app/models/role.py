@@ -16,5 +16,7 @@ class Role(Base):
     description: Mapped[str] = mapped_column(String(512), nullable=True)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    role_permissions = relationship("RolePermission", back_populates="role", cascade="all, delete-orphan")
+    role_permissions = relationship(
+        "RolePermission", back_populates="role", cascade="all, delete-orphan"
+    )
     user_roles = relationship("UserRole", back_populates="role", cascade="all, delete-orphan")

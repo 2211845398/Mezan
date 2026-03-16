@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
-from app.models.users import User
 from app.models.role import Role
 from app.models.user_role import UserRole
+from app.models.users import User
 from app.schemas.role import UserRoleAssign
 from app.schemas.users import UserCreate, UserRead, UserUpdate
 from app.services import audit_service
@@ -121,7 +121,9 @@ async def get_user_roles(
 ) -> list[dict]:
     """List roles assigned to a user. Requires users:read."""
     result = await db.execute(
-        select(UserRole, Role).join(Role, UserRole.role_id == Role.id).where(UserRole.user_id == user_id)
+        select(UserRole, Role)
+        .join(Role, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == user_id)
     )
     rows = result.all()
     return [{"role_id": r.id, "role_name": r.name, "branch_id": ur.branch_id} for ur, r in rows]
@@ -149,8 +151,15 @@ async def add_user_role(
         q = q.where(UserRole.branch_id.is_(None))
     result = await db.execute(q)
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has this role")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User already has this role"
+        )
     ur = UserRole(user_id=user_id, role_id=body.role_id, branch_id=body.branch_id)
     db.add(ur)
     await db.commit()
-    return {"message": "Role assigned", "user_id": user_id, "role_id": body.role_id, "branch_id": body.branch_id}
+    return {
+        "message": "Role assigned",
+        "user_id": user_id,
+        "role_id": body.role_id,
+        "branch_id": body.branch_id,
+    }

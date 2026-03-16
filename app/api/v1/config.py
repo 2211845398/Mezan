@@ -64,7 +64,9 @@ async def set_config(
     if config:
         old_value = config.value
         config.value = value_dict
-        config.description = body.description if body.description is not None else config.description
+        config.description = (
+            body.description if body.description is not None else config.description
+        )
         config.updated_by = current_user.id
         await db.commit()
         await db.refresh(config)

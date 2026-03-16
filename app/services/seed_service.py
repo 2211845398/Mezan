@@ -10,7 +10,6 @@ from app.models.user_role import UserRole
 from app.models.users import User
 from app.utils.security import hash_password
 
-
 # All permissions used by Epic 1 routes
 DEFAULT_PERMISSIONS = [
     ("users", "create"),

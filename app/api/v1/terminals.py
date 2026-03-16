@@ -45,9 +45,13 @@ async def create_terminal(
     result = await db.execute(select(Branch).where(Branch.id == body.branch_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Branch not found")
-    result = await db.execute(select(POSTerminal).where(POSTerminal.terminal_code == body.terminal_code))
+    result = await db.execute(
+        select(POSTerminal).where(POSTerminal.terminal_code == body.terminal_code)
+    )
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Terminal code already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Terminal code already exists"
+        )
 
     api_key = f"pos_{token_urlsafe(32)}"
     api_key_hash = hash_token(api_key)

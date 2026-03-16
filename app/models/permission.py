@@ -16,4 +16,6 @@ class Permission(Base):
     resource: Mapped[str] = mapped_column(String(64), nullable=False)
     action: Mapped[str] = mapped_column(String(32), nullable=False)
 
-    role_permissions = relationship("RolePermission", back_populates="permission", cascade="all, delete-orphan")
+    role_permissions = relationship(
+        "RolePermission", back_populates="permission", cascade="all, delete-orphan"
+    )

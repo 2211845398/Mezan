@@ -14,7 +14,9 @@ class POSTerminal(Base):
     __tablename__ = "pos_terminals"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id", ondelete="CASCADE"), nullable=False)
+    branch_id: Mapped[int] = mapped_column(
+        ForeignKey("branches.id", ondelete="CASCADE"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     terminal_code: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
     api_key_hash: Mapped[str] = mapped_column(String(255), nullable=False)  # hash of API key

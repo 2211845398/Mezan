@@ -22,21 +22,29 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False, description="Debug mode")
 
     # JWT
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, description="Access token expiry in minutes")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30, description="Access token expiry in minutes"
+    )
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, description="Refresh token expiry in days")
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT signing algorithm")
 
     # SSO (optional)
     GOOGLE_CLIENT_ID: str | None = Field(default=None, description="Google OAuth2 client ID")
-    GOOGLE_CLIENT_SECRET: str | None = Field(default=None, description="Google OAuth2 client secret")
+    GOOGLE_CLIENT_SECRET: str | None = Field(
+        default=None, description="Google OAuth2 client secret"
+    )
     OAUTH_CALLBACK_BASE_URL: str = Field(
         default="http://localhost:8000",
         description="Base URL for OAuth callback (e.g. http://localhost:8000)",
     )
 
     # Optional: seed default admin user when no users exist
-    DEFAULT_ADMIN_EMAIL: str | None = Field(default=None, description="Email for default admin (seed)")
-    DEFAULT_ADMIN_PASSWORD: str | None = Field(default=None, description="Password for default admin (seed)")
+    DEFAULT_ADMIN_EMAIL: str | None = Field(
+        default=None, description="Email for default admin (seed)"
+    )
+    DEFAULT_ADMIN_PASSWORD: str | None = Field(
+        default=None, description="Password for default admin (seed)"
+    )
 
     # Database
     DATABASE_URL: str = Field(

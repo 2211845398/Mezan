@@ -1,6 +1,6 @@
 """Authentication service: email/password, JWT, refresh, password reset, SSO."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import Any
 
@@ -18,7 +18,6 @@ from app.utils.security import (
     hash_token,
     verify_password,
 )
-
 
 ACTIVE_STATUS = "active"
 
@@ -48,7 +47,7 @@ async def login_email_password(
     if not verify_password(password, user.password_hash):
         raise ValueError("Invalid email or password")
 
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(user)
 
@@ -59,8 +58,8 @@ async def login_email_password(
     refresh_record = RefreshToken(
         user_id=user.id,
         token_hash=token_hash,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-        last_used_at=datetime.now(timezone.utc),
+        expires_at=datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        last_used_at=datetime.now(UTC),
     )
     db.add(refresh_record)
     await db.commit()
@@ -94,7 +93,7 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, 
         select(RefreshToken).where(
             RefreshToken.token_hash == token_hash,
             RefreshToken.revoked.is_(False),
-            RefreshToken.expires_at > datetime.now(timezone.utc),
+            RefreshToken.expires_at > datetime.now(UTC),
         )
     )
     refresh_record = result.scalar_one_or_none()
@@ -106,7 +105,7 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, 
     if not user or user.status != ACTIVE_STATUS:
         raise ValueError("Account is not active")
 
-    refresh_record.last_used_at = datetime.now(timezone.utc)
+    refresh_record.last_used_at = datetime.now(UTC)
     await db.commit()
 
     access_token = create_access_token(user.id)
@@ -139,7 +138,7 @@ async def request_password_reset(db: AsyncSession, email: str) -> None:
         return
     token_str = token_urlsafe(32)
     token_hash = hash_token(token_str)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=60)
+    expires_at = datetime.now(UTC) + timedelta(minutes=60)
     reset = PasswordResetToken(
         user_id=user.id,
         token_hash=token_hash,
@@ -160,7 +159,7 @@ async def reset_password(db: AsyncSession, token_str: str, new_password: str) ->
         select(PasswordResetToken).where(
             PasswordResetToken.token_hash == token_hash,
             PasswordResetToken.used.is_(False),
-            PasswordResetToken.expires_at > datetime.now(timezone.utc),
+            PasswordResetToken.expires_at > datetime.now(UTC),
         )
     )
     reset_record = result.scalar_one_or_none()
@@ -199,6 +198,7 @@ def get_google_authorization_url(state: str | None = None) -> str:
     if state:
         params["state"] = state
     from urllib.parse import urlencode
+
     return f"{base}?{urlencode(params)}"
 
 
@@ -213,8 +213,8 @@ async def exchange_google_code_and_login(
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise ValueError("SSO not configured")
 
-    import jwt as pyjwt
     import httpx
+    import jwt as pyjwt
 
     redirect_uri = f"{settings.OAUTH_CALLBACK_BASE_URL.rstrip('/')}/api/v1/auth/sso/callback"
     async with httpx.AsyncClient() as client:
@@ -261,7 +261,7 @@ async def exchange_google_code_and_login(
     elif user.status != ACTIVE_STATUS:
         raise ValueError("Account is not active")
 
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(user)
 
@@ -271,8 +271,8 @@ async def exchange_google_code_and_login(
     refresh_record = RefreshToken(
         user_id=user.id,
         token_hash=token_hash,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-        last_used_at=datetime.now(timezone.utc),
+        expires_at=datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        last_used_at=datetime.now(UTC),
     )
     db.add(refresh_record)
     await db.commit()

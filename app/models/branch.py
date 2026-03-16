@@ -33,4 +33,6 @@ class Branch(Base):
 
     users = relationship("User", back_populates="branch")
     user_roles = relationship("UserRole", back_populates="branch")
-    pos_terminals = relationship("POSTerminal", back_populates="branch", cascade="all, delete-orphan")
+    pos_terminals = relationship(
+        "POSTerminal", back_populates="branch", cascade="all, delete-orphan"
+    )

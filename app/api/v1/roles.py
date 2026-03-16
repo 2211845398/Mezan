@@ -14,10 +14,9 @@ from app.models.users import User
 from app.schemas.role import (
     PermissionRead,
     RoleCreate,
-    RoleRead,
-    RoleUpdate,
-    RoleWithPermissions,
     RolePermissionUpdate,
+    RoleRead,
+    RoleWithPermissions,
 )
 from app.services import audit_service
 
@@ -42,10 +41,15 @@ async def list_roles(
     __: None = require_permission("roles", "read"),
 ) -> list[RoleWithPermissions]:
     """List all roles with their permission ids. Requires roles:read."""
-    result = await db.execute(select(Role).options(selectinload(Role.role_permissions)).order_by(Role.name))
+    result = await db.execute(
+        select(Role).options(selectinload(Role.role_permissions)).order_by(Role.name)
+    )
     roles = result.scalars().all()
     return [
-        RoleWithPermissions(**RoleRead.model_validate(r).model_dump(), permission_ids=[rp.permission_id for rp in r.role_permissions])
+        RoleWithPermissions(
+            **RoleRead.model_validate(r).model_dump(),
+            permission_ids=[rp.permission_id for rp in r.role_permissions],
+        )
         for r in roles
     ]
 
@@ -61,7 +65,9 @@ async def create_role(
     """Create a custom role. Requires roles:create."""
     result = await db.execute(select(Role).where(Role.name == body.name))
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role name already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Role name already exists"
+        )
     role = Role(name=body.name, description=body.description, is_system=False)
     db.add(role)
     await db.commit()
@@ -89,12 +95,16 @@ async def set_role_permissions(
     _: None = require_permission("roles", "update"),
 ) -> RoleWithPermissions:
     """Set permissions for a role. Requires roles:update."""
-    result = await db.execute(select(Role).options(selectinload(Role.role_permissions)).where(Role.id == role_id))
+    result = await db.execute(
+        select(Role).options(selectinload(Role.role_permissions)).where(Role.id == role_id)
+    )
     role = result.scalar_one_or_none()
     if not role:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     if role.is_system:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot modify system role permissions")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot modify system role permissions"
+        )
     # Replace role_permissions
     for rp in role.role_permissions:
         db.delete(rp)
@@ -111,7 +121,11 @@ async def set_role_permissions(
     )
     await db.commit()
     await db.refresh(role)
-    result2 = await db.execute(select(Role).options(selectinload(Role.role_permissions)).where(Role.id == role_id))
+    result2 = await db.execute(
+        select(Role).options(selectinload(Role.role_permissions)).where(Role.id == role_id)
+    )
     role = result2.scalar_one_or_none()
     perm_ids = [rp.permission_id for rp in role.role_permissions] if role else []
-    return RoleWithPermissions(**RoleRead.model_validate(role).model_dump(), permission_ids=perm_ids)
+    return RoleWithPermissions(
+        **RoleRead.model_validate(role).model_dump(), permission_ids=perm_ids
+    )

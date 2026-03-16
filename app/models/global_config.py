@@ -24,4 +24,6 @@ class GlobalConfig(Base):
         onupdate=datetime.utcnow,
         nullable=False,
     )
-    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
