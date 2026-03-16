@@ -1,9 +1,25 @@
 """Append-only audit logging service."""
 
+from datetime import date, datetime
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from app.models.audit_log import AuditLog
+
+
+def _make_json_safe(obj: Any) -> Any:
+    """Recursively convert datetime/date objects to ISO-format strings so dicts are JSON-serializable."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, date):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_safe(item) for item in obj]
+    return obj
 
 
 async def log(
@@ -35,8 +51,8 @@ async def log(
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
-        old_value=old_value,
-        new_value=new_value,
+        old_value=_make_json_safe(old_value),
+        new_value=_make_json_safe(new_value),
         ip_address=ip_address,
         user_agent=user_agent,
         request_id=request_id,
