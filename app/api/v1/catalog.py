@@ -385,4 +385,3 @@ async def generate_barcode_endpoint(
     )
     await db.commit()
     return ProductRead.model_validate(product)
-

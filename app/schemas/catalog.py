@@ -37,7 +37,7 @@ class CategoryRead(CategoryBase):
 
 
 class CategoryTreeNode(CategoryRead):
-    children: list["CategoryTreeNode"] = Field(default_factory=list)
+    children: list[CategoryTreeNode] = Field(default_factory=list)
 
 
 class CategoryAttributeDefBase(BaseModel):
@@ -100,4 +100,3 @@ class ProductRead(ProductBase):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
-

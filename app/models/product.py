@@ -22,9 +22,7 @@ class Product(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     sku: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
-    barcode: Mapped[str | None] = mapped_column(
-        String(128), nullable=True, unique=True, index=True
-    )
+    barcode: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True, index=True)
     status: Mapped[str] = mapped_column(
         String(32), default="active", nullable=False
     )  # active, archived
@@ -42,4 +40,3 @@ class Product(Base):
     )
 
     category = relationship("Category", back_populates="products")
-

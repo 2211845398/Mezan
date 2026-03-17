@@ -131,9 +131,6 @@ async def test_catalog_po_ocr_transfer_flow(client, admin_auth_header):
     assert dispatched.status_code == 200, dispatched.text
     assert dispatched.json()["status"] == "in_transit"
 
-    received = await client.post(
-        f"/api/v1/transfers/{batch_id}/receive", headers=admin_auth_header
-    )
+    received = await client.post(f"/api/v1/transfers/{batch_id}/receive", headers=admin_auth_header)
     assert received.status_code == 200, received.text
     assert received.json()["status"] == "received"
-

@@ -51,7 +51,9 @@ async def list_categories(db: AsyncSession, *, parent_id: int | None = None) -> 
 
 
 async def list_all_categories(db: AsyncSession) -> list[Category]:
-    result = await db.execute(select(Category).order_by(Category.sort_order.asc(), Category.name.asc()))
+    result = await db.execute(
+        select(Category).order_by(Category.sort_order.asc(), Category.name.asc())
+    )
     return list(result.scalars().all())
 
 
@@ -115,7 +117,9 @@ async def delete_category(db: AsyncSession, *, category_id: int) -> None:
         raise ConflictError("Cannot delete category with existing references") from e
 
 
-async def list_category_attribute_defs(db: AsyncSession, *, category_id: int) -> list[CategoryAttributeDef]:
+async def list_category_attribute_defs(
+    db: AsyncSession, *, category_id: int
+) -> list[CategoryAttributeDef]:
     await get_category(db, category_id)
     result = await db.execute(
         select(CategoryAttributeDef)
@@ -135,7 +139,9 @@ async def create_category_attribute_def(
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
-        raise ConflictError("Attribute definition already exists", details={"key": data.get("key")}) from e
+        raise ConflictError(
+            "Attribute definition already exists", details={"key": data.get("key")}
+        ) from e
     await db.refresh(rec)
     return rec
 
@@ -211,13 +217,19 @@ def _validate_product_attributes(
         if value is None:
             continue
         if spec in {"text", "string"} and not isinstance(value, str):
-            raise ValidationError("Invalid attribute type", details={"key": key, "expected": "string"})
+            raise ValidationError(
+                "Invalid attribute type", details={"key": key, "expected": "string"}
+            )
         if spec in {"int", "integer"} and not isinstance(value, int):
             raise ValidationError("Invalid attribute type", details={"key": key, "expected": "int"})
         if spec in {"float", "number"} and not isinstance(value, (int, float)):
-            raise ValidationError("Invalid attribute type", details={"key": key, "expected": "float"})
+            raise ValidationError(
+                "Invalid attribute type", details={"key": key, "expected": "float"}
+            )
         if spec in {"bool", "boolean"} and not isinstance(value, bool):
-            raise ValidationError("Invalid attribute type", details={"key": key, "expected": "bool"})
+            raise ValidationError(
+                "Invalid attribute type", details={"key": key, "expected": "bool"}
+            )
     return attrs
 
 
@@ -263,7 +275,9 @@ async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
-        raise ConflictError("Product conflicts with existing data", details={"error": str(e.orig)}) from e
+        raise ConflictError(
+            "Product conflicts with existing data", details={"error": str(e.orig)}
+        ) from e
     await db.refresh(product)
     return product
 
@@ -309,4 +323,3 @@ async def generate_product_barcode(db: AsyncSession, *, product_id: int) -> Prod
         raise ConflictError("Generated barcode conflicts with existing barcode") from e
     await db.refresh(product)
     return product
-

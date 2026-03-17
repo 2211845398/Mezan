@@ -39,4 +39,3 @@ class InvoiceScanValidateRequest(BaseModel):
 class InvoiceScanValidateResponse(BaseModel):
     scan: InvoiceScanRead
     goods_receipt_id: int
-

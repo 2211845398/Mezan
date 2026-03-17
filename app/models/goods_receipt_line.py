@@ -23,4 +23,3 @@ class GoodsReceiptLine(Base):
 
     goods_receipt = relationship("GoodsReceipt", back_populates="lines")
     product = relationship("Product")
-

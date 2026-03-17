@@ -14,9 +14,7 @@ class Category(Base):
     """Adjacency-list hierarchical category (parent_id)."""
 
     __tablename__ = "categories"
-    __table_args__ = (
-        UniqueConstraint("parent_id", "name", name="uq_categories_parent_name"),
-    )
+    __table_args__ = (UniqueConstraint("parent_id", "name", name="uq_categories_parent_name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     parent_id: Mapped[int | None] = mapped_column(
@@ -44,4 +42,3 @@ class Category(Base):
         "CategoryAttributeDef", back_populates="category", cascade="all, delete-orphan"
     )
     products = relationship("Product", back_populates="category")
-

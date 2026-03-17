@@ -8,7 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 JsonObject = dict[str, Any]
 
 
@@ -69,4 +68,3 @@ class ExternalServiceError(AppError):
         http_status: int = 502,
     ):
         super().__init__("external_service_error", message, http_status, details)
-

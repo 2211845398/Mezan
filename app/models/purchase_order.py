@@ -40,4 +40,3 @@ class PurchaseOrder(Base):
     lines = relationship(
         "PurchaseOrderLine", back_populates="purchase_order", cascade="all, delete-orphan"
     )
-

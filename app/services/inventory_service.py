@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,4 +89,3 @@ async def apply_stock_movement(
         raise ConflictError("Inventory movement conflict") from e
     await db.refresh(movement)
     return movement
-

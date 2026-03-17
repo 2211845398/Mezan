@@ -24,7 +24,9 @@ def _envelope(
     message: str,
     details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload: dict[str, Any] = {"error": {"code": code, "message": message, "details": details or {}}}
+    payload: dict[str, Any] = {
+        "error": {"code": code, "message": message, "details": details or {}}
+    }
     rid = _request_id(request)
     if rid:
         payload["request_id"] = rid
@@ -55,9 +57,7 @@ def _code_from_status(status_code: int) -> str:
     }.get(status_code, "http_error")
 
 
-async def http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     details: dict[str, Any] = {}
     if exc.detail is not None:
         # Preserve existing detail for backward compatibility with current code.
@@ -103,4 +103,3 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
             details=details,
         ),
     )
-

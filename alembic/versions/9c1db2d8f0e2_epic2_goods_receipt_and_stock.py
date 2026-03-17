@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -166,9 +167,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index("ix_goods_receipt_lines_product_id", table_name="goods_receipt_lines")
-    op.drop_index(
-        "ix_goods_receipt_lines_goods_receipt_id", table_name="goods_receipt_lines"
-    )
+    op.drop_index("ix_goods_receipt_lines_goods_receipt_id", table_name="goods_receipt_lines")
     op.drop_index("ix_goods_receipt_lines_id", table_name="goods_receipt_lines")
     op.drop_table("goods_receipt_lines")
 
@@ -188,4 +187,3 @@ def downgrade() -> None:
     op.drop_index("ix_stock_levels_branch_id", table_name="stock_levels")
     op.drop_index("ix_stock_levels_id", table_name="stock_levels")
     op.drop_table("stock_levels")
-

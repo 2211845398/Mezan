@@ -10,8 +10,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "3f2c0b7c1a2d"
@@ -85,9 +86,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("category_id", "key", name="uq_cat_attr_defs_category_key"),
     )
     op.create_index("ix_category_attribute_defs_id", "category_attribute_defs", ["id"])
-    op.create_index(
-        "ix_cat_attr_defs_category_id", "category_attribute_defs", ["category_id"]
-    )
+    op.create_index("ix_cat_attr_defs_category_id", "category_attribute_defs", ["category_id"])
 
     op.create_table(
         "products",
@@ -154,4 +153,3 @@ def downgrade() -> None:
     op.drop_index("ix_categories_parent_id", table_name="categories")
     op.drop_index("ix_categories_id", table_name="categories")
     op.drop_table("categories")
-

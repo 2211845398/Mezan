@@ -32,4 +32,3 @@ class GoodsReceipt(Base):
     lines = relationship(
         "GoodsReceiptLine", back_populates="goods_receipt", cascade="all, delete-orphan"
     )
-

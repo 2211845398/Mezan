@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -50,7 +51,9 @@ def upgrade() -> None:
     )
     op.create_index("ix_purchase_orders_id", "purchase_orders", ["id"])
     op.create_index("ix_purchase_orders_supplier_name", "purchase_orders", ["supplier_name"])
-    op.create_index("ix_purchase_orders_created_by_user_id", "purchase_orders", ["created_by_user_id"])
+    op.create_index(
+        "ix_purchase_orders_created_by_user_id", "purchase_orders", ["created_by_user_id"]
+    )
 
     op.create_table(
         "purchase_order_lines",
@@ -81,9 +84,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index("ix_purchase_order_lines_product_id", table_name="purchase_order_lines")
-    op.drop_index(
-        "ix_purchase_order_lines_purchase_order_id", table_name="purchase_order_lines"
-    )
+    op.drop_index("ix_purchase_order_lines_purchase_order_id", table_name="purchase_order_lines")
     op.drop_index("ix_purchase_order_lines_id", table_name="purchase_order_lines")
     op.drop_table("purchase_order_lines")
 
@@ -91,4 +92,3 @@ def downgrade() -> None:
     op.drop_index("ix_purchase_orders_supplier_name", table_name="purchase_orders")
     op.drop_index("ix_purchase_orders_id", table_name="purchase_orders")
     op.drop_table("purchase_orders")
-

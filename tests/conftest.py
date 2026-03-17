@@ -42,8 +42,8 @@ async def engine(test_db_url: str):
 
 @pytest.fixture()
 async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
-    SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with SessionLocal() as session:
+    session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_maker() as session:
         yield session
 
 
@@ -95,4 +95,3 @@ async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
 
     token = create_access_token(user.id)
     return {"Authorization": f"Bearer {token}"}
-

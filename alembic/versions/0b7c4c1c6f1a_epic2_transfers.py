@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -25,7 +26,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("from_branch_id", sa.Integer(), nullable=False),
         sa.Column("to_branch_id", sa.Integer(), nullable=False),
-        sa.Column("status", sa.String(length=32), nullable=False, server_default="pending_dispatch"),
+        sa.Column(
+            "status", sa.String(length=32), nullable=False, server_default="pending_dispatch"
+        ),
         sa.Column("created_by_user_id", sa.Integer(), nullable=True),
         sa.Column("dispatched_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("received_at", sa.DateTime(timezone=True), nullable=True),
@@ -102,4 +105,3 @@ def downgrade() -> None:
     op.drop_index("ix_transfer_batches_from_branch_id", table_name="transfer_batches")
     op.drop_index("ix_transfer_batches_id", table_name="transfer_batches")
     op.drop_table("transfer_batches")
-

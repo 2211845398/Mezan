@@ -22,7 +22,9 @@ from app.services.purchase_order_service import (
 router = APIRouter()
 
 
-@router.post("/purchase-orders", response_model=PurchaseOrderRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/purchase-orders", response_model=PurchaseOrderRead, status_code=status.HTTP_201_CREATED
+)
 async def create_po_endpoint(
     body: PurchaseOrderCreate,
     request: Request,
@@ -132,4 +134,3 @@ async def track_po_endpoint(
     )
     await db.commit()
     return PurchaseOrderRead.model_validate(po)
-
