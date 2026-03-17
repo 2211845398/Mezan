@@ -37,4 +37,3 @@ class TransferBatchRead(BaseModel):
     lines: list[TransferLineRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
-

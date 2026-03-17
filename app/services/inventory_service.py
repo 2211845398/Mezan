@@ -89,4 +89,3 @@ async def apply_stock_movement(
         raise ConflictError("Inventory movement conflict") from e
     await db.refresh(movement)
     return movement
-

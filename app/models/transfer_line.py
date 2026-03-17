@@ -22,4 +22,3 @@ class TransferLine(Base):
 
     transfer_batch = relationship("TransferBatch", back_populates="lines")
     product = relationship("Product")
-

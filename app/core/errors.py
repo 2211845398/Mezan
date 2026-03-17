@@ -68,4 +68,3 @@ class ExternalServiceError(AppError):
         http_status: int = 502,
     ):
         super().__init__("external_service_error", message, http_status, details)
-

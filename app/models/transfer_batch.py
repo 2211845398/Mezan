@@ -38,4 +38,3 @@ class TransferBatch(Base):
     lines = relationship(
         "TransferLine", back_populates="transfer_batch", cascade="all, delete-orphan"
     )
-

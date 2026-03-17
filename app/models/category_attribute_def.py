@@ -15,9 +15,7 @@ class CategoryAttributeDef(Base):
     """Defines dynamic attribute schema for a category (key/type/options/validation)."""
 
     __tablename__ = "category_attribute_defs"
-    __table_args__ = (
-        UniqueConstraint("category_id", "key", name="uq_cat_attr_defs_category_key"),
-    )
+    __table_args__ = (UniqueConstraint("category_id", "key", name="uq_cat_attr_defs_category_key"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     category_id: Mapped[int] = mapped_column(
@@ -43,4 +41,3 @@ class CategoryAttributeDef(Base):
     )
 
     category = relationship("Category", back_populates="attribute_defs")
-

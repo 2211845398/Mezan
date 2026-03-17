@@ -76,7 +76,9 @@ async def seed_permissions_and_roles(db: AsyncSession) -> None:
     result = await db.execute(select(Permission))
     all_perms = result.scalars().all()
     perm_ids = {p.id for p in all_perms}
-    rp_result = await db.execute(select(RolePermission.permission_id).where(RolePermission.role_id == admin_role.id))
+    rp_result = await db.execute(
+        select(RolePermission.permission_id).where(RolePermission.role_id == admin_role.id)
+    )
     assigned = {pid for (pid,) in rp_result.all()}
     for pid in perm_ids - assigned:
         db.add(RolePermission(role_id=admin_role.id, permission_id=pid))

@@ -108,4 +108,3 @@ async def receive_transfer_batch_endpoint(
     )
     await db.commit()
     return TransferBatchRead.model_validate(batch)
-

@@ -119,4 +119,3 @@ async def validate_invoice_scan_endpoint(
         scan=InvoiceScanRead.model_validate(scan),
         goods_receipt_id=receipt.id,
     )
-

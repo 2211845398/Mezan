@@ -37,4 +37,3 @@ class InvoiceScan(Base):
         onupdate=datetime.utcnow,
         nullable=False,
     )
-

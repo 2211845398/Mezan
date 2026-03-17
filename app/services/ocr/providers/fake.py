@@ -16,4 +16,3 @@ class FakeOcrProvider:
                 "raw_data": data,
             }
         )
-

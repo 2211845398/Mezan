@@ -50,4 +50,3 @@ class PurchaseOrderRead(PurchaseOrderBase):
     lines: list[PurchaseOrderLineRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
-

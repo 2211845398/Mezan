@@ -19,7 +19,4 @@ class ExtractedInvoice:
 class OcrProvider(Protocol):
     name: str
 
-    async def extract_invoice(
-        self, *, source_type: str, data: str
-    ) -> ExtractedInvoice: ...
-
+    async def extract_invoice(self, *, source_type: str, data: str) -> ExtractedInvoice: ...

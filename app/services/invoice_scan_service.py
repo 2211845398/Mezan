@@ -152,4 +152,3 @@ async def validate_scan_and_receive_goods(
     await db.refresh(scan)
     await db.refresh(receipt)
     return scan, receipt
-

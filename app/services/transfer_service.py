@@ -48,7 +48,9 @@ async def create_batch(
     return await _get_batch(db, batch.id)
 
 
-async def list_batches(db: AsyncSession, *, limit: int = 50, offset: int = 0) -> list[TransferBatch]:
+async def list_batches(
+    db: AsyncSession, *, limit: int = 50, offset: int = 0
+) -> list[TransferBatch]:
     res = await db.execute(
         select(TransferBatch)
         .options(selectinload(TransferBatch.lines))
@@ -115,4 +117,3 @@ async def receive_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
     batch.received_at = datetime.now(UTC)
     await db.commit()
     return await _get_batch(db, batch.id)
-

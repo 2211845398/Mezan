@@ -56,4 +56,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_invoice_scans_id", table_name="invoice_scans")
     op.drop_table("invoice_scans")
-

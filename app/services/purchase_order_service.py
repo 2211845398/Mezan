@@ -37,7 +37,9 @@ async def _ensure_products_exist(db: AsyncSession, product_ids: set[int]) -> Non
     found = {pid for (pid,) in result.all()}
     missing = sorted(product_ids - found)
     if missing:
-        raise ValidationError("Unknown products in PO lines", details={"missing_product_ids": missing})
+        raise ValidationError(
+            "Unknown products in PO lines", details={"missing_product_ids": missing}
+        )
 
 
 def _ensure_status(po: PurchaseOrder, expected: str) -> None:
@@ -129,4 +131,3 @@ async def mark_po_tracked(db: AsyncSession, *, po_id: int) -> PurchaseOrder:
     po.status = "tracked"
     await db.commit()
     return await _get_po(db, po.id)
-

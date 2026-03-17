@@ -23,4 +23,3 @@ class PurchaseOrderLine(Base):
 
     purchase_order = relationship("PurchaseOrder", back_populates="lines")
     product = relationship("Product")
-

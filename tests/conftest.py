@@ -95,4 +95,3 @@ async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
 
     token = create_access_token(user.id)
     return {"Authorization": f"Bearer {token}"}
-
