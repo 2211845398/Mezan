@@ -16,7 +16,12 @@ from app.schemas.invoice_scans import (
     InvoiceScanValidateResponse,
 )
 from app.services import audit_service
-from app.services.invoice_scan_service import create_scan, get_scan, override_scan, validate_scan_and_receive_goods
+from app.services.invoice_scan_service import (
+    create_scan,
+    get_scan,
+    override_scan,
+    validate_scan_and_receive_goods,
+)
 
 router = APIRouter()
 

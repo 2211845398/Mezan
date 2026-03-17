@@ -4,11 +4,12 @@ from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 
 import jwt
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = PasswordHash((BcryptHasher(),))
 
 
 def hash_password(plain_password: str) -> str:

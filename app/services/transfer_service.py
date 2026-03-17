@@ -42,7 +42,8 @@ async def create_batch(
     db.add(batch)
     await db.flush()
     for ln in lines:
-        batch.lines.append(TransferLine(**ln))
+        line_obj = TransferLine(**ln, transfer_batch_id=batch.id)
+        db.add(line_obj)
     await db.commit()
     return await _get_batch(db, batch.id)
 

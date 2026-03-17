@@ -15,7 +15,6 @@ from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 
-
 ALLOWED_STATUSES = {"draft", "sent", "tracked"}
 
 

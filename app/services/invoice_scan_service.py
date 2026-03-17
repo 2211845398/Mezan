@@ -11,9 +11,9 @@ from app.core.errors import NotFoundError, ValidationError
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
+from app.services.inventory_service import apply_stock_movement
 from app.services.ocr.providers.base import ExtractedInvoice, OcrProvider
 from app.services.ocr.providers.fake import FakeOcrProvider
-from app.services.inventory_service import apply_stock_movement
 
 
 def get_default_provider() -> OcrProvider:

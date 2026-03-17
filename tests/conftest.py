@@ -42,8 +42,8 @@ async def engine(test_db_url: str):
 
 @pytest.fixture()
 async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
-    SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with SessionLocal() as session:
+    session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_maker() as session:
         yield session
 
 
