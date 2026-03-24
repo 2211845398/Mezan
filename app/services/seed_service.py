@@ -45,6 +45,20 @@ DEFAULT_PERMISSIONS = [
     ("invoice_scans", "create"),
     ("invoice_scans", "update"),
     ("invoice_scans", "validate"),
+    # Epic 3 POS
+    ("pos_shifts", "open"),
+    ("pos_shifts", "update"),
+    ("pos_shifts", "close"),
+    ("pos_carts", "create"),
+    ("pos_carts", "update"),
+    ("pos_carts", "discount"),
+    ("pos_payments", "create"),
+    ("pos_payments", "capture"),
+    ("sales_invoices", "create"),
+    ("returns", "create"),
+    ("customers", "create"),
+    ("stock_adjustments", "create"),
+    ("stock_adjustments", "read"),
 ]
 
 ADMIN_ROLE_NAME = "Admin"
