@@ -33,7 +33,9 @@ def upgrade() -> None:
         sa.Column("expected_cash", sa.Numeric(12, 2), nullable=False, server_default="0"),
         sa.Column("declared_cash", sa.Numeric(12, 2), nullable=True),
         sa.Column("variance", sa.Numeric(12, 2), nullable=True),
-        sa.Column("opened_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "opened_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+        ),
         sa.Column("closed_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["terminal_id"], ["pos_terminals.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["branch_id"], ["branches.id"], ondelete="RESTRICT"),
@@ -53,7 +55,12 @@ def upgrade() -> None:
         sa.Column("amount", sa.Numeric(12, 2), nullable=False),
         sa.Column("note", sa.String(length=255), nullable=True),
         sa.Column("created_by_user_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["shift_id"], ["pos_shifts.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="SET NULL"),
     )
@@ -65,7 +72,12 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("shift_id", sa.Integer(), nullable=False, unique=True),
         sa.Column("report_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["shift_id"], ["pos_shifts.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_z_reports_id", "z_reports", ["id"])
@@ -78,8 +90,18 @@ def upgrade() -> None:
         sa.Column("email", sa.String(length=255), nullable=True),
         sa.Column("is_temporary", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("created_by_user_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="SET NULL"),
     )
     op.create_index("ix_customer_profiles_id", "customer_profiles", ["id"])
@@ -92,7 +114,12 @@ def upgrade() -> None:
         sa.Column("token_hash", sa.String(length=128), nullable=False, unique=True),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("used", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["customer_id"], ["customer_profiles.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_customer_onboarding_tokens_id", "customer_onboarding_tokens", ["id"])
@@ -115,8 +142,18 @@ def upgrade() -> None:
         sa.Column("total", sa.Numeric(12, 2), nullable=False, server_default="0"),
         sa.Column("locked_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("paid_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["terminal_id"], ["pos_terminals.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["branch_id"], ["branches.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["shift_id"], ["pos_shifts.id"], ondelete="SET NULL"),
@@ -147,7 +184,12 @@ def upgrade() -> None:
         sa.Column("cart_id", sa.Integer(), nullable=False),
         sa.Column("code", sa.String(length=64), nullable=False),
         sa.Column("amount", sa.Numeric(12, 2), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["cart_id"], ["pos_carts.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_pos_cart_discounts_id", "pos_cart_discounts", ["id"])
@@ -160,7 +202,12 @@ def upgrade() -> None:
         sa.Column("event_type", sa.String(length=64), nullable=False),
         sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("created_by_user_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["cart_id"], ["pos_carts.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="SET NULL"),
     )
@@ -174,10 +221,22 @@ def upgrade() -> None:
         sa.Column("provider", sa.String(length=32), nullable=False),
         sa.Column("amount", sa.Numeric(12, 2), nullable=False),
         sa.Column("currency", sa.String(length=8), nullable=False, server_default="USD"),
-        sa.Column("status", sa.String(length=32), nullable=False, server_default="requires_payment"),
+        sa.Column(
+            "status", sa.String(length=32), nullable=False, server_default="requires_payment"
+        ),
         sa.Column("external_id", sa.String(length=255), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["cart_id"], ["pos_carts.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("cart_id", "status", name="uq_payment_intents_cart_status"),
     )
@@ -192,11 +251,18 @@ def upgrade() -> None:
         sa.Column("idempotency_key", sa.String(length=128), nullable=False, unique=True),
         sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("provider_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["payment_intent_id"], ["payment_intents.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_payment_attempts_id", "payment_attempts", ["id"])
-    op.create_index("ix_payment_attempts_payment_intent_id", "payment_attempts", ["payment_intent_id"])
+    op.create_index(
+        "ix_payment_attempts_payment_intent_id", "payment_attempts", ["payment_intent_id"]
+    )
     op.create_index("ix_payment_attempts_idempotency_key", "payment_attempts", ["idempotency_key"])
 
     op.create_table(
@@ -207,11 +273,18 @@ def upgrade() -> None:
         sa.Column("method", sa.String(length=32), nullable=False),
         sa.Column("reference", sa.String(length=255), nullable=True),
         sa.Column("redacted_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["payment_intent_id"], ["payment_intents.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_payment_receipts_id", "payment_receipts", ["id"])
-    op.create_index("ix_payment_receipts_payment_intent_id", "payment_receipts", ["payment_intent_id"])
+    op.create_index(
+        "ix_payment_receipts_payment_intent_id", "payment_receipts", ["payment_intent_id"]
+    )
 
     op.create_table(
         "sales_invoices",
@@ -226,7 +299,12 @@ def upgrade() -> None:
         sa.Column("discount_total", sa.Numeric(12, 2), nullable=False, server_default="0"),
         sa.Column("total", sa.Numeric(12, 2), nullable=False),
         sa.Column("created_by_user_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["cart_id"], ["pos_carts.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["terminal_id"], ["pos_terminals.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["branch_id"], ["branches.id"], ondelete="RESTRICT"),
@@ -249,7 +327,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["product_id"], ["products.id"], ondelete="RESTRICT"),
     )
     op.create_index("ix_sales_invoice_lines_id", "sales_invoice_lines", ["id"])
-    op.create_index("ix_sales_invoice_lines_sales_invoice_id", "sales_invoice_lines", ["sales_invoice_id"])
+    op.create_index(
+        "ix_sales_invoice_lines_sales_invoice_id", "sales_invoice_lines", ["sales_invoice_id"]
+    )
 
     op.create_table(
         "invoice_payments",
@@ -259,7 +339,12 @@ def upgrade() -> None:
         sa.Column("amount", sa.Numeric(12, 2), nullable=False),
         sa.Column("method", sa.String(length=32), nullable=False),
         sa.Column("reference", sa.String(length=255), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["sales_invoice_id"], ["sales_invoices.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["payment_intent_id"], ["payment_intents.id"], ondelete="SET NULL"),
     )
@@ -272,7 +357,12 @@ def upgrade() -> None:
         sa.Column("reason", sa.String(length=255), nullable=True),
         sa.Column("status", sa.String(length=32), nullable=False, server_default="processed"),
         sa.Column("created_by_user_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["sales_invoice_id"], ["sales_invoices.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="SET NULL"),
     )
@@ -287,7 +377,9 @@ def upgrade() -> None:
         sa.Column("qty", sa.Integer(), nullable=False),
         sa.Column("refund_amount", sa.Numeric(12, 2), nullable=False),
         sa.ForeignKeyConstraint(["sales_return_id"], ["sales_returns.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["sales_invoice_line_id"], ["sales_invoice_lines.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["sales_invoice_line_id"], ["sales_invoice_lines.id"], ondelete="RESTRICT"
+        ),
         sa.ForeignKeyConstraint(["product_id"], ["products.id"], ondelete="RESTRICT"),
     )
     op.create_index("ix_sales_return_lines_id", "sales_return_lines", ["id"])
@@ -298,7 +390,12 @@ def upgrade() -> None:
         sa.Column("sales_return_id", sa.Integer(), nullable=False, unique=True),
         sa.Column("credit_number", sa.String(length=64), nullable=False, unique=True),
         sa.Column("total_amount", sa.Numeric(12, 2), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["sales_return_id"], ["sales_returns.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_credit_notes_id", "credit_notes", ["id"])
@@ -308,7 +405,12 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("sales_return_id", sa.Integer(), nullable=False),
         sa.Column("new_cart_id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["sales_return_id"], ["sales_returns.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["new_cart_id"], ["pos_carts.id"], ondelete="RESTRICT"),
     )

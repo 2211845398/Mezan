@@ -67,7 +67,9 @@ async def capture_payment(
         raise NotFoundError("Payment intent not found")
     provider = get_provider(intent.provider)
     result = await provider.capture(
-        external_id=intent.external_id or "", amount=float(intent.amount), idempotency_key=idempotency_key
+        external_id=intent.external_id or "",
+        amount=float(intent.amount),
+        idempotency_key=idempotency_key,
     )
     intent.status = result.status
     db.add(

@@ -28,6 +28,13 @@ async def finalize_sale_endpoint(
         idempotency_key=body.idempotency_key,
         user_id=current_user.id,
     )
-    await audit_service.log(session=db, action="sales_invoice.created", resource_type="sales_invoice", resource_id=str(invoice.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="sales_invoice.created",
+        resource_type="sales_invoice",
+        resource_id=str(invoice.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return SalesInvoiceRead.model_validate(invoice)

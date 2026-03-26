@@ -12,10 +12,10 @@ from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
 from app.models.password_reset_token import PasswordResetToken
 from app.models.permission import Permission
-from app.models.pos_terminal import POSTerminal
 from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.models.pos_shift import PosCashEvent, PosShift, ZReport
+from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine

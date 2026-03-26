@@ -81,7 +81,9 @@ async def upsert_line(
     if unit_price <= 0:
         raise ValidationError("Product has no sellable price")
     line_res = await db.execute(
-        select(PosCartLine).where(PosCartLine.cart_id == cart.id, PosCartLine.product_id == product_id)
+        select(PosCartLine).where(
+            PosCartLine.cart_id == cart.id, PosCartLine.product_id == product_id
+        )
     )
     line = line_res.scalar_one_or_none()
     if line:

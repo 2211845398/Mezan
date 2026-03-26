@@ -15,7 +15,9 @@ class SalesInvoice(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     invoice_number: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
-    invoice_barcode: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    invoice_barcode: Mapped[str] = mapped_column(
+        String(128), nullable=False, unique=True, index=True
+    )
     cart_id: Mapped[int] = mapped_column(
         ForeignKey("pos_carts.id", ondelete="RESTRICT"), nullable=False, unique=True, index=True
     )

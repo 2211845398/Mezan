@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,12 +64,14 @@ async def add_cash_event(
     if normalized_event_type not in allowed_event_types:
         raise ValidationError(
             "Invalid event_type for cash event",
-            details={"event_type": event_type, "normalized_event_type": normalized_event_type, "allowed": sorted(allowed_event_types)},
+            details={
+                "event_type": event_type,
+                "normalized_event_type": normalized_event_type,
+                "allowed": sorted(allowed_event_types),
+            },
         )
 
-    res = await db.execute(
-        select(PosShift).where(PosShift.id == shift_id).with_for_update()
-    )
+    res = await db.execute(select(PosShift).where(PosShift.id == shift_id).with_for_update())
     shift = res.scalar_one_or_none()
     if not shift:
         raise NotFoundError("Shift not found", details={"shift_id": shift_id})
@@ -95,16 +97,18 @@ async def add_cash_event(
 
     # Atomically update expected cash under the row lock.
     await db.execute(
-        update(PosShift).where(PosShift.id == shift.id).values(
-            expected_cash=PosShift.expected_cash + delta
-        )
+        update(PosShift)
+        .where(PosShift.id == shift.id)
+        .values(expected_cash=PosShift.expected_cash + delta)
     )
     await db.flush()
     await db.refresh(shift)
     return shift
 
 
-async def close_shift(db: AsyncSession, *, shift_id: int, declared_cash: float, closed_by_user_id: int) -> PosShift:
+async def close_shift(
+    db: AsyncSession, *, shift_id: int, declared_cash: float, closed_by_user_id: int
+) -> PosShift:
     res = await db.execute(select(PosShift).where(PosShift.id == shift_id))
     shift = res.scalar_one_or_none()
     if not shift:

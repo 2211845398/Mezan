@@ -150,4 +150,3 @@ class SalesReturnRequest(BaseModel):
     reason: str | None = None
     lines: list[SalesReturnLineRequest]
     exchange_cart_id: int | None = None
-

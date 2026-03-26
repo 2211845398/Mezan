@@ -33,7 +33,14 @@ async def create_stock_adjustment(
         ref_type="manual_adjustment",
         ref_id=str(current_user.id),
     )
-    await audit_service.log(session=db, action="stock.adjusted", resource_type="stock_movement", resource_id=str(mv.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="stock.adjusted",
+        resource_type="stock_movement",
+        resource_id=str(mv.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return {"movement_id": mv.id}
 

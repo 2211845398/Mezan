@@ -27,9 +27,19 @@ async def open_shift_endpoint(
     _: None = require_permission("pos_shifts", "open"),
 ) -> PosShiftRead:
     shift = await open_shift(
-        db, terminal_id=body.terminal_id, opening_float=body.opening_float, opened_by_user_id=current_user.id
+        db,
+        terminal_id=body.terminal_id,
+        opening_float=body.opening_float,
+        opened_by_user_id=current_user.id,
     )
-    await audit_service.log(session=db, action="pos_shift.opened", resource_type="pos_shift", resource_id=str(shift.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="pos_shift.opened",
+        resource_type="pos_shift",
+        resource_id=str(shift.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return PosShiftRead.model_validate(shift)
 
@@ -75,6 +85,13 @@ async def close_shift_endpoint(
     shift = await close_shift(
         db, shift_id=shift_id, declared_cash=body.declared_cash, closed_by_user_id=current_user.id
     )
-    await audit_service.log(session=db, action="pos_shift.closed", resource_type="pos_shift", resource_id=str(shift.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="pos_shift.closed",
+        resource_type="pos_shift",
+        resource_id=str(shift.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return PosShiftRead.model_validate(shift)

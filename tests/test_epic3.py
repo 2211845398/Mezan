@@ -13,7 +13,9 @@ async def test_epic3_shift_adjust_cart_payment_invoice_return_flow(client, admin
     )
     assert t.status_code == 200, t.text
     terminal_id = t.json()["id"]
-    auth_t = await client.patch(f"/api/v1/terminals/{terminal_id}/authorize", headers=admin_auth_header)
+    auth_t = await client.patch(
+        f"/api/v1/terminals/{terminal_id}/authorize", headers=admin_auth_header
+    )
     assert auth_t.status_code == 200, auth_t.text
 
     # Open shift

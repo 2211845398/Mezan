@@ -17,7 +17,9 @@ from app.services.payment_service import capture_payment, create_payment_intent
 router = APIRouter()
 
 
-@router.post("/pos/payments/intents", response_model=PaymentIntentRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/pos/payments/intents", response_model=PaymentIntentRead, status_code=status.HTTP_201_CREATED
+)
 async def create_payment_intent_endpoint(
     body: PaymentIntentCreateRequest,
     request: Request,
@@ -28,7 +30,14 @@ async def create_payment_intent_endpoint(
     intent = await create_payment_intent(
         db, cart_id=body.cart_id, provider_name=body.provider, currency=body.currency
     )
-    await audit_service.log(session=db, action="payment_intent.created", resource_type="payment_intent", resource_id=str(intent.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="payment_intent.created",
+        resource_type="payment_intent",
+        resource_id=str(intent.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return PaymentIntentRead.model_validate(intent)
 
@@ -48,6 +57,13 @@ async def capture_payment_endpoint(
         method=body.method,
         reference=body.reference,
     )
-    await audit_service.log(session=db, action="payment_intent.captured", resource_type="payment_intent", resource_id=str(intent.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="payment_intent.captured",
+        resource_type="payment_intent",
+        resource_id=str(intent.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return PaymentIntentRead.model_validate(intent)

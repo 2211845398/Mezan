@@ -13,9 +13,7 @@ from app.db.database import Base
 
 class PaymentIntent(Base):
     __tablename__ = "payment_intents"
-    __table_args__ = (
-        UniqueConstraint("cart_id", "status", name="uq_payment_intents_cart_status"),
-    )
+    __table_args__ = (UniqueConstraint("cart_id", "status", name="uq_payment_intents_cart_status"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     cart_id: Mapped[int] = mapped_column(
@@ -41,7 +39,9 @@ class PaymentAttempt(Base):
     payment_intent_id: Mapped[int] = mapped_column(
         ForeignKey("payment_intents.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    idempotency_key: Mapped[str] = mapped_column(
+        String(128), nullable=False, unique=True, index=True
+    )
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     provider_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default={})
     created_at: Mapped[datetime] = mapped_column(

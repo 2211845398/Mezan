@@ -16,7 +16,9 @@ from app.utils.security import hash_token
 async def create_temporary_customer(
     db: AsyncSession, *, phone: str, created_by_user_id: int
 ) -> tuple[CustomerProfile, str]:
-    customer = CustomerProfile(phone=phone, is_temporary=True, created_by_user_id=created_by_user_id)
+    customer = CustomerProfile(
+        phone=phone, is_temporary=True, created_by_user_id=created_by_user_id
+    )
     db.add(customer)
     await db.flush()
     token = token_urlsafe(24)

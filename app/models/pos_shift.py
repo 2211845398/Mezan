@@ -53,7 +53,9 @@ class PosCashEvent(Base):
     shift_id: Mapped[int] = mapped_column(
         ForeignKey("pos_shifts.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    event_type: Mapped[str] = mapped_column(String(32), nullable=False)  # sale, payout, refund, adjust
+    event_type: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # sale, payout, refund, adjust
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_by_user_id: Mapped[int | None] = mapped_column(

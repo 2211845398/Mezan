@@ -22,7 +22,9 @@ async def create_return_and_credit(
     exchange_cart_id: int | None,
     user_id: int,
 ) -> tuple[SalesReturn, CreditNote]:
-    i_res = await db.execute(select(SalesInvoice).where(SalesInvoice.invoice_barcode == invoice_barcode))
+    i_res = await db.execute(
+        select(SalesInvoice).where(SalesInvoice.invoice_barcode == invoice_barcode)
+    )
     invoice = i_res.scalar_one_or_none()
     if not invoice:
         raise NotFoundError("Invoice not found")

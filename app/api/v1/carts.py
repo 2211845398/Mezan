@@ -33,7 +33,14 @@ async def create_cart_endpoint(
         shift_id=body.shift_id,
         customer_id=body.customer_id,
     )
-    await audit_service.log(session=db, action="pos_cart.created", resource_type="pos_cart", resource_id=str(cart.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="pos_cart.created",
+        resource_type="pos_cart",
+        resource_id=str(cart.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return CartRead.model_validate(cart)
 
@@ -48,9 +55,20 @@ async def upsert_line_endpoint(
     _: None = require_permission("pos_carts", "update"),
 ) -> CartRead:
     cart = await upsert_line(
-        db, cart_id=cart_id, product_id=body.product_id, qty=body.qty, created_by_user_id=current_user.id
+        db,
+        cart_id=cart_id,
+        product_id=body.product_id,
+        qty=body.qty,
+        created_by_user_id=current_user.id,
     )
-    await audit_service.log(session=db, action="pos_cart.line_upserted", resource_type="pos_cart", resource_id=str(cart.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="pos_cart.line_upserted",
+        resource_type="pos_cart",
+        resource_id=str(cart.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return CartRead.model_validate(cart)
 
@@ -67,7 +85,14 @@ async def apply_discount_endpoint(
     cart = await apply_discount(
         db, cart_id=cart_id, code=body.code, amount=body.amount, created_by_user_id=current_user.id
     )
-    await audit_service.log(session=db, action="pos_cart.discount_applied", resource_type="pos_cart", resource_id=str(cart.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="pos_cart.discount_applied",
+        resource_type="pos_cart",
+        resource_id=str(cart.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return CartRead.model_validate(cart)
 
@@ -82,6 +107,13 @@ async def change_state_endpoint(
     _: None = require_permission("pos_carts", "update"),
 ) -> CartRead:
     cart = await change_state(db, cart_id=cart_id, action=body.action, user_id=current_user.id)
-    await audit_service.log(session=db, action="pos_cart.state_changed", resource_type="pos_cart", resource_id=str(cart.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="pos_cart.state_changed",
+        resource_type="pos_cart",
+        resource_id=str(cart.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return CartRead.model_validate(cart)

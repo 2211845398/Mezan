@@ -29,7 +29,14 @@ async def create_return_endpoint(
         exchange_cart_id=body.exchange_cart_id,
         user_id=current_user.id,
     )
-    await audit_service.log(session=db, action="sales_return.created", resource_type="sales_return", resource_id=str(sales_return.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="sales_return.created",
+        resource_type="sales_return",
+        resource_id=str(sales_return.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return {
         "sales_return_id": sales_return.id,

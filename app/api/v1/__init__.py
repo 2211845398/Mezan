@@ -3,8 +3,8 @@
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.branches import router as branches_router
-from app.api.v1.catalog import router as catalog_router
 from app.api.v1.carts import router as carts_router
+from app.api.v1.catalog import router as catalog_router
 from app.api.v1.config import router as config_router
 from app.api.v1.customers import router as customers_router
 from app.api.v1.endpoints import router as users_router
