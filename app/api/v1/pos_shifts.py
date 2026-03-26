@@ -51,7 +51,14 @@ async def add_cash_event_endpoint(
         note=body.note,
         created_by_user_id=current_user.id,
     )
-    await audit_service.log(session=db, action="pos_shift.cash_event_added", resource_type="pos_shift", resource_id=str(shift.id), user_id=current_user.id, request=request)
+    await audit_service.log(
+        session=db,
+        action="pos_shift.cash_event_added",
+        resource_type="pos_shift",
+        resource_id=str(shift.id),
+        user_id=current_user.id,
+        request=request,
+    )
     await db.commit()
     return PosShiftRead.model_validate(shift)
 

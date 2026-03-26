@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,10 +14,11 @@ from app.db.database import Base
 class PosShift(Base):
     __tablename__ = "pos_shifts"
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "uq_pos_shifts_terminal_open",
             "terminal_id",
-            "status",
-            name="uq_pos_shifts_terminal_status_open",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
         ),
     )
 

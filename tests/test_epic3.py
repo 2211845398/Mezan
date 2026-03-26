@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 
@@ -173,3 +175,122 @@ async def test_epic3_shift_adjust_cart_payment_invoice_return_flow(client, admin
     )
     # line id may vary if tests run with other fixtures, accept either success or validation error
     assert ret.status_code in {201, 422}, ret.text
+
+
+async def _open_test_shift(client, admin_auth_header, *, opening_float: float = 100.0) -> int:
+    code = f"POS-{uuid.uuid4().hex[:8]}"
+    t = await client.post(
+        "/api/v1/terminals",
+        headers=admin_auth_header,
+        json={"branch_id": 1, "name": code, "terminal_code": code},
+    )
+    assert t.status_code == 200, t.text
+    terminal_id = t.json()["id"]
+    auth_t = await client.patch(
+        f"/api/v1/terminals/{terminal_id}/authorize",
+        headers=admin_auth_header,
+    )
+    assert auth_t.status_code == 200, auth_t.text
+
+    s = await client.post(
+        "/api/v1/pos/shifts/open",
+        headers=admin_auth_header,
+        json={"terminal_id": terminal_id, "opening_float": opening_float},
+    )
+    assert s.status_code == 201, s.text
+    return s.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_header):
+    # Open shift
+    shift_id = await _open_test_shift(client, admin_auth_header, opening_float=100.0)
+
+    # sale should increase expected_cash
+    ev_sale = await client.post(
+        f"/api/v1/pos/shifts/{shift_id}/cash-events",
+        headers=admin_auth_header,
+        json={"event_type": "sale", "amount": 20.0, "note": "cash sale"},
+    )
+    assert ev_sale.status_code == 200, ev_sale.text
+    assert ev_sale.json()["expected_cash"] == pytest.approx(120.0)
+
+    # cash_in should increase expected_cash
+    ev_in = await client.post(
+        f"/api/v1/pos/shifts/{shift_id}/cash-events",
+        headers=admin_auth_header,
+        json={"event_type": "cash_in", "amount": 10.0, "note": "drawer add"},
+    )
+    assert ev_in.status_code == 200, ev_in.text
+    assert ev_in.json()["expected_cash"] == pytest.approx(110.0)
+
+    # cash_out should decrease expected_cash
+    ev_out = await client.post(
+        f"/api/v1/pos/shifts/{shift_id}/cash-events",
+        headers=admin_auth_header,
+        json={"event_type": "cash_out", "amount": 5.0, "note": "drawer out"},
+    )
+    assert ev_out.status_code == 200, ev_out.text
+    assert ev_out.json()["expected_cash"] == pytest.approx(105.0)
+
+
+@pytest.mark.asyncio
+async def test_cash_events_unknown_event_type_rejected(client, admin_auth_header):
+    shift_id = await _open_test_shift(client, admin_auth_header, opening_float=100.0)
+
+    res = await client.post(
+        f"/api/v1/pos/shifts/{shift_id}/cash-events",
+        headers=admin_auth_header,
+        json={"event_type": "unknown_event_type", "amount": 10.0, "note": "should fail"},
+    )
+    assert res.status_code == 422, res.text
+
+
+@pytest.mark.asyncio
+async def test_close_multiple_shifts_for_same_terminal(client, admin_auth_header):
+    code = f"POS-{uuid.uuid4().hex[:8]}"
+    t = await client.post(
+        "/api/v1/terminals",
+        headers=admin_auth_header,
+        json={"branch_id": 1, "name": code, "terminal_code": code},
+    )
+    assert t.status_code == 200, t.text
+    terminal_id = t.json()["id"]
+
+    auth_t = await client.patch(
+        f"/api/v1/terminals/{terminal_id}/authorize",
+        headers=admin_auth_header,
+    )
+    assert auth_t.status_code == 200, auth_t.text
+
+    s1 = await client.post(
+        "/api/v1/pos/shifts/open",
+        headers=admin_auth_header,
+        json={"terminal_id": terminal_id, "opening_float": 100.0},
+    )
+    assert s1.status_code == 201, s1.text
+    shift_id_1 = s1.json()["id"]
+
+    c1 = await client.post(
+        f"/api/v1/pos/shifts/{shift_id_1}/close",
+        headers=admin_auth_header,
+        json={"declared_cash": 100.0},
+    )
+    assert c1.status_code == 200, c1.text
+
+    # Open a second shift for the same terminal after closing the first one.
+    s2 = await client.post(
+        "/api/v1/pos/shifts/open",
+        headers=admin_auth_header,
+        json={"terminal_id": terminal_id, "opening_float": 200.0},
+    )
+    assert s2.status_code == 201, s2.text
+    shift_id_2 = s2.json()["id"]
+    assert shift_id_2 != shift_id_1
+
+    c2 = await client.post(
+        f"/api/v1/pos/shifts/{shift_id_2}/close",
+        headers=admin_auth_header,
+        json={"declared_cash": 210.0},
+    )
+    assert c2.status_code == 200, c2.text

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
@@ -37,7 +38,7 @@ async def open_shift(
         expected_cash=opening_float,
     )
     db.add(shift)
-    await db.commit()
+    await db.flush()
     await db.refresh(shift)
     return shift
 
@@ -51,25 +52,54 @@ async def add_cash_event(
     note: str | None,
     created_by_user_id: int,
 ) -> PosShift:
-    res = await db.execute(select(PosShift).where(PosShift.id == shift_id))
+    # Normalize common aliases coming from different client UIs.
+    normalized_event_type_map: dict[str, str] = {
+        # Common “drawer cash in/out” naming
+        "cash_in": "adjust_in",
+        "cash_out": "adjust_out",
+    }
+    normalized_event_type = normalized_event_type_map.get(event_type, event_type)
+
+    allowed_event_types = {"sale", "adjust_in", "refund", "payout", "adjust_out"}
+    if normalized_event_type not in allowed_event_types:
+        raise ValidationError(
+            "Invalid event_type for cash event",
+            details={"event_type": event_type, "normalized_event_type": normalized_event_type, "allowed": sorted(allowed_event_types)},
+        )
+
+    res = await db.execute(
+        select(PosShift).where(PosShift.id == shift_id).with_for_update()
+    )
     shift = res.scalar_one_or_none()
     if not shift:
         raise NotFoundError("Shift not found", details={"shift_id": shift_id})
     if shift.status != "open":
         raise StateTransitionError("Shift is not open")
+
+    amt = Decimal(str(amount)).copy_abs()
+    if normalized_event_type in {"sale", "adjust_in"}:
+        delta = amt
+    else:
+        # refund, payout, adjust_out all reduce expected cash
+        delta = -amt
+
     ev = PosCashEvent(
         shift_id=shift.id,
-        event_type=event_type,
-        amount=amount,
+        event_type=normalized_event_type,
+        # Store cash movement as a positive magnitude; the direction is derived from event_type.
+        amount=float(amt),
         note=note,
         created_by_user_id=created_by_user_id,
     )
     db.add(ev)
-    if event_type in {"sale", "adjust_in"}:
-        shift.expected_cash = float(shift.expected_cash) + amount
-    elif event_type in {"refund", "payout", "adjust_out"}:
-        shift.expected_cash = float(shift.expected_cash) - abs(amount)
-    await db.commit()
+
+    # Atomically update expected cash under the row lock.
+    await db.execute(
+        update(PosShift).where(PosShift.id == shift.id).values(
+            expected_cash=PosShift.expected_cash + delta
+        )
+    )
+    await db.flush()
     await db.refresh(shift)
     return shift
 
@@ -96,6 +126,6 @@ async def close_shift(db: AsyncSession, *, shift_id: int, declared_cash: float, 
         "closed_at": shift.closed_at.isoformat() if shift.closed_at else None,
     }
     db.add(ZReport(shift_id=shift.id, report_payload=payload))
-    await db.commit()
+    await db.flush()
     await db.refresh(shift)
     return shift
