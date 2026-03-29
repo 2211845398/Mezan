@@ -1,0 +1,97 @@
+"""Finalize checkout into immutable invoice."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.errors import ConflictError, NotFoundError, StateTransitionError
+from app.models.pos_cart import PosCart, PosCartLine
+from app.models.pos_payment import PaymentIntent
+from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
+from app.services.inventory_service import apply_stock_movement
+
+
+async def finalize_paid_cart(
+    db: AsyncSession,
+    *,
+    cart_id: int,
+    payment_intent_id: int,
+    idempotency_key: str,
+    user_id: int,
+) -> SalesInvoice:
+    existing = await db.execute(select(SalesInvoice).where(SalesInvoice.cart_id == cart_id))
+    inv = existing.scalar_one_or_none()
+    if inv:
+        return inv
+    cart_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
+    cart = cart_res.scalar_one_or_none()
+    if not cart:
+        raise NotFoundError("Cart not found")
+    if cart.status not in {"active", "checkout_locked"}:
+        raise StateTransitionError("Cart cannot be finalized")
+    pi_res = await db.execute(select(PaymentIntent).where(PaymentIntent.id == payment_intent_id))
+    payment_intent = pi_res.scalar_one_or_none()
+    if not payment_intent or payment_intent.cart_id != cart.id:
+        raise ConflictError("Payment intent does not belong to cart")
+    if payment_intent.status != "succeeded":
+        raise StateTransitionError("Payment is not completed")
+    line_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
+    lines = line_res.scalars().all()
+    if not lines:
+        raise ConflictError("Cannot finalize empty cart")
+
+    invoice_number = f"INV-{datetime.now(UTC).strftime('%Y%m%d')}-{cart.id}"
+    invoice_barcode = f"INVBC-{uuid.uuid4().hex[:16]}"
+    invoice = SalesInvoice(
+        invoice_number=invoice_number,
+        invoice_barcode=invoice_barcode,
+        cart_id=cart.id,
+        terminal_id=cart.terminal_id,
+        branch_id=cart.branch_id,
+        customer_id=cart.customer_id,
+        subtotal=float(cart.subtotal),
+        discount_total=float(cart.discount_total),
+        total=float(cart.total),
+        created_by_user_id=user_id,
+    )
+    db.add(invoice)
+    await db.flush()
+
+    for idx, ln in enumerate(lines):
+        db.add(
+            SalesInvoiceLine(
+                sales_invoice_id=invoice.id,
+                product_id=ln.product_id,
+                qty=ln.qty,
+                unit_price=float(ln.unit_price),
+                line_total=float(ln.line_total),
+            )
+        )
+        await apply_stock_movement(
+            db,
+            idempotency_key=f"{idempotency_key}:line:{idx}",
+            branch_id=cart.branch_id,
+            product_id=ln.product_id,
+            qty_delta=-ln.qty,
+            reason="sale",
+            ref_type="sales_invoice",
+            ref_id=str(invoice.id),
+        )
+    db.add(
+        InvoicePayment(
+            sales_invoice_id=invoice.id,
+            payment_intent_id=payment_intent.id,
+            amount=float(payment_intent.amount),
+            method=payment_intent.provider,
+            reference=payment_intent.external_id,
+        )
+    )
+    cart.status = "paid"
+    cart.paid_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(invoice)
+    return invoice
