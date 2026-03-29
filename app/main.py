@@ -38,7 +38,7 @@ from app.api.v1 import (
 )
 from app.core.config import settings
 from app.core.errors import AppError
-from app.db.database import close_db, init_db
+from app.db.database import close_db
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -55,9 +55,7 @@ async def lifespan(app: FastAPI):
     from app.db.database import AsyncSessionLocal
     from app.services.seed_service import seed_default_admin, seed_permissions_and_roles
 
-    # Startup
-    if settings.is_development:
-        await init_db()
+    # Startup (schema: use Alembic only; do not create_all on boot)
     try:
         async with AsyncSessionLocal() as db:
             await seed_permissions_and_roles(db)
