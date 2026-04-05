@@ -4,7 +4,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_epic3_shift_adjust_cart_payment_invoice_return_flow(client, admin_auth_header):
+async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_auth_header):
     # Create terminal
     t = await client.post(
         "/api/v1/terminals",
@@ -146,7 +146,7 @@ async def test_epic3_shift_adjust_cart_payment_invoice_return_flow(client, admin
         headers=admin_auth_header,
         json={
             "payment_intent_id": payment_intent_id,
-            "idempotency_key": "capture-epic3-0001",
+            "idempotency_key": "capture-pos-e2e-0001",
             "method": "card",
             "reference": "txn-1",
         },
@@ -159,7 +159,7 @@ async def test_epic3_shift_adjust_cart_payment_invoice_return_flow(client, admin
         json={
             "cart_id": cart_id,
             "payment_intent_id": payment_intent_id,
-            "idempotency_key": "finalize-epic3-0001",
+            "idempotency_key": "finalize-pos-e2e-0001",
         },
     )
     assert finalize.status_code == 200, finalize.text

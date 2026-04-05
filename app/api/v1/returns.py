@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
-from app.schemas.epic3 import SalesReturnRequest
+from app.schemas.sales_return import SalesReturnRequest
 from app.services import audit_service
 from app.services.returns_service import create_return_and_credit
 

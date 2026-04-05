@@ -1,0 +1,23 @@
+---
+description: "Architectural State & Rule Enforcement for MEZAN"
+globs: "*"
+alwaysApply: true
+---
+
+# MEZAN Core Directives
+
+1. **Context Initialization:** ALWAYS silently read `PROJECT_STATE.md` before responding, planning, or writing code.
+
+2. **File Naming Convention:** NEVER use generic names like `Epic4.py`. Always use domain entity names (e.g. `employees.py`, `attendance.py`).
+
+3. **Architectural Separation:**
+   - `api/v1/`: Only endpoints, DI, and request validation. NO business logic.
+   - `services/`: Core business logic and rules.
+   - `models/`: SQLAlchemy models only.
+   - `schemas/`: Pydantic models only.
+
+4. **State Transition:** When a task in `PROJECT_STATE.md` is completed, you must autonomously update the markdown file by checking the `[x]` box. Once an entire Epic is done, move it to the "Completed Epics" section.
+
+5. **Language:** Respond to the user in **English** unless they explicitly request another language.
+
+6. **Shell / CLI:** Do **not** run terminal commands (install, migrate, tests, Docker, git, etc.). If a command is required, output it verbatim for the user to run locally.
