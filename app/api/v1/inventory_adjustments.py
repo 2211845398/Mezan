@@ -8,7 +8,7 @@ from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.stock_movement import StockMovement
 from app.models.users import User
-from app.schemas.epic3 import StockAdjustmentRequest
+from app.schemas.inventory_adjustments import StockAdjustmentRequest
 from app.services import audit_service
 from app.services.inventory_service import apply_stock_movement
 
