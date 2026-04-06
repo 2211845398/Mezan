@@ -4,7 +4,7 @@
 
 ---
 
-## Completed epics (0–3)
+## Completed epics (0–4)
 
 ### Epic 0: Infrastructure & DevOps
 
@@ -39,6 +39,13 @@
 - [x] **3.5** — Finalize paid cart → immutable sales invoice
 - [x] **3.6** — Returns / exchanges (barcode, credit note path)
 
+### Epic 4: Human resources & payroll
+
+- [x] **4.1** — Employee profiles + weekly schedule CRUD
+- [x] **4.2** — Clock in/out + leave request workflows
+- [x] **4.3** — Payroll calculation (hours, rates, deductions)
+- [x] **4.4** — Bank-ready salary CSV export
+
 ---
 
 ## Gaps & technical debt
@@ -53,14 +60,22 @@
 
 ---
 
-## Next phase: Epic 4 — HR & payroll
+## Future backlog
 
-Planned (not started in this document’s scope):
+### Epic 5: Financial Accounting & Executive BI
 
-- [ ] **4.1** — Employee profiles + weekly schedule CRUD
-- [ ] **4.2** — Clock in/out + leave request workflows
-- [ ] **4.3** — Payroll calculation (hours, rates, deductions)
-- [ ] **4.4** — Bank-ready salary CSV export
+- [ ] **5.1** — Design chart of accounts and general ledger schema
+- [ ] **5.2** — Double-entry validation middleware (debits == credits)
+- [ ] **5.3** — Automated transaction linking from POS/PO to ledger
+- [ ] **5.4** — Inventory valuation algorithms (FIFO, LIFO, Average Cost)
+- [ ] **5.5** — Financial report generators (income statement, balance sheet)
+- [ ] **5.6** — Executive BI aggregation APIs (sales, shrinkage, KPI engine)
+
+## Next phase: Epic 6 — CRM & Marketing (Module 6)
+Leveraging POS and User data to drive sales.
+- [ ] **6.1** — Loyalty Points engine (Accrual rules, manual adjustments).
+- [ ] **6.2** — Discount Rule Engine (Percentage, fixed, buy-X-get-Y).
+- [ ] **6.3** — Complex SQL querying for Customer Segmentation & LTV.
 
 ---
 
