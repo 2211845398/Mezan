@@ -1,16 +1,20 @@
 """ORM models package."""
 
+from app.models.attendance_log import AttendanceLog
 from app.models.audit_log import AuditLog
 from app.models.branch import Branch
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.customer_profile import CustomerOnboardingToken, CustomerProfile
+from app.models.employee_profile import EmployeeProfile
 from app.models.example import Example
 from app.models.global_config import GlobalConfig
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
+from app.models.leave_request import LeaveRequest, LeaveStatus, LeaveType
 from app.models.password_reset_token import PasswordResetToken
+from app.models.payslip import Payslip, PayslipStatus
 from app.models.permission import Permission
 from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
@@ -30,15 +34,23 @@ from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
 from app.models.user_role import UserRole
 from app.models.users import User
+from app.models.weekly_schedule import WeeklySchedule
 
 __all__ = [
     "AuditLog",
+    "AttendanceLog",
     "Branch",
     "Category",
     "CategoryAttributeDef",
     "CustomerOnboardingToken",
     "CustomerProfile",
+    "EmployeeProfile",
     "Example",
+    "LeaveRequest",
+    "LeaveStatus",
+    "LeaveType",
+    "Payslip",
+    "PayslipStatus",
     "GlobalConfig",
     "InvoiceScan",
     "PasswordResetToken",
@@ -75,4 +87,5 @@ __all__ = [
     "TransferLine",
     "User",
     "UserRole",
+    "WeeklySchedule",
 ]

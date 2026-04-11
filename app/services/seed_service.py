@@ -59,6 +59,16 @@ DEFAULT_PERMISSIONS = [
     ("customers", "create"),
     ("stock_adjustments", "create"),
     ("stock_adjustments", "read"),
+    # Epic 4 HR & Payroll
+    ("employees", "create"),
+    ("employees", "read"),
+    ("employees", "update"),
+    ("employees", "delete"),
+    ("employees", "approve"),
+    ("payroll", "create"),
+    ("payroll", "read"),
+    ("payroll", "approve"),
+    ("payroll", "export"),
 ]
 
 ADMIN_ROLE_NAME = "Admin"
