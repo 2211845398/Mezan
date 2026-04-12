@@ -18,6 +18,9 @@ class GoodsReceipt(Base):
         ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     supplier_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    supplier_id: Mapped[int | None] = mapped_column(
+        ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     invoice_number: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     source_invoice_scan_id: Mapped[int | None] = mapped_column(
         ForeignKey("invoice_scans.id", ondelete="SET NULL"), nullable=True, index=True

@@ -12,7 +12,7 @@ from app.models.branch import Branch
 from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
-from app.services.seed_service import ADMIN_ROLE_NAME, seed_permissions_and_roles
+from app.services.seed_service import ADMIN_ROLE_NAME, seed_accounting_defaults, seed_permissions_and_roles
 from app.utils.security import create_access_token, hash_password
 
 
@@ -65,6 +65,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
     # Ensure permissions + Admin role exist
     await seed_permissions_and_roles(db_session)
+    await seed_accounting_defaults(db_session)
 
     # Create a branch for inventory tests
     wh = Branch(name="Main Warehouse", code="WH1", address=None, timezone="UTC", is_active=True)

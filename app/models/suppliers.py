@@ -1,0 +1,27 @@
+"""Supplier master for AP (Epic 5)."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.database import Base
+
+
+class Supplier(Base):
+    __tablename__ = "suppliers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    currency_id: Mapped[int] = mapped_column(
+        ForeignKey("currencies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    payables_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )

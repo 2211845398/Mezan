@@ -16,6 +16,7 @@ from app.api.error_handlers import (
     unhandled_exception_handler,
 )
 from app.api.v1 import (
+    accounting_router,
     audit_router,
     auth_router,
     branches_router,
@@ -25,6 +26,7 @@ from app.api.v1 import (
     customers_router,
     discounts_router,
     employees_router,
+    executive_bi_router,
     health_router,
     inventory_adjustments_router,
     invoice_scans_router,
@@ -37,6 +39,7 @@ from app.api.v1 import (
     returns_router,
     roles_router,
     sales_router,
+    suppliers_router,
     terminals_router,
     transfers_router,
     users_router,
@@ -58,12 +61,17 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     from app.db.database import AsyncSessionLocal
-    from app.services.seed_service import seed_default_admin, seed_permissions_and_roles
+    from app.services.seed_service import (
+        seed_accounting_defaults,
+        seed_default_admin,
+        seed_permissions_and_roles,
+    )
 
     # Startup (schema: use Alembic only; do not create_all on boot)
     try:
         async with AsyncSessionLocal() as db:
             await seed_permissions_and_roles(db)
+            await seed_accounting_defaults(db)
             if settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PASSWORD:
                 await seed_default_admin(
                     db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD
@@ -126,6 +134,9 @@ app.include_router(returns_router, prefix="/api/v1", tags=["returns"])
 app.include_router(loyalty_router, prefix="/api/v1", tags=["loyalty"])
 app.include_router(discounts_router, prefix="/api/v1", tags=["discounts"])
 app.include_router(marketing_router, prefix="/api/v1", tags=["marketing"])
+app.include_router(accounting_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(executive_bi_router, prefix="/api/v1", tags=["executive_bi"])
+app.include_router(suppliers_router, prefix="/api/v1", tags=["suppliers"])
 
 
 @app.get("/")

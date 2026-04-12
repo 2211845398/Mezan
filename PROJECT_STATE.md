@@ -4,7 +4,7 @@
 
 ---
 
-## Completed epics (0–4, 6)
+## Completed epics (0–6)
 
 ### Epic 0: Infrastructure & DevOps
 
@@ -46,6 +46,15 @@
 - [x] **4.3** — Payroll calculation (hours, rates, deductions)
 - [x] **4.4** — Bank-ready salary CSV export
 
+### Epic 5: Financial Accounting & Executive BI
+
+- [x] **5.1** — Chart of accounts, journal entries/lines with mandatory `branch_id`, source linkage, idempotent posting
+- [x] **5.2** — Double-entry validation (balanced batches) in `accounting_service.post_journal_entry`
+- [x] **5.3** — Automated GL posting from POS sales, returns, goods receipts, approved payslips (`document_posting_service`)
+- [x] **5.4** — Weighted-average inventory cost (`branch_product_costs`) + product `standard_cost` fallback; FIFO/LIFO not implemented
+- [x] **5.5** — Financial report read APIs: trial balance, general ledger, income statement, balance sheet
+- [x] **5.6** — Executive BI KPI endpoint (`/api/v1/bi/executive-kpis`) from sales invoices
+
 ### Epic 6: CRM & Marketing
 
 - [x] **6.1** — Loyalty Points engine (Accrual rules, manual adjustments)
@@ -62,19 +71,19 @@
 | **SSO** | FR mentions SSO; verify and implement OIDC/SAML when required |
 | **Automated DB backups** | FR mentions manual + scheduled backups; not tracked as implemented in app layer |
 | **Session timeout / password reset** | Confirm parity with Module 1 FRs (email/phone flows) |
+| **AR/AP open items** | No payment application / aging subledger; AP aging and customer statements incomplete without it |
+| **User → HR onboarding** | No workflow when admin creates a user to assign HR completion tasks |
+| **Loyalty vs GL** | Loyalty points are not a balance-sheet liability unless explicitly modeled and posted |
+| **Period close / reversals** | No fiscal period lock or reversal journal pattern for posted documents |
+| **FIFO / LIFO** | Only weighted-average + standard cost; no cost layers |
+| **Multi-currency GL** | Currencies + supplier currency exist; no FX revaluation or translated statements |
+| **Cash flow statement** | Not built as a dedicated report (balance sheet + income statement APIs exist) |
 
 ---
 
 ## Future backlog
 
-### Epic 5: Financial Accounting & Executive BI
-
-- [ ] **5.1** — Design chart of accounts and general ledger schema
-- [ ] **5.2** — Double-entry validation middleware (debits == credits)
-- [ ] **5.3** — Automated transaction linking from POS/PO to ledger
-- [ ] **5.4** — Inventory valuation algorithms (FIFO, LIFO, Average Cost)
-- [ ] **5.5** — Financial report generators (income statement, balance sheet)
-- [ ] **5.6** — Executive BI aggregation APIs (sales, shrinkage, KPI engine)
+_(Epic-sized follow-ups can be tracked here when defined.)_
 
 ---
 

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from decimal import Decimal
+
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +29,7 @@ class Product(Base):
         String(32), default="active", nullable=False
     )  # active, archived
     attributes: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    standard_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.utcnow,

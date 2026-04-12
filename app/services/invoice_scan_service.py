@@ -4,14 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from decimal import Decimal
+
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
+from app.models.stock_level import StockLevel
+from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.inventory_service import apply_stock_movement
+from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
 from app.services.ocr.providers.base import ExtractedInvoice, OcrProvider
 from app.services.ocr.providers.fake import FakeOcrProvider
 
@@ -135,7 +140,12 @@ async def validate_scan_and_receive_goods(
                 unit_cost=float(unit_cost),
             )
         )
-        # Movement is idempotent per (receipt,line-index)
+        sl_res = await db.execute(
+            select(StockLevel.on_hand).where(
+                and_(StockLevel.branch_id == branch_id, StockLevel.product_id == product_id)
+            )
+        )
+        qty_on_hand_before = int(sl_res.scalar_one_or_none() or 0)
         await apply_stock_movement(
             db,
             idempotency_key=f"goods_receipt:{receipt.id}:line:{i}",
@@ -146,7 +156,16 @@ async def validate_scan_and_receive_goods(
             ref_type="goods_receipt",
             ref_id=str(receipt.id),
         )
+        await apply_receipt_to_weighted_average(
+            db,
+            branch_id=branch_id,
+            product_id=product_id,
+            qty_in=qty,
+            unit_cost=Decimal(str(unit_cost)),
+            qty_on_hand_before=qty_on_hand_before,
+        )
 
+    await post_goods_receipt_gl(db, receipt=receipt)
     scan.status = "validated"
     await db.commit()
     await db.refresh(scan)

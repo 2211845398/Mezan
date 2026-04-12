@@ -3,6 +3,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.accounting_settings import AccountingSettings
+from app.models.chart_accounts import AccountType, ChartAccount
+from app.models.currency import Currency
 from app.models.permission import Permission
 from app.models.role import Role
 from app.models.role_permission import RolePermission
@@ -79,6 +82,11 @@ DEFAULT_PERMISSIONS = [
     ("discounts", "update"),
     ("discounts", "delete"),
     ("analytics", "read"),
+    # Epic 5 Accounting
+    ("accounting", "read"),
+    ("suppliers", "read"),
+    ("suppliers", "create"),
+    ("suppliers", "update"),
 ]
 
 ADMIN_ROLE_NAME = "Admin"
@@ -117,6 +125,73 @@ async def seed_permissions_and_roles(db: AsyncSession) -> None:
     for pid in perm_ids - assigned:
         db.add(RolePermission(role_id=admin_role.id, permission_id=pid))
 
+    await db.commit()
+
+
+async def seed_accounting_defaults(db: AsyncSession) -> None:
+    """Idempotent: currencies, chart of accounts, and default GL mapping (tests + fresh DB)."""
+    res = await db.execute(select(AccountingSettings).where(AccountingSettings.id == 1))
+    if res.scalar_one_or_none():
+        return
+
+    cur = Currency(code="USD", name="US Dollar", decimal_places=2, suffix=None)
+    db.add(cur)
+    await db.flush()
+
+    defs: list[tuple[str, str, AccountType, bool, bool]] = [
+        ("1000", "Cash on Hand", AccountType.ASSET, False, True),
+        ("1100", "Accounts Receivable", AccountType.ASSET, True, True),
+        ("1200", "Inventory", AccountType.ASSET, False, True),
+        ("2000", "Accounts Payable", AccountType.LIABILITY, True, True),
+        ("2100", "Payroll Liability", AccountType.LIABILITY, False, True),
+        ("2110", "Payroll Deductions Payable", AccountType.LIABILITY, False, True),
+        ("4000", "Sales Revenue", AccountType.REVENUE, False, True),
+        ("5000", "Cost of Goods Sold", AccountType.EXPENSE, False, True),
+        ("6000", "Salary Expense", AccountType.EXPENSE, False, True),
+    ]
+    for code, name, at, ctrl, sys in defs:
+        db.add(
+            ChartAccount(
+                code=code,
+                name=name,
+                account_type=at,
+                parent_id=None,
+                is_control=ctrl,
+                is_system=sys,
+                active=True,
+            )
+        )
+    await db.flush()
+
+    codes = (
+        "1000",
+        "1100",
+        "1200",
+        "2000",
+        "2100",
+        "2110",
+        "4000",
+        "5000",
+        "6000",
+    )
+    acc_res = await db.execute(select(ChartAccount).where(ChartAccount.code.in_(codes)))
+    by_code = {a.code: a for a in acc_res.scalars().all()}
+
+    db.add(
+        AccountingSettings(
+            id=1,
+            base_currency_id=cur.id,
+            default_cash_account_id=by_code["1000"].id,
+            default_ar_account_id=by_code["1100"].id,
+            default_ap_account_id=by_code["2000"].id,
+            default_inventory_account_id=by_code["1200"].id,
+            default_cogs_account_id=by_code["5000"].id,
+            default_sales_revenue_account_id=by_code["4000"].id,
+            default_salary_expense_account_id=by_code["6000"].id,
+            default_payroll_liability_account_id=by_code["2100"].id,
+            default_payroll_deductions_payable_account_id=by_code["2110"].id,
+        )
+    )
     await db.commit()
 
 

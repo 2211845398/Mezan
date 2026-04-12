@@ -25,6 +25,7 @@ class PurchaseOrderLineRead(PurchaseOrderLineBase):
 
 class PurchaseOrderBase(BaseModel):
     supplier_name: str = Field(min_length=1, max_length=255)
+    supplier_id: int | None = None
     notes: str | None = Field(default=None, max_length=1024)
     expected_at: datetime | None = None
 
@@ -35,6 +36,7 @@ class PurchaseOrderCreate(PurchaseOrderBase):
 
 class PurchaseOrderUpdate(BaseModel):
     supplier_name: str | None = Field(default=None, min_length=1, max_length=255)
+    supplier_id: int | None = None
     notes: str | None = Field(default=None, max_length=1024)
     expected_at: datetime | None = None
     lines: list[PurchaseOrderLineCreate] | None = None
@@ -42,6 +44,7 @@ class PurchaseOrderUpdate(BaseModel):
 
 class PurchaseOrderRead(PurchaseOrderBase):
     id: int
+    supplier_id: int | None = None
     status: str
     sent_at: datetime | None
     created_by_user_id: int | None

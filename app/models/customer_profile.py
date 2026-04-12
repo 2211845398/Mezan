@@ -18,6 +18,12 @@ class CustomerProfile(Base):
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_temporary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    default_currency_id: Mapped[int | None] = mapped_column(
+        ForeignKey("currencies.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    receivables_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

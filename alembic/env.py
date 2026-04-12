@@ -13,14 +13,20 @@ from alembic import context
 from app.core.config import settings
 from app.db.database import Base
 from app.models import (  # noqa: F401
+    AccountingSettings,
     AuditLog,
     Branch,
+    BranchProductCost,
+    ChartAccount,
+    Currency,
     Category,
     CategoryAttributeDef,
     DiscountRule,
     DiscountUsageLog,
     Example,
     GlobalConfig,
+    JournalEntry,
+    JournalEntryLine,
     GoodsReceipt,
     GoodsReceiptLine,
     InvoiceScan,
@@ -36,6 +42,7 @@ from app.models import (  # noqa: F401
     Role,
     RolePermission,
     StockLevel,
+    Supplier,
     StockMovement,
     TransferBatch,
     TransferLine,
