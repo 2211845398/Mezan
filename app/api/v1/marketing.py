@@ -48,9 +48,7 @@ async def top_products_endpoint(
     items = await get_top_selling_products(
         db, limit=limit, period_start=period_start, period_end=period_end
     )
-    return TopSellingProductsResponse(
-        items=items, period_start=period_start, period_end=period_end
-    )
+    return TopSellingProductsResponse(items=items, period_start=period_start, period_end=period_end)
 
 
 @router.get(
@@ -111,9 +109,7 @@ async def ai_auto_discount_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("discounts", "create"),
 ) -> AIAutoDiscountResponse:
-    rule = await create_ai_draft_discount(
-        db, payload=body, created_by_user_id=current_user.id
-    )
+    rule = await create_ai_draft_discount(db, payload=body, created_by_user_id=current_user.id)
     await audit_service.log(
         session=db,
         action="discount_rule.ai_draft_created",

@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
-from app.models.discount import DiscountRule, DiscountStatus, DiscountUsageLog
+from app.models.discount import DiscountRule, DiscountStatus
 from app.schemas.ai_discount import AIAutoDiscountRequest
 
 
@@ -101,7 +101,9 @@ async def validate_discount(db: AsyncSession, *, rule_id: int) -> DiscountRule:
         )
 
     now = datetime.now(UTC)
-    start = rule.start_date.replace(tzinfo=UTC) if rule.start_date.tzinfo is None else rule.start_date
+    start = (
+        rule.start_date.replace(tzinfo=UTC) if rule.start_date.tzinfo is None else rule.start_date
+    )
     if now < start:
         raise ValidationError(
             "Discount rule has not started yet",

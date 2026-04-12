@@ -17,9 +17,7 @@ from app.models.loyalty import LedgerEntryType, LedgerReasonCode, LoyaltyAccrual
 
 
 async def get_accrual_rule(db: AsyncSession, rule_id: int) -> LoyaltyAccrualRule:
-    result = await db.execute(
-        select(LoyaltyAccrualRule).where(LoyaltyAccrualRule.id == rule_id)
-    )
+    result = await db.execute(select(LoyaltyAccrualRule).where(LoyaltyAccrualRule.id == rule_id))
     rule = result.scalar_one_or_none()
     if not rule:
         raise NotFoundError("Accrual rule not found", details={"rule_id": rule_id})
@@ -27,9 +25,7 @@ async def get_accrual_rule(db: AsyncSession, rule_id: int) -> LoyaltyAccrualRule
 
 
 async def list_accrual_rules(db: AsyncSession) -> list[LoyaltyAccrualRule]:
-    result = await db.execute(
-        select(LoyaltyAccrualRule).order_by(LoyaltyAccrualRule.id.desc())
-    )
+    result = await db.execute(select(LoyaltyAccrualRule).order_by(LoyaltyAccrualRule.id.desc()))
     return list(result.scalars().all())
 
 
@@ -63,9 +59,7 @@ async def update_accrual_rule(
 
 
 async def _ensure_customer_exists(db: AsyncSession, customer_id: int) -> None:
-    result = await db.execute(
-        select(CustomerProfile.id).where(CustomerProfile.id == customer_id)
-    )
+    result = await db.execute(select(CustomerProfile.id).where(CustomerProfile.id == customer_id))
     if result.scalar_one_or_none() is None:
         raise NotFoundError("Customer not found", details={"customer_id": customer_id})
 

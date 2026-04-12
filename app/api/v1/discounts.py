@@ -87,9 +87,7 @@ async def update_discount_rule_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("discounts", "update"),
 ) -> DiscountRuleRead:
-    rule = await update_discount_rule(
-        db, rule_id=rule_id, data=body.model_dump(exclude_unset=True)
-    )
+    rule = await update_discount_rule(db, rule_id=rule_id, data=body.model_dump(exclude_unset=True))
     await audit_service.log(
         session=db,
         action="discount_rule.updated",
