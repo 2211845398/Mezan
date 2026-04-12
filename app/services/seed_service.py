@@ -69,6 +69,16 @@ DEFAULT_PERMISSIONS = [
     ("payroll", "read"),
     ("payroll", "approve"),
     ("payroll", "export"),
+    # Epic 6: CRM & Marketing
+    ("loyalty", "create"),
+    ("loyalty", "read"),
+    ("loyalty", "update"),
+    ("loyalty", "adjust"),
+    ("discounts", "create"),
+    ("discounts", "read"),
+    ("discounts", "update"),
+    ("discounts", "delete"),
+    ("analytics", "read"),
 ]
 
 ADMIN_ROLE_NAME = "Admin"

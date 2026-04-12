@@ -23,10 +23,13 @@ from app.api.v1 import (
     catalog_router,
     config_router,
     customers_router,
+    discounts_router,
     employees_router,
     health_router,
     inventory_adjustments_router,
     invoice_scans_router,
+    loyalty_router,
+    marketing_router,
     payments_router,
     payroll_router,
     pos_shifts_router,
@@ -120,6 +123,9 @@ app.include_router(payments_router, prefix="/api/v1", tags=["pos_payments"])
 app.include_router(payroll_router, prefix="/api/v1", tags=["payroll"])
 app.include_router(sales_router, prefix="/api/v1", tags=["sales"])
 app.include_router(returns_router, prefix="/api/v1", tags=["returns"])
+app.include_router(loyalty_router, prefix="/api/v1", tags=["loyalty"])
+app.include_router(discounts_router, prefix="/api/v1", tags=["discounts"])
+app.include_router(marketing_router, prefix="/api/v1", tags=["marketing"])
 
 
 @app.get("/")

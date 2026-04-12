@@ -4,7 +4,7 @@
 
 ---
 
-## Completed epics (0–4)
+## Completed epics (0–4, 6)
 
 ### Epic 0: Infrastructure & DevOps
 
@@ -46,6 +46,11 @@
 - [x] **4.3** — Payroll calculation (hours, rates, deductions)
 - [x] **4.4** — Bank-ready salary CSV export
 
+### Epic 6: CRM & Marketing
+
+- [x] **6.1** — Loyalty Points engine (Accrual rules, manual adjustments)
+- [x] **6.2** — Discount Rule Engine (Percentage, fixed, buy-X-get-Y)
+
 ---
 
 ## Gaps & technical debt
@@ -70,12 +75,6 @@
 - [ ] **5.4** — Inventory valuation algorithms (FIFO, LIFO, Average Cost)
 - [ ] **5.5** — Financial report generators (income statement, balance sheet)
 - [ ] **5.6** — Executive BI aggregation APIs (sales, shrinkage, KPI engine)
-
-## Next phase: Epic 6 — CRM & Marketing (Module 6)
-Leveraging POS and User data to drive sales.
-- [ ] **6.1** — Loyalty Points engine (Accrual rules, manual adjustments).
-- [ ] **6.2** — Discount Rule Engine (Percentage, fixed, buy-X-get-Y).
-- [ ] **6.3** — Complex SQL querying for Customer Segmentation & LTV.
 
 ---
 

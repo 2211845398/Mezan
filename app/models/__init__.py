@@ -6,6 +6,7 @@ from app.models.branch import Branch
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.customer_profile import CustomerOnboardingToken, CustomerProfile
+from app.models.discount import DiscountRule, DiscountStatus, DiscountType, DiscountUsageLog
 from app.models.employee_profile import EmployeeProfile
 from app.models.example import Example
 from app.models.global_config import GlobalConfig
@@ -13,6 +14,7 @@ from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
 from app.models.leave_request import LeaveRequest, LeaveStatus, LeaveType
+from app.models.loyalty import LedgerEntryType, LedgerReasonCode, LoyaltyAccrualRule, LoyaltyLedger
 from app.models.password_reset_token import PasswordResetToken
 from app.models.payslip import Payslip, PayslipStatus
 from app.models.permission import Permission
@@ -44,11 +46,19 @@ __all__ = [
     "CategoryAttributeDef",
     "CustomerOnboardingToken",
     "CustomerProfile",
+    "DiscountRule",
+    "DiscountStatus",
+    "DiscountType",
+    "DiscountUsageLog",
     "EmployeeProfile",
     "Example",
     "LeaveRequest",
     "LeaveStatus",
     "LeaveType",
+    "LedgerEntryType",
+    "LedgerReasonCode",
+    "LoyaltyAccrualRule",
+    "LoyaltyLedger",
     "Payslip",
     "PayslipStatus",
     "GlobalConfig",
