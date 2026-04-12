@@ -7,11 +7,14 @@ from app.api.v1.carts import router as carts_router
 from app.api.v1.catalog import router as catalog_router
 from app.api.v1.config import router as config_router
 from app.api.v1.customers import router as customers_router
+from app.api.v1.discounts import router as discounts_router
 from app.api.v1.employees import router as employees_router
 from app.api.v1.endpoints import router as users_router
 from app.api.v1.health import router as health_router
 from app.api.v1.inventory_adjustments import router as inventory_adjustments_router
 from app.api.v1.invoice_scans import router as invoice_scans_router
+from app.api.v1.loyalty import router as loyalty_router
+from app.api.v1.marketing import router as marketing_router
 from app.api.v1.payments import router as payments_router
 from app.api.v1.payroll import router as payroll_router
 from app.api.v1.pos_shifts import router as pos_shifts_router
@@ -30,10 +33,13 @@ __all__ = [
     "carts_router",
     "config_router",
     "customers_router",
+    "discounts_router",
     "employees_router",
     "health_router",
     "inventory_adjustments_router",
     "invoice_scans_router",
+    "loyalty_router",
+    "marketing_router",
     "payroll_router",
     "payments_router",
     "pos_shifts_router",
