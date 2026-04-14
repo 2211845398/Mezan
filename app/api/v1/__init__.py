@@ -3,6 +3,7 @@
 from app.api.v1.accounting import router as accounting_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.backups import router as backups_router
 from app.api.v1.branches import router as branches_router
 from app.api.v1.carts import router as carts_router
 from app.api.v1.catalog import router as catalog_router
@@ -32,6 +33,7 @@ __all__ = [
     "accounting_router",
     "audit_router",
     "auth_router",
+    "backups_router",
     "branches_router",
     "catalog_router",
     "carts_router",

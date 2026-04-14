@@ -1,6 +1,10 @@
 """Pydantic schemas for user operations."""
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserCreate(BaseModel):
@@ -9,7 +13,11 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str | None = None
     password: str | None = None  # optional for SSO-only users
-    status: str = "active"  # active, deactivated, suspended, banned
+    status: str = "pending_onboarding"  # pending_onboarding, active, deactivated, suspended, banned
+    branch_id: int | None = None
+    role_code: str | None = Field(default=None, max_length=64)
+    require_onboarding: bool = True
+    assigned_hr_user_id: int | None = None
 
 
 class UserUpdate(BaseModel):
@@ -28,5 +36,51 @@ class UserRead(BaseModel):
     id: int
     email: EmailStr
     full_name: str | None = None
+    status: str
+    branch_id: int | None = None
     phone: str | None = None
     preferred_language: str | None = None
+    last_login_at: datetime | None = None
+
+
+class UserOnboardingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    status: str
+    requested_by_user_id: int | None = None
+    assigned_hr_user_id: int | None = None
+    job_title: str | None = None
+    contract_start: date | None = None
+    contract_end: date | None = None
+    salary_amount: Decimal | None = None
+    salary_currency: str | None = None
+    notes: str | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserOnboardingComplete(BaseModel):
+    assigned_hr_user_id: int | None = None
+    job_title: str | None = None
+    contract_start: date | None = None
+    contract_end: date | None = None
+    salary_amount: Decimal | None = None
+    salary_currency: str | None = None
+    notes: str | None = None
+
+
+class UserPermissionOverrideWrite(BaseModel):
+    permission_id: int
+    branch_id: int | None = None
+    effect: Literal["allow", "deny"]
+    reason: str | None = None
+
+
+class UserPermissionOverrideRead(UserPermissionOverrideWrite):
+    id: int
+    user_id: int
+    created_by_user_id: int | None = None
+    created_at: datetime

@@ -22,6 +22,15 @@ from app.utils.security import (
 ACTIVE_STATUS = "active"
 
 
+def _is_session_idle_expired(last_used_at: datetime | None) -> bool:
+    if settings.SESSION_IDLE_TIMEOUT_MINUTES <= 0:
+        return False
+    if last_used_at is None:
+        return True
+    idle_seconds = (datetime.now(UTC) - last_used_at).total_seconds()
+    return idle_seconds > settings.SESSION_IDLE_TIMEOUT_MINUTES * 60
+
+
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     """Load user by email."""
     result = await db.execute(select(User).where(User.email == email))
@@ -99,6 +108,10 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, 
     refresh_record = result.scalar_one_or_none()
     if not refresh_record or refresh_record.user_id != user_id:
         raise ValueError("Invalid refresh token")
+    if _is_session_idle_expired(refresh_record.last_used_at):
+        refresh_record.revoked = True
+        await db.commit()
+        raise ValueError("Session expired due to inactivity")
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -136,6 +149,14 @@ async def request_password_reset(db: AsyncSession, email: str) -> None:
     user = await get_user_by_email(db, email)
     if not user:
         return
+    stale = await db.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used.is_(False),
+        )
+    )
+    for token in stale.scalars().all():
+        token.used = True
     token_str = token_urlsafe(32)
     token_hash = hash_token(token_str)
     expires_at = datetime.now(UTC) + timedelta(minutes=60)

@@ -56,6 +56,7 @@ async def capture_payment_endpoint(
         idempotency_key=body.idempotency_key,
         method=body.method,
         reference=body.reference,
+        card_last4=body.card_last4,
     )
     await audit_service.log(
         session=db,

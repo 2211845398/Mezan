@@ -13,6 +13,7 @@ from app.models.permission import Permission
 from app.models.role import Role
 from app.models.role_permission import RolePermission
 from app.models.user_role import UserRole
+from app.models.user_permission_override import UserPermissionOverride
 from app.models.users import User
 from app.utils.security import decode_token
 
@@ -63,8 +64,8 @@ async def get_current_user_permissions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> set[tuple[str, str]]:
-    """Load all (resource, action) permissions for the current user from their roles."""
-    result = await db.execute(
+    """Load effective permissions from roles plus explicit per-user overrides."""
+    role_result = await db.execute(
         select(Permission.resource, Permission.action)
         .join(RolePermission, RolePermission.permission_id == Permission.id)
         .join(Role, Role.id == RolePermission.role_id)
@@ -72,7 +73,22 @@ async def get_current_user_permissions(
         .where(UserRole.user_id == user.id)
         .distinct()
     )
-    return set(result.all())
+    effective = set(role_result.all())
+
+    override_result = await db.execute(
+        select(Permission.resource, Permission.action, UserPermissionOverride.effect).join(
+            UserPermissionOverride,
+            UserPermissionOverride.permission_id == Permission.id,
+        )
+        .where(UserPermissionOverride.user_id == user.id)
+    )
+    for resource, action, effect in override_result.all():
+        key = (resource, action)
+        if effect == "deny":
+            effective.discard(key)
+        elif effect == "allow":
+            effective.add(key)
+    return effective
 
 
 def require_permission(resource: str, action: str) -> Callable:

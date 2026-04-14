@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
@@ -17,22 +17,110 @@ from app.models.stock_level import StockLevel
 from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
+from app.services.ocr.providers.basic import BasicOcrProvider
 from app.services.ocr.providers.base import ExtractedInvoice, OcrProvider
 from app.services.ocr.providers.fake import FakeOcrProvider
 
 
-def get_default_provider() -> OcrProvider:
-    return FakeOcrProvider()
+def get_provider(provider_name: str | None = None) -> OcrProvider:
+    selected = (provider_name or settings.OCR_PROVIDER).lower()
+    if selected == "fake":
+        return FakeOcrProvider()
+    if selected == "basic":
+        return BasicOcrProvider()
+    raise ValidationError("Unsupported OCR provider", details={"provider": selected})
+
+
+def _get_first_str(data: dict[str, Any], keys: list[str]) -> str | None:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _to_int(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None
+
+
+def _to_float(value: Any) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
 
 
 def parse_extracted_invoice(extracted: ExtractedInvoice) -> dict[str, Any]:
-    # Stub parsing: create a normalized shell that the manual override UI can edit.
+    payload = extracted.payload if isinstance(extracted.payload, dict) else {}
+    structured = payload.get("structured")
+    if not isinstance(structured, dict):
+        structured = {}
+
+    supplier_name = _get_first_str(
+        structured,
+        ["supplier_name", "supplier", "vendor_name", "vendor"],
+    )
+    invoice_number = _get_first_str(
+        structured,
+        ["invoice_number", "invoice_no", "invoice", "inv_no"],
+    )
+    invoice_date = _get_first_str(
+        structured,
+        ["invoice_date", "date", "document_date"],
+    )
+    currency = _get_first_str(structured, ["currency", "currency_code"]) or "USD"
+
+    raw_items = structured.get("line_items")
+    if not isinstance(raw_items, list):
+        raw_items = []
+
+    line_items: list[dict[str, Any]] = []
+    running_total = Decimal("0")
+    for idx, item in enumerate(raw_items):
+        if not isinstance(item, dict):
+            continue
+        product_id = _to_int(item.get("product_id"))
+        qty = _to_int(item.get("qty") or item.get("quantity"))
+        unit_cost = _to_float(item.get("unit_cost") or item.get("price") or item.get("cost"))
+        if qty and unit_cost:
+            running_total += Decimal(str(qty)) * Decimal(str(unit_cost))
+        line_items.append(
+            {
+                "line_no": idx + 1,
+                "product_id": product_id,
+                "qty": qty,
+                "unit_cost": unit_cost,
+                "description": item.get("description"),
+            }
+        )
+
+    tax = _to_float(structured.get("tax"))
+    total = _to_float(structured.get("total"))
+    subtotal = _to_float(structured.get("subtotal"))
+
+    if subtotal is None:
+        subtotal = float(running_total)
+    if total is None:
+        total = subtotal + (tax or 0.0)
+
     return {
-        "supplier_name": None,
-        "invoice_number": None,
-        "invoice_date": None,
-        "line_items": [],
-        "provider_payload": extracted.payload,
+        "supplier_name": supplier_name,
+        "invoice_number": invoice_number,
+        "invoice_date": invoice_date,
+        "currency": currency,
+        "line_items": line_items,
+        "subtotal": subtotal,
+        "tax": tax or 0.0,
+        "total": total,
+        "provider_payload": payload,
     }
 
 
@@ -41,16 +129,16 @@ async def create_scan(
     *,
     source_type: str,
     data: str,
-    provider: OcrProvider | None = None,
+    provider_name: str | None = None,
 ) -> InvoiceScan:
     if source_type not in {"qr", "image"}:
         raise ValidationError("Invalid source_type", details={"source_type": source_type})
-    provider = provider or get_default_provider()
+    provider = get_provider(provider_name)
     scan = InvoiceScan(
         source_type=source_type,
         provider=provider.name,
         status="received",
-        raw_input_ref={"source_type": source_type},
+        raw_input_ref={"source_type": source_type, "data_length": len(data)},
     )
     db.add(scan)
     await db.flush()

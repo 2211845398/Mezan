@@ -18,6 +18,7 @@ class RoleCreate(BaseModel):
 
     name: str
     description: str | None = None
+    code: str | None = None
 
 
 class RoleUpdate(BaseModel):
@@ -33,6 +34,7 @@ class RoleRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    code: str | None
     name: str
     description: str | None
     is_system: bool

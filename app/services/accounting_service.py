@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.core.errors import ValidationError
 from app.models.accounting_settings import AccountingSettings
 from app.models.journal_entries import JournalEntry, JournalEntryLine
+from app.services.accounting_governance_service import ensure_period_open
 
 
 MONEY = Decimal("0.01")
@@ -81,12 +82,15 @@ async def post_journal_entry(
             details={"total_debit": str(total_dr), "total_credit": str(total_cr)},
         )
 
+    period = await ensure_period_open(db, entry_date=entry_date)
+
     je = JournalEntry(
         entry_date=entry_date,
         description=description[:512],
         source_type=source_type,
         source_id=source_id,
         idempotency_key=idempotency_key,
+        period_id=period.id,
         posted_at=datetime.now(UTC),
     )
     db.add(je)

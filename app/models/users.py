@@ -24,7 +24,7 @@ class User(Base):
     )
     status: Mapped[str] = mapped_column(
         String(32), default="active", nullable=False
-    )  # active, deactivated, suspended, banned
+    )  # pending_onboarding, active, deactivated, suspended, banned
     phone: Mapped[str] = mapped_column(String(64), nullable=True)
     preferred_language: Mapped[str] = mapped_column(String(16), default="en", nullable=True)
     created_at: Mapped[datetime] = mapped_column(

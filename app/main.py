@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import asyncio
 import uuid
 from contextlib import asynccontextmanager
 
@@ -19,6 +20,7 @@ from app.api.v1 import (
     accounting_router,
     audit_router,
     auth_router,
+    backups_router,
     branches_router,
     carts_router,
     catalog_router,
@@ -47,6 +49,7 @@ from app.api.v1 import (
 from app.core.config import settings
 from app.core.errors import AppError
 from app.db.database import close_db
+from app.services.backup_service import backup_scheduler_loop
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -68,6 +71,8 @@ async def lifespan(app: FastAPI):
     )
 
     # Startup (schema: use Alembic only; do not create_all on boot)
+    backup_stop_event = asyncio.Event()
+    backup_task: asyncio.Task | None = None
     try:
         async with AsyncSessionLocal() as db:
             await seed_permissions_and_roles(db)
@@ -76,10 +81,19 @@ async def lifespan(app: FastAPI):
                 await seed_default_admin(
                     db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD
                 )
+        if settings.BACKUP_ENABLED:
+            backup_task = asyncio.create_task(backup_scheduler_loop(backup_stop_event))
     except Exception:
         pass  # DB may not be migrated yet
     yield
     # Shutdown
+    backup_stop_event.set()
+    if backup_task:
+        backup_task.cancel()
+        try:
+            await backup_task
+        except asyncio.CancelledError:
+            pass
     await close_db()
 
 
@@ -111,6 +125,7 @@ app.add_middleware(
 
 # Include v1 routers
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
+app.include_router(backups_router, prefix="/api/v1", tags=["backups"])
 app.include_router(users_router, prefix="/api/v1", tags=["users"])
 app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
 app.include_router(audit_router, prefix="/api/v1", tags=["audit"])

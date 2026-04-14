@@ -14,6 +14,10 @@ from app.core.config import settings
 from app.db.database import Base
 from app.models import (  # noqa: F401
     AccountingSettings,
+    ApOpenItem,
+    ApPaymentApplication,
+    ArOpenItem,
+    ArPaymentApplication,
     AuditLog,
     Branch,
     BranchProductCost,
@@ -24,6 +28,7 @@ from app.models import (  # noqa: F401
     DiscountRule,
     DiscountUsageLog,
     Example,
+    FiscalPeriod,
     GlobalConfig,
     JournalEntry,
     JournalEntryLine,
@@ -47,6 +52,8 @@ from app.models import (  # noqa: F401
     TransferBatch,
     TransferLine,
     User,
+    UserOnboarding,
+    UserPermissionOverride,
     UserRole,
 )
 

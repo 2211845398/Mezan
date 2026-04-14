@@ -12,6 +12,7 @@ class Role(Base):
     __tablename__ = "roles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    code: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     description: Mapped[str] = mapped_column(String(512), nullable=True)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

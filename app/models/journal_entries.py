@@ -23,6 +23,12 @@ class JournalEntry(Base):
     source_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     source_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     idempotency_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    period_id: Mapped[int | None] = mapped_column(
+        ForeignKey("fiscal_periods.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    reverses_entry_id: Mapped[int | None] = mapped_column(
+        ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     posted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )

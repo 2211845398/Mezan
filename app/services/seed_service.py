@@ -84,16 +84,137 @@ DEFAULT_PERMISSIONS = [
     ("analytics", "read"),
     # Epic 5 Accounting
     ("accounting", "read"),
+    ("accounting", "create"),
+    ("accounting", "update"),
     ("suppliers", "read"),
     ("suppliers", "create"),
     ("suppliers", "update"),
+    # Epic 7/10/11
+    ("onboarding", "read"),
+    ("onboarding", "update"),
+    ("marketing_advisory", "run"),
+    ("backups", "read"),
+    ("backups", "run"),
 ]
 
 ADMIN_ROLE_NAME = "Admin"
+ADMIN_ROLE_CODE = "ADMIN"
+
+SYSTEM_ROLE_SPECS = [
+    {
+        "code": "OWNER",
+        "name": "Owner",
+        "description": "Executive full-access role",
+        "selectors": [("*", "*")],
+    },
+    {
+        "code": "IT_ADMIN",
+        "name": "IT Admin",
+        "description": "Identity, access, and system administration",
+        "selectors": [
+            ("users", "*"),
+            ("roles", "*"),
+            ("audit_log", "read"),
+            ("config", "*"),
+            ("branches", "*"),
+            ("terminals", "*"),
+            ("onboarding", "read"),
+            ("backups", "*"),
+        ],
+    },
+    {
+        "code": "HR_MANAGER",
+        "name": "HR Manager",
+        "description": "Staff onboarding and payroll approvals",
+        "selectors": [
+            ("employees", "*"),
+            ("payroll", "*"),
+            ("onboarding", "*"),
+        ],
+    },
+    {
+        "code": "ACCOUNTANT",
+        "name": "Accountant",
+        "description": "General ledger, periods, and supplier accounting",
+        "selectors": [
+            ("accounting", "*"),
+            ("suppliers", "*"),
+        ],
+    },
+    {
+        "code": "CASHIER",
+        "name": "Cashier",
+        "description": "Point-of-sale execution role",
+        "selectors": [
+            ("pos_shifts", "*"),
+            ("pos_carts", "*"),
+            ("pos_payments", "*"),
+            ("sales_invoices", "create"),
+            ("returns", "create"),
+            ("customers", "create"),
+        ],
+    },
+    {
+        "code": "WAREHOUSE_MANAGER",
+        "name": "Warehouse Manager",
+        "description": "Inventory, purchase, and goods receiving operations",
+        "selectors": [
+            ("catalog", "*"),
+            ("purchase_orders", "*"),
+            ("inventory", "*"),
+            ("invoice_scans", "*"),
+            ("stock_adjustments", "*"),
+        ],
+    },
+    {
+        "code": "MARKETING_MANAGER",
+        "name": "Marketing Manager",
+        "description": "Discount and advisory operations",
+        "selectors": [
+            ("discounts", "*"),
+            ("analytics", "read"),
+            ("loyalty", "read"),
+            ("marketing_advisory", "run"),
+        ],
+    },
+    {
+        "code": "FLOOR_STAFF",
+        "name": "Floor Staff",
+        "description": "Read-only floor operations role",
+        "selectors": [
+            ("catalog", "read"),
+            ("inventory", "read"),
+            ("customers", "create"),
+        ],
+    },
+]
+
+
+def _permission_ids_for_selectors(
+    permissions: list[Permission], selectors: list[tuple[str, str]]
+) -> set[int]:
+    ids: set[int] = set()
+    for perm in permissions:
+        for resource, action in selectors:
+            if (resource == "*" or perm.resource == resource) and (
+                action == "*" or perm.action == action
+            ):
+                ids.add(perm.id)
+                break
+    return ids
+
+
+async def _ensure_role_permissions(
+    db: AsyncSession, *, role: Role, target_permission_ids: set[int]
+) -> None:
+    result = await db.execute(select(RolePermission.permission_id).where(RolePermission.role_id == role.id))
+    assigned = {pid for (pid,) in result.all()}
+    for pid in target_permission_ids - assigned:
+        db.add(RolePermission(role_id=role.id, permission_id=pid))
 
 
 async def seed_permissions_and_roles(db: AsyncSession) -> None:
-    """Create missing default permissions and ensure Admin role has them."""
+    """Create missing permissions and ensure fixed system roles exist."""
     # Ensure permissions exist
     result = await db.execute(select(Permission))
     existing = {(p.resource, p.action): p for p in result.scalars().all()}
@@ -110,20 +231,44 @@ async def seed_permissions_and_roles(db: AsyncSession) -> None:
     result = await db.execute(select(Role).where(Role.name == ADMIN_ROLE_NAME))
     admin_role = result.scalar_one_or_none()
     if not admin_role:
-        admin_role = Role(name=ADMIN_ROLE_NAME, description="Full system access", is_system=True)
+        admin_role = Role(
+            code=ADMIN_ROLE_CODE,
+            name=ADMIN_ROLE_NAME,
+            description="Full system access",
+            is_system=True,
+        )
         db.add(admin_role)
         await db.flush()
+    elif admin_role.code != ADMIN_ROLE_CODE:
+        admin_role.code = ADMIN_ROLE_CODE
 
     # Ensure Admin role has all permissions
     result = await db.execute(select(Permission))
     all_perms = result.scalars().all()
     perm_ids = {p.id for p in all_perms}
-    rp_result = await db.execute(
-        select(RolePermission.permission_id).where(RolePermission.role_id == admin_role.id)
-    )
-    assigned = {pid for (pid,) in rp_result.all()}
-    for pid in perm_ids - assigned:
-        db.add(RolePermission(role_id=admin_role.id, permission_id=pid))
+    await _ensure_role_permissions(db, role=admin_role, target_permission_ids=perm_ids)
+
+    # Ensure immutable base roles are present and permissioned.
+    for spec in SYSTEM_ROLE_SPECS:
+        role_res = await db.execute(select(Role).where(Role.code == spec["code"]))
+        role = role_res.scalar_one_or_none()
+        if not role:
+            role = Role(
+                code=spec["code"],
+                name=spec["name"],
+                description=spec["description"],
+                is_system=True,
+            )
+            db.add(role)
+            await db.flush()
+        else:
+            role.name = spec["name"]
+            role.description = spec["description"]
+            role.is_system = True
+        target_permission_ids = _permission_ids_for_selectors(
+            all_perms, selectors=spec["selectors"]
+        )
+        await _ensure_role_permissions(db, role=role, target_permission_ids=target_permission_ids)
 
     await db.commit()
 
@@ -200,7 +345,7 @@ async def seed_default_admin(db: AsyncSession, email: str, password: str) -> Non
     result = await db.execute(select(User).limit(1))
     if result.scalar_one_or_none() is not None:
         return
-    result = await db.execute(select(Role).where(Role.name == ADMIN_ROLE_NAME))
+    result = await db.execute(select(Role).where(Role.code == ADMIN_ROLE_CODE))
     admin_role = result.scalar_one_or_none()
     if not admin_role:
         return
