@@ -112,6 +112,12 @@
 
 _(Epic-sized follow-ups can be tracked here when defined.)_
 
+See `docs/ANALYSIS.md` for the current strengths/weaknesses review vs Odoo and
+Manager.io and the prioritised follow-up list. The end-to-end "Happy User
+Journey" integration test — branch → user → catalog → purchase → goods receipt
+→ transfer → POS shift/cart/payment → sales finalize → trial balance — lives in
+`tests/test_happy_journey.py`.
+
 ---
 
 ## How to update this file
