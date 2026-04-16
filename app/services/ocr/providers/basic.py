@@ -20,8 +20,8 @@ def _extract_text_from_base64_image(data: str) -> tuple[str, str]:
     except Exception:
         return data, "plain_text_fallback"
     try:
-        from PIL import Image
         import pytesseract
+        from PIL import Image
 
         image = Image.open(BytesIO(image_bytes))
         text = pytesseract.image_to_string(image)

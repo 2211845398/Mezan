@@ -12,7 +12,11 @@ from app.models.branch import Branch
 from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
-from app.services.seed_service import ADMIN_ROLE_NAME, seed_accounting_defaults, seed_permissions_and_roles
+from app.services.seed_service import (
+    ADMIN_ROLE_NAME,
+    seed_accounting_defaults,
+    seed_permissions_and_roles,
+)
 from app.utils.security import create_access_token, hash_password
 
 

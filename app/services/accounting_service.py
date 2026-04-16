@@ -14,7 +14,6 @@ from app.models.accounting_settings import AccountingSettings
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.services.accounting_governance_service import ensure_period_open
 
-
 MONEY = Decimal("0.01")
 
 
@@ -112,9 +111,7 @@ async def post_journal_entry(
     return je
 
 
-async def get_journal_by_idempotency(
-    db: AsyncSession, idempotency_key: str
-) -> JournalEntry | None:
+async def get_journal_by_idempotency(db: AsyncSession, idempotency_key: str) -> JournalEntry | None:
     res = await db.execute(
         select(JournalEntry)
         .options(selectinload(JournalEntry.lines))

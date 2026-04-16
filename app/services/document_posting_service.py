@@ -39,9 +39,7 @@ async def post_sales_invoice_gl(
     # COGS extension
     cogs_total = Decimal("0")
     for ln in lines:
-        uc = await get_unit_cost_for_sale(
-            db, branch_id=branch_id, product_id=ln.product_id
-        )
+        uc = await get_unit_cost_for_sale(db, branch_id=branch_id, product_id=ln.product_id)
         cogs_total += _d(uc * Decimal(ln.qty))
 
     async def post_revenue_and_cash() -> None:

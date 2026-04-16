@@ -29,9 +29,11 @@ from app.services.accounting_governance_service import (
 )
 from app.services.financial_reports_service import (
     balance_sheet,
-    general_ledger_lines as gl_lines_svc,
     income_statement,
     trial_balance,
+)
+from app.services.financial_reports_service import (
+    general_ledger_lines as gl_lines_svc,
 )
 from app.services.subledger_service import (
     apply_ap_payment,
@@ -138,7 +140,9 @@ async def update_fiscal_period_status_endpoint(
     return FiscalPeriodRead.model_validate(row)
 
 
-@router.post("/accounting/journal-entries/{journal_entry_id}/reverse", response_model=JournalReversalResponse)
+@router.post(
+    "/accounting/journal-entries/{journal_entry_id}/reverse", response_model=JournalReversalResponse
+)
 async def reverse_journal_entry_endpoint(
     journal_entry_id: int,
     body: JournalReversalRequest,

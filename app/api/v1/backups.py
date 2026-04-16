@@ -23,7 +23,9 @@ async def get_backup_status(
     return BackupStatusRead.model_validate(read_backup_status())
 
 
-@router.post("/admin/backups/run", response_model=BackupStatusRead, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/admin/backups/run", response_model=BackupStatusRead, status_code=status.HTTP_202_ACCEPTED
+)
 async def run_backup(
     request: Request,
     db: AsyncSession = Depends(get_db),

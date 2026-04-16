@@ -12,8 +12,8 @@ from app.db.database import get_db
 from app.models.permission import Permission
 from app.models.role import Role
 from app.models.role_permission import RolePermission
-from app.models.user_role import UserRole
 from app.models.user_permission_override import UserPermissionOverride
+from app.models.user_role import UserRole
 from app.models.users import User
 from app.utils.security import decode_token
 
@@ -76,7 +76,8 @@ async def get_current_user_permissions(
     effective = set(role_result.all())
 
     override_result = await db.execute(
-        select(Permission.resource, Permission.action, UserPermissionOverride.effect).join(
+        select(Permission.resource, Permission.action, UserPermissionOverride.effect)
+        .join(
             UserPermissionOverride,
             UserPermissionOverride.permission_id == Permission.id,
         )

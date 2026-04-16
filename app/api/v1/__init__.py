@@ -11,8 +11,8 @@ from app.api.v1.config import router as config_router
 from app.api.v1.customers import router as customers_router
 from app.api.v1.discounts import router as discounts_router
 from app.api.v1.employees import router as employees_router
-from app.api.v1.executive_bi import router as executive_bi_router
 from app.api.v1.endpoints import router as users_router
+from app.api.v1.executive_bi import router as executive_bi_router
 from app.api.v1.health import router as health_router
 from app.api.v1.inventory_adjustments import router as inventory_adjustments_router
 from app.api.v1.invoice_scans import router as invoice_scans_router

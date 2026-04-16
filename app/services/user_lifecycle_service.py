@@ -110,7 +110,9 @@ async def complete_onboarding_task(
         employee.base_salary = task.salary_amount
 
     task.status = "completed"
-    task.assigned_hr_user_id = data.get("assigned_hr_user_id", task.assigned_hr_user_id) or actor_user_id
+    task.assigned_hr_user_id = (
+        data.get("assigned_hr_user_id", task.assigned_hr_user_id) or actor_user_id
+    )
     task.completed_at = datetime.now(UTC)
     user.status = "active"
     await db.flush()

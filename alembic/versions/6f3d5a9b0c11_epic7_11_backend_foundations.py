@@ -44,9 +44,16 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("user_id"),
     )
-    op.create_index(op.f("ix_user_onboardings_assigned_hr_user_id"), "user_onboardings", ["assigned_hr_user_id"], unique=False)
+    op.create_index(
+        op.f("ix_user_onboardings_assigned_hr_user_id"),
+        "user_onboardings",
+        ["assigned_hr_user_id"],
+        unique=False,
+    )
     op.create_index(op.f("ix_user_onboardings_id"), "user_onboardings", ["id"], unique=False)
-    op.create_index(op.f("ix_user_onboardings_user_id"), "user_onboardings", ["user_id"], unique=True)
+    op.create_index(
+        op.f("ix_user_onboardings_user_id"), "user_onboardings", ["user_id"], unique=True
+    )
 
     op.create_table(
         "user_permission_overrides",
@@ -70,10 +77,27 @@ def upgrade() -> None:
             name="uq_user_permission_override_scope",
         ),
     )
-    op.create_index(op.f("ix_user_permission_overrides_branch_id"), "user_permission_overrides", ["branch_id"], unique=False)
-    op.create_index(op.f("ix_user_permission_overrides_id"), "user_permission_overrides", ["id"], unique=False)
-    op.create_index(op.f("ix_user_permission_overrides_permission_id"), "user_permission_overrides", ["permission_id"], unique=False)
-    op.create_index(op.f("ix_user_permission_overrides_user_id"), "user_permission_overrides", ["user_id"], unique=False)
+    op.create_index(
+        op.f("ix_user_permission_overrides_branch_id"),
+        "user_permission_overrides",
+        ["branch_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_user_permission_overrides_id"), "user_permission_overrides", ["id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_user_permission_overrides_permission_id"),
+        "user_permission_overrides",
+        ["permission_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_user_permission_overrides_user_id"),
+        "user_permission_overrides",
+        ["user_id"],
+        unique=False,
+    )
 
     op.add_column("payment_receipts", sa.Column("card_last4", sa.String(length=4), nullable=True))
 
@@ -94,12 +118,21 @@ def upgrade() -> None:
         sa.UniqueConstraint("period_start"),
     )
     op.create_index(op.f("ix_fiscal_periods_id"), "fiscal_periods", ["id"], unique=False)
-    op.create_index(op.f("ix_fiscal_periods_period_key"), "fiscal_periods", ["period_key"], unique=True)
+    op.create_index(
+        op.f("ix_fiscal_periods_period_key"), "fiscal_periods", ["period_key"], unique=True
+    )
 
     op.add_column("journal_entries", sa.Column("period_id", sa.Integer(), nullable=True))
     op.add_column("journal_entries", sa.Column("reverses_entry_id", sa.Integer(), nullable=True))
-    op.create_index(op.f("ix_journal_entries_period_id"), "journal_entries", ["period_id"], unique=False)
-    op.create_index(op.f("ix_journal_entries_reverses_entry_id"), "journal_entries", ["reverses_entry_id"], unique=False)
+    op.create_index(
+        op.f("ix_journal_entries_period_id"), "journal_entries", ["period_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_journal_entries_reverses_entry_id"),
+        "journal_entries",
+        ["reverses_entry_id"],
+        unique=False,
+    )
     op.create_foreign_key(
         "fk_journal_entries_period_id",
         "journal_entries",
@@ -137,12 +170,20 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["customer_id"], ["customer_profiles.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_ar_open_items_branch_id"), "ar_open_items", ["branch_id"], unique=False)
-    op.create_index(op.f("ix_ar_open_items_customer_id"), "ar_open_items", ["customer_id"], unique=False)
+    op.create_index(
+        op.f("ix_ar_open_items_branch_id"), "ar_open_items", ["branch_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_ar_open_items_customer_id"), "ar_open_items", ["customer_id"], unique=False
+    )
     op.create_index(op.f("ix_ar_open_items_due_date"), "ar_open_items", ["due_date"], unique=False)
     op.create_index(op.f("ix_ar_open_items_id"), "ar_open_items", ["id"], unique=False)
-    op.create_index(op.f("ix_ar_open_items_source_id"), "ar_open_items", ["source_id"], unique=False)
-    op.create_index(op.f("ix_ar_open_items_source_type"), "ar_open_items", ["source_type"], unique=False)
+    op.create_index(
+        op.f("ix_ar_open_items_source_id"), "ar_open_items", ["source_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_ar_open_items_source_type"), "ar_open_items", ["source_type"], unique=False
+    )
 
     op.create_table(
         "ap_open_items",
@@ -164,12 +205,20 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["supplier_id"], ["suppliers.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_ap_open_items_branch_id"), "ap_open_items", ["branch_id"], unique=False)
+    op.create_index(
+        op.f("ix_ap_open_items_branch_id"), "ap_open_items", ["branch_id"], unique=False
+    )
     op.create_index(op.f("ix_ap_open_items_due_date"), "ap_open_items", ["due_date"], unique=False)
     op.create_index(op.f("ix_ap_open_items_id"), "ap_open_items", ["id"], unique=False)
-    op.create_index(op.f("ix_ap_open_items_source_id"), "ap_open_items", ["source_id"], unique=False)
-    op.create_index(op.f("ix_ap_open_items_source_type"), "ap_open_items", ["source_type"], unique=False)
-    op.create_index(op.f("ix_ap_open_items_supplier_id"), "ap_open_items", ["supplier_id"], unique=False)
+    op.create_index(
+        op.f("ix_ap_open_items_source_id"), "ap_open_items", ["source_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_ap_open_items_source_type"), "ap_open_items", ["source_type"], unique=False
+    )
+    op.create_index(
+        op.f("ix_ap_open_items_supplier_id"), "ap_open_items", ["supplier_id"], unique=False
+    )
 
     op.create_table(
         "ar_payment_applications",
@@ -184,8 +233,15 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_ar_payment_applications_ar_open_item_id"), "ar_payment_applications", ["ar_open_item_id"], unique=False)
-    op.create_index(op.f("ix_ar_payment_applications_id"), "ar_payment_applications", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_ar_payment_applications_ar_open_item_id"),
+        "ar_payment_applications",
+        ["ar_open_item_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_ar_payment_applications_id"), "ar_payment_applications", ["id"], unique=False
+    )
 
     op.create_table(
         "ap_payment_applications",
@@ -200,17 +256,28 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["created_by_user_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_ap_payment_applications_ap_open_item_id"), "ap_payment_applications", ["ap_open_item_id"], unique=False)
-    op.create_index(op.f("ix_ap_payment_applications_id"), "ap_payment_applications", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_ap_payment_applications_ap_open_item_id"),
+        "ap_payment_applications",
+        ["ap_open_item_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_ap_payment_applications_id"), "ap_payment_applications", ["id"], unique=False
+    )
 
 
 def downgrade() -> None:
     op.drop_index(op.f("ix_ap_payment_applications_id"), table_name="ap_payment_applications")
-    op.drop_index(op.f("ix_ap_payment_applications_ap_open_item_id"), table_name="ap_payment_applications")
+    op.drop_index(
+        op.f("ix_ap_payment_applications_ap_open_item_id"), table_name="ap_payment_applications"
+    )
     op.drop_table("ap_payment_applications")
 
     op.drop_index(op.f("ix_ar_payment_applications_id"), table_name="ar_payment_applications")
-    op.drop_index(op.f("ix_ar_payment_applications_ar_open_item_id"), table_name="ar_payment_applications")
+    op.drop_index(
+        op.f("ix_ar_payment_applications_ar_open_item_id"), table_name="ar_payment_applications"
+    )
     op.drop_table("ar_payment_applications")
 
     op.drop_index(op.f("ix_ap_open_items_supplier_id"), table_name="ap_open_items")
@@ -229,7 +296,9 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_ar_open_items_branch_id"), table_name="ar_open_items")
     op.drop_table("ar_open_items")
 
-    op.drop_constraint("fk_journal_entries_reverses_entry_id", "journal_entries", type_="foreignkey")
+    op.drop_constraint(
+        "fk_journal_entries_reverses_entry_id", "journal_entries", type_="foreignkey"
+    )
     op.drop_constraint("fk_journal_entries_period_id", "journal_entries", type_="foreignkey")
     op.drop_index(op.f("ix_journal_entries_reverses_entry_id"), table_name="journal_entries")
     op.drop_index(op.f("ix_journal_entries_period_id"), table_name="journal_entries")
@@ -242,10 +311,16 @@ def downgrade() -> None:
 
     op.drop_column("payment_receipts", "card_last4")
 
-    op.drop_index(op.f("ix_user_permission_overrides_user_id"), table_name="user_permission_overrides")
-    op.drop_index(op.f("ix_user_permission_overrides_permission_id"), table_name="user_permission_overrides")
+    op.drop_index(
+        op.f("ix_user_permission_overrides_user_id"), table_name="user_permission_overrides"
+    )
+    op.drop_index(
+        op.f("ix_user_permission_overrides_permission_id"), table_name="user_permission_overrides"
+    )
     op.drop_index(op.f("ix_user_permission_overrides_id"), table_name="user_permission_overrides")
-    op.drop_index(op.f("ix_user_permission_overrides_branch_id"), table_name="user_permission_overrides")
+    op.drop_index(
+        op.f("ix_user_permission_overrides_branch_id"), table_name="user_permission_overrides"
+    )
     op.drop_table("user_permission_overrides")
 
     op.drop_index(op.f("ix_user_onboardings_user_id"), table_name="user_onboardings")

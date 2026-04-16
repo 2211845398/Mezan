@@ -247,7 +247,9 @@ async def complete_onboarding(
     return UserOnboardingRead.model_validate(row)
 
 
-@router.get("/users/{user_id}/permission-overrides", response_model=list[UserPermissionOverrideRead])
+@router.get(
+    "/users/{user_id}/permission-overrides", response_model=list[UserPermissionOverrideRead]
+)
 async def list_permission_overrides(
     user_id: int,
     db: AsyncSession = Depends(get_db),
@@ -289,7 +291,9 @@ async def upsert_permission_override_endpoint(
     return UserPermissionOverrideRead.model_validate(row)
 
 
-@router.delete("/users/{user_id}/permission-overrides/{override_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/users/{user_id}/permission-overrides/{override_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_permission_override_endpoint(
     user_id: int,
     override_id: int,

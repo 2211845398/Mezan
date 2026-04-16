@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError, ValidationError
 from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import CreditNote, ExchangeLink, SalesReturn, SalesReturnLine
-from decimal import Decimal
-
 from app.services.document_posting_service import post_sales_return_gl
 from app.services.inventory_service import apply_stock_movement
 

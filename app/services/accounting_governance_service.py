@@ -97,13 +97,17 @@ async def reverse_journal_entry(
     )
     original = original_result.scalar_one_or_none()
     if not original:
-        raise NotFoundError("Journal entry not found", details={"journal_entry_id": journal_entry_id})
+        raise NotFoundError(
+            "Journal entry not found", details={"journal_entry_id": journal_entry_id}
+        )
 
     existing = await db.execute(
         select(JournalEntry).where(JournalEntry.reverses_entry_id == journal_entry_id)
     )
     if existing.scalar_one_or_none():
-        raise ValidationError("Journal entry already reversed", details={"journal_entry_id": journal_entry_id})
+        raise ValidationError(
+            "Journal entry already reversed", details={"journal_entry_id": journal_entry_id}
+        )
 
     posting_date = reversal_date or date.today()
     period = await ensure_period_open(db, entry_date=posting_date)

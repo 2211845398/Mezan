@@ -11,9 +11,7 @@ from app.models.branch_product_costs import BranchProductCost
 from app.models.product import Product
 
 
-async def get_unit_cost_for_sale(
-    db: AsyncSession, *, branch_id: int, product_id: int
-) -> Decimal:
+async def get_unit_cost_for_sale(db: AsyncSession, *, branch_id: int, product_id: int) -> Decimal:
     """Return WAVG from branch_product_costs, else product.standard_cost, else 0."""
     res = await db.execute(
         select(BranchProductCost).where(

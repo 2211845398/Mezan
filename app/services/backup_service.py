@@ -11,7 +11,6 @@ from pathlib import Path
 
 from app.core.config import settings
 
-
 STATUS_FILE = "last_backup_status.json"
 
 

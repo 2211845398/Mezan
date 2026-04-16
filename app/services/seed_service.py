@@ -207,7 +207,9 @@ def _permission_ids_for_selectors(
 async def _ensure_role_permissions(
     db: AsyncSession, *, role: Role, target_permission_ids: set[int]
 ) -> None:
-    result = await db.execute(select(RolePermission.permission_id).where(RolePermission.role_id == role.id))
+    result = await db.execute(
+        select(RolePermission.permission_id).where(RolePermission.role_id == role.id)
+    )
     assigned = {pid for (pid,) in result.all()}
     for pid in target_permission_ids - assigned:
         db.add(RolePermission(role_id=role.id, permission_id=pid))

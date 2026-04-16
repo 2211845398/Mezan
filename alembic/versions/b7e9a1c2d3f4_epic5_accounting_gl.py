@@ -56,10 +56,14 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["parent_id"], ["chart_accounts.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_chart_accounts_account_type"), "chart_accounts", ["account_type"], unique=False)
+    op.create_index(
+        op.f("ix_chart_accounts_account_type"), "chart_accounts", ["account_type"], unique=False
+    )
     op.create_index(op.f("ix_chart_accounts_code"), "chart_accounts", ["code"], unique=True)
     op.create_index(op.f("ix_chart_accounts_id"), "chart_accounts", ["id"], unique=False)
-    op.create_index(op.f("ix_chart_accounts_parent_id"), "chart_accounts", ["parent_id"], unique=False)
+    op.create_index(
+        op.f("ix_chart_accounts_parent_id"), "chart_accounts", ["parent_id"], unique=False
+    )
 
     op.create_table(
         "accounting_settings",
@@ -75,10 +79,18 @@ def upgrade() -> None:
         sa.Column("default_payroll_liability_account_id", sa.Integer(), nullable=False),
         sa.Column("default_payroll_deductions_payable_account_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(["base_currency_id"], ["currencies.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["default_ap_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["default_ar_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["default_cash_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["default_cogs_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["default_ap_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
+            ["default_ar_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
+            ["default_cash_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
+            ["default_cogs_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"
+        ),
         sa.ForeignKeyConstraint(
             ["default_inventory_account_id"], ["chart_accounts.id"], ondelete="RESTRICT"
         ),
@@ -108,7 +120,9 @@ def upgrade() -> None:
         sa.Column("payables_account_id", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["currency_id"], ["currencies.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["payables_account_id"], ["chart_accounts.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(
+            ["payables_account_id"], ["chart_accounts.id"], ondelete="SET NULL"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_suppliers_code"), "suppliers", ["code"], unique=True)
@@ -131,9 +145,13 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("idempotency_key"),
     )
-    op.create_index(op.f("ix_journal_entries_entry_date"), "journal_entries", ["entry_date"], unique=False)
+    op.create_index(
+        op.f("ix_journal_entries_entry_date"), "journal_entries", ["entry_date"], unique=False
+    )
     op.create_index(op.f("ix_journal_entries_id"), "journal_entries", ["id"], unique=False)
-    op.create_index(op.f("ix_journal_entries_source_id"), "journal_entries", ["source_id"], unique=False)
+    op.create_index(
+        op.f("ix_journal_entries_source_id"), "journal_entries", ["source_id"], unique=False
+    )
     op.create_index(
         op.f("ix_journal_entries_source_type"), "journal_entries", ["source_type"], unique=False
     )
@@ -154,14 +172,15 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        op.f("ix_journal_entry_lines_account_id"), "journal_entry_lines", ["account_id"], unique=False
+        op.f("ix_journal_entry_lines_account_id"),
+        "journal_entry_lines",
+        ["account_id"],
+        unique=False,
     )
     op.create_index(
         op.f("ix_journal_entry_lines_branch_id"), "journal_entry_lines", ["branch_id"], unique=False
     )
-    op.create_index(
-        op.f("ix_journal_entry_lines_id"), "journal_entry_lines", ["id"], unique=False
-    )
+    op.create_index(op.f("ix_journal_entry_lines_id"), "journal_entry_lines", ["id"], unique=False)
     op.create_index(
         op.f("ix_journal_entry_lines_journal_entry_id"),
         "journal_entry_lines",
@@ -179,16 +198,24 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["branch_id"], ["branches.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["product_id"], ["products.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("branch_id", "product_id", name="uq_branch_product_costs_branch_product"),
+        sa.UniqueConstraint(
+            "branch_id", "product_id", name="uq_branch_product_costs_branch_product"
+        ),
     )
     op.create_index(
-        op.f("ix_branch_product_costs_branch_id"), "branch_product_costs", ["branch_id"], unique=False
+        op.f("ix_branch_product_costs_branch_id"),
+        "branch_product_costs",
+        ["branch_id"],
+        unique=False,
     )
     op.create_index(
         op.f("ix_branch_product_costs_id"), "branch_product_costs", ["id"], unique=False
     )
     op.create_index(
-        op.f("ix_branch_product_costs_product_id"), "branch_product_costs", ["product_id"], unique=False
+        op.f("ix_branch_product_costs_product_id"),
+        "branch_product_costs",
+        ["product_id"],
+        unique=False,
     )
 
     op.add_column(
@@ -244,7 +271,9 @@ def upgrade() -> None:
         ["id"],
         ondelete="SET NULL",
     )
-    op.create_index(op.f("ix_goods_receipts_supplier_id"), "goods_receipts", ["supplier_id"], unique=False)
+    op.create_index(
+        op.f("ix_goods_receipts_supplier_id"), "goods_receipts", ["supplier_id"], unique=False
+    )
 
     op.add_column(
         "purchase_orders",
@@ -258,7 +287,9 @@ def upgrade() -> None:
         ["id"],
         ondelete="SET NULL",
     )
-    op.create_index(op.f("ix_purchase_orders_supplier_id"), "purchase_orders", ["supplier_id"], unique=False)
+    op.create_index(
+        op.f("ix_purchase_orders_supplier_id"), "purchase_orders", ["supplier_id"], unique=False
+    )
 
     bind = op.get_bind()
     bind.execute(
@@ -327,10 +358,16 @@ def downgrade() -> None:
     op.drop_constraint("fk_goods_receipts_supplier_id", "goods_receipts", type_="foreignkey")
     op.drop_column("goods_receipts", "supplier_id")
 
-    op.drop_index(op.f("ix_customer_profiles_receivables_account_id"), table_name="customer_profiles")
+    op.drop_index(
+        op.f("ix_customer_profiles_receivables_account_id"), table_name="customer_profiles"
+    )
     op.drop_index(op.f("ix_customer_profiles_default_currency_id"), table_name="customer_profiles")
-    op.drop_constraint("fk_customer_profiles_receivables_account", "customer_profiles", type_="foreignkey")
-    op.drop_constraint("fk_customer_profiles_default_currency", "customer_profiles", type_="foreignkey")
+    op.drop_constraint(
+        "fk_customer_profiles_receivables_account", "customer_profiles", type_="foreignkey"
+    )
+    op.drop_constraint(
+        "fk_customer_profiles_default_currency", "customer_profiles", type_="foreignkey"
+    )
     op.drop_column("customer_profiles", "receivables_account_id")
     op.drop_column("customer_profiles", "default_currency_id")
 

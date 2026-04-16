@@ -7,7 +7,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from pydantic import BaseModel, ValidationError as PydanticValidationError
+from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,7 +73,9 @@ async def _get_frequent_cobought_pairs(
     ]
 
 
-def _build_fallback_suggestions(facts: dict[str, Any], max_suggestions: int) -> list[MarketingSuggestion]:
+def _build_fallback_suggestions(
+    facts: dict[str, Any], max_suggestions: int
+) -> list[MarketingSuggestion]:
     suggestions: list[MarketingSuggestion] = []
     expiring = facts.get("expiring_inventory") or []
     if expiring:
@@ -204,12 +207,16 @@ async def generate_marketing_advisory(
     db: AsyncSession, *, payload: MarketingAdvisoryRequest
 ) -> MarketingAdvisoryResponse:
     top_products = await get_top_selling_products(db, limit=payload.top_products_limit)
-    slow_products = await get_slow_moving_products(db, threshold_qty=5, limit=payload.top_products_limit)
+    slow_products = await get_slow_moving_products(
+        db, threshold_qty=5, limit=payload.top_products_limit
+    )
     expiring_inventory = await get_inventory_alerts(db, days_ahead=payload.days_ahead)
     co_bought_pairs = await _get_frequent_cobought_pairs(db, limit=payload.top_products_limit)
 
     if payload.branch_id is not None:
-        expiring_inventory = [x for x in expiring_inventory if x.get("branch_id") == payload.branch_id]
+        expiring_inventory = [
+            x for x in expiring_inventory if x.get("branch_id") == payload.branch_id
+        ]
 
     facts = {
         "branch_id": payload.branch_id,
