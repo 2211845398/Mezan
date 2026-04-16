@@ -67,25 +67,40 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest.fixture()
 async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
-    # Ensure permissions + Admin role exist
+    # Ensure permissions + Admin role exist (idempotent).
     await seed_permissions_and_roles(db_session)
     await seed_accounting_defaults(db_session)
 
-    # Create a branch for inventory tests
-    wh = Branch(name="Main Warehouse", code="WH1", address=None, timezone="UTC", is_active=True)
-    store = Branch(name="Store A", code="ST1", address=None, timezone="UTC", is_active=True)
-    db_session.add_all([wh, store])
+    # Ensure canonical warehouse/store branches exist. Because the DB schema is
+    # shared across the pytest session, re-use existing rows if a previous test
+    # already created them (keeps branch IDs stable at 1/2 and avoids unique
+    # constraint failures when multiple tests call this fixture).
+    existing_wh = await db_session.execute(select(Branch).where(Branch.code == "WH1"))
+    if existing_wh.scalar_one_or_none() is None:
+        db_session.add(
+            Branch(name="Main Warehouse", code="WH1", address=None, timezone="UTC", is_active=True)
+        )
+    existing_store = await db_session.execute(select(Branch).where(Branch.code == "ST1"))
+    if existing_store.scalar_one_or_none() is None:
+        db_session.add(
+            Branch(name="Store A", code="ST1", address=None, timezone="UTC", is_active=True)
+        )
     await db_session.flush()
 
-    user = User(
-        email="admin@example.com",
-        full_name="Admin",
-        password_hash=hash_password("password123"),
-        status="active",
-        branch_id=None,
-    )
-    db_session.add(user)
-    await db_session.flush()
+    # Reuse the admin user across tests so that the Bearer token is always valid
+    # and unique constraints on email are not violated.
+    user_result = await db_session.execute(select(User).where(User.email == "admin@example.com"))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        user = User(
+            email="admin@example.com",
+            full_name="Admin",
+            password_hash=hash_password("password123"),
+            status="active",
+            branch_id=None,
+        )
+        db_session.add(user)
+        await db_session.flush()
 
     role_result = await db_session.execute(select(Role).where(Role.name == ADMIN_ROLE_NAME))
     role = role_result.scalar_one_or_none()
@@ -95,7 +110,11 @@ async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
         db_session.add(role)
         await db_session.flush()
 
-    db_session.add(UserRole(user_id=user.id, role_id=role.id, branch_id=None))
+    has_role = await db_session.execute(
+        select(UserRole).where(UserRole.user_id == user.id, UserRole.role_id == role.id)
+    )
+    if has_role.scalar_one_or_none() is None:
+        db_session.add(UserRole(user_id=user.id, role_id=role.id, branch_id=None))
     await db_session.commit()
 
     token = create_access_token(user.id)
