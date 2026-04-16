@@ -68,7 +68,18 @@ async def create_role(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Role name already exists"
         )
-    role = Role(name=body.name, description=body.description, is_system=False)
+    if body.code:
+        code_check = await db.execute(select(Role).where(Role.code == body.code.upper()))
+        if code_check.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Role code already exists"
+            )
+    role = Role(
+        code=body.code.upper() if body.code else None,
+        name=body.name,
+        description=body.description,
+        is_system=False,
+    )
     db.add(role)
     await db.commit()
     await db.refresh(role)

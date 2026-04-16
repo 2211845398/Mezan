@@ -4,7 +4,7 @@
 
 ---
 
-## Completed epics (0–4, 6)
+## Completed epics (0–6)
 
 ### Epic 0: Infrastructure & DevOps
 
@@ -46,10 +46,53 @@
 - [x] **4.3** — Payroll calculation (hours, rates, deductions)
 - [x] **4.4** — Bank-ready salary CSV export
 
+### Epic 5: Financial Accounting & Executive BI
+
+- [x] **5.1** — Chart of accounts, journal entries/lines with mandatory `branch_id`, source linkage, idempotent posting
+- [x] **5.2** — Double-entry validation (balanced batches) in `accounting_service.post_journal_entry`
+- [x] **5.3** — Automated GL posting from POS sales, returns, goods receipts, approved payslips (`document_posting_service`)
+- [x] **5.4** — Weighted-average inventory cost (`branch_product_costs`) + product `standard_cost` fallback; FIFO/LIFO not implemented
+- [x] **5.5** — Financial report read APIs: trial balance, general ledger, income statement, balance sheet
+- [x] **5.6** — Executive BI KPI endpoint (`/api/v1/bi/executive-kpis`) from sales invoices
+
 ### Epic 6: CRM & Marketing
 
 - [x] **6.1** — Loyalty Points engine (Accrual rules, manual adjustments)
 - [x] **6.2** — Discount Rule Engine (Percentage, fixed, buy-X-get-Y)
+
+### Epic 7: Identity Lifecycle, Fixed Roles, and Security
+
+- [x] **7.1** — IT→HR user onboarding workflow (`user_onboardings`, pending queue, completion flow)
+- [x] **7.2** — Fixed base role catalog with role codes and system-seeded permissions
+- [x] **7.3** — Per-user permission overrides (allow/deny) merged into effective RBAC
+- [x] **7.4** — Session idle timeout enforcement on refresh token lifecycle
+- [x] **7.5** — Native password reset hardening (single-use token invalidation)
+
+### Epic 8: OCR Provider and Deterministic Invoice Parsing
+
+- [x] **8.1** — Provider registry with configurable default OCR provider
+- [x] **8.2** — `BasicOcrProvider` (QR JSON/key-value parsing + optional Tesseract image OCR)
+- [x] **8.3** — Deterministic `parse_extracted_invoice` normalization for manual validation
+
+### Epic 9: In-Store Payment Recording
+
+- [x] **9.1** — Internal `InStoreLedgerProvider` (no external gateway dependency)
+- [x] **9.2** — Strict payment method validation (`cash` / `card` / `other`) with card redaction fields
+- [x] **9.3** — Configurable default payment provider for POS intents
+
+### Epic 10: Fiscal Controls and Subledger Accounting
+
+- [x] **10.1** — Fiscal periods (`fiscal_periods`) with open/close controls and posting guard
+- [x] **10.2** — Journal reversal workflow with source linkage (`reverses_entry_id`)
+- [x] **10.3** — AR/AP open items and payment application subledgers with aging-oriented fields
+- [x] **10.4** — Extended accounting APIs for period lock, reversals, and AR/AP operations
+
+### Epic 11: AI Advisory and Automated Backups
+
+- [x] **11.1** — Deterministic-facts marketing advisory service (SQL facts → prompt → validated JSON)
+- [x] **11.2** — Advisory API endpoint (`/api/v1/marketing/advisory/suggestions`) with RBAC
+- [x] **11.3** — Automated backup service (`pg_dump`, retention, optional S3) + admin status/run APIs
+- [x] **11.4** — App startup background scheduler hook for periodic backups
 
 ---
 
@@ -57,24 +100,17 @@
 
 | Area | Status |
 |------|--------|
-| **OCR / invoice parsing** | `FakeOcrProvider` + stub `parse_extracted_invoice`; no production OCR/QR or reliable field extraction |
-| **Payments** | `MockPaymentProvider` only; no Stripe/Square (or similar); PCI scope not implemented |
 | **SSO** | FR mentions SSO; verify and implement OIDC/SAML when required |
-| **Automated DB backups** | FR mentions manual + scheduled backups; not tracked as implemented in app layer |
-| **Session timeout / password reset** | Confirm parity with Module 1 FRs (email/phone flows) |
+| **Loyalty vs GL** | Loyalty points are not a balance-sheet liability unless explicitly modeled and posted |
+| **FIFO / LIFO** | Only weighted-average + standard cost; no cost layers |
+| **Multi-currency GL** | Currencies + supplier currency exist; no FX revaluation or translated statements |
+| **Cash flow statement** | Not built as a dedicated report (balance sheet + income statement APIs exist) |
 
 ---
 
 ## Future backlog
 
-### Epic 5: Financial Accounting & Executive BI
-
-- [ ] **5.1** — Design chart of accounts and general ledger schema
-- [ ] **5.2** — Double-entry validation middleware (debits == credits)
-- [ ] **5.3** — Automated transaction linking from POS/PO to ledger
-- [ ] **5.4** — Inventory valuation algorithms (FIFO, LIFO, Average Cost)
-- [ ] **5.5** — Financial report generators (income statement, balance sheet)
-- [ ] **5.6** — Executive BI aggregation APIs (sales, shrinkage, KPI engine)
+_(Epic-sized follow-ups can be tracked here when defined.)_
 
 ---
 

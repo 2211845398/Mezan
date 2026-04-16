@@ -34,7 +34,12 @@ async def create_invoice_scan_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("invoice_scans", "create"),
 ) -> InvoiceScanRead:
-    scan = await create_scan(db, source_type=body.source_type, data=body.data)
+    scan = await create_scan(
+        db,
+        source_type=body.source_type,
+        data=body.data,
+        provider_name=body.provider,
+    )
     await audit_service.log(
         session=db,
         action="invoice_scan.created",

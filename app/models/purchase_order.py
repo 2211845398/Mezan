@@ -15,6 +15,9 @@ class PurchaseOrder(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     supplier_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    supplier_id: Mapped[int | None] = mapped_column(
+        ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(
         String(32), default="draft", nullable=False
     )  # draft, sent, tracked

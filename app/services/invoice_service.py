@@ -12,6 +12,7 @@ from app.core.errors import ConflictError, NotFoundError, StateTransitionError
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
+from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.inventory_service import apply_stock_movement
 
 
@@ -90,6 +91,10 @@ async def finalize_paid_cart(
             reference=payment_intent.external_id,
         )
     )
+    sil_res = await db.execute(
+        select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
+    )
+    await post_sales_invoice_gl(db, invoice=invoice, lines=list(sil_res.scalars().all()))
     cart.status = "paid"
     cart.paid_at = datetime.now(UTC)
     await db.commit()

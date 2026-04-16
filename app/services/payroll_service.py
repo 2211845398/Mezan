@@ -15,6 +15,8 @@ from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.attendance_log import AttendanceLog
 from app.models.employee_profile import EmployeeProfile
 from app.models.payslip import Payslip, PayslipStatus
+from app.models.users import User
+from app.services.document_posting_service import post_payslip_approved_gl
 
 MONEY_Q = Decimal("0.01")
 
@@ -178,6 +180,14 @@ async def approve_payslip(db: AsyncSession, *, payslip_id: int, approver_user_id
     payslip.status = PayslipStatus.APPROVED
     payslip.approved_by_user_id = approver_user_id
     payslip.approved_at = datetime.now(UTC)
+    await db.flush()
+    br = await db.execute(
+        select(User.branch_id)
+        .join(EmployeeProfile, EmployeeProfile.user_id == User.id)
+        .where(EmployeeProfile.id == payslip.employee_profile_id)
+    )
+    branch_id = br.scalar_one_or_none()
+    await post_payslip_approved_gl(db, payslip=payslip, branch_id=branch_id or 1)
     await db.flush()
     await db.refresh(payslip)
     return payslip

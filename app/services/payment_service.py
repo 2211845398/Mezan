@@ -5,21 +5,25 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.models.pos_cart import PosCart
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.services.payments.providers.base import PaymentProvider
+from app.services.payments.providers.in_store import InStoreLedgerProvider
 from app.services.payments.providers.mock import MockPaymentProvider
 
 
 def get_provider(provider_name: str) -> PaymentProvider:
+    if provider_name == "in_store":
+        return InStoreLedgerProvider()
     if provider_name == "mock":
         return MockPaymentProvider()
     raise ValidationError("Unsupported payment provider", details={"provider": provider_name})
 
 
 async def create_payment_intent(
-    db: AsyncSession, *, cart_id: int, provider_name: str, currency: str
+    db: AsyncSession, *, cart_id: int, provider_name: str | None, currency: str
 ) -> PaymentIntent:
     c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
     cart = c_res.scalar_one_or_none()
@@ -27,7 +31,8 @@ async def create_payment_intent(
         raise NotFoundError("Cart not found")
     if cart.status not in {"active", "checkout_locked"}:
         raise ValidationError("Cart cannot be paid in current status")
-    provider = get_provider(provider_name)
+    selected_provider = (provider_name or settings.POS_DEFAULT_PAYMENT_PROVIDER).lower()
+    provider = get_provider(selected_provider)
     created = await provider.create_intent(amount=float(cart.total), currency=currency)
     intent = PaymentIntent(
         cart_id=cart.id,
@@ -50,7 +55,15 @@ async def capture_payment(
     idempotency_key: str,
     method: str,
     reference: str | None,
+    card_last4: str | None,
 ) -> PaymentIntent:
+    if method not in {"cash", "card", "other"}:
+        raise ValidationError("Unsupported payment method", details={"method": method})
+    if method == "card" and not card_last4:
+        raise ValidationError("card_last4 is required for card payments")
+    if method != "card" and card_last4:
+        raise ValidationError("card_last4 is only allowed for card payments")
+
     existing = await db.execute(
         select(PaymentAttempt).where(PaymentAttempt.idempotency_key == idempotency_key)
     )
@@ -87,6 +100,7 @@ async def capture_payment(
                 amount=float(intent.amount),
                 method=method,
                 reference=reference,
+                card_last4=card_last4,
                 redacted_payload={"external_id": intent.external_id, "provider": intent.provider},
             )
         )

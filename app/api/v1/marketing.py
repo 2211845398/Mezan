@@ -18,6 +18,7 @@ from app.schemas.analytics import (
     TopSellingProductsResponse,
 )
 from app.schemas.discount import DiscountRuleRead
+from app.schemas.marketing_advisory import MarketingAdvisoryRequest, MarketingAdvisoryResponse
 from app.services import audit_service
 from app.services.analytics_service import (
     get_inventory_alerts,
@@ -26,6 +27,7 @@ from app.services.analytics_service import (
     get_top_selling_products,
 )
 from app.services.discount_service import create_ai_draft_discount
+from app.services.marketing_advisory_service import generate_marketing_advisory
 
 router = APIRouter()
 
@@ -123,3 +125,16 @@ async def ai_auto_discount_endpoint(
     return AIAutoDiscountResponse(
         discount_rule=DiscountRuleRead.model_validate(rule),
     )
+
+
+@router.post(
+    "/marketing/advisory/suggestions",
+    response_model=MarketingAdvisoryResponse,
+)
+async def marketing_advisory_endpoint(
+    body: MarketingAdvisoryRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("marketing_advisory", "run"),
+) -> MarketingAdvisoryResponse:
+    return await generate_marketing_advisory(db, payload=body)

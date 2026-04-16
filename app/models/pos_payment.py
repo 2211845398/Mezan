@@ -59,6 +59,7 @@ class PaymentReceipt(Base):
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     method: Mapped[str] = mapped_column(String(32), nullable=False)
     reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    card_last4: Mapped[str | None] = mapped_column(String(4), nullable=True)
     redacted_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default={})
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False

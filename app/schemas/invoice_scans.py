@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 class InvoiceScanCreate(BaseModel):
     source_type: str = Field(pattern="^(qr|image)$")
     data: str = Field(min_length=1)
+    provider: str | None = None
 
 
 class InvoiceScanRead(BaseModel):

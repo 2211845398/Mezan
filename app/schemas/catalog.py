@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -79,6 +80,7 @@ class ProductBase(BaseModel):
     barcode: str | None = Field(default=None, max_length=128)
     status: str = Field(default="active", max_length=32)
     attributes: dict[str, Any] = Field(default_factory=dict)
+    standard_cost: Decimal | None = None
 
 
 class ProductCreate(ProductBase):
@@ -92,6 +94,7 @@ class ProductUpdate(BaseModel):
     barcode: str | None = Field(default=None, max_length=128)
     status: str | None = Field(default=None, max_length=32)
     attributes: dict[str, Any] | None = None
+    standard_cost: Decimal | None = None
 
 
 class ProductRead(ProductBase):
