@@ -14,6 +14,7 @@ from app.models.pos_payment import PaymentIntent
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.inventory_service import apply_stock_movement
+from app.services.numbering_service import next_sales_invoice_number
 
 
 async def finalize_paid_cart(
@@ -45,7 +46,12 @@ async def finalize_paid_cart(
     if not lines:
         raise ConflictError("Cannot finalize empty cart")
 
-    invoice_number = f"INV-{datetime.now(UTC).strftime('%Y%m%d')}-{cart.id}"
+    issued_at = datetime.now(UTC)
+    invoice_number = await next_sales_invoice_number(
+        db,
+        branch_id=cart.branch_id,
+        issued_at=issued_at,
+    )
     invoice_barcode = f"INVBC-{uuid.uuid4().hex[:16]}"
     invoice = SalesInvoice(
         invoice_number=invoice_number,
@@ -58,6 +64,7 @@ async def finalize_paid_cart(
         discount_total=cart.discount_total,
         total=cart.total,
         created_by_user_id=user_id,
+        created_at=issued_at,
     )
     db.add(invoice)
     await db.flush()
@@ -96,7 +103,7 @@ async def finalize_paid_cart(
     )
     await post_sales_invoice_gl(db, invoice=invoice, lines=list(sil_res.scalars().all()))
     cart.status = "paid"
-    cart.paid_at = datetime.now(UTC)
+    cart.paid_at = issued_at
     await db.commit()
     await db.refresh(invoice)
     return invoice

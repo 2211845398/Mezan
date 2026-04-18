@@ -51,7 +51,7 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
     # product_id=1 may not exist yet in this isolated test, so allow validation failure
     assert adj.status_code in {200, 422}, adj.text
 
-    # Build catalog product with price attribute
+    # Build catalog product with table-backed sell price
     cat = await client.post(
         "/api/v1/categories",
         headers=admin_auth_header,
@@ -59,12 +59,6 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
     )
     assert cat.status_code == 201, cat.text
     category_id = cat.json()["id"]
-    price_attr = await client.post(
-        f"/api/v1/categories/{category_id}/attributes",
-        headers=admin_auth_header,
-        json={"key": "price", "label": "Price", "type": "float", "required": True, "sort_order": 0},
-    )
-    assert price_attr.status_code == 201, price_attr.text
     prod = await client.post(
         "/api/v1/products",
         headers=admin_auth_header,
@@ -73,10 +67,11 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
             "name": "Mouse",
             "sku": "MOUSE-1",
             "status": "active",
-            "attributes": {"price": 50.0},
+            "sell_price": 50.0,
         },
     )
     assert prod.status_code == 201, prod.text
+    assert Decimal(str(prod.json()["attributes"]["price"])) == Decimal("50.0")
     product_id = prod.json()["id"]
 
     # Hybrid onboarding

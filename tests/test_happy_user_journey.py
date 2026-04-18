@@ -5,7 +5,7 @@ traverse on a fresh install:
 
     01. Authentication               (POST /auth/login)
     02. Master setup                 (branches + supplier + terminal + authorize)
-    03. Catalog                      (category + price attribute + product)
+    03. Catalog                      (category + priced product)
     04. Inventory stock-up           (POST /inventory/adjustments)
     05. POS shift open               (POST /pos/shifts/open)
     06. Hybrid customer onboarding   (temporary -> complete)
@@ -52,7 +52,7 @@ of accounts (see `tests/conftest.py`), so this test starts from a clean slate.
 from __future__ import annotations
 
 import uuid
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -171,7 +171,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     assert auth_res.json()["is_authorized"] is True
 
     # =======================================================================
-    # 03. CATALOG — category + price attribute + product
+    # 03. CATALOG — category + priced product
     # =======================================================================
     cat_slug = f"electronics-{uuid.uuid4().hex[:6]}"
     cat = await client.post(
@@ -187,22 +187,6 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     assert cat.status_code == 201, cat.text
     category_id = cat.json()["id"]
 
-    # The POS unit_price comes from product.attributes['price'] (see
-    # cart_service.upsert_line). Defining the attribute here is just for
-    # validation; the cart lookup itself reads the dict directly.
-    attr = await client.post(
-        f"/api/v1/categories/{category_id}/attributes",
-        headers=headers,
-        json={
-            "key": "price",
-            "label": "Price",
-            "type": "float",
-            "required": True,
-            "sort_order": 0,
-        },
-    )
-    assert attr.status_code == 201, attr.text
-
     sku = f"WIDGET-{uuid.uuid4().hex[:6]}"
     prod = await client.post(
         "/api/v1/products",
@@ -212,11 +196,12 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
             "name": "Widget",
             "sku": sku,
             "status": "active",
-            "attributes": {"price": 50.00},
+            "sell_price": "50.00",
             "standard_cost": "20.00",  # used by COGS when WAVG has no data
         },
     )
     assert prod.status_code == 201, prod.text
+    assert Decimal(str(prod.json()["attributes"]["price"])) == Decimal("50.0")
     product_id = prod.json()["id"]
 
     # =======================================================================
@@ -401,7 +386,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     assert fin.status_code == 200, fin.text
     invoice = fin.json()
     invoice_barcode = invoice["invoice_barcode"]
-    assert invoice["invoice_number"].startswith("INV-")
+    assert invoice["invoice_number"] == f"INV-ST1-{datetime.now(UTC).year}-000001"
     assert Decimal(str(invoice["total"])) == Decimal("90.00")
 
     # Replay finalize: must return the same invoice (idempotent on cart_id).

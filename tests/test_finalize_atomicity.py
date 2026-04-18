@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 
 from app.models.branch import Branch
+from app.models.branch_sequence import BranchSequence
 from app.models.category import Category
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent
@@ -184,3 +186,11 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
         select(StockMovement).where(StockMovement.idempotency_key.like(f"{idempotency_key}:%"))
     )
     assert list(movements.scalars().all()) == []
+
+    sequences = await db_session.execute(
+        select(BranchSequence).where(
+            BranchSequence.branch_id == branch_id,
+            BranchSequence.year == datetime.now(UTC).year,
+        )
+    )
+    assert sequences.scalar_one_or_none() is None

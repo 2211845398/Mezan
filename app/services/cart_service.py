@@ -12,7 +12,8 @@ from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
-from app.utils.money import q2, to_decimal
+from app.services.pricing_service import get_active_sell_price
+from app.utils.money import q2
 
 
 def _assert_transition(current: str, action: str) -> str:
@@ -79,12 +80,7 @@ async def upsert_line(
     product = p_res.scalar_one_or_none()
     if not product:
         raise ValidationError("Product not found")
-    try:
-        unit_price = q2(to_decimal((product.attributes or {}).get("price", 0)))
-    except ValueError as exc:
-        raise ValidationError("Product has invalid sellable price") from exc
-    if unit_price <= Decimal("0.00"):
-        raise ValidationError("Product has no sellable price")
+    unit_price = await get_active_sell_price(db, product_id=product.id)
     line_res = await db.execute(
         select(PosCartLine).where(
             PosCartLine.cart_id == cart.id, PosCartLine.product_id == product_id

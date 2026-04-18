@@ -84,7 +84,11 @@ class ProductBase(BaseModel):
 
 
 class ProductCreate(ProductBase):
-    pass
+    sell_price: Decimal | None = Field(
+        default=None,
+        description="Preferred sell-price input. `attributes.price` remains accepted for compatibility.",
+    )
+    sell_price_currency_id: int | None = None
 
 
 class ProductUpdate(BaseModel):
@@ -95,6 +99,11 @@ class ProductUpdate(BaseModel):
     status: str | None = Field(default=None, max_length=32)
     attributes: dict[str, Any] | None = None
     standard_cost: Decimal | None = None
+    sell_price: Decimal | None = Field(
+        default=None,
+        description="Preferred sell-price input. `attributes.price` remains accepted for compatibility.",
+    )
+    sell_price_currency_id: int | None = None
 
 
 class ProductRead(ProductBase):

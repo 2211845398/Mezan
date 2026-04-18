@@ -15,7 +15,7 @@ class SalesInvoice(Base):
     __tablename__ = "sales_invoices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    invoice_number: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    invoice_number: Mapped[str] = mapped_column(String(96), nullable=False, unique=True, index=True)
     invoice_barcode: Mapped[str] = mapped_column(
         String(128), nullable=False, unique=True, index=True
     )
