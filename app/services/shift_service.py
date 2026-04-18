@@ -117,7 +117,7 @@ async def close_shift(
     if shift.status != "open":
         raise StateTransitionError("Shift is not open")
     shift.declared_cash = q2(declared_cash)
-    shift.variance = q2(shift.declared_cash - Decimal(str(shift.expected_cash)))
+    shift.variance = q2(shift.declared_cash - shift.expected_cash)
     shift.closed_by_user_id = closed_by_user_id
     shift.status = "closed"
     shift.closed_at = datetime.now(UTC)

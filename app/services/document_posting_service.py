@@ -253,7 +253,7 @@ async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> N
 
     total_ext = Decimal("0")
     for ln in gr_lines:
-        total_ext += q2(Decimal(str(ln.unit_cost)) * Decimal(ln.qty))
+        total_ext += q2(ln.unit_cost * Decimal(ln.qty))
 
     if total_ext <= 0:
         return

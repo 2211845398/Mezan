@@ -1,4 +1,28 @@
+from decimal import Decimal
+
 import pytest
+
+from app.services.invoice_scan_service import parse_extracted_invoice
+from app.services.ocr.providers.base import ExtractedInvoice
+
+
+def test_parse_extracted_invoice_serializes_money_as_strings():
+    parsed = parse_extracted_invoice(
+        ExtractedInvoice(
+            payload={
+                "structured": {
+                    "supplier_name": "Supplier X",
+                    "line_items": [{"product_id": 1, "qty": 2, "unit_cost": 5.5}],
+                    "tax": 1.1,
+                }
+            }
+        )
+    )
+
+    assert Decimal(parsed["line_items"][0]["unit_cost"]) == Decimal("5.5")
+    assert parsed["subtotal"] == "11.00"
+    assert parsed["tax"] == "1.10"
+    assert parsed["total"] == "12.10"
 
 
 @pytest.mark.asyncio

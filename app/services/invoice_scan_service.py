@@ -20,6 +20,7 @@ from app.services.inventory_valuation_service import apply_receipt_to_weighted_a
 from app.services.ocr.providers.base import ExtractedInvoice, OcrProvider
 from app.services.ocr.providers.basic import BasicOcrProvider
 from app.services.ocr.providers.fake import FakeOcrProvider
+from app.utils.money import q2, to_decimal
 
 
 def get_provider(provider_name: str | None = None) -> OcrProvider:
@@ -47,15 +48,13 @@ def _to_int(value: Any) -> int | None:
     return None
 
 
-def _to_float(value: Any) -> float | None:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value.strip())
-        except ValueError:
-            return None
-    return None
+def _to_decimal_or_none(value: Any) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return to_decimal(value)
+    except ValueError:
+        return None
 
 
 def parse_extracted_invoice(extracted: ExtractedInvoice) -> dict[str, Any]:
@@ -89,27 +88,31 @@ def parse_extracted_invoice(extracted: ExtractedInvoice) -> dict[str, Any]:
             continue
         product_id = _to_int(item.get("product_id"))
         qty = _to_int(item.get("qty") or item.get("quantity"))
-        unit_cost = _to_float(item.get("unit_cost") or item.get("price") or item.get("cost"))
-        if qty and unit_cost:
-            running_total += Decimal(str(qty)) * Decimal(str(unit_cost))
+        unit_cost = _to_decimal_or_none(item.get("unit_cost") or item.get("price") or item.get("cost"))
+        if qty and unit_cost is not None:
+            running_total += Decimal(qty) * unit_cost
         line_items.append(
             {
                 "line_no": idx + 1,
                 "product_id": product_id,
                 "qty": qty,
-                "unit_cost": unit_cost,
+                "unit_cost": str(unit_cost) if unit_cost is not None else None,
                 "description": item.get("description"),
             }
         )
 
-    tax = _to_float(structured.get("tax"))
-    total = _to_float(structured.get("total"))
-    subtotal = _to_float(structured.get("subtotal"))
+    tax = _to_decimal_or_none(structured.get("tax")) or Decimal("0.00")
+    total = _to_decimal_or_none(structured.get("total"))
+    subtotal = _to_decimal_or_none(structured.get("subtotal"))
 
     if subtotal is None:
-        subtotal = float(running_total)
+        subtotal = q2(running_total)
+    else:
+        subtotal = q2(subtotal)
     if total is None:
-        total = subtotal + (tax or 0.0)
+        total = q2(subtotal + tax)
+    else:
+        total = q2(total)
 
     return {
         "supplier_name": supplier_name,
@@ -117,9 +120,9 @@ def parse_extracted_invoice(extracted: ExtractedInvoice) -> dict[str, Any]:
         "invoice_date": invoice_date,
         "currency": currency,
         "line_items": line_items,
-        "subtotal": subtotal,
-        "tax": tax or 0.0,
-        "total": total,
+        "subtotal": str(subtotal),
+        "tax": str(q2(tax)),
+        "total": str(total),
         "provider_payload": payload,
     }
 
@@ -209,13 +212,13 @@ async def validate_scan_and_receive_goods(
             raise ValidationError("Invalid line item", details={"index": i})
         product_id = item.get("product_id")
         qty = item.get("qty")
-        unit_cost = item.get("unit_cost")
+        unit_cost = _to_decimal_or_none(item.get("unit_cost"))
         if not isinstance(product_id, int) or not isinstance(qty, int) or qty <= 0:
             raise ValidationError(
                 "Line item must include product_id(int) and qty(int>0)",
                 details={"index": i},
             )
-        if not isinstance(unit_cost, (int, float)) or unit_cost <= 0:
+        if unit_cost is None or unit_cost <= 0:
             raise ValidationError(
                 "Line item must include unit_cost(number>0)",
                 details={"index": i},
@@ -225,7 +228,7 @@ async def validate_scan_and_receive_goods(
                 goods_receipt_id=receipt.id,
                 product_id=product_id,
                 qty=qty,
-                unit_cost=Decimal(str(unit_cost)),
+                unit_cost=unit_cost,
             )
         )
         sl_res = await db.execute(
@@ -249,7 +252,7 @@ async def validate_scan_and_receive_goods(
             branch_id=branch_id,
             product_id=product_id,
             qty_in=qty,
-            unit_cost=Decimal(str(unit_cost)),
+            unit_cost=unit_cost,
             qty_on_hand_before=qty_on_hand_before,
         )
 

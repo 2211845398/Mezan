@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 import uuid
 from datetime import UTC, datetime
 
@@ -55,9 +54,9 @@ async def finalize_paid_cart(
         terminal_id=cart.terminal_id,
         branch_id=cart.branch_id,
         customer_id=cart.customer_id,
-        subtotal=Decimal(str(cart.subtotal)),
-        discount_total=Decimal(str(cart.discount_total)),
-        total=Decimal(str(cart.total)),
+        subtotal=cart.subtotal,
+        discount_total=cart.discount_total,
+        total=cart.total,
         created_by_user_id=user_id,
     )
     db.add(invoice)
@@ -69,8 +68,8 @@ async def finalize_paid_cart(
                 sales_invoice_id=invoice.id,
                 product_id=ln.product_id,
                 qty=ln.qty,
-                unit_price=Decimal(str(ln.unit_price)),
-                line_total=Decimal(str(ln.line_total)),
+                unit_price=ln.unit_price,
+                line_total=ln.line_total,
             )
         )
         await apply_stock_movement(
@@ -87,7 +86,7 @@ async def finalize_paid_cart(
         InvoicePayment(
             sales_invoice_id=invoice.id,
             payment_intent_id=payment_intent.id,
-            amount=Decimal(str(payment_intent.amount)),
+            amount=payment_intent.amount,
             method=payment_intent.provider,
             reference=payment_intent.external_id,
         )

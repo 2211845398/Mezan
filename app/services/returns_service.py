@@ -54,7 +54,7 @@ async def create_return_and_credit(
         qty = item["qty"]
         if qty <= 0 or qty > inv_line.qty:
             raise ValidationError("Invalid return qty")
-        refund = q2(Decimal(str(inv_line.unit_price)) * qty)
+        refund = q2(inv_line.unit_price * qty)
         total_refund += refund
         gl_lines.append((inv_line.product_id, qty, refund))
         db.add(

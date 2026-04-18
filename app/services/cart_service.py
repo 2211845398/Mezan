@@ -12,7 +12,7 @@ from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
-from app.utils.money import q2
+from app.utils.money import q2, to_decimal
 
 
 def _assert_transition(current: str, action: str) -> str:
@@ -59,8 +59,8 @@ async def _recalc_totals(db: AsyncSession, cart: PosCart) -> None:
     lines = lines_res.scalars().all()
     disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart.id))
     discounts = disc_res.scalars().all()
-    subtotal = sum((Decimal(str(x.line_total)) for x in lines), Decimal("0"))
-    discount_total = sum((Decimal(str(d.amount)) for d in discounts), Decimal("0"))
+    subtotal = sum((x.line_total for x in lines), Decimal("0.00"))
+    discount_total = sum((d.amount for d in discounts), Decimal("0.00"))
     cart.subtotal = q2(subtotal)
     cart.discount_total = q2(discount_total)
     cart.total = q2(max(Decimal("0.00"), subtotal - discount_total))
@@ -79,7 +79,10 @@ async def upsert_line(
     product = p_res.scalar_one_or_none()
     if not product:
         raise ValidationError("Product not found")
-    unit_price = q2((product.attributes or {}).get("price", 0))
+    try:
+        unit_price = q2(to_decimal((product.attributes or {}).get("price", 0)))
+    except ValueError as exc:
+        raise ValidationError("Product has invalid sellable price") from exc
     if unit_price <= Decimal("0.00"):
         raise ValidationError("Product has no sellable price")
     line_res = await db.execute(

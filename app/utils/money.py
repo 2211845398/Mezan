@@ -1,10 +1,31 @@
-"""Shared helpers for monetary rounding."""
+"""Shared helpers for monetary parsing and rounding."""
 
-from decimal import Decimal, ROUND_HALF_UP
+from __future__ import annotations
+
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 MONEY = Decimal("0.01")
+MoneyInput = Decimal | float | int | str
 
 
-def q2(value: Decimal | float | int | str) -> Decimal:
+def to_decimal(value: MoneyInput) -> Decimal:
+    """Parse a money-like input without introducing float math."""
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, bool):
+        raise ValueError("Boolean values are not valid monetary amounts")
+
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            raise ValueError("Empty strings are not valid monetary amounts")
+
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ValueError(f"Invalid monetary amount: {value!r}") from exc
+
+
+def q2(value: MoneyInput) -> Decimal:
     """Normalize a monetary amount to two decimal places."""
-    return Decimal(str(value)).quantize(MONEY, rounding=ROUND_HALF_UP)
+    return to_decimal(value).quantize(MONEY, rounding=ROUND_HALF_UP)
