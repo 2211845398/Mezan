@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FinalizeInvoiceRequest(BaseModel):
@@ -19,7 +20,7 @@ class SalesInvoiceRead(BaseModel):
     invoice_barcode: str
     cart_id: int
     branch_id: int
-    total: float
+    total: Decimal
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})

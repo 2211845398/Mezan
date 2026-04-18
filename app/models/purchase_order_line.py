@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from sqlalchemy import ForeignKey, Integer, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,7 +21,7 @@ class PurchaseOrderLine(Base):
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
-    unit_cost: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
 
     purchase_order = relationship("PurchaseOrder", back_populates="lines")
     product = relationship("Product")

@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
+from app.utils.money import q2
 
 
 async def open_shift(
-    db: AsyncSession, *, terminal_id: int, opening_float: float, opened_by_user_id: int
+    db: AsyncSession, *, terminal_id: int, opening_float: Decimal, opened_by_user_id: int
 ) -> PosShift:
     if opening_float < 0:
         raise ValidationError("opening_float must be >= 0")
@@ -34,8 +35,8 @@ async def open_shift(
         branch_id=terminal.branch_id,
         opened_by_user_id=opened_by_user_id,
         status="open",
-        opening_float=opening_float,
-        expected_cash=opening_float,
+        opening_float=q2(opening_float),
+        expected_cash=q2(opening_float),
     )
     db.add(shift)
     await db.flush()
@@ -48,7 +49,7 @@ async def add_cash_event(
     *,
     shift_id: int,
     event_type: str,
-    amount: float,
+    amount: Decimal,
     note: str | None,
     created_by_user_id: int,
 ) -> PosShift:
@@ -78,7 +79,7 @@ async def add_cash_event(
     if shift.status != "open":
         raise StateTransitionError("Shift is not open")
 
-    amt = Decimal(str(amount)).copy_abs()
+    amt = q2(amount).copy_abs()
     if normalized_event_type in {"sale", "adjust_in"}:
         delta = amt
     else:
@@ -89,7 +90,7 @@ async def add_cash_event(
         shift_id=shift.id,
         event_type=normalized_event_type,
         # Store cash movement as a positive magnitude; the direction is derived from event_type.
-        amount=float(amt),
+        amount=amt,
         note=note,
         created_by_user_id=created_by_user_id,
     )
@@ -107,7 +108,7 @@ async def add_cash_event(
 
 
 async def close_shift(
-    db: AsyncSession, *, shift_id: int, declared_cash: float, closed_by_user_id: int
+    db: AsyncSession, *, shift_id: int, declared_cash: Decimal, closed_by_user_id: int
 ) -> PosShift:
     res = await db.execute(select(PosShift).where(PosShift.id == shift_id))
     shift = res.scalar_one_or_none()
@@ -115,18 +116,18 @@ async def close_shift(
         raise NotFoundError("Shift not found", details={"shift_id": shift_id})
     if shift.status != "open":
         raise StateTransitionError("Shift is not open")
-    shift.declared_cash = declared_cash
-    shift.variance = float(declared_cash) - float(shift.expected_cash)
+    shift.declared_cash = q2(declared_cash)
+    shift.variance = q2(shift.declared_cash - Decimal(str(shift.expected_cash)))
     shift.closed_by_user_id = closed_by_user_id
     shift.status = "closed"
     shift.closed_at = datetime.now(UTC)
     payload = {
         "shift_id": shift.id,
         "terminal_id": shift.terminal_id,
-        "opening_float": float(shift.opening_float),
-        "expected_cash": float(shift.expected_cash),
-        "declared_cash": float(shift.declared_cash),
-        "variance": float(shift.variance),
+        "opening_float": str(shift.opening_float),
+        "expected_cash": str(shift.expected_cash),
+        "declared_cash": str(shift.declared_cash),
+        "variance": str(shift.variance),
         "closed_at": shift.closed_at.isoformat() if shift.closed_at else None,
     }
     db.add(ZReport(shift_id=shift.id, report_payload=payload))

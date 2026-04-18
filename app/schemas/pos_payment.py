@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PaymentIntentCreateRequest(BaseModel):
@@ -33,9 +34,9 @@ class PaymentIntentRead(BaseModel):
     id: int
     cart_id: int
     provider: str
-    amount: float
+    amount: Decimal
     currency: str
     status: str
     external_id: str | None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})

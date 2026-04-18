@@ -6,6 +6,7 @@ All functions are read-only aggregation queries -- no commits.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,7 @@ from app.models.discount import DiscountRule, DiscountUsageLog
 from app.models.product import Product
 from app.models.sales_invoice import SalesInvoiceLine
 from app.models.stock_level import StockLevel
+from app.utils.money import q2
 
 
 async def get_top_selling_products(
@@ -51,7 +53,7 @@ async def get_top_selling_products(
             "product_id": row.product_id,
             "product_name": row.product_name,
             "total_qty_sold": int(row.total_qty_sold),
-            "total_revenue": float(row.total_revenue),
+            "total_revenue": q2(row.total_revenue or Decimal("0")),
         }
         for row in result.all()
     ]
@@ -166,7 +168,7 @@ async def get_promotion_performance(
             "name": row.name,
             "code": row.code,
             "usage_count": row.usage_count,
-            "total_discount_given": float(row.total_discount_given),
+            "total_discount_given": q2(row.total_discount_given or Decimal("0")),
         }
         for row in result.all()
     ]

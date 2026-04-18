@@ -12,6 +12,7 @@ from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.services.payments.providers.base import PaymentProvider
 from app.services.payments.providers.in_store import InStoreLedgerProvider
 from app.services.payments.providers.mock import MockPaymentProvider
+from app.utils.money import q2
 
 
 def get_provider(provider_name: str) -> PaymentProvider:
@@ -33,11 +34,12 @@ async def create_payment_intent(
         raise ValidationError("Cart cannot be paid in current status")
     selected_provider = (provider_name or settings.POS_DEFAULT_PAYMENT_PROVIDER).lower()
     provider = get_provider(selected_provider)
-    created = await provider.create_intent(amount=float(cart.total), currency=currency)
+    amount = q2(cart.total)
+    created = await provider.create_intent(amount=amount, currency=currency)
     intent = PaymentIntent(
         cart_id=cart.id,
         provider=provider.name,
-        amount=float(cart.total),
+        amount=amount,
         currency=currency,
         status=created.status,
         external_id=created.external_id,
@@ -79,9 +81,10 @@ async def capture_payment(
     if not intent:
         raise NotFoundError("Payment intent not found")
     provider = get_provider(intent.provider)
+    amount = q2(intent.amount)
     result = await provider.capture(
         external_id=intent.external_id or "",
-        amount=float(intent.amount),
+        amount=amount,
         idempotency_key=idempotency_key,
     )
     intent.status = result.status
@@ -97,7 +100,7 @@ async def capture_payment(
         db.add(
             PaymentReceipt(
                 payment_intent_id=intent.id,
-                amount=float(intent.amount),
+                amount=amount,
                 method=method,
                 reference=reference,
                 card_last4=card_last4,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -30,9 +31,11 @@ class SalesInvoice(Base):
     customer_id: Mapped[int | None] = mapped_column(
         ForeignKey("customer_profiles.id", ondelete="SET NULL"), nullable=True
     )
-    subtotal: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    discount_total: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    total: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    discount_total: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0.00")
+    )
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -52,8 +55,8 @@ class SalesInvoiceLine(Base):
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
-    unit_price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    line_total: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    line_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
 
 class InvoicePayment(Base):
@@ -66,7 +69,7 @@ class InvoicePayment(Base):
     payment_intent_id: Mapped[int | None] = mapped_column(
         ForeignKey("payment_intents.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     method: Mapped[str] = mapped_column(String(32), nullable=False)
     reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

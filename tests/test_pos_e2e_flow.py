@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 import pytest
 
@@ -215,7 +216,7 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
         json={"event_type": "sale", "amount": 20.0, "note": "cash sale"},
     )
     assert ev_sale.status_code == 200, ev_sale.text
-    assert ev_sale.json()["expected_cash"] == pytest.approx(120.0)
+    assert Decimal(str(ev_sale.json()["expected_cash"])) == Decimal("120.00")
 
     # cash_in should increase expected_cash
     ev_in = await client.post(
@@ -224,7 +225,7 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
         json={"event_type": "cash_in", "amount": 10.0, "note": "drawer add"},
     )
     assert ev_in.status_code == 200, ev_in.text
-    assert ev_in.json()["expected_cash"] == pytest.approx(110.0)
+    assert Decimal(str(ev_in.json()["expected_cash"])) == Decimal("110.00")
 
     # cash_out should decrease expected_cash
     ev_out = await client.post(
@@ -233,7 +234,7 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
         json={"event_type": "cash_out", "amount": 5.0, "note": "drawer out"},
     )
     assert ev_out.status_code == 200, ev_out.text
-    assert ev_out.json()["expected_cash"] == pytest.approx(105.0)
+    assert Decimal(str(ev_out.json()["expected_cash"])) == Decimal("105.00")
 
 
 @pytest.mark.asyncio

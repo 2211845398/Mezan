@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LedgerEntryType(StrEnum):
@@ -29,7 +30,7 @@ class LedgerReasonCode(StrEnum):
 class AccrualRuleBase(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     points_per_unit: int = Field(default=1, ge=1)
-    currency_per_point: float = Field(default=10.00, gt=0)
+    currency_per_point: Decimal = Field(default=Decimal("10.00"), gt=0)
     is_active: bool = True
 
 
@@ -40,7 +41,7 @@ class AccrualRuleCreate(AccrualRuleBase):
 class AccrualRuleUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     points_per_unit: int | None = Field(default=None, ge=1)
-    currency_per_point: float | None = Field(default=None, gt=0)
+    currency_per_point: Decimal | None = Field(default=None, gt=0)
     is_active: bool | None = None
 
 
@@ -50,7 +51,7 @@ class AccrualRuleRead(AccrualRuleBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
 
 # ---------------------------------------------------------------------------

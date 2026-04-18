@@ -10,10 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chart_accounts import AccountType, ChartAccount
 from app.models.journal_entries import JournalEntry, JournalEntryLine
-
-
-def _d(x) -> Decimal:
-    return Decimal(str(x)).quantize(Decimal("0.01"))
+from app.utils.money import q2
 
 
 async def trial_balance(
@@ -47,8 +44,8 @@ async def trial_balance(
     res = await db.execute(stmt)
     rows = []
     for r in res.all():
-        dr = _d(r.total_debit)
-        cr = _d(r.total_credit)
+        dr = q2(r.total_debit)
+        cr = q2(r.total_credit)
         at = r.account_type
         at_s = at.value if isinstance(at, AccountType) else str(at)
         rows.append(
@@ -57,9 +54,9 @@ async def trial_balance(
                 "code": r.code,
                 "name": r.name,
                 "account_type": at_s,
-                "total_debit": float(dr),
-                "total_credit": float(cr),
-                "net": float(dr - cr),
+                "total_debit": dr,
+                "total_credit": cr,
+                "net": q2(dr - cr),
             }
         )
     return rows
@@ -106,8 +103,8 @@ async def general_ledger_lines(
             "source_type": r.source_type,
             "source_id": r.source_id,
             "line_no": r.line_no,
-            "debit": float(_d(r.debit)),
-            "credit": float(_d(r.credit)),
+            "debit": q2(r.debit),
+            "credit": q2(r.credit),
             "branch_id": r.branch_id,
             "memo": r.memo,
         }
@@ -144,8 +141,8 @@ async def income_statement(
     revenue_total = Decimal("0")
     expense_total = Decimal("0")
     for row in res.all():
-        dr = _d(row.dr)
-        cr = _d(row.cr)
+        dr = q2(row.dr)
+        cr = q2(row.cr)
         at = row.account_type
         if at == AccountType.REVENUE:
             revenue_total += cr - dr
@@ -155,9 +152,9 @@ async def income_statement(
     return {
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
-        "total_revenue": float(revenue_total),
-        "total_expense": float(expense_total),
-        "net_income": float(net),
+        "total_revenue": q2(revenue_total),
+        "total_expense": q2(expense_total),
+        "net_income": q2(net),
     }
 
 
@@ -191,8 +188,8 @@ async def balance_sheet(
     liabilities = Decimal("0")
     equity = Decimal("0")
     for row in res.all():
-        dr = _d(row.dr)
-        cr = _d(row.cr)
+        dr = q2(row.dr)
+        cr = q2(row.cr)
         at = row.account_type
         if at == AccountType.ASSET:
             assets += dr - cr
@@ -202,8 +199,8 @@ async def balance_sheet(
             equity += cr - dr
     return {
         "as_of": as_of.isoformat(),
-        "total_assets": float(assets),
-        "total_liabilities": float(liabilities),
-        "total_equity": float(equity),
-        "assets_minus_liabilities_equity": float(assets - liabilities - equity),
+        "total_assets": q2(assets),
+        "total_liabilities": q2(liabilities),
+        "total_equity": q2(equity),
+        "assets_minus_liabilities_equity": q2(assets - liabilities - equity),
     }

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # ---------------------------------------------------------------------------
 # Top-selling / slow-moving products
@@ -15,7 +16,9 @@ class TopSellingProductItem(BaseModel):
     product_id: int
     product_name: str
     total_qty_sold: int
-    total_revenue: float
+    total_revenue: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
 
 
 class SlowMovingProductItem(BaseModel):
@@ -65,7 +68,9 @@ class PromotionPerformanceItem(BaseModel):
     name: str
     code: str
     usage_count: int
-    total_discount_given: float
+    total_discount_given: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
 
 
 class PromotionPerformanceResponse(BaseModel):

@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PurchaseOrderLineBase(BaseModel):
     product_id: int
     qty: int = Field(gt=0)
-    unit_cost: float = Field(gt=0)
+    unit_cost: Decimal = Field(gt=0)
 
 
 class PurchaseOrderLineCreate(PurchaseOrderLineBase):
@@ -20,7 +21,7 @@ class PurchaseOrderLineCreate(PurchaseOrderLineBase):
 class PurchaseOrderLineRead(PurchaseOrderLineBase):
     id: int
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
 
 class PurchaseOrderBase(BaseModel):
@@ -52,4 +53,4 @@ class PurchaseOrderRead(PurchaseOrderBase):
     updated_at: datetime
     lines: list[PurchaseOrderLineRead] = Field(default_factory=list)
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})

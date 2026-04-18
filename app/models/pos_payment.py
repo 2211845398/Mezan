@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
@@ -20,7 +21,7 @@ class PaymentIntent(Base):
         ForeignKey("pos_carts.id", ondelete="CASCADE"), nullable=False, index=True
     )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="requires_payment")
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
@@ -56,7 +57,7 @@ class PaymentReceipt(Base):
     payment_intent_id: Mapped[int] = mapped_column(
         ForeignKey("payment_intents.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     method: Mapped[str] = mapped_column(String(32), nullable=False)
     reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
     card_last4: Mapped[str | None] = mapped_column(String(4), nullable=True)

@@ -14,12 +14,14 @@ from app.schemas.accounting import (
     BalanceSheetRead,
     FiscalPeriodRead,
     FiscalPeriodStatusUpdate,
+    GeneralLedgerLineRead,
     IncomeStatementRead,
     JournalReversalRequest,
     JournalReversalResponse,
     OpenItemRead,
     PaymentApplicationCreate,
     PaymentApplicationRead,
+    TrialBalanceRow,
 )
 from app.services import audit_service
 from app.services.accounting_governance_service import (
@@ -49,18 +51,18 @@ from app.services.subledger_service import (
 router = APIRouter()
 
 
-@router.get("/accounting/trial-balance")
+@router.get("/accounting/trial-balance", response_model=list[TrialBalanceRow])
 async def trial_balance_endpoint(
     as_of: date = Query(...),
     branch_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
     __: None = require_permission("accounting", "read"),
-) -> list[dict]:
+) -> list[TrialBalanceRow]:
     return await trial_balance(db, as_of=as_of, branch_id=branch_id)
 
 
-@router.get("/accounting/general-ledger")
+@router.get("/accounting/general-ledger", response_model=list[GeneralLedgerLineRead])
 async def general_ledger_endpoint(
     account_id: int = Query(...),
     date_from: date = Query(...),
@@ -69,7 +71,7 @@ async def general_ledger_endpoint(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
     __: None = require_permission("accounting", "read"),
-) -> list[dict]:
+) -> list[GeneralLedgerLineRead]:
     return await gl_lines_svc(
         db, account_id=account_id, date_from=date_from, date_to=date_to, branch_id=branch_id
     )

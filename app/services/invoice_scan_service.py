@@ -225,7 +225,7 @@ async def validate_scan_and_receive_goods(
                 goods_receipt_id=receipt.id,
                 product_id=product_id,
                 qty=qty,
-                unit_cost=float(unit_cost),
+                unit_cost=Decimal(str(unit_cost)),
             )
         )
         sl_res = await db.execute(

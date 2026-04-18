@@ -269,7 +269,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     shift = shift_res.json()
     shift_id = shift["id"]
     assert shift["status"] == "open"
-    assert float(shift["expected_cash"]) == pytest.approx(100.0)
+    assert Decimal(str(shift["expected_cash"])) == Decimal("100.00")
 
     # =======================================================================
     # 06. HYBRID CUSTOMER ONBOARDING — phone -> token -> full profile
@@ -317,7 +317,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
         json={"product_id": product_id, "qty": 2},
     )
     assert line_res.status_code == 200, line_res.text
-    assert float(line_res.json()["subtotal"]) == pytest.approx(100.0)
+    assert Decimal(str(line_res.json()["subtotal"])) == Decimal("100.00")
 
     # Apply $10 manual discount → total $90.
     disc = await client.post(
@@ -327,8 +327,8 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     )
     assert disc.status_code == 200, disc.text
     cart_after_disc = disc.json()
-    assert float(cart_after_disc["discount_total"]) == pytest.approx(10.0)
-    assert float(cart_after_disc["total"]) == pytest.approx(90.0)
+    assert Decimal(str(cart_after_disc["discount_total"])) == Decimal("10.00")
+    assert Decimal(str(cart_after_disc["total"])) == Decimal("90.00")
 
     # Lock for checkout (state machine: active -> checkout_locked).
     lock = await client.post(
@@ -352,7 +352,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     )
     assert intent.status_code == 201, intent.text
     intent_payload = intent.json()
-    assert float(intent_payload["amount"]) == pytest.approx(90.0)
+    assert Decimal(str(intent_payload["amount"])) == Decimal("90.00")
     payment_intent_id = intent_payload["id"]
 
     cap_idem = _idem("cap")
@@ -402,7 +402,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     invoice = fin.json()
     invoice_barcode = invoice["invoice_barcode"]
     assert invoice["invoice_number"].startswith("INV-")
-    assert float(invoice["total"]) == pytest.approx(90.0)
+    assert Decimal(str(invoice["total"])) == Decimal("90.00")
 
     # Replay finalize: must return the same invoice (idempotent on cart_id).
     fin_replay = await client.post(
@@ -443,7 +443,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     assert ret.status_code in {201, 422}, ret.text
     if ret.status_code == 201:
         cn = ret.json()
-        assert float(cn["total_amount"]) == pytest.approx(50.0)  # 1 unit @ $50
+        assert Decimal(str(cn["total_amount"])) == Decimal("50.00")  # 1 unit @ $50
         assert cn["credit_number"].startswith("CRN-")
 
     # =======================================================================
@@ -465,7 +465,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     # account anyway (see SYSTEM_REVIEW.md "Card-vs-cash conflation"). The
     # shift's expected_cash, however, only changes via explicit cash events,
     # so the variance here will still be 0.
-    assert float(closed["variance"]) == pytest.approx(0.0)
+    assert Decimal(str(closed["variance"])) == Decimal("0.00")
 
     # =======================================================================
     # 12. HR + PAYROLL — employee profile, payslip, approve, GL post
@@ -537,7 +537,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
         params={"period_start": period_start, "period_end": today},
     )
     assert inc.status_code == 200, inc.text
-    assert inc.json()["total_revenue"] > 0
+    assert Decimal(str(inc.json()["total_revenue"])) > Decimal("0.00")
 
     # Balance sheet — Assets - Liabilities - Equity must equal 0
     # because retained earnings are not yet closed and revenue/expense are
@@ -579,7 +579,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     )
     assert kpis.status_code == 200, kpis.text
     assert kpis.json()["invoice_count"] >= 1
-    assert kpis.json()["gross_sales"] > 0
+    assert Decimal(str(kpis.json()["gross_sales"])) > Decimal("0.00")
 
     top = await client.get(
         "/api/v1/marketing/analytics/top-products",

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DiscountType(StrEnum):
@@ -31,9 +32,9 @@ class DiscountRuleBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     code: str = Field(min_length=1, max_length=64)
     discount_type: DiscountType
-    value: float = Field(gt=0)
-    min_order_amount: float | None = Field(default=None, ge=0)
-    max_discount_amount: float | None = Field(default=None, gt=0)
+    value: Decimal = Field(gt=0)
+    min_order_amount: Decimal | None = Field(default=None, ge=0)
+    max_discount_amount: Decimal | None = Field(default=None, gt=0)
     target_product_ids: list[int] | None = None
     buy_qty: int | None = Field(default=None, ge=1)
     get_qty: int | None = Field(default=None, ge=1)
@@ -44,7 +45,7 @@ class DiscountRuleBase(BaseModel):
 
     @model_validator(mode="after")
     def _validate_discount_rules(self) -> DiscountRuleBase:
-        if self.discount_type == DiscountType.PERCENTAGE and self.value > 100:
+        if self.discount_type == DiscountType.PERCENTAGE and self.value > Decimal("100"):
             raise ValueError("Percentage discount value cannot exceed 100")
 
         if self.end_date is not None and self.end_date <= self.start_date:
@@ -65,9 +66,9 @@ class DiscountRuleUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     code: str | None = Field(default=None, min_length=1, max_length=64)
     discount_type: DiscountType | None = None
-    value: float | None = Field(default=None, gt=0)
-    min_order_amount: float | None = None
-    max_discount_amount: float | None = None
+    value: Decimal | None = Field(default=None, gt=0)
+    min_order_amount: Decimal | None = None
+    max_discount_amount: Decimal | None = None
     target_product_ids: list[int] | None = None
     buy_qty: int | None = None
     get_qty: int | None = None
@@ -83,9 +84,9 @@ class DiscountRuleRead(BaseModel):
     name: str
     code: str
     discount_type: DiscountType
-    value: float
-    min_order_amount: float | None = None
-    max_discount_amount: float | None = None
+    value: Decimal
+    min_order_amount: Decimal | None = None
+    max_discount_amount: Decimal | None = None
     target_product_ids: list[int] | None = None
     buy_qty: int | None = None
     get_qty: int | None = None
@@ -99,7 +100,7 @@ class DiscountRuleRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
 
 # ---------------------------------------------------------------------------
@@ -112,8 +113,8 @@ class DiscountUsageLogRead(BaseModel):
     discount_rule_id: int
     cart_id: int | None = None
     customer_id: int | None = None
-    discount_amount: float
+    discount_amount: Decimal
     applied_by_user_id: int | None = None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
