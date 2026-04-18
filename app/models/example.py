@@ -1,6 +1,6 @@
 """SQLAlchemy ORM model for examples (demo pattern)."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -17,6 +17,6 @@ class Example(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )

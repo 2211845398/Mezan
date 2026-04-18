@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
@@ -24,7 +24,7 @@ class SalesReturn(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
 
@@ -55,7 +55,7 @@ class CreditNote(Base):
     credit_number: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
 
@@ -70,5 +70,5 @@ class ExchangeLink(Base):
         ForeignKey("pos_carts.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

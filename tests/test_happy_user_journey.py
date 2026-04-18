@@ -328,8 +328,8 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     # 08. PAYMENT INTENT + CAPTURE
     # =======================================================================
     # We use the in-store provider to keep this fully offline. Method=card
-    # exercises the redaction path (card_last4 must be stored in
-    # PaymentReceipt.redacted_payload, never the full PAN).
+    # exercises the receipt-storage path: card_last4 is stored separately, and
+    # the provider payload must never contain the full PAN.
     intent = await client.post(
         "/api/v1/pos/payments/intents",
         headers=headers,

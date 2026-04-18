@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
@@ -26,10 +26,13 @@ class PaymentIntent(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="requires_payment")
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
     )
 
 
@@ -46,7 +49,7 @@ class PaymentAttempt(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     provider_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default={})
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
 
@@ -61,7 +64,7 @@ class PaymentReceipt(Base):
     method: Mapped[str] = mapped_column(String(32), nullable=False)
     reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
     card_last4: Mapped[str | None] = mapped_column(String(4), nullable=True)
-    redacted_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default={})
+    provider_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default={})
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

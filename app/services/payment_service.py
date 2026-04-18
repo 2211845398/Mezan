@@ -104,7 +104,7 @@ async def capture_payment(
                 method=method,
                 reference=reference,
                 card_last4=card_last4,
-                redacted_payload={"external_id": intent.external_id, "provider": intent.provider},
+                provider_payload={"external_id": intent.external_id, "provider": intent.provider},
             )
         )
     await db.commit()
