@@ -58,7 +58,6 @@ from decimal import Decimal
 import pytest
 from httpx import AsyncClient
 
-
 # ---------------------------------------------------------------------------
 # small helpers
 # ---------------------------------------------------------------------------
@@ -134,7 +133,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     # =======================================================================
     # 02. MASTER SETUP — branches, supplier, terminal, authorize terminal
     # =======================================================================
-    warehouse_id = await _get_or_create_branch(client, headers, "WH1", "Main Warehouse")
+    warehouse_id = await _get_or_create_branch(client, headers, "WH1", "Main Warehouse")  # noqa: F841
     store_id = await _get_or_create_branch(client, headers, "ST1", "Store A")
 
     # Supplier (used later for purchase orders / AP attribution).
@@ -150,7 +149,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
         },
     )
     assert sup.status_code == 200, sup.text
-    supplier_id = sup.json()["id"]
+    supplier_id = sup.json()["id"]  # noqa: F841
 
     # Register a POS terminal at the store branch and immediately authorize it.
     terminal_code = f"POS-{uuid.uuid4().hex[:8]}"
@@ -167,9 +166,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     terminal_payload = term.json()
     assert "api_key" in terminal_payload, "terminal API key must be returned on create"
     terminal_id = terminal_payload["id"]
-    auth_res = await client.patch(
-        f"/api/v1/terminals/{terminal_id}/authorize", headers=headers
-    )
+    auth_res = await client.patch(f"/api/v1/terminals/{terminal_id}/authorize", headers=headers)
     assert auth_res.status_code == 200, auth_res.text
     assert auth_res.json()["is_authorized"] is True
 
