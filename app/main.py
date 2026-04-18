@@ -1,18 +1,23 @@
 """FastAPI application entry point."""
 
 import asyncio
+import logging
 import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.api.deps import PERMISSION_DEPENDENCY_MARKER
 from app.api.error_handlers import (
     app_error_handler,
     http_exception_handler,
+    rate_limit_exception_handler,
     request_validation_exception_handler,
     unhandled_exception_handler,
 )
@@ -48,8 +53,64 @@ from app.api.v1 import (
 )
 from app.core.config import settings
 from app.core.errors import AppError
+from app.core.rate_limit import limiter
 from app.db.database import close_db
 from app.services.backup_service import backup_scheduler_loop
+from slowapi.errors import RateLimitExceeded
+
+logger = logging.getLogger(__name__)
+PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
+    ("GET", "/api/v1/health"),
+    ("POST", "/api/v1/auth/login"),
+    ("POST", "/api/v1/auth/refresh"),
+    ("POST", "/api/v1/auth/logout"),
+    ("GET", "/api/v1/auth/sso/google"),
+    ("GET", "/api/v1/auth/sso/callback"),
+    ("POST", "/api/v1/auth/password-reset/request"),
+    ("POST", "/api/v1/auth/password-reset/confirm"),
+    ("GET", "/api/v1/auth/me"),
+    ("PATCH", "/api/v1/auth/me"),
+    ("POST", "/api/v1/customers/onboarding/complete"),
+}
+
+
+def _iter_dependency_calls(dependant):
+    for dependency in dependant.dependencies:
+        call = getattr(dependency, "call", None)
+        if call is not None:
+            yield call
+        yield from _iter_dependency_calls(dependency)
+
+
+def _route_has_permission_dependency(route: APIRoute) -> bool:
+    return any(
+        hasattr(call, PERMISSION_DEPENDENCY_MARKER)
+        for call in _iter_dependency_calls(route.dependant)
+    )
+
+
+def _audit_route_permissions(app: FastAPI) -> None:
+    missing_routes: list[str] = []
+    for route in app.routes:
+        if not isinstance(route, APIRoute) or not route.path.startswith("/api/v1"):
+            continue
+
+        methods = sorted((route.methods or set()) - {"HEAD", "OPTIONS"})
+        if not methods:
+            continue
+        if all((method, route.path) in PUBLIC_ROUTE_ALLOWLIST for method in methods):
+            continue
+        if _route_has_permission_dependency(route):
+            continue
+
+        missing_routes.append(f"{','.join(methods)} {route.path}")
+
+    if missing_routes:
+        joined = "; ".join(sorted(missing_routes))
+        raise RuntimeError(
+            "Permission audit failed. Missing require_permission() on: "
+            f"{joined}"
+        )
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -73,18 +134,26 @@ async def lifespan(app: FastAPI):
     # Startup (schema: use Alembic only; do not create_all on boot)
     backup_stop_event = asyncio.Event()
     backup_task: asyncio.Task | None = None
-    try:
-        async with AsyncSessionLocal() as db:
-            await seed_permissions_and_roles(db)
-            await seed_accounting_defaults(db)
-            if settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PASSWORD:
-                await seed_default_admin(
-                    db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD
-                )
-        if settings.BACKUP_ENABLED:
-            backup_task = asyncio.create_task(backup_scheduler_loop(backup_stop_event))
-    except Exception:
-        pass  # DB may not be migrated yet
+    _audit_route_permissions(app)
+    if settings.SEED_ON_STARTUP:
+        try:
+            async with AsyncSessionLocal() as db:
+                await seed_permissions_and_roles(db)
+                await seed_accounting_defaults(db)
+                if settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PASSWORD:
+                    await seed_default_admin(
+                        db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD
+                    )
+        except (OperationalError, ProgrammingError):
+            logger.warning(
+                "Skipping startup seed because the database is not ready or migrations are pending.",
+                exc_info=True,
+            )
+    else:
+        logger.info("Startup seeding skipped because SEED_ON_STARTUP is disabled.")
+
+    if settings.BACKUP_ENABLED:
+        backup_task = asyncio.create_task(backup_scheduler_loop(backup_stop_event))
     yield
     # Shutdown
     backup_stop_event.set()
@@ -106,19 +175,21 @@ app = FastAPI(
     docs_url="/docs" if settings.is_development else None,
     redoc_url="/redoc" if settings.is_development else None,
 )
+app.state.limiter = limiter
 
 # Global exception handling (frontend-stable envelope)
 app.add_exception_handler(AppError, app_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 # Middleware: request_id first (innermost), then CORS
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.is_development else [],
-    allow_credentials=True,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=settings.cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

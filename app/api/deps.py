@@ -18,6 +18,7 @@ from app.models.users import User
 from app.utils.security import decode_token
 
 security = HTTPBearer(auto_error=False)
+PERMISSION_DEPENDENCY_MARKER = "__mezan_required_permission__"
 
 
 async def get_current_user_optional(
@@ -104,4 +105,5 @@ def require_permission(resource: str, action: str) -> Callable:
                 detail=f"Permission required: {resource}:{action}",
             )
 
+    setattr(_check, PERMISSION_DEPENDENCY_MARKER, (resource, action))
     return Depends(_check)
