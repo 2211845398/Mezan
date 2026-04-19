@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CartCreateRequest(BaseModel):
@@ -18,7 +20,7 @@ class CartLineUpsertRequest(BaseModel):
 
 class CartDiscountRequest(BaseModel):
     code: str
-    amount: float = Field(gt=0)
+    amount: Decimal = Field(gt=0)
 
 
 class CartStateRequest(BaseModel):
@@ -30,8 +32,8 @@ class CartRead(BaseModel):
     terminal_id: int
     branch_id: int
     status: str
-    subtotal: float
-    discount_total: float
-    total: float
+    subtotal: Decimal
+    discount_total: Decimal
+    total: Decimal
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})

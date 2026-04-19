@@ -182,8 +182,8 @@ def serialize_ar_item(item: ArOpenItem) -> dict:
         "document_date": item.document_date,
         "due_date": item.due_date,
         "currency_code": item.currency_code,
-        "amount_total": float(_d(item.amount_total)),
-        "amount_open": float(_d(item.amount_open)),
+        "amount_total": _d(item.amount_total),
+        "amount_open": _d(item.amount_open),
         "status": item.status,
         "days_overdue": _days_overdue(item.due_date),
     }
@@ -200,8 +200,8 @@ def serialize_ap_item(item: ApOpenItem) -> dict:
         "document_date": item.document_date,
         "due_date": item.due_date,
         "currency_code": item.currency_code,
-        "amount_total": float(_d(item.amount_total)),
-        "amount_open": float(_d(item.amount_open)),
+        "amount_total": _d(item.amount_total),
+        "amount_open": _d(item.amount_open),
         "status": item.status,
         "days_overdue": _days_overdue(item.due_date),
     }

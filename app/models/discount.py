@@ -6,7 +6,8 @@ FLAT, PERCENTAGE, BOGO (buy-X-get-Y), and COMBO.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum as PyEnum
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, Numeric, String
@@ -41,9 +42,9 @@ class DiscountRule(Base):
     discount_type: Mapped[DiscountType] = mapped_column(
         Enum(DiscountType, native_enum=False), nullable=False
     )
-    value: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    min_order_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
-    max_discount_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    min_order_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    max_discount_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     target_product_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     buy_qty: Mapped[int | None] = mapped_column(Integer, nullable=True)
     get_qty: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -59,12 +60,12 @@ class DiscountRule(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
 
@@ -84,10 +85,10 @@ class DiscountUsageLog(Base):
     customer_id: Mapped[int | None] = mapped_column(
         ForeignKey("customer_profiles.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    discount_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     applied_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

@@ -1,9 +1,10 @@
 """Authentication API: login, refresh, logout, password reset, SSO, profile."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.auth import (
@@ -22,9 +23,18 @@ from app.services.auth_service import get_google_authorization_url
 
 router = APIRouter()
 
+LOGIN_RATE_LIMIT = "5/minute"
+REFRESH_RATE_LIMIT = "20/minute"
+LOGOUT_RATE_LIMIT = "20/minute"
+SSO_RATE_LIMIT = "10/minute"
+PASSWORD_RESET_REQUEST_RATE_LIMIT = "5/hour"
+PASSWORD_RESET_CONFIRM_RATE_LIMIT = "10/hour"
+
 
 @router.post("/auth/login", response_model=LoginResponse)
+@limiter.limit(LOGIN_RATE_LIMIT)
 async def login(
+    request: Request,
     body: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> LoginResponse:
@@ -37,7 +47,9 @@ async def login(
 
 
 @router.post("/auth/refresh", response_model=TokenResponse)
+@limiter.limit(REFRESH_RATE_LIMIT)
 async def refresh(
+    request: Request,
     body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
@@ -50,7 +62,9 @@ async def refresh(
 
 
 @router.post("/auth/logout")
+@limiter.limit(LOGOUT_RATE_LIMIT)
 async def logout(
+    request: Request,
     body: LogoutRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -60,7 +74,8 @@ async def logout(
 
 
 @router.get("/auth/sso/google")
-async def sso_google_authorize() -> dict:
+@limiter.limit(SSO_RATE_LIMIT)
+async def sso_google_authorize(request: Request) -> dict:
     """Redirect URL for Google OAuth2 login. Frontend can redirect user here."""
     url = get_google_authorization_url()
     if not url:
@@ -72,7 +87,9 @@ async def sso_google_authorize() -> dict:
 
 
 @router.get("/auth/sso/callback")
+@limiter.limit(SSO_RATE_LIMIT)
 async def sso_callback(
+    request: Request,
     code: str,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -85,7 +102,9 @@ async def sso_callback(
 
 
 @router.post("/auth/password-reset/request")
+@limiter.limit(PASSWORD_RESET_REQUEST_RATE_LIMIT)
 async def password_reset_request(
+    request: Request,
     body: PasswordResetRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -95,7 +114,9 @@ async def password_reset_request(
 
 
 @router.post("/auth/password-reset/confirm")
+@limiter.limit(PASSWORD_RESET_CONFIRM_RATE_LIMIT)
 async def password_reset_confirm(
+    request: Request,
     body: PasswordResetConfirm,
     db: AsyncSession = Depends(get_db),
 ) -> dict:

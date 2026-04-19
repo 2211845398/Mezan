@@ -17,8 +17,9 @@ Comprehensive ERP and Retail Management System built with FastAPI, PostgreSQL, a
 mezan/
 ├── app/                    # Application code
 │   ├── main.py            # FastAPI application entry point
-│   ├── config.py          # Configuration management
+│   ├── scripts/           # Operational scripts (for example manual seeding)
 │   └── core/              # Core components
+│       ├── config.py      # Configuration management
 │       └── database.py    # Database connection
 ├── alembic/               # Database migrations
 ├── tests/                 # Test suite
@@ -58,7 +59,12 @@ mezan/
    docker-compose exec api alembic upgrade head
    ```
 
-5. **Access the application**
+5. **Seed the database (only if startup seeding is disabled)**
+   ```bash
+   docker-compose exec api uv run python -m app.scripts.seed
+   ```
+
+6. **Access the application**
    - API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
    - PgAdmin (optional): http://localhost:5050
@@ -81,7 +87,17 @@ mezan/
    # Edit .env with your local database settings
    ```
 
-4. **Run the application**
+4. **Run database migrations**
+   ```bash
+   uv run alembic upgrade head
+   ```
+
+5. **Seed the database**
+   ```bash
+   uv run python -m app.scripts.seed
+   ```
+
+6. **Run the application**
    ```bash
    uv run uvicorn app.main:app --reload
    ```
@@ -91,9 +107,29 @@ mezan/
 Create a `.env` file based on `.env.example` with the following variables:
 
 - `ENVIRONMENT`: Environment name (dev/staging/prod)
-- `SECRET_KEY`: Secret key for security operations
+- `SECRET_KEY`: Secret key for security operations. In production it must be a strong unique value, not a placeholder or short dev secret.
+- `ALLOWED_ORIGINS`: Comma-separated or JSON-array list of trusted browser origins for CORS credentials. Example: `http://localhost:3000,http://127.0.0.1:5173`
+- `SEED_ON_STARTUP`: Set to `true` only when you intentionally want startup seeding to run. Development compose enables it; production compose disables it.
 - `DATABASE_URL`: PostgreSQL connection string
 - `POSTGRES_*`: Database configuration variables
+
+## Startup Seeding
+
+Startup seeding is now explicit:
+
+- **Development compose** enables `SEED_ON_STARTUP=true` for convenience.
+- **Production compose** forces `SEED_ON_STARTUP=false` so deploys do not re-run seed logic on every restart.
+- **Manual seeding** is available through `app/scripts/seed.py`:
+
+```bash
+# Local
+uv run python -m app.scripts.seed
+
+# Docker Compose
+docker-compose exec api uv run python -m app.scripts.seed
+```
+
+If you want a default admin account to be created during manual or startup seeding, set both `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD`.
 
 ## Database Migrations
 

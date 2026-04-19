@@ -96,6 +96,12 @@
 
 ---
 
+## Technical flaw hardening (system review follow-through)
+
+- [x] **Fix 14 — Soft-delete branches** — `branches.archived_at` (Alembic `d8f1a2c3e4b5`), list default excludes archived with optional `include_archived`, `DELETE` archives idempotently + audit `branch.archived`, [`app/services/branch_scope.py`](app/services/branch_scope.py) enforces non-archived branch for new operational entry points (terminals, carts, shifts, invoice numbers, transfers, stock adjustments, scan→goods receipt).
+
+---
+
 ## Gaps & technical debt
 
 | Area | Status |
@@ -111,6 +117,30 @@
 ## Future backlog
 
 _(Epic-sized follow-ups can be tracked here when defined.)_
+
+---
+
+## GitHub PR description (technical hardening — copy/paste)
+
+Use this block when opening or updating the hardening PR (extend the migration list from `alembic history` / your merge base as needed).
+
+**Verification**
+
+- `uv run ruff check . --fix`
+- `uv run pytest -q` (requires `TEST_DATABASE_URL` / PostgreSQL test DB)
+
+**Migrations (Batch 5 — Fix 14)**
+
+- `d8f1a2c3e4b5_branch_archived_at` — adds nullable `branches.archived_at` and index for list filtering / archival queries.
+
+**Batch 5 — Fix 14 (branch archival)**
+
+- ORM + API: `archived_at` on `Branch`; `GET /branches` excludes archived by default; `include_archived=true` restores full list; `DELETE /branches/{id}` soft-deletes (idempotent) with audit `branch.archived`.
+- `app/services/branch_scope.require_branch_open_for_operations` — rejects archived branches for new work at terminals, POS cart/shift, per-branch invoice numbering, transfer batch create, manual inventory adjustment, and invoice-scan → goods receipt validation.
+
+**Earlier batches (this branch)**
+
+- See `git log --oneline` for commits such as Batch 1–4 / individual fixes (money `Decimal`, finalize atomicity, CORS, `SECRET_KEY`, lifespan errors, rate limits, route permission audit, seed flag, timestamps, Alembic-backed tests, payment receipt column rename, etc.).
 
 ---
 

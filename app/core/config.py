@@ -1,6 +1,11 @@
 """Application configuration management."""
 
-from pydantic import Field
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +25,14 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="dev", description="Environment name (dev/staging/prod)")
     SECRET_KEY: str = Field(..., description="Secret key for security operations")
     DEBUG: bool = Field(default=False, description="Debug mode")
+    ALLOWED_ORIGINS: list[str] = Field(
+        default_factory=list,
+        description="Allowed browser origins for CORS, as CSV or JSON array",
+    )
+    SEED_ON_STARTUP: bool = Field(
+        default=False,
+        description="Run idempotent seed routines during application startup",
+    )
 
     # JWT
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
@@ -86,6 +99,54 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = Field(default=5, description="Database connection pool size")
     DB_MAX_OVERFLOW: int = Field(default=10, description="Database connection pool max overflow")
 
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, value: Any) -> list[str] | Any:
+        """Accept CORS origins as either CSV or JSON array input."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith("["):
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    parsed = None
+                else:
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+            return [origin.strip() for origin in raw.split(",") if origin.strip()]
+        if isinstance(value, (list, tuple, set)):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return value
+
+    @model_validator(mode="after")
+    def validate_security_settings(self) -> Settings:
+        """Reject placeholder or weak production secrets."""
+        if not self.is_production:
+            return self
+
+        secret = self.SECRET_KEY.strip()
+        normalized = secret.lower()
+        weak_secrets = {
+            "changeme",
+            "change-me",
+            "default-secret-key",
+            "dev-secret-key-change-in-production",
+            "secret",
+            "test-secret-key-not-for-prod",
+        }
+        if (
+            len(secret) < 32
+            or normalized in weak_secrets
+            or normalized.startswith("dev-secret-key")
+            or "change-in-production" in normalized
+        ):
+            raise ValueError("SECRET_KEY must be a strong, unique value in production.")
+        return self
+
     @property
     def database_url_async(self) -> str:
         """Get async database URL for SQLAlchemy."""
@@ -96,12 +157,17 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""
-        return self.ENVIRONMENT == "prod"
+        return self.ENVIRONMENT.lower() in {"prod", "production"}
 
     @property
     def is_development(self) -> bool:
         """Check if running in development environment."""
-        return self.ENVIRONMENT == "dev"
+        return self.ENVIRONMENT.lower() in {"dev", "development"}
+
+    @property
+    def cors_allow_credentials(self) -> bool:
+        """Only allow credentialed CORS when trusted origins are configured."""
+        return bool(self.ALLOWED_ORIGINS)
 
 
 # Global settings instance

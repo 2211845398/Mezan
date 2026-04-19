@@ -63,7 +63,7 @@ def _parse_line_items(text: str) -> list[dict[str, Any]]:
             {
                 "product_id": int(match.group("product_id")),
                 "qty": int(match.group("qty")),
-                "unit_cost": float(match.group("unit_cost")),
+                "unit_cost": match.group("unit_cost"),
             }
         )
     return line_items

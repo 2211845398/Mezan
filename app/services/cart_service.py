@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,9 @@ from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.services.branch_scope import require_branch_open_for_operations
+from app.services.pricing_service import get_active_sell_price
+from app.utils.money import q2
 
 
 def _assert_transition(current: str, action: str) -> str:
@@ -36,15 +40,16 @@ async def create_cart(
     terminal = t_res.scalar_one_or_none()
     if not terminal:
         raise ValidationError("Terminal not found")
+    await require_branch_open_for_operations(db, terminal.branch_id)
     cart = PosCart(
         terminal_id=terminal_id,
         branch_id=terminal.branch_id,
         shift_id=shift_id,
         customer_id=customer_id,
         status="active",
-        subtotal=0,
-        discount_total=0,
-        total=0,
+        subtotal=Decimal("0.00"),
+        discount_total=Decimal("0.00"),
+        total=Decimal("0.00"),
     )
     db.add(cart)
     await db.commit()
@@ -57,11 +62,11 @@ async def _recalc_totals(db: AsyncSession, cart: PosCart) -> None:
     lines = lines_res.scalars().all()
     disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart.id))
     discounts = disc_res.scalars().all()
-    subtotal = sum(float(x.line_total) for x in lines)
-    discount_total = sum(float(d.amount) for d in discounts)
-    cart.subtotal = subtotal
-    cart.discount_total = discount_total
-    cart.total = max(0.0, subtotal - discount_total)
+    subtotal = sum((x.line_total for x in lines), Decimal("0.00"))
+    discount_total = sum((d.amount for d in discounts), Decimal("0.00"))
+    cart.subtotal = q2(subtotal)
+    cart.discount_total = q2(discount_total)
+    cart.total = q2(max(Decimal("0.00"), subtotal - discount_total))
 
 
 async def upsert_line(
@@ -77,9 +82,7 @@ async def upsert_line(
     product = p_res.scalar_one_or_none()
     if not product:
         raise ValidationError("Product not found")
-    unit_price = float((product.attributes or {}).get("price", 0))
-    if unit_price <= 0:
-        raise ValidationError("Product has no sellable price")
+    unit_price = await get_active_sell_price(db, product_id=product.id)
     line_res = await db.execute(
         select(PosCartLine).where(
             PosCartLine.cart_id == cart.id, PosCartLine.product_id == product_id
@@ -89,7 +92,7 @@ async def upsert_line(
     if line:
         line.qty = qty
         line.unit_price = unit_price
-        line.line_total = unit_price * qty
+        line.line_total = q2(unit_price * qty)
     else:
         db.add(
             PosCartLine(
@@ -97,7 +100,7 @@ async def upsert_line(
                 product_id=product_id,
                 qty=qty,
                 unit_price=unit_price,
-                line_total=unit_price * qty,
+                line_total=q2(unit_price * qty),
             )
         )
     db.add(
@@ -115,7 +118,7 @@ async def upsert_line(
 
 
 async def apply_discount(
-    db: AsyncSession, *, cart_id: int, code: str, amount: float, created_by_user_id: int
+    db: AsyncSession, *, cart_id: int, code: str, amount: Decimal, created_by_user_id: int
 ) -> PosCart:
     res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
     cart = res.scalar_one_or_none()
@@ -123,12 +126,13 @@ async def apply_discount(
         raise NotFoundError("Cart not found")
     if cart.status != "active":
         raise StateTransitionError("Cart is not active")
-    db.add(PosCartDiscount(cart_id=cart.id, code=code, amount=amount))
+    discount_amount = q2(amount)
+    db.add(PosCartDiscount(cart_id=cart.id, code=code, amount=discount_amount))
     db.add(
         PosCartEvent(
             cart_id=cart.id,
             event_type="discount_applied",
-            payload={"code": code, "amount": amount},
+            payload={"code": code, "amount": str(discount_amount)},
             created_by_user_id=created_by_user_id,
         )
     )

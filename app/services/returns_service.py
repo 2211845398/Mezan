@@ -13,6 +13,7 @@ from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import CreditNote, ExchangeLink, SalesReturn, SalesReturnLine
 from app.services.document_posting_service import post_sales_return_gl
 from app.services.inventory_service import apply_stock_movement
+from app.utils.money import q2
 
 
 async def create_return_and_credit(
@@ -44,7 +45,7 @@ async def create_return_and_credit(
     )
     db.add(ret)
     await db.flush()
-    total_refund = 0.0
+    total_refund = Decimal("0.00")
     gl_lines: list[tuple[int, int, Decimal]] = []
     for idx, item in enumerate(lines):
         inv_line = inv_lines.get(item["sales_invoice_line_id"])
@@ -53,9 +54,9 @@ async def create_return_and_credit(
         qty = item["qty"]
         if qty <= 0 or qty > inv_line.qty:
             raise ValidationError("Invalid return qty")
-        refund = float(inv_line.unit_price) * qty
+        refund = q2(inv_line.unit_price * qty)
         total_refund += refund
-        gl_lines.append((inv_line.product_id, qty, Decimal(str(refund))))
+        gl_lines.append((inv_line.product_id, qty, refund))
         db.add(
             SalesReturnLine(
                 sales_return_id=ret.id,
@@ -86,7 +87,7 @@ async def create_return_and_credit(
     await post_sales_return_gl(
         db,
         branch_id=invoice.branch_id,
-        credit_total=Decimal(str(total_refund)),
+        credit_total=total_refund,
         sales_invoice_id=invoice.id,
         sales_return_id=ret.id,
         lines=gl_lines,

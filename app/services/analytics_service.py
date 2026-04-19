@@ -6,6 +6,7 @@ All functions are read-only aggregation queries -- no commits.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,8 @@ from app.models.discount import DiscountRule, DiscountUsageLog
 from app.models.product import Product
 from app.models.sales_invoice import SalesInvoiceLine
 from app.models.stock_level import StockLevel
+from app.utils.date_sql import calendar_day_range
+from app.utils.money import q2
 
 
 async def get_top_selling_products(
@@ -23,7 +26,7 @@ async def get_top_selling_products(
     period_start: datetime | None = None,
     period_end: datetime | None = None,
 ) -> list[dict]:
-    """Top products by total quantity sold, optionally within a date range."""
+    """Top products by total quantity sold within inclusive calendar-day bounds."""
     stmt = (
         select(
             SalesInvoiceLine.product_id,
@@ -37,13 +40,17 @@ async def get_top_selling_products(
         .limit(limit)
     )
 
-    if period_start is not None:
+    if period_start is not None or period_end is not None:
         from app.models.sales_invoice import SalesInvoice
 
         stmt = stmt.join(SalesInvoice, SalesInvoice.id == SalesInvoiceLine.sales_invoice_id)
-        stmt = stmt.where(SalesInvoice.created_at >= period_start)
-        if period_end is not None:
-            stmt = stmt.where(SalesInvoice.created_at <= period_end)
+        stmt = stmt.where(
+            *calendar_day_range(
+                SalesInvoice.created_at,
+                start=period_start,
+                end=period_end,
+            )
+        )
 
     result = await db.execute(stmt)
     return [
@@ -51,7 +58,7 @@ async def get_top_selling_products(
             "product_id": row.product_id,
             "product_name": row.product_name,
             "total_qty_sold": int(row.total_qty_sold),
-            "total_revenue": float(row.total_revenue),
+            "total_revenue": q2(row.total_revenue or Decimal("0")),
         }
         for row in result.all()
     ]
@@ -166,7 +173,7 @@ async def get_promotion_performance(
             "name": row.name,
             "code": row.code,
             "usage_count": row.usage_count,
-            "total_discount_given": float(row.total_discount_given),
+            "total_discount_given": q2(row.total_discount_given or Decimal("0")),
         }
         for row in result.all()
     ]

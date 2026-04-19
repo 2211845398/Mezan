@@ -42,5 +42,5 @@ async def create_return_endpoint(
         "sales_return_id": sales_return.id,
         "credit_note_id": credit.id,
         "credit_number": credit.credit_number,
-        "total_amount": float(credit.total_amount),
+        "total_amount": str(credit.total_amount),
     }

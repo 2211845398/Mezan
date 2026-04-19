@@ -1,19 +1,21 @@
-"""Financial statement and GL inquiry services (Epic 5.5). Read-only."""
+"""Financial statement and GL inquiry services (Epic 5.5).
+
+These statement queries are intentionally keyed on ``JournalEntry.entry_date``.
+They should not be refactored to filter on timestamp metadata such as
+``posted_at``, because reporting periods in accounting are calendar dates.
+"""
 
 from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chart_accounts import AccountType, ChartAccount
 from app.models.journal_entries import JournalEntry, JournalEntryLine
-
-
-def _d(x) -> Decimal:
-    return Decimal(str(x)).quantize(Decimal("0.01"))
+from app.utils.money import q2
 
 
 async def trial_balance(
@@ -22,7 +24,7 @@ async def trial_balance(
     as_of: date,
     branch_id: int | None = None,
 ) -> list[dict]:
-    """Per-account debit/credit totals through as_of (inclusive)."""
+    """Per-account debit/credit totals through as_of on entry_date (inclusive)."""
     stmt = (
         select(
             JournalEntryLine.account_id,
@@ -47,8 +49,8 @@ async def trial_balance(
     res = await db.execute(stmt)
     rows = []
     for r in res.all():
-        dr = _d(r.total_debit)
-        cr = _d(r.total_credit)
+        dr = q2(r.total_debit)
+        cr = q2(r.total_credit)
         at = r.account_type
         at_s = at.value if isinstance(at, AccountType) else str(at)
         rows.append(
@@ -57,9 +59,9 @@ async def trial_balance(
                 "code": r.code,
                 "name": r.name,
                 "account_type": at_s,
-                "total_debit": float(dr),
-                "total_credit": float(cr),
-                "net": float(dr - cr),
+                "total_debit": dr,
+                "total_credit": cr,
+                "net": q2(dr - cr),
             }
         )
     return rows
@@ -73,7 +75,7 @@ async def general_ledger_lines(
     date_to: date,
     branch_id: int | None = None,
 ) -> list[dict]:
-    """Posted lines for one account in a date range."""
+    """Posted lines for one account in an entry_date range."""
     stmt = (
         select(
             JournalEntry.id,
@@ -106,8 +108,8 @@ async def general_ledger_lines(
             "source_type": r.source_type,
             "source_id": r.source_id,
             "line_no": r.line_no,
-            "debit": float(_d(r.debit)),
-            "credit": float(_d(r.credit)),
+            "debit": q2(r.debit),
+            "credit": q2(r.credit),
             "branch_id": r.branch_id,
             "memo": r.memo,
         }
@@ -122,7 +124,7 @@ async def income_statement(
     period_end: date,
     branch_id: int | None = None,
 ) -> dict:
-    """Revenue and expense totals for the period (P&L)."""
+    """Revenue and expense totals for the period by journal entry_date (P&L)."""
     stmt = (
         select(
             ChartAccount.account_type,
@@ -134,18 +136,23 @@ async def income_statement(
         .where(
             JournalEntry.entry_date >= period_start,
             JournalEntry.entry_date <= period_end,
-            ChartAccount.account_type.in_([AccountType.REVENUE, AccountType.EXPENSE]),
+            # Enum IN () uses a bind processor that may not match VARCHAR stored values; compare as text.
+            cast(ChartAccount.account_type, String).in_(
+                [AccountType.REVENUE.value, AccountType.EXPENSE.value]
+            ),
         )
     )
     if branch_id is not None:
         stmt = stmt.where(JournalEntryLine.branch_id == branch_id)
     stmt = stmt.group_by(ChartAccount.account_type)
+
     res = await db.execute(stmt)
+    rows = res.all()
     revenue_total = Decimal("0")
     expense_total = Decimal("0")
-    for row in res.all():
-        dr = _d(row.dr)
-        cr = _d(row.cr)
+    for row in rows:
+        dr = q2(row.dr)
+        cr = q2(row.cr)
         at = row.account_type
         if at == AccountType.REVENUE:
             revenue_total += cr - dr
@@ -155,9 +162,9 @@ async def income_statement(
     return {
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
-        "total_revenue": float(revenue_total),
-        "total_expense": float(expense_total),
-        "net_income": float(net),
+        "total_revenue": q2(revenue_total),
+        "total_expense": q2(expense_total),
+        "net_income": q2(net),
     }
 
 
@@ -167,7 +174,7 @@ async def balance_sheet(
     as_of: date,
     branch_id: int | None = None,
 ) -> dict:
-    """Cumulative balances by statement group (simplified)."""
+    """Cumulative balances by statement group through entry_date as_of."""
     stmt = (
         select(
             ChartAccount.account_type,
@@ -178,8 +185,12 @@ async def balance_sheet(
         .join(ChartAccount, ChartAccount.id == JournalEntryLine.account_id)
         .where(
             JournalEntry.entry_date <= as_of,
-            ChartAccount.account_type.in_(
-                [AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY]
+            cast(ChartAccount.account_type, String).in_(
+                [
+                    AccountType.ASSET.value,
+                    AccountType.LIABILITY.value,
+                    AccountType.EQUITY.value,
+                ]
             ),
         )
     )
@@ -191,8 +202,8 @@ async def balance_sheet(
     liabilities = Decimal("0")
     equity = Decimal("0")
     for row in res.all():
-        dr = _d(row.dr)
-        cr = _d(row.cr)
+        dr = q2(row.dr)
+        cr = q2(row.cr)
         at = row.account_type
         if at == AccountType.ASSET:
             assets += dr - cr
@@ -202,8 +213,8 @@ async def balance_sheet(
             equity += cr - dr
     return {
         "as_of": as_of.isoformat(),
-        "total_assets": float(assets),
-        "total_liabilities": float(liabilities),
-        "total_equity": float(equity),
-        "assets_minus_liabilities_equity": float(assets - liabilities - equity),
+        "total_assets": q2(assets),
+        "total_liabilities": q2(liabilities),
+        "total_equity": q2(equity),
+        "assets_minus_liabilities_equity": q2(assets - liabilities - equity),
     }

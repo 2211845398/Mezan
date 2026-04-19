@@ -9,6 +9,7 @@ from app.models.attendance_log import AttendanceLog
 from app.models.audit_log import AuditLog
 from app.models.branch import Branch
 from app.models.branch_product_costs import BranchProductCost
+from app.models.branch_sequence import BranchSequence
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.chart_accounts import AccountType, ChartAccount
@@ -33,6 +34,7 @@ from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.models.product_price import ProductPrice
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.refresh_token import RefreshToken
@@ -61,6 +63,7 @@ __all__ = [
     "AuditLog",
     "AttendanceLog",
     "Branch",
+    "BranchSequence",
     "BranchProductCost",
     "Category",
     "ChartAccount",
@@ -111,6 +114,7 @@ __all__ = [
     "CreditNote",
     "ExchangeLink",
     "Product",
+    "ProductPrice",
     "PurchaseOrder",
     "PurchaseOrderLine",
     "StockLevel",

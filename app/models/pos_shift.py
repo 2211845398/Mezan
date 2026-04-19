@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -36,12 +37,14 @@ class PosShift(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
-    opening_float: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    expected_cash: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    declared_cash: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
-    variance: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    opening_float: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    expected_cash: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0.00")
+    )
+    declared_cash: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    variance: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     opened_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -56,13 +59,13 @@ class PosCashEvent(Base):
     event_type: Mapped[str] = mapped_column(
         String(32), nullable=False
     )  # sale, payout, refund, adjust
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
 
@@ -75,5 +78,5 @@ class ZReport(Base):
     )
     report_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

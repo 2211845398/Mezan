@@ -3,23 +3,24 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PosShiftOpenRequest(BaseModel):
     terminal_id: int
-    opening_float: float = Field(ge=0)
+    opening_float: Decimal = Field(ge=0)
 
 
 class PosShiftCashEventRequest(BaseModel):
     event_type: str
-    amount: float
+    amount: Decimal
     note: str | None = None
 
 
 class PosShiftCloseRequest(BaseModel):
-    declared_cash: float = Field(ge=0)
+    declared_cash: Decimal = Field(ge=0)
 
 
 class PosShiftRead(BaseModel):
@@ -27,11 +28,11 @@ class PosShiftRead(BaseModel):
     terminal_id: int
     branch_id: int
     status: str
-    opening_float: float
-    expected_cash: float
-    declared_cash: float | None
-    variance: float | None
+    opening_float: Decimal
+    expected_cash: Decimal
+    declared_cash: Decimal | None
+    variance: Decimal | None
     opened_at: datetime
     closed_at: datetime | None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})

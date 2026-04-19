@@ -8,11 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
-from app.models.branch import Branch
 from app.models.pos_terminal import POSTerminal
 from app.models.users import User
 from app.schemas.terminal import TerminalCreate, TerminalCreateResponse, TerminalRead
 from app.services import audit_service
+from app.services.branch_scope import require_branch_open_for_operations
 from app.utils.security import hash_token
 
 router = APIRouter()
@@ -42,9 +42,7 @@ async def create_terminal(
     _: None = require_permission("terminals", "create"),
 ) -> TerminalCreateResponse:
     """Register a new terminal; returns API key once. Requires terminals:create."""
-    result = await db.execute(select(Branch).where(Branch.id == body.branch_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Branch not found")
+    await require_branch_open_for_operations(db, body.branch_id)
     result = await db.execute(
         select(POSTerminal).where(POSTerminal.terminal_code == body.terminal_code)
     )

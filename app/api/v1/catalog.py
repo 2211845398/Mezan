@@ -254,6 +254,7 @@ async def create_product_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("catalog", "create"),
 ) -> ProductRead:
+    """Create a product; prefer `sell_price` over `attributes.price` going forward."""
     product = await create_product(db, data=body.model_dump())
     await audit_service.log(
         session=db,
@@ -305,6 +306,7 @@ async def update_product_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("catalog", "update"),
 ) -> ProductRead:
+    """Update a product; `attributes.price` remains accepted as a temporary compatibility path."""
     product = await update_product(
         db, product_id=product_id, data=body.model_dump(exclude_unset=True)
     )

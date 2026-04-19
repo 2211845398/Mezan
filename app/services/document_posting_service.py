@@ -14,11 +14,8 @@ from app.models.payslip import Payslip
 from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.models.suppliers import Supplier
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
-from app.services.inventory_valuation_service import get_unit_cost_for_sale
-
-
-def _d(x: float | Decimal) -> Decimal:
-    return Decimal(str(x)).quantize(Decimal("0.01"))
+from app.services.inventory_valuation_service import get_unit_costs_for_sale
+from app.utils.money import q2
 
 
 async def post_sales_invoice_gl(
@@ -29,7 +26,7 @@ async def post_sales_invoice_gl(
 ) -> None:
     """POS sale: revenue + cash/AR pattern and COGS (WAVG). Idempotent per invoice."""
     settings = await get_accounting_settings(db)
-    total = _d(invoice.total)
+    total = q2(invoice.total)
     if total <= 0:
         return
 
@@ -38,9 +35,14 @@ async def post_sales_invoice_gl(
 
     # COGS extension
     cogs_total = Decimal("0")
+    unit_costs = await get_unit_costs_for_sale(
+        db,
+        branch_id=branch_id,
+        product_ids=[ln.product_id for ln in lines],
+    )
     for ln in lines:
-        uc = await get_unit_cost_for_sale(db, branch_id=branch_id, product_id=ln.product_id)
-        cogs_total += _d(uc * Decimal(ln.qty))
+        uc = unit_costs.get(ln.product_id, Decimal("0"))
+        cogs_total += q2(uc * Decimal(ln.qty))
 
     async def post_revenue_and_cash() -> None:
         if invoice.customer_id is None:
@@ -185,12 +187,17 @@ async def post_sales_return_gl(
         return
     settings = await get_accounting_settings(db)
     entry_date = date.today()
-    total = _d(credit_total)
+    total = q2(credit_total)
 
     cogs_back = Decimal("0")
+    unit_costs = await get_unit_costs_for_sale(
+        db,
+        branch_id=branch_id,
+        product_ids=[product_id for product_id, _qty, _ref in lines],
+    )
     for product_id, qty, _ref in lines:
-        uc = await get_unit_cost_for_sale(db, branch_id=branch_id, product_id=product_id)
-        cogs_back += _d(uc * Decimal(qty))
+        uc = unit_costs.get(product_id, Decimal("0"))
+        cogs_back += q2(uc * Decimal(qty))
 
     rev_lines = [
         {
@@ -256,7 +263,7 @@ async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> N
 
     total_ext = Decimal("0")
     for ln in gr_lines:
-        total_ext += _d(Decimal(str(ln.unit_cost)) * Decimal(ln.qty))
+        total_ext += q2(ln.unit_cost * Decimal(ln.qty))
 
     if total_ext <= 0:
         return
@@ -298,9 +305,9 @@ async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> N
 async def post_payslip_approved_gl(db: AsyncSession, *, payslip: Payslip, branch_id: int) -> None:
     """Dr salary expense (gross), Cr deductions payable + payroll liability (net)."""
     settings = await get_accounting_settings(db)
-    gross = _d(payslip.gross_amount)
-    ded = _d(payslip.deductions)
-    net = _d(payslip.net_amount)
+    gross = q2(payslip.gross_amount)
+    ded = q2(payslip.deductions)
+    net = q2(payslip.net_amount)
     if gross <= 0:
         return
 

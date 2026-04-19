@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import UTC, datetime, time
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, Time
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,11 +25,11 @@ class WeeklySchedule(Base):
     end_time: Mapped[time] = mapped_column(Time(timezone=False), nullable=False)
     is_day_off: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )

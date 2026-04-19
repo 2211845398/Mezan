@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Select, and_, or_, select
@@ -13,6 +14,11 @@ from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.product import Product
+from app.services.pricing_service import set_product_sell_price
+from app.utils.money import to_decimal
+
+PRICE_COMPAT_KEY = "price"
+_UNSET = object()
 
 
 def _ean13_checksum(d12: str) -> str:
@@ -198,7 +204,7 @@ def _validate_product_attributes(
     *, attrs: dict[str, Any], defs: list[CategoryAttributeDef]
 ) -> dict[str, Any]:
     allowed = {d.key: d for d in defs}
-    unknown_keys = sorted([k for k in attrs.keys() if k not in allowed])
+    unknown_keys = sorted([k for k in attrs.keys() if k not in allowed and k != PRICE_COMPAT_KEY])
     if unknown_keys:
         raise ValidationError(
             "Unknown attributes",
@@ -213,6 +219,12 @@ def _validate_product_attributes(
 
     # Light type validation (non-exhaustive, extensible via `validation` JSON).
     for key, value in attrs.items():
+        if key == PRICE_COMPAT_KEY and key not in allowed:
+            if value is not None and not isinstance(value, (int, float)):
+                raise ValidationError(
+                    "Invalid attribute type", details={"key": key, "expected": "float"}
+                )
+            continue
         spec = allowed[key].type.lower()
         if value is None:
             continue
@@ -231,6 +243,30 @@ def _validate_product_attributes(
                 "Invalid attribute type", details={"key": key, "expected": "bool"}
             )
     return attrs
+
+
+def _normalize_sell_price(raw_value: Any) -> Decimal:
+    try:
+        sell_price = to_decimal(raw_value)
+    except ValueError as exc:
+        raise ValidationError("Product has invalid sellable price") from exc
+    if sell_price <= Decimal("0.00"):
+        raise ValidationError("Product has no sellable price")
+    return sell_price
+
+
+def _derive_sell_price(*, attrs: dict[str, Any], sell_price_value: Any) -> Decimal | None:
+    raw_price = sell_price_value if sell_price_value is not None else attrs.get(PRICE_COMPAT_KEY)
+    if raw_price is None:
+        return None
+    return _normalize_sell_price(raw_price)
+
+
+def _sync_compat_price(attrs: dict[str, Any], *, sell_price: Decimal | None) -> dict[str, Any]:
+    synced = dict(attrs)
+    if sell_price is not None:
+        synced[PRICE_COMPAT_KEY] = float(sell_price)
+    return synced
 
 
 async def get_product(db: AsyncSession, product_id: int) -> Product:
@@ -264,14 +300,29 @@ async def list_products(
 
 
 async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
+    data = dict(data)
+    sell_price_value = data.pop("sell_price", None)
+    sell_price_currency_id = data.pop("sell_price_currency_id", None)
     category_id = data["category_id"]
     await get_category(db, category_id)
     defs = await _load_attr_defs(db, category_id)
-    attrs = data.get("attributes") or {}
-    data["attributes"] = _validate_product_attributes(attrs=attrs, defs=defs)
+    attrs = dict(data.get("attributes") or {})
+    sell_price = _derive_sell_price(attrs=attrs, sell_price_value=sell_price_value)
+    data["attributes"] = _validate_product_attributes(
+        attrs=_sync_compat_price(attrs, sell_price=sell_price),
+        defs=defs,
+    )
     product = Product(**data)
     db.add(product)
     try:
+        await db.flush()
+        if sell_price is not None:
+            await set_product_sell_price(
+                db,
+                product_id=product.id,
+                amount=sell_price,
+                currency_id=sell_price_currency_id,
+            )
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
@@ -283,17 +334,48 @@ async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
 
 
 async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, Any]) -> Product:
+    data = dict(data)
     product = await get_product(db, product_id)
+    sell_price_value = data.pop("sell_price", _UNSET)
+    has_sell_price_currency = "sell_price_currency_id" in data
+    sell_price_currency_id = data.pop("sell_price_currency_id", None)
     category_id = data.get("category_id", product.category_id)
     await get_category(db, category_id)
     defs = await _load_attr_defs(db, category_id)
 
-    if "attributes" in data and data["attributes"] is not None:
-        data["attributes"] = _validate_product_attributes(attrs=data["attributes"], defs=defs)
+    sell_price: Decimal | None = None
+    if (
+        ("attributes" in data and data["attributes"] is not None)
+        or sell_price_value is not _UNSET
+        or has_sell_price_currency
+    ):
+        attrs = (
+            dict(data["attributes"])
+            if "attributes" in data and data["attributes"] is not None
+            else dict(product.attributes or {})
+        )
+        existing_compat_price = (product.attributes or {}).get(PRICE_COMPAT_KEY)
+        if PRICE_COMPAT_KEY not in attrs and existing_compat_price is not None:
+            attrs[PRICE_COMPAT_KEY] = existing_compat_price
+
+        explicit_sell_price = None if sell_price_value is _UNSET else sell_price_value
+        sell_price = _derive_sell_price(attrs=attrs, sell_price_value=explicit_sell_price)
+        data["attributes"] = _validate_product_attributes(
+            attrs=_sync_compat_price(attrs, sell_price=sell_price),
+            defs=defs,
+        )
 
     for k, v in data.items():
         setattr(product, k, v)
     try:
+        await db.flush()
+        if sell_price is not None:
+            await set_product_sell_price(
+                db,
+                product_id=product.id,
+                amount=sell_price,
+                currency_id=sell_price_currency_id,
+            )
         await db.commit()
     except IntegrityError as e:
         await db.rollback()

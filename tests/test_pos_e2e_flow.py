@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 import pytest
 
@@ -50,7 +51,7 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
     # product_id=1 may not exist yet in this isolated test, so allow validation failure
     assert adj.status_code in {200, 422}, adj.text
 
-    # Build catalog product with price attribute
+    # Build catalog product with table-backed sell price
     cat = await client.post(
         "/api/v1/categories",
         headers=admin_auth_header,
@@ -58,12 +59,6 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
     )
     assert cat.status_code == 201, cat.text
     category_id = cat.json()["id"]
-    price_attr = await client.post(
-        f"/api/v1/categories/{category_id}/attributes",
-        headers=admin_auth_header,
-        json={"key": "price", "label": "Price", "type": "float", "required": True, "sort_order": 0},
-    )
-    assert price_attr.status_code == 201, price_attr.text
     prod = await client.post(
         "/api/v1/products",
         headers=admin_auth_header,
@@ -72,10 +67,11 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
             "name": "Mouse",
             "sku": "MOUSE-1",
             "status": "active",
-            "attributes": {"price": 50.0},
+            "sell_price": 50.0,
         },
     )
     assert prod.status_code == 201, prod.text
+    assert Decimal(str(prod.json()["attributes"]["price"])) == Decimal("50.0")
     product_id = prod.json()["id"]
 
     # Hybrid onboarding
@@ -148,6 +144,7 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
             "payment_intent_id": payment_intent_id,
             "idempotency_key": "capture-pos-e2e-0001",
             "method": "card",
+            "card_last4": "4242",
             "reference": "txn-1",
         },
     )
@@ -215,7 +212,7 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
         json={"event_type": "sale", "amount": 20.0, "note": "cash sale"},
     )
     assert ev_sale.status_code == 200, ev_sale.text
-    assert ev_sale.json()["expected_cash"] == pytest.approx(120.0)
+    assert Decimal(str(ev_sale.json()["expected_cash"])) == Decimal("120.00")
 
     # cash_in should increase expected_cash
     ev_in = await client.post(
@@ -224,7 +221,7 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
         json={"event_type": "cash_in", "amount": 10.0, "note": "drawer add"},
     )
     assert ev_in.status_code == 200, ev_in.text
-    assert ev_in.json()["expected_cash"] == pytest.approx(110.0)
+    assert Decimal(str(ev_in.json()["expected_cash"])) == Decimal("130.00")
 
     # cash_out should decrease expected_cash
     ev_out = await client.post(
@@ -233,7 +230,7 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
         json={"event_type": "cash_out", "amount": 5.0, "note": "drawer out"},
     )
     assert ev_out.status_code == 200, ev_out.text
-    assert ev_out.json()["expected_cash"] == pytest.approx(105.0)
+    assert Decimal(str(ev_out.json()["expected_cash"])) == Decimal("125.00")
 
 
 @pytest.mark.asyncio
