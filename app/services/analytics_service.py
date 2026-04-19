@@ -15,6 +15,7 @@ from app.models.discount import DiscountRule, DiscountUsageLog
 from app.models.product import Product
 from app.models.sales_invoice import SalesInvoiceLine
 from app.models.stock_level import StockLevel
+from app.utils.date_sql import calendar_day_range
 from app.utils.money import q2
 
 
@@ -25,7 +26,7 @@ async def get_top_selling_products(
     period_start: datetime | None = None,
     period_end: datetime | None = None,
 ) -> list[dict]:
-    """Top products by total quantity sold, optionally within a date range."""
+    """Top products by total quantity sold within inclusive calendar-day bounds."""
     stmt = (
         select(
             SalesInvoiceLine.product_id,
@@ -39,13 +40,17 @@ async def get_top_selling_products(
         .limit(limit)
     )
 
-    if period_start is not None:
+    if period_start is not None or period_end is not None:
         from app.models.sales_invoice import SalesInvoice
 
         stmt = stmt.join(SalesInvoice, SalesInvoice.id == SalesInvoiceLine.sales_invoice_id)
-        stmt = stmt.where(SalesInvoice.created_at >= period_start)
-        if period_end is not None:
-            stmt = stmt.where(SalesInvoice.created_at <= period_end)
+        stmt = stmt.where(
+            *calendar_day_range(
+                SalesInvoice.created_at,
+                start=period_start,
+                end=period_end,
+            )
+        )
 
     result = await db.execute(stmt)
     return [

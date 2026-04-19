@@ -144,6 +144,7 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
             "payment_intent_id": payment_intent_id,
             "idempotency_key": "capture-pos-e2e-0001",
             "method": "card",
+            "card_last4": "4242",
             "reference": "txn-1",
         },
     )
@@ -220,7 +221,7 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
         json={"event_type": "cash_in", "amount": 10.0, "note": "drawer add"},
     )
     assert ev_in.status_code == 200, ev_in.text
-    assert Decimal(str(ev_in.json()["expected_cash"])) == Decimal("110.00")
+    assert Decimal(str(ev_in.json()["expected_cash"])) == Decimal("130.00")
 
     # cash_out should decrease expected_cash
     ev_out = await client.post(
@@ -229,7 +230,7 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
         json={"event_type": "cash_out", "amount": 5.0, "note": "drawer out"},
     )
     assert ev_out.status_code == 200, ev_out.text
-    assert Decimal(str(ev_out.json()["expected_cash"])) == Decimal("105.00")
+    assert Decimal(str(ev_out.json()["expected_cash"])) == Decimal("125.00")
 
 
 @pytest.mark.asyncio

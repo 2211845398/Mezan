@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.sales_invoice import SalesInvoice
+from app.utils.date_sql import calendar_day_range
 from app.utils.money import q2
 
 
@@ -24,10 +25,13 @@ async def executive_sales_kpis(
         func.count(SalesInvoice.id).label("invoice_count"),
         func.coalesce(func.sum(SalesInvoice.total), 0).label("gross_sales"),
     )
-    if period_start is not None:
-        stmt = stmt.where(func.date(SalesInvoice.created_at) >= period_start)
-    if period_end is not None:
-        stmt = stmt.where(func.date(SalesInvoice.created_at) <= period_end)
+    stmt = stmt.where(
+        *calendar_day_range(
+            SalesInvoice.created_at,
+            start=period_start,
+            end=period_end,
+        )
+    )
     if branch_id is not None:
         stmt = stmt.where(SalesInvoice.branch_id == branch_id)
     res = await db.execute(stmt)

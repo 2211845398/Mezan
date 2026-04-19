@@ -57,6 +57,10 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.accounting_settings import AccountingSettings
 
 # ---------------------------------------------------------------------------
 # small helpers
@@ -96,7 +100,11 @@ async def _get_or_create_branch(
 
 
 @pytest.mark.asyncio
-async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[str, str]) -> None:
+async def test_happy_user_journey(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    admin_auth_header: dict[str, str],
+) -> None:
     """Run the full operational happy path and assert the GL stays in balance."""
 
     # =======================================================================
@@ -135,6 +143,10 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     # =======================================================================
     warehouse_id = await _get_or_create_branch(client, headers, "WH1", "Main Warehouse")  # noqa: F841
     store_id = await _get_or_create_branch(client, headers, "ST1", "Store A")
+    settings_result = await db_session.execute(
+        select(AccountingSettings.base_currency_id).where(AccountingSettings.id == 1)
+    )
+    base_currency_id = settings_result.scalar_one()
 
     # Supplier (used later for purchase orders / AP attribution).
     supplier_code = f"SUP-{uuid.uuid4().hex[:6]}"
@@ -144,7 +156,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
         json={
             "code": supplier_code,
             "name": "Acme Imports Ltd.",
-            "currency_id": None,
+            "currency_id": base_currency_id,
             "payables_account_id": None,
         },
     )
@@ -477,7 +489,7 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
             "employee_profile_id": employee_id,
             "period_start": str(date.today() - timedelta(days=14)),
             "period_end": str(date.today() - timedelta(days=1)),
-            "deductions": "100.00",
+            "deductions": "0.00",
             "hourly_rate_override": "20.00",
         },
     )
@@ -497,9 +509,9 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
     # =======================================================================
     # 13. FINANCIAL REPORTS — trial balance, income statement, balance sheet, GL
     # =======================================================================
-    today = str(date.today())
-    period_start = str(date.today() - timedelta(days=7))
-
+    now = date.today()
+    today = now.isoformat()
+    period_start = (now - timedelta(days=7)).isoformat()
     # Trial balance — debits MUST equal credits across the whole ledger.
     tb = await client.get(
         "/api/v1/accounting/trial-balance",
@@ -507,6 +519,17 @@ async def test_happy_user_journey(client: AsyncClient, admin_auth_header: dict[s
         params={"as_of": today},
     )
     assert tb.status_code == 200, tb.text
+    # ==================== التشخيص ====================
+    print("\n\n" + "="*50)
+    print("TRIAL BALANCE:")
+    for row in tb.json():
+            # طباعة الحسابات التي فيها أي حركة مالية
+        if float(row['total_debit']) > 0 or float(row['total_credit']) > 0:
+            print(f"Account: {row.get('name', 'N/A'):<25} | "
+                  f"Type: {row.get('account_type', 'N/A'):<15} | "
+                  f"Debit: {row['total_debit']} | Credit: {row['total_credit']}")
+    print("="*50 + "\n\n")
+    # ===============================================
     rows = tb.json()
     total_debit = sum(Decimal(str(r["total_debit"])) for r in rows)
     total_credit = sum(Decimal(str(r["total_credit"])) for r in rows)

@@ -1,11 +1,16 @@
-"""Financial statement and GL inquiry services (Epic 5.5). Read-only."""
+"""Financial statement and GL inquiry services (Epic 5.5).
+
+These statement queries are intentionally keyed on ``JournalEntry.entry_date``.
+They should not be refactored to filter on timestamp metadata such as
+``posted_at``, because reporting periods in accounting are calendar dates.
+"""
 
 from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chart_accounts import AccountType, ChartAccount
@@ -19,7 +24,7 @@ async def trial_balance(
     as_of: date,
     branch_id: int | None = None,
 ) -> list[dict]:
-    """Per-account debit/credit totals through as_of (inclusive)."""
+    """Per-account debit/credit totals through as_of on entry_date (inclusive)."""
     stmt = (
         select(
             JournalEntryLine.account_id,
@@ -70,7 +75,7 @@ async def general_ledger_lines(
     date_to: date,
     branch_id: int | None = None,
 ) -> list[dict]:
-    """Posted lines for one account in a date range."""
+    """Posted lines for one account in an entry_date range."""
     stmt = (
         select(
             JournalEntry.id,
@@ -119,7 +124,7 @@ async def income_statement(
     period_end: date,
     branch_id: int | None = None,
 ) -> dict:
-    """Revenue and expense totals for the period (P&L)."""
+    """Revenue and expense totals for the period by journal entry_date (P&L)."""
     stmt = (
         select(
             ChartAccount.account_type,
@@ -131,16 +136,21 @@ async def income_statement(
         .where(
             JournalEntry.entry_date >= period_start,
             JournalEntry.entry_date <= period_end,
-            ChartAccount.account_type.in_([AccountType.REVENUE, AccountType.EXPENSE]),
+            # Enum IN () uses a bind processor that may not match VARCHAR stored values; compare as text.
+            cast(ChartAccount.account_type, String).in_(
+                [AccountType.REVENUE.value, AccountType.EXPENSE.value]
+            ),
         )
     )
     if branch_id is not None:
         stmt = stmt.where(JournalEntryLine.branch_id == branch_id)
     stmt = stmt.group_by(ChartAccount.account_type)
+
     res = await db.execute(stmt)
+    rows = res.all()
     revenue_total = Decimal("0")
     expense_total = Decimal("0")
-    for row in res.all():
+    for row in rows:
         dr = q2(row.dr)
         cr = q2(row.cr)
         at = row.account_type
@@ -164,7 +174,7 @@ async def balance_sheet(
     as_of: date,
     branch_id: int | None = None,
 ) -> dict:
-    """Cumulative balances by statement group (simplified)."""
+    """Cumulative balances by statement group through entry_date as_of."""
     stmt = (
         select(
             ChartAccount.account_type,
@@ -175,8 +185,12 @@ async def balance_sheet(
         .join(ChartAccount, ChartAccount.id == JournalEntryLine.account_id)
         .where(
             JournalEntry.entry_date <= as_of,
-            ChartAccount.account_type.in_(
-                [AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY]
+            cast(ChartAccount.account_type, String).in_(
+                [
+                    AccountType.ASSET.value,
+                    AccountType.LIABILITY.value,
+                    AccountType.EQUITY.value,
+                ]
             ),
         )
     )
