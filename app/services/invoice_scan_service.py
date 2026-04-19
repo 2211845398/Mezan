@@ -14,6 +14,7 @@ from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
 from app.models.stock_level import StockLevel
+from app.services.branch_scope import require_branch_open_for_operations
 from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
@@ -88,7 +89,9 @@ def parse_extracted_invoice(extracted: ExtractedInvoice) -> dict[str, Any]:
             continue
         product_id = _to_int(item.get("product_id"))
         qty = _to_int(item.get("qty") or item.get("quantity"))
-        unit_cost = _to_decimal_or_none(item.get("unit_cost") or item.get("price") or item.get("cost"))
+        unit_cost = _to_decimal_or_none(
+            item.get("unit_cost") or item.get("price") or item.get("cost")
+        )
         if qty and unit_cost is not None:
             running_total += Decimal(qty) * unit_cost
         line_items.append(
@@ -196,6 +199,8 @@ async def validate_scan_and_receive_goods(
     line_items = payload.get("line_items") or []
     if not isinstance(line_items, list) or not line_items:
         raise ValidationError("No line items to receive", details={"scan_id": scan_id})
+
+    await require_branch_open_for_operations(db, branch_id)
 
     receipt = GoodsReceipt(
         branch_id=branch_id,

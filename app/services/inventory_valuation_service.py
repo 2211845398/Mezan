@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-
 from decimal import Decimal
 
 from sqlalchemy import and_, select
@@ -46,7 +45,9 @@ async def get_unit_costs_for_sale(
     )
     costs = {product_id: _q4(Decimal(str(avg_cost))) for product_id, avg_cost in cost_res.all()}
 
-    missing_product_ids = [product_id for product_id in unique_product_ids if product_id not in costs]
+    missing_product_ids = [
+        product_id for product_id in unique_product_ids if product_id not in costs
+    ]
     if missing_product_ids:
         product_res = await db.execute(
             select(Product.id, Product.standard_cost).where(Product.id.in_(missing_product_ids))

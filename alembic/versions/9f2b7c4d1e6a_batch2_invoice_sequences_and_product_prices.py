@@ -33,9 +33,7 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_branch_sequences_branch_id"), "branch_sequences", ["branch_id"], unique=False
     )
-    op.create_index(
-        op.f("ix_branch_sequences_year"), "branch_sequences", ["year"], unique=False
-    )
+    op.create_index(op.f("ix_branch_sequences_year"), "branch_sequences", ["year"], unique=False)
 
     op.create_table(
         "product_prices",

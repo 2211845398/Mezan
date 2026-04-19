@@ -137,7 +137,9 @@ async def test_auth_login_is_rate_limited(monkeypatch: pytest.MonkeyPatch) -> No
             "email": email,
         }
 
-    monkeypatch.setattr(auth_module.auth_service, "login_email_password", _fake_login_email_password)
+    monkeypatch.setattr(
+        auth_module.auth_service, "login_email_password", _fake_login_email_password
+    )
     main_module.app.dependency_overrides[get_db] = _override_get_db
 
     try:

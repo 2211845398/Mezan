@@ -8,9 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError
-from app.models.branch import Branch
 from app.models.branch_sequence import BranchSequence
+from app.services.branch_scope import require_branch_open_for_operations
 
 
 async def next_sales_invoice_number(
@@ -23,10 +22,7 @@ async def next_sales_invoice_number(
     issued_at = issued_at or datetime.now(UTC)
     sequence_year = issued_at.year
 
-    branch_res = await db.execute(select(Branch).where(Branch.id == branch_id))
-    branch = branch_res.scalar_one_or_none()
-    if not branch:
-        raise NotFoundError("Branch not found", details={"branch_id": branch_id})
+    branch = await require_branch_open_for_operations(db, branch_id)
 
     await db.execute(
         insert(BranchSequence)

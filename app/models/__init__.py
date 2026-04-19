@@ -8,8 +8,8 @@ from app.models.ar_payment_application import ArPaymentApplication
 from app.models.attendance_log import AttendanceLog
 from app.models.audit_log import AuditLog
 from app.models.branch import Branch
-from app.models.branch_sequence import BranchSequence
 from app.models.branch_product_costs import BranchProductCost
+from app.models.branch_sequence import BranchSequence
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.chart_accounts import AccountType, ChartAccount

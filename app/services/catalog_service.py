@@ -344,7 +344,11 @@ async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, A
     defs = await _load_attr_defs(db, category_id)
 
     sell_price: Decimal | None = None
-    if ("attributes" in data and data["attributes"] is not None) or sell_price_value is not _UNSET or has_sell_price_currency:
+    if (
+        ("attributes" in data and data["attributes"] is not None)
+        or sell_price_value is not _UNSET
+        or has_sell_price_currency
+    ):
         attrs = (
             dict(data["attributes"])
             if "attributes" in data and data["attributes"] is not None

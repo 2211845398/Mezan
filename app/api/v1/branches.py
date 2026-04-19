@@ -1,6 +1,8 @@
 """Branch CRUD API (RBAC-protected)."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,11 +19,15 @@ router = APIRouter()
 @router.get("/branches", response_model=list[BranchRead])
 async def list_branches(
     db: AsyncSession = Depends(get_db),
+    include_archived: bool = Query(False, description="Include soft-deleted branches"),
     _: None = Depends(get_current_user),
     __: None = require_permission("branches", "read"),
 ) -> list[BranchRead]:
-    """List all branches. Requires branches:read."""
-    result = await db.execute(select(Branch).order_by(Branch.code))
+    """List branches (active only unless include_archived). Requires branches:read."""
+    q = select(Branch).order_by(Branch.code)
+    if not include_archived:
+        q = q.where(Branch.archived_at.is_(None))
+    result = await db.execute(q)
     return [BranchRead.model_validate(b) for b in result.scalars().all()]
 
 
@@ -118,14 +124,35 @@ async def update_branch(
 @router.delete("/branches/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_branch(
     branch_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(get_current_user),
-    __: None = require_permission("branches", "delete"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("branches", "delete"),
 ) -> None:
-    """Delete branch. Requires branches:delete."""
+    """Soft-delete (archive) a branch. Idempotent. Requires branches:delete.
+
+    Archived rows keep their ``code`` so duplicate-code checks still apply until renamed.
+    """
     result = await db.execute(select(Branch).where(Branch.id == branch_id))
     branch = result.scalar_one_or_none()
     if not branch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Branch not found")
-    await db.delete(branch)
+    if branch.archived_at is not None:
+        return None
+    old_value = BranchRead.model_validate(branch).model_dump()
+    branch.archived_at = datetime.now(UTC)
+    branch.is_active = False
     await db.commit()
+    await db.refresh(branch)
+    await audit_service.log(
+        session=db,
+        action="branch.archived",
+        resource_type="branch",
+        resource_id=str(branch.id),
+        old_value=old_value,
+        new_value=BranchRead.model_validate(branch).model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return None

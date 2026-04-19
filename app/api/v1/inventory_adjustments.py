@@ -10,6 +10,7 @@ from app.models.stock_movement import StockMovement
 from app.models.users import User
 from app.schemas.inventory_adjustments import StockAdjustmentRequest
 from app.services import audit_service
+from app.services.branch_scope import require_branch_open_for_operations
 from app.services.inventory_service import apply_stock_movement
 
 router = APIRouter()
@@ -23,6 +24,7 @@ async def create_stock_adjustment(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("stock_adjustments", "create"),
 ) -> dict:
+    await require_branch_open_for_operations(db, body.branch_id)
     mv = await apply_stock_movement(
         db,
         idempotency_key=body.idempotency_key,

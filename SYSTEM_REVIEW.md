@@ -289,16 +289,23 @@ for PCI scope (last 4 is allowed), but the variable name `redacted_payload`
 implies more than it does — rename it `provider_payload` or actually scrub
 PII.
 
-### 2.14 Deleting a branch is a hard delete
+### 2.14 Deleting a branch is a hard delete — **resolved (Fix 14 / Batch 5)**
 
-```118:132:app/api/v1/branches.py
-@router.delete("/branches/{branch_id}", ...)
-```
+Previously `DELETE /api/v1/branches/{id}` called `await db.delete(branch)`,
+which risked FK violations or destructive cascades against historical
+financials.
 
-Branch is referenced from journal_entry_lines, sales_invoices, terminals,
-shifts, etc. A hard delete will either cascade-destroy historical
-financials or fail with FK errors. Fix: soft delete with an
-`archived_at` column and block the DELETE if any GL line references it.
+**Current behavior:** soft delete via nullable `archived_at` on
+[`app/models/branch.py`](app/models/branch.py), migration
+[`alembic/versions/d8f1a2c3e4b5_branch_archived_at.py`](alembic/versions/d8f1a2c3e4b5_branch_archived_at.py).
+[`app/api/v1/branches.py`](app/api/v1/branches.py) sets `archived_at` and
+`is_active=False` idempotently, emits audit `branch.archived`, and
+`GET /branches` hides archived rows unless `include_archived=true`.
+[`app/services/branch_scope.py`](app/services/branch_scope.py)
+`require_branch_open_for_operations` rejects archived branches for new
+operational work (terminals, POS carts/shifts, invoice numbering, transfers,
+inventory adjustments, goods receipt from validated scans). Historical rows
+keep referencing the same `branch_id`.
 
 ### 2.15 Seed data loads on every startup
 
@@ -529,7 +536,7 @@ volume.
 | 17 | Tests bypass Alembic with `Base.metadata.create_all` | `tests/conftest.py:37-43` | Migration drift not caught by CI |
 | 18 | No rate limit on `/auth/login` and `/auth/password-reset/request` | `app/api/v1/auth.py:26-94` | Credential stuffing / enumeration |
 | 19 | Loyalty points are not a GL liability | `app/models/loyalty.py`, `PROJECT_STATE.md:104-105` | Off-balance-sheet obligation |
-| 20 | Hard delete on branches | `app/api/v1/branches.py:118-132` | Historical FK violations or cascade loss |
+| 20 | ~~Hard delete on branches~~ **Fixed:** `archived_at` + `branch_scope` | `app/api/v1/branches.py`, `app/services/branch_scope.py`, migration `d8f1a2c3e4b5` | Soft delete; new work blocked on archived branch |
 | 21 | Lifespan startup swallows every exception | `app/main.py:86-87` | Configuration errors invisible at boot |
 | 22 | Goods-receipt cost not reconciled against PO | `app/services/document_posting_service.py:247-295` | OCR/manual mistakes silently inflate inventory + AP |
 | 23 | Payment-intent currency is free text, no FX rate captured | `app/services/payment_service.py:36-44` | Multi-currency POS impossible |

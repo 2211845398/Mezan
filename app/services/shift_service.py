@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
+from app.services.branch_scope import require_branch_open_for_operations
 from app.utils.money import q2
 
 
@@ -23,6 +24,7 @@ async def open_shift(
     terminal = t_res.scalar_one_or_none()
     if not terminal or not terminal.is_authorized:
         raise ValidationError("Terminal is not authorized")
+    await require_branch_open_for_operations(db, terminal.branch_id)
 
     existing = await db.execute(
         select(PosShift).where(PosShift.terminal_id == terminal_id, PosShift.status == "open")

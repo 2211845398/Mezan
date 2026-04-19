@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
+from app.services.branch_scope import require_branch_open_for_operations
 from app.services.inventory_service import apply_stock_movement
 
 
@@ -38,6 +39,8 @@ async def create_batch(
         raise ValidationError("from_branch_id and to_branch_id must be different")
     if not lines:
         raise ValidationError("Transfer batch requires at least one line")
+    await require_branch_open_for_operations(db, data["from_branch_id"])
+    await require_branch_open_for_operations(db, data["to_branch_id"])
     batch = TransferBatch(**data, created_by_user_id=created_by_user_id, status="pending_dispatch")
     db.add(batch)
     await db.flush()

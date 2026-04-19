@@ -230,10 +230,7 @@ async def test_top_products_treats_midnight_period_end_as_calendar_day(
 
     items = response.json()["items"]
     names = {item["product_name"] for item in items}
-    revenue_by_name = {
-        item["product_name"]: Decimal(str(item["total_revenue"]))
-        for item in items
-    }
+    revenue_by_name = {item["product_name"]: Decimal(str(item["total_revenue"])) for item in items}
 
     assert included_product.name in names
     assert excluded_product.name not in names

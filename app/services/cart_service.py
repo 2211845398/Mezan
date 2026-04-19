@@ -12,6 +12,7 @@ from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.services.branch_scope import require_branch_open_for_operations
 from app.services.pricing_service import get_active_sell_price
 from app.utils.money import q2
 
@@ -39,6 +40,7 @@ async def create_cart(
     terminal = t_res.scalar_one_or_none()
     if not terminal:
         raise ValidationError("Terminal not found")
+    await require_branch_open_for_operations(db, terminal.branch_id)
     cart = PosCart(
         terminal_id=terminal_id,
         branch_id=terminal.branch_id,

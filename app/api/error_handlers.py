@@ -90,9 +90,7 @@ async def request_validation_exception_handler(
     )
 
 
-async def rate_limit_exception_handler(
-    request: Request, exc: RateLimitExceeded
-) -> JSONResponse:
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     return JSONResponse(
         status_code=429,
         content=_envelope(

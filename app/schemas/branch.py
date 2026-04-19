@@ -1,5 +1,7 @@
 """Pydantic schemas for branch API."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -32,3 +34,4 @@ class BranchRead(BaseModel):
     address: str | None
     timezone: str
     is_active: bool
+    archived_at: datetime | None

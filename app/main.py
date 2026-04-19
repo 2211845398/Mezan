@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -56,7 +57,6 @@ from app.core.errors import AppError
 from app.core.rate_limit import limiter
 from app.db.database import close_db
 from app.services.backup_service import backup_scheduler_loop
-from slowapi.errors import RateLimitExceeded
 
 logger = logging.getLogger(__name__)
 PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
@@ -107,10 +107,7 @@ def _audit_route_permissions(app: FastAPI) -> None:
 
     if missing_routes:
         joined = "; ".join(sorted(missing_routes))
-        raise RuntimeError(
-            "Permission audit failed. Missing require_permission() on: "
-            f"{joined}"
-        )
+        raise RuntimeError(f"Permission audit failed. Missing require_permission() on: {joined}")
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):

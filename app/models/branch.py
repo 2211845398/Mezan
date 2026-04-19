@@ -19,6 +19,11 @@ class Branch(Base):
     address: Mapped[str] = mapped_column(String(512), nullable=True)
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

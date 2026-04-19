@@ -3,13 +3,13 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 
 import pytest
-from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.sql.sqltypes import Enum as SQLAlchemyEnum
 
+from alembic import command
 from app.main import app
 from app.models.branch import Branch
 from app.models.role import Role
@@ -21,7 +21,6 @@ from app.services.seed_service import (
     seed_permissions_and_roles,
 )
 from app.utils.security import create_access_token, hash_password
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI_PATH = REPO_ROOT / "alembic.ini"
