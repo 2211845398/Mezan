@@ -49,6 +49,7 @@ async def create_cart(
         status="active",
         subtotal=Decimal("0.00"),
         discount_total=Decimal("0.00"),
+        tax_total=Decimal("0.00"),
         total=Decimal("0.00"),
     )
     db.add(cart)
@@ -59,14 +60,60 @@ async def create_cart(
 
 async def _recalc_totals(db: AsyncSession, cart: PosCart) -> None:
     lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
-    lines = lines_res.scalars().all()
+    lines = list(lines_res.scalars().all())
     disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart.id))
-    discounts = disc_res.scalars().all()
-    subtotal = sum((x.line_total for x in lines), Decimal("0.00"))
-    discount_total = sum((d.amount for d in discounts), Decimal("0.00"))
-    cart.subtotal = q2(subtotal)
-    cart.discount_total = q2(discount_total)
-    cart.total = q2(max(Decimal("0.00"), subtotal - discount_total))
+    discounts = list(disc_res.scalars().all())
+    discount_total = q2(sum((d.amount for d in discounts), Decimal("0.00")))
+
+    if not lines:
+        cart.subtotal = Decimal("0.00")
+        cart.discount_total = discount_total
+        cart.tax_total = Decimal("0.00")
+        cart.total = q2(max(Decimal("0.00"), Decimal("0.00") - discount_total))
+        return
+
+    product_ids = {ln.product_id for ln in lines}
+    pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
+    prods = {p.id: p for p in pres.scalars().all()}
+
+    line_bases: list[tuple[PosCartLine, Decimal]] = []
+    for ln in lines:
+        p = prods.get(ln.product_id)
+        rate = p.output_vat_rate if p and p.output_vat_rate is not None else Decimal("0")
+        if rate < 0:
+            rate = Decimal("0")
+        if rate > Decimal("1"):
+            rate = Decimal("1")
+        ln.tax_rate = rate
+        base = q2(ln.unit_price * Decimal(ln.qty))
+        ln.line_total = base
+        line_bases.append((ln, base))
+
+    subtotal_net = q2(sum(b for _, b in line_bases))
+    if subtotal_net <= 0:
+        for ln, _ in line_bases:
+            ln.line_tax_amount = Decimal("0.00")
+        cart.subtotal = subtotal_net
+        cart.discount_total = discount_total
+        cart.tax_total = Decimal("0.00")
+        cart.total = q2(max(Decimal("0.00"), subtotal_net - discount_total))
+        return
+
+    disc_eff = min(discount_total, subtotal_net)
+    tax_sum = Decimal("0.00")
+    for ln, base in line_bases:
+        share = q2(disc_eff * (base / subtotal_net))
+        net_after = q2(base - share)
+        if net_after < 0:
+            net_after = Decimal("0.00")
+        tax = q2(net_after * ln.tax_rate) if net_after > 0 else Decimal("0.00")
+        ln.line_tax_amount = tax
+        tax_sum += tax
+
+    cart.subtotal = subtotal_net
+    cart.discount_total = discount_total
+    cart.tax_total = q2(tax_sum)
+    cart.total = q2(max(Decimal("0.00"), subtotal_net - discount_total + cart.tax_total))
 
 
 async def upsert_line(
@@ -89,10 +136,17 @@ async def upsert_line(
         )
     )
     line = line_res.scalar_one_or_none()
+    rate = product.output_vat_rate if product.output_vat_rate is not None else Decimal("0")
+    if rate < 0:
+        rate = Decimal("0")
+    if rate > Decimal("1"):
+        rate = Decimal("1")
     if line:
         line.qty = qty
         line.unit_price = unit_price
+        line.tax_rate = rate
         line.line_total = q2(unit_price * qty)
+        line.line_tax_amount = Decimal("0.00")
     else:
         db.add(
             PosCartLine(
@@ -101,6 +155,8 @@ async def upsert_line(
                 qty=qty,
                 unit_price=unit_price,
                 line_total=q2(unit_price * qty),
+                tax_rate=rate,
+                line_tax_amount=Decimal("0.00"),
             )
         )
     db.add(

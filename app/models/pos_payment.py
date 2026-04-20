@@ -23,6 +23,10 @@ class PaymentIntent(Base):
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
+    #: Base currency units per one unit of ``currency`` at intent creation (audit / multi-currency).
+    exchange_rate: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), nullable=False, default=Decimal("1")
+    )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="requires_payment")
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(

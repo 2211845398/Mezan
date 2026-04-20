@@ -458,10 +458,8 @@ async def test_happy_user_journey(
     assert close.status_code == 200, close.text
     closed = close.json()
     assert closed["status"] == "closed"
-    # NOTE: The current implementation books the card sale into the GL cash
-    # account anyway (see SYSTEM_REVIEW.md "Card-vs-cash conflation"). The
-    # shift's expected_cash, however, only changes via explicit cash events,
-    # so the variance here will still be 0.
+    # Card sales post to Card Clearing (1010), not Cash on Hand, so declared
+    # cash matching opening float still closes with zero variance.
     assert Decimal(str(closed["variance"])) == Decimal("0.00")
 
     # =======================================================================
@@ -519,19 +517,6 @@ async def test_happy_user_journey(
         params={"as_of": today},
     )
     assert tb.status_code == 200, tb.text
-    # ==================== التشخيص ====================
-    print("\n\n" + "=" * 50)
-    print("TRIAL BALANCE:")
-    for row in tb.json():
-        # طباعة الحسابات التي فيها أي حركة مالية
-        if float(row["total_debit"]) > 0 or float(row["total_credit"]) > 0:
-            print(
-                f"Account: {row.get('name', 'N/A'):<25} | "
-                f"Type: {row.get('account_type', 'N/A'):<15} | "
-                f"Debit: {row['total_debit']} | Credit: {row['total_credit']}"
-            )
-    print("=" * 50 + "\n\n")
-    # ===============================================
     rows = tb.json()
     total_debit = sum(Decimal(str(r["total_debit"])) for r in rows)
     total_credit = sum(Decimal(str(r["total_credit"])) for r in rows)

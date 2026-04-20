@@ -5,15 +5,21 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
+from app.models.stock_level import StockLevel
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
 from app.services.branch_scope import require_branch_open_for_operations
+from app.services.document_posting_service import post_transfer_batch_receive_gl
 from app.services.inventory_service import apply_stock_movement
+from app.services.inventory_valuation_service import (
+    apply_receipt_to_weighted_average,
+    get_unit_cost_for_sale,
+)
 
 
 async def _get_batch(db: AsyncSession, batch_id: int) -> TransferBatch:
@@ -105,6 +111,18 @@ async def receive_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
             details={"current_status": batch.status},
         )
     for i, ln in enumerate(batch.lines):
+        unit_cost = await get_unit_cost_for_sale(
+            db, branch_id=batch.from_branch_id, product_id=ln.product_id
+        )
+        sl_res = await db.execute(
+            select(StockLevel.on_hand).where(
+                and_(
+                    StockLevel.branch_id == batch.to_branch_id,
+                    StockLevel.product_id == ln.product_id,
+                )
+            )
+        )
+        qty_on_hand_before = int(sl_res.scalar_one_or_none() or 0)
         await apply_stock_movement(
             db,
             idempotency_key=f"transfer:{batch.id}:receive:{i}",
@@ -115,8 +133,17 @@ async def receive_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
             ref_type="transfer_batch",
             ref_id=str(batch.id),
         )
+        await apply_receipt_to_weighted_average(
+            db,
+            branch_id=batch.to_branch_id,
+            product_id=ln.product_id,
+            qty_in=ln.qty,
+            unit_cost=unit_cost,
+            qty_on_hand_before=qty_on_hand_before,
+        )
 
     batch.status = "received"
     batch.received_at = datetime.now(UTC)
+    await post_transfer_batch_receive_gl(db, batch=batch)
     await db.commit()
     return await _get_batch(db, batch.id)

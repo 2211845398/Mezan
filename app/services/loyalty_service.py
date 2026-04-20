@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.customer_profile import CustomerProfile
 from app.models.loyalty import LedgerEntryType, LedgerReasonCode, LoyaltyAccrualRule, LoyaltyLedger
+from app.services.loyalty_gl_service import post_loyalty_ledger_gl
 
 
 async def get_accrual_rule(db: AsyncSession, rule_id: int) -> LoyaltyAccrualRule:
@@ -135,6 +136,7 @@ async def adjust_points(
         rule_id=rule_id,
     )
     db.add(entry)
-    await db.commit()
+    await db.flush()
     await db.refresh(entry)
+    await post_loyalty_ledger_gl(db, entry)
     return entry

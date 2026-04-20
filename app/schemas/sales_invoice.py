@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class FinalizeInvoiceRequest(BaseModel):
@@ -20,7 +20,24 @@ class SalesInvoiceRead(BaseModel):
     invoice_barcode: str
     cart_id: int
     branch_id: int
+    subtotal: Decimal
+    discount_total: Decimal
+    tax_total: Decimal
     total: Decimal
     created_at: datetime
+    voided_at: datetime | None = None
+    void_reason: str | None = None
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class VoidInvoiceRequest(BaseModel):
+    invoice_id: int | None = None
+    invoice_barcode: str | None = None
+    reason: str | None = Field(default=None, max_length=512)
+
+    @model_validator(mode="after")
+    def _one_identifier(self) -> VoidInvoiceRequest:
+        if (self.invoice_id is None) == (self.invoice_barcode is None):
+            raise ValueError("Provide exactly one of invoice_id or invoice_barcode")
+        return self

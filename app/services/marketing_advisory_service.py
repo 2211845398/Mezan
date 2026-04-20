@@ -11,11 +11,12 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.core.config import settings
 from app.core.errors import ExternalServiceError
 from app.models.product import Product
-from app.models.sales_invoice import SalesInvoiceLine
+from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.schemas.marketing_advisory import (
     MarketingAdvisoryRequest,
     MarketingAdvisoryResponse,
@@ -37,6 +38,7 @@ async def _get_frequent_cobought_pairs(
 ) -> list[dict[str, Any]]:
     left = SalesInvoiceLine.__table__.alias("left_line")
     right = SalesInvoiceLine.__table__.alias("right_line")
+    inv = aliased(SalesInvoice)
     p1 = Product.__table__.alias("p1")
     p2 = Product.__table__.alias("p2")
 
@@ -49,6 +51,8 @@ async def _get_frequent_cobought_pairs(
             func.count().label("pair_count"),
         )
         .select_from(left)
+        .join(inv, inv.id == left.c.sales_invoice_id)
+        .where(inv.voided_at.is_(None))
         .join(
             right,
             (left.c.sales_invoice_id == right.c.sales_invoice_id)

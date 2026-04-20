@@ -32,6 +32,7 @@ async def executive_sales_kpis(
             end=period_end,
         )
     )
+    stmt = stmt.where(SalesInvoice.voided_at.is_(None))
     if branch_id is not None:
         stmt = stmt.where(SalesInvoice.branch_id == branch_id)
     res = await db.execute(stmt)

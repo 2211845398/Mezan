@@ -13,6 +13,18 @@ from app.models.fiscal_period import FiscalPeriod
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 
 
+def fiscal_period_key(entry_date: date) -> str:
+    """Stable YYYY-MM key for the calendar month containing entry_date."""
+    period_key, _, _ = _month_bounds(entry_date)
+    return period_key
+
+
+def same_fiscal_period_as_today(entry_date: date, *, today: date | None = None) -> bool:
+    """True if entry_date falls in the same calendar month as `today` (default: UTC date today)."""
+    anchor = today or date.today()
+    return fiscal_period_key(entry_date) == fiscal_period_key(anchor)
+
+
 def _month_bounds(entry_date: date) -> tuple[str, date, date]:
     period_start = entry_date.replace(day=1)
     if period_start.month == 12:
@@ -80,6 +92,22 @@ async def set_period_status(
     await db.flush()
     await db.refresh(period)
     return period
+
+
+async def list_journal_entries_for_source(
+    db: AsyncSession, *, source_type: str, source_id: str
+) -> list[JournalEntry]:
+    """Posted batches for a document, oldest first (for deterministic reversal order)."""
+    result = await db.execute(
+        select(JournalEntry)
+        .options(selectinload(JournalEntry.lines))
+        .where(
+            JournalEntry.source_type == source_type,
+            JournalEntry.source_id == source_id,
+        )
+        .order_by(JournalEntry.id.asc())
+    )
+    return list(result.scalars().all())
 
 
 async def reverse_journal_entry(

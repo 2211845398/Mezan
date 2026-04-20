@@ -106,9 +106,12 @@
 
 | Area | Status |
 |------|--------|
+| **POS → GL (Milestone 2)** | Addressed: on-account sales accrue AR only (no spurious cash receipt at finalize); walk-in settlement uses cash vs card vs other clearing accounts; revenue split with sales-discount line; AR cash receipts post when `apply_ar_payment` runs; returns credit the same settlement or AR account and reverse discount proportionally (`f0a1b2c3d4e5` migration + `document_posting_service` / `subledger_service` / `invoice_service`). |
+| **POS → GL — output VAT (Milestone 3)** | Addressed: `products.output_vat_rate`; cart/invoice `tax_total` and per-line `tax_rate` + `line_tax_amount` snapshots; cart totals `subtotal − discount + tax`; GL posts Cr **Output VAT Payable** alongside revenue/discount; returns debit the same liability in proportion to the original invoice (`c3d4e5f6a7b8` migration, `cart_service` / `invoice_service` / `document_posting_service` / `returns_service`). |
 | **SSO** | FR mentions SSO; verify and implement OIDC/SAML when required |
-| **Loyalty vs GL** | Loyalty points are not a balance-sheet liability unless explicitly modeled and posted |
+| **Loyalty vs GL** | Addressed: manual accruals/debits post Dr/Cr loyalty expense vs liability; redemption/expiry release liability to sales revenue using `default_loyalty_point_value` (`e7f8a9b0c1d2` migration + `loyalty_gl_service` / `loyalty_service`). Shift close variance posts Dr/Cr cash vs cash over/short (`post_pos_shift_variance_gl`). |
 | **FIFO / LIFO** | Only weighted-average + standard cost; no cost layers |
+| **Inter-branch transfer GL + WAVG** | Addressed: on receive, destination `BranchProductCost` is updated via source-branch unit cost (WAVG / standard fallback); GL posts Dr/Cr `default_inventory_account_id` by branch (`transfer_batch:{id}:receive_gl`) in [`transfer_service.receive_batch`](app/services/transfer_service.py) + [`post_transfer_batch_receive_gl`](app/services/document_posting_service.py). |
 | **Multi-currency GL** | Currencies + supplier currency exist; no FX revaluation or translated statements |
 | **Cash flow statement** | Not built as a dedicated report (balance sheet + income statement APIs exist) |
 

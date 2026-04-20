@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.discount import DiscountRule, DiscountUsageLog
 from app.models.product import Product
-from app.models.sales_invoice import SalesInvoiceLine
+from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.models.stock_level import StockLevel
 from app.utils.date_sql import calendar_day_range
 from app.utils.money import q2
@@ -34,16 +34,15 @@ async def get_top_selling_products(
             func.sum(SalesInvoiceLine.qty).label("total_qty_sold"),
             func.sum(SalesInvoiceLine.line_total).label("total_revenue"),
         )
+        .join(SalesInvoice, SalesInvoice.id == SalesInvoiceLine.sales_invoice_id)
         .join(Product, Product.id == SalesInvoiceLine.product_id)
+        .where(SalesInvoice.voided_at.is_(None))
         .group_by(SalesInvoiceLine.product_id, Product.name)
         .order_by(func.sum(SalesInvoiceLine.qty).desc())
         .limit(limit)
     )
 
     if period_start is not None or period_end is not None:
-        from app.models.sales_invoice import SalesInvoice
-
-        stmt = stmt.join(SalesInvoice, SalesInvoice.id == SalesInvoiceLine.sales_invoice_id)
         stmt = stmt.where(
             *calendar_day_range(
                 SalesInvoice.created_at,
@@ -77,6 +76,8 @@ async def get_slow_moving_products(
             func.coalesce(func.sum(SalesInvoiceLine.qty), 0).label("total_qty_sold"),
             func.max(SalesInvoiceLine.id).label("last_line_id"),
         )
+        .join(SalesInvoice, SalesInvoice.id == SalesInvoiceLine.sales_invoice_id)
+        .where(SalesInvoice.voided_at.is_(None))
         .group_by(SalesInvoiceLine.product_id)
         .subquery()
     )

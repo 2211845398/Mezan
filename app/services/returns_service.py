@@ -31,6 +31,8 @@ async def create_return_and_credit(
     invoice = i_res.scalar_one_or_none()
     if not invoice:
         raise NotFoundError("Invoice not found")
+    if invoice.voided_at is not None:
+        raise ValidationError("Cannot return lines for a voided invoice")
     inv_lines_res = await db.execute(
         select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
     )
@@ -54,7 +56,8 @@ async def create_return_and_credit(
         qty = item["qty"]
         if qty <= 0 or qty > inv_line.qty:
             raise ValidationError("Invalid return qty")
-        refund = q2(inv_line.unit_price * qty)
+        line_gross = q2(inv_line.line_total + inv_line.line_tax_amount)
+        refund = q2(line_gross * Decimal(qty) / Decimal(inv_line.qty))
         total_refund += refund
         gl_lines.append((inv_line.product_id, qty, refund))
         db.add(
