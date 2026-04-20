@@ -212,7 +212,12 @@ async def test_payment_intent_unknown_currency_rejected(client, admin_auth_heade
     cat = await client.post(
         "/api/v1/categories",
         headers=admin_auth_header,
-        json={"name": "CurCat", "slug": f"cur-{uuid.uuid4().hex[:8]}", "sort_order": 0, "is_active": True},
+        json={
+            "name": "CurCat",
+            "slug": f"cur-{uuid.uuid4().hex[:8]}",
+            "sort_order": 0,
+            "is_active": True,
+        },
     )
     assert cat.status_code == 201, cat.text
     prod = await client.post(
@@ -277,7 +282,12 @@ async def test_payment_intent_rejected_via_api_when_cart_active(client, admin_au
     cat = await client.post(
         "/api/v1/categories",
         headers=admin_auth_header,
-        json={"name": "AlCat", "slug": f"al-{uuid.uuid4().hex[:8]}", "sort_order": 0, "is_active": True},
+        json={
+            "name": "AlCat",
+            "slug": f"al-{uuid.uuid4().hex[:8]}",
+            "sort_order": 0,
+            "is_active": True,
+        },
     )
     assert cat.status_code == 201, cat.text
     prod = await client.post(

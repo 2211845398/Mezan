@@ -99,7 +99,12 @@ def upgrade() -> None:
             )
             """
         ),
-        {"p_code": "2200", "p_name": "Output VAT Payable", "p_atype": "liability", "p_code_exists": "2200"},
+        {
+            "p_code": "2200",
+            "p_name": "Output VAT Payable",
+            "p_atype": "liability",
+            "p_code_exists": "2200",
+        },
     )
 
     op.add_column(

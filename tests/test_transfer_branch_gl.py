@@ -97,7 +97,9 @@ async def test_transfer_receive_posts_inter_branch_inventory_journal(db_session)
     await receive_batch(db_session, batch_id=batch.id)
 
     je_res = await db_session.execute(
-        select(JournalEntry).where(JournalEntry.idempotency_key == f"transfer_batch:{batch.id}:receive_gl")
+        select(JournalEntry).where(
+            JournalEntry.idempotency_key == f"transfer_batch:{batch.id}:receive_gl"
+        )
     )
     je = je_res.scalar_one_or_none()
     assert je is not None
@@ -105,7 +107,9 @@ async def test_transfer_receive_posts_inter_branch_inventory_journal(db_session)
     assert je.source_id == str(batch.id)
 
     lines_res = await db_session.execute(
-        select(JournalEntryLine).where(JournalEntryLine.journal_entry_id == je.id).order_by(JournalEntryLine.line_no)
+        select(JournalEntryLine)
+        .where(JournalEntryLine.journal_entry_id == je.id)
+        .order_by(JournalEntryLine.line_no)
     )
     glines = list(lines_res.scalars().all())
     assert len(glines) == 2

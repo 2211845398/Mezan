@@ -56,7 +56,9 @@ async def test_apply_ar_payment_posts_cash_vs_ar_journal(db_session) -> None:
     await db_session.commit()
 
     je_res = await db_session.execute(
-        select(JournalEntry).where(JournalEntry.idempotency_key == f"ar_payment_application:{app.id}")
+        select(JournalEntry).where(
+            JournalEntry.idempotency_key == f"ar_payment_application:{app.id}"
+        )
     )
     je = je_res.scalar_one_or_none()
     assert je is not None

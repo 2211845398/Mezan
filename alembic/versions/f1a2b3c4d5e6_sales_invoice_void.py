@@ -31,7 +31,9 @@ def upgrade() -> None:
         "sales_invoices",
         sa.Column("voided_by_user_id", sa.Integer(), nullable=True),
     )
-    op.create_index(op.f("ix_sales_invoices_voided_at"), "sales_invoices", ["voided_at"], unique=False)
+    op.create_index(
+        op.f("ix_sales_invoices_voided_at"), "sales_invoices", ["voided_at"], unique=False
+    )
     op.create_index(
         op.f("ix_sales_invoices_voided_by_user_id"),
         "sales_invoices",
@@ -49,7 +51,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("fk_sales_invoices_voided_by_user_id_users", "sales_invoices", type_="foreignkey")
+    op.drop_constraint(
+        "fk_sales_invoices_voided_by_user_id_users", "sales_invoices", type_="foreignkey"
+    )
     op.drop_index(op.f("ix_sales_invoices_voided_by_user_id"), table_name="sales_invoices")
     op.drop_index(op.f("ix_sales_invoices_voided_at"), table_name="sales_invoices")
     op.drop_column("sales_invoices", "voided_by_user_id")

@@ -85,7 +85,9 @@ def downgrade() -> None:
     ).scalar()
     if row_2150 is None:
         return
-    row_2120 = bind.execute(sa.text("SELECT id FROM chart_accounts WHERE code = '2120' LIMIT 1")).scalar()
+    row_2120 = bind.execute(
+        sa.text("SELECT id FROM chart_accounts WHERE code = '2120' LIMIT 1")
+    ).scalar()
     if row_2120 is not None:
         return
     bind.execute(

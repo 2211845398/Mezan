@@ -126,7 +126,9 @@ async def test_walk_in_sale_posts_credit_to_output_vat_payable(db_session) -> No
 
     settings = await get_accounting_settings(db_session)
     je_res = await db_session.execute(
-        select(JournalEntry).where(JournalEntry.idempotency_key == f"sales_invoice:{invoice.id}:pos_cash")
+        select(JournalEntry).where(
+            JournalEntry.idempotency_key == f"sales_invoice:{invoice.id}:pos_cash"
+        )
     )
     je = je_res.scalar_one()
     tax_credit = await db_session.scalar(

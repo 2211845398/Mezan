@@ -88,9 +88,7 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
     db_session.add(product)
     await db_session.flush()
 
-    db_session.add(
-        StockLevel(branch_id=branch.id, product_id=product.id, on_hand=10, reserved=0)
-    )
+    db_session.add(StockLevel(branch_id=branch.id, product_id=product.id, on_hand=10, reserved=0))
     await db_session.flush()
 
     await apply_stock_movement(
@@ -156,7 +154,9 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
     assert level_before == 9
 
     je_count_before = await db_session.scalar(
-        select(func.count()).select_from(JournalEntry).where(
+        select(func.count())
+        .select_from(JournalEntry)
+        .where(
             JournalEntry.source_type == "sales_invoice",
             JournalEntry.source_id == str(invoice.id),
         )
@@ -173,7 +173,9 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
     assert voided.void_reason == "test void"
 
     rev_count = await db_session.scalar(
-        select(func.count()).select_from(JournalEntry).where(JournalEntry.reverses_entry_id.isnot(None))
+        select(func.count())
+        .select_from(JournalEntry)
+        .where(JournalEntry.reverses_entry_id.isnot(None))
     )
     assert rev_count >= je_count_before
 

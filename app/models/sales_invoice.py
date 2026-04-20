@@ -67,9 +67,7 @@ class SalesInvoiceLine(Base):
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     line_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    tax_rate: Mapped[Decimal] = mapped_column(
-        Numeric(8, 4), nullable=False, default=Decimal("0")
-    )
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False, default=Decimal("0"))
     line_tax_amount: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=Decimal("0.00")
     )
