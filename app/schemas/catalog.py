@@ -81,6 +81,12 @@ class ProductBase(BaseModel):
     status: str = Field(default="active", max_length=32)
     attributes: dict[str, Any] = Field(default_factory=dict)
     standard_cost: Decimal | None = None
+    output_vat_rate: Decimal = Field(
+        default=Decimal("0"),
+        ge=Decimal("0"),
+        lt=Decimal("1"),
+        description="Tax-exclusive rate fraction, e.g. 0.15 for 15%",
+    )
 
 
 class ProductCreate(ProductBase):
@@ -99,6 +105,11 @@ class ProductUpdate(BaseModel):
     status: str | None = Field(default=None, max_length=32)
     attributes: dict[str, Any] | None = None
     standard_cost: Decimal | None = None
+    output_vat_rate: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0"),
+        lt=Decimal("1"),
+    )
     sell_price: Decimal | None = Field(
         default=None,
         description="Preferred sell-price input. `attributes.price` remains accepted for compatibility.",

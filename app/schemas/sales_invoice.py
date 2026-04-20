@@ -20,6 +20,9 @@ class SalesInvoiceRead(BaseModel):
     invoice_barcode: str
     cart_id: int
     branch_id: int
+    subtotal: Decimal
+    discount_total: Decimal
+    tax_total: Decimal
     total: Decimal
     created_at: datetime
 

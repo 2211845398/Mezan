@@ -82,6 +82,7 @@ async def _create_sales_invoice(
         status="paid",
         subtotal=total,
         discount_total=Decimal("0.00"),
+        tax_total=Decimal("0.00"),
         total=total,
         paid_at=created_at,
     )
@@ -96,6 +97,7 @@ async def _create_sales_invoice(
         branch_id=branch_id,
         subtotal=total,
         discount_total=Decimal("0.00"),
+        tax_total=Decimal("0.00"),
         total=total,
         created_at=created_at,
     )
@@ -109,6 +111,8 @@ async def _create_sales_invoice(
             qty=1,
             unit_price=total,
             line_total=total,
+            tax_rate=Decimal("0"),
+            line_tax_amount=Decimal("0.00"),
         )
     )
     await db_session.flush()

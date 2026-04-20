@@ -294,6 +294,7 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
         ("2000", "Accounts Payable", AccountType.LIABILITY, True, True),
         ("2100", "Payroll Liability", AccountType.LIABILITY, False, True),
         ("2110", "Payroll Deductions Payable", AccountType.LIABILITY, False, True),
+        ("2200", "Output VAT Payable", AccountType.LIABILITY, False, True),
         ("4000", "Sales Revenue", AccountType.REVENUE, False, True),
         ("4090", "Sales Discounts", AccountType.EXPENSE, False, True),
         ("5000", "Cost of Goods Sold", AccountType.EXPENSE, False, True),
@@ -322,6 +323,7 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
         "2000",
         "2100",
         "2110",
+        "2200",
         "4000",
         "4090",
         "5000",
@@ -346,6 +348,7 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
             default_salary_expense_account_id=by_code["6000"].id,
             default_payroll_liability_account_id=by_code["2100"].id,
             default_payroll_deductions_payable_account_id=by_code["2110"].id,
+            default_output_tax_payable_account_id=by_code["2200"].id,
         )
     )
     await db.commit()

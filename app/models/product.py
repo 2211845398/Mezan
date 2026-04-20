@@ -29,6 +29,11 @@ class Product(Base):
     )  # active, archived
     attributes: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     standard_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
+    output_vat_rate: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4),
+        nullable=False,
+        default=Decimal("0"),
+    )  # Decimal fraction, e.g. 0.15 for 15% (tax-exclusive line amounts)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

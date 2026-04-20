@@ -53,3 +53,6 @@ class AccountingSettings(Base):
     default_payroll_deductions_payable_account_id: Mapped[int] = mapped_column(
         ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
     )
+    default_output_tax_payable_account_id: Mapped[int] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
+    )

@@ -65,6 +65,7 @@ async def finalize_paid_cart(
         customer_id=cart.customer_id,
         subtotal=cart.subtotal,
         discount_total=cart.discount_total,
+        tax_total=cart.tax_total,
         total=cart.total,
         created_by_user_id=user_id,
         created_at=issued_at,
@@ -86,6 +87,8 @@ async def finalize_paid_cart(
                 qty=ln.qty,
                 unit_price=ln.unit_price,
                 line_total=ln.line_total,
+                tax_rate=ln.tax_rate,
+                line_tax_amount=ln.line_tax_amount,
             )
         )
         await apply_stock_movement(

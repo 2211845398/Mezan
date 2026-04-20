@@ -71,3 +71,4 @@ async def test_accounting_settings_has_clearing_and_discount_accounts(db_session
     assert s.default_card_clearing_account_id
     assert s.default_other_clearing_account_id
     assert s.default_sales_discount_account_id
+    assert s.default_output_tax_payable_account_id

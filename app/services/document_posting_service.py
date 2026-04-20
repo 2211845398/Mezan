@@ -55,7 +55,8 @@ async def post_sales_invoice_gl(
     branch_id = invoice.branch_id
     entry_date = invoice.created_at.date() if invoice.created_at else date.today()
     subtotal = q2(invoice.subtotal)
-    disc_debit = q2(subtotal - total)
+    tax_amt = q2(invoice.tax_total)
+    disc_debit = q2(subtotal + tax_amt - total)
     if disc_debit < 0:
         disc_debit = Decimal("0")
 
@@ -97,6 +98,16 @@ async def post_sales_invoice_gl(
                         "debit": disc_debit,
                         "credit": Decimal("0"),
                         "memo": "Sales discounts",
+                    }
+                )
+            if tax_amt > 0:
+                lines_payload.append(
+                    {
+                        "account_id": settings.default_output_tax_payable_account_id,
+                        "branch_id": branch_id,
+                        "debit": Decimal("0"),
+                        "credit": tax_amt,
+                        "memo": "Output VAT",
                     }
                 )
             if cogs_total > 0:
@@ -154,6 +165,16 @@ async def post_sales_invoice_gl(
                     "debit": disc_debit,
                     "credit": Decimal("0"),
                     "memo": "Sales discounts",
+                }
+            )
+        if tax_amt > 0:
+            lines_payload.append(
+                {
+                    "account_id": settings.default_output_tax_payable_account_id,
+                    "branch_id": branch_id,
+                    "debit": Decimal("0"),
+                    "credit": tax_amt,
+                    "memo": "Output VAT",
                 }
             )
         await post_journal_entry(
@@ -228,20 +249,22 @@ async def post_sales_return_gl(
         tender = await _first_invoice_payment_tender(db, sales_invoice_id)
         settle_id = _settlement_account_id(settings, tender)
 
+    inv_total = q2(orig.total) if orig else total
     inv_sub = q2(orig.subtotal) if orig else total
-    inv_net = q2(orig.total) if orig else total
-    disc_amt = q2(inv_sub - inv_net) if orig else Decimal("0")
-    if disc_amt < 0:
-        disc_amt = Decimal("0")
+    inv_disc = q2(orig.discount_total) if orig else Decimal("0")
+    inv_tax = q2(orig.tax_total) if orig else Decimal("0")
 
-    if orig and inv_net > 0 and disc_amt > 0:
-        rev_dr = q2(inv_sub * total / inv_net)
-        disc_cr = q2(disc_amt * total / inv_net)
-        adj = q2(rev_dr - disc_cr - total)
-        rev_dr = q2(rev_dr - adj)
+    if orig and inv_total > 0:
+        rev_dr = q2(inv_sub * total / inv_total)
+        disc_cr = q2(inv_disc * total / inv_total)
+        tax_dr = q2(inv_tax * total / inv_total)
     else:
         rev_dr = total
         disc_cr = Decimal("0")
+        tax_dr = Decimal("0")
+
+    adj = q2(rev_dr - disc_cr + tax_dr - total)
+    rev_dr = q2(rev_dr - adj)
 
     rev_lines: list[dict] = [
         {
@@ -260,6 +283,16 @@ async def post_sales_return_gl(
                 "debit": Decimal("0"),
                 "credit": disc_cr,
                 "memo": "Return — sales discount reversal",
+            }
+        )
+    if tax_dr > 0:
+        rev_lines.append(
+            {
+                "account_id": settings.default_output_tax_payable_account_id,
+                "branch_id": branch_id,
+                "debit": tax_dr,
+                "credit": Decimal("0"),
+                "memo": "Return — output VAT reversal",
             }
         )
     rev_lines.append(
