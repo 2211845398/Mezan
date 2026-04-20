@@ -1,5 +1,7 @@
 """Seed default permissions, Admin role, and optional default admin user."""
 
+from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -299,6 +301,9 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
         ("4090", "Sales Discounts", AccountType.EXPENSE, False, True),
         ("5000", "Cost of Goods Sold", AccountType.EXPENSE, False, True),
         ("6000", "Salary Expense", AccountType.EXPENSE, False, True),
+        ("1020", "Cash Over and Short", AccountType.EXPENSE, False, True),
+        ("2120", "Loyalty Points Liability", AccountType.LIABILITY, False, True),
+        ("6100", "Loyalty Program Expense", AccountType.EXPENSE, False, True),
     ]
     for code, name, at, ctrl, sys in defs:
         db.add(
@@ -328,6 +333,9 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
         "4090",
         "5000",
         "6000",
+        "1020",
+        "2120",
+        "6100",
     )
     acc_res = await db.execute(select(ChartAccount).where(ChartAccount.code.in_(codes)))
     by_code = {a.code: a for a in acc_res.scalars().all()}
@@ -349,6 +357,10 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
             default_payroll_liability_account_id=by_code["2100"].id,
             default_payroll_deductions_payable_account_id=by_code["2110"].id,
             default_output_tax_payable_account_id=by_code["2200"].id,
+            default_cash_over_short_account_id=by_code["1020"].id,
+            default_loyalty_liability_account_id=by_code["2120"].id,
+            default_loyalty_expense_account_id=by_code["6100"].id,
+            default_loyalty_point_value=Decimal("0.01"),
         )
     )
     await db.commit()

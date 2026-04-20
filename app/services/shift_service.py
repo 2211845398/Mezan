@@ -12,6 +12,7 @@ from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
 from app.services.branch_scope import require_branch_open_for_operations
+from app.services.document_posting_service import post_pos_shift_variance_gl
 from app.utils.money import q2
 
 
@@ -134,5 +135,6 @@ async def close_shift(
     }
     db.add(ZReport(shift_id=shift.id, report_payload=payload))
     await db.flush()
+    await post_pos_shift_variance_gl(db, shift=shift)
     await db.refresh(shift)
     return shift

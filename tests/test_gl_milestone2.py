@@ -72,3 +72,7 @@ async def test_accounting_settings_has_clearing_and_discount_accounts(db_session
     assert s.default_other_clearing_account_id
     assert s.default_sales_discount_account_id
     assert s.default_output_tax_payable_account_id
+    assert s.default_cash_over_short_account_id
+    assert s.default_loyalty_liability_account_id
+    assert s.default_loyalty_expense_account_id
+    assert s.default_loyalty_point_value > 0

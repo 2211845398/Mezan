@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.payslip import Payslip
+from app.models.pos_shift import PosShift
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.models.suppliers import Supplier
 from app.models.transfer_batch import TransferBatch
@@ -531,5 +532,61 @@ async def post_payslip_approved_gl(db: AsyncSession, *, payslip: Payslip, branch
         source_type="payslip",
         source_id=str(payslip.id),
         idempotency_key=f"payslip:{payslip.id}:payroll_expense",
+        lines=lines,
+    )
+
+
+async def post_pos_shift_variance_gl(db: AsyncSession, *, shift: PosShift) -> None:
+    """Post declared vs expected drawer variance: Dr/Cr cash vs cash over/short."""
+    var = q2(shift.variance or Decimal("0"))
+    if var == 0:
+        return
+    settings = await get_accounting_settings(db)
+    branch_id = shift.branch_id
+    amt = q2(abs(var))
+    entry_date = shift.closed_at.date() if shift.closed_at else date.today()
+    cash_id = settings.default_cash_account_id
+    oss_id = settings.default_cash_over_short_account_id
+    if var > 0:
+        lines = [
+            {
+                "account_id": cash_id,
+                "branch_id": branch_id,
+                "debit": amt,
+                "credit": Decimal("0"),
+                "memo": "POS shift cash over",
+            },
+            {
+                "account_id": oss_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": amt,
+                "memo": "POS shift cash over",
+            },
+        ]
+    else:
+        lines = [
+            {
+                "account_id": oss_id,
+                "branch_id": branch_id,
+                "debit": amt,
+                "credit": Decimal("0"),
+                "memo": "POS shift cash short",
+            },
+            {
+                "account_id": cash_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": amt,
+                "memo": "POS shift cash short",
+            },
+        ]
+    await post_journal_entry(
+        db,
+        entry_date=entry_date,
+        description=f"POS shift {shift.id} cash variance",
+        source_type="pos_shift",
+        source_id=str(shift.id),
+        idempotency_key=f"pos_shift:{shift.id}:variance",
         lines=lines,
     )
