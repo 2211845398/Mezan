@@ -31,6 +31,8 @@ async def create_return_and_credit(
     invoice = i_res.scalar_one_or_none()
     if not invoice:
         raise NotFoundError("Invoice not found")
+    if invoice.voided_at is not None:
+        raise ValidationError("Cannot return lines for a voided invoice")
     inv_lines_res = await db.execute(
         select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
     )

@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
-from app.schemas.sales_invoice import FinalizeInvoiceRequest, SalesInvoiceRead
+from app.schemas.sales_invoice import FinalizeInvoiceRequest, SalesInvoiceRead, VoidInvoiceRequest
 from app.services import audit_service
-from app.services.invoice_service import finalize_paid_cart
+from app.services.invoice_service import finalize_paid_cart, void_sales_invoice
 
 router = APIRouter()
 
@@ -31,6 +31,33 @@ async def finalize_sale_endpoint(
     await audit_service.log(
         session=db,
         action="sales_invoice.created",
+        resource_type="sales_invoice",
+        resource_id=str(invoice.id),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return SalesInvoiceRead.model_validate(invoice)
+
+
+@router.post("/pos/sales/void", response_model=SalesInvoiceRead)
+async def void_sale_endpoint(
+    body: VoidInvoiceRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("sales_invoices", "void"),
+) -> SalesInvoiceRead:
+    invoice = await void_sales_invoice(
+        db,
+        invoice_id=body.invoice_id,
+        invoice_barcode=body.invoice_barcode,
+        reason=body.reason,
+        actor_user_id=current_user.id,
+    )
+    await audit_service.log(
+        session=db,
+        action="sales_invoice.voided",
         resource_type="sales_invoice",
         resource_id=str(invoice.id),
         user_id=current_user.id,

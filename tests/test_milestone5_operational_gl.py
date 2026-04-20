@@ -11,9 +11,9 @@ from sqlalchemy import select
 from app.models.branch import Branch
 from app.models.customer_profile import CustomerProfile
 from app.models.journal_entries import JournalEntry, JournalEntryLine
+from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.models.pos_terminal import POSTerminal
 from app.models.users import User
-from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.loyalty_service import adjust_points
 from app.services.seed_service import seed_accounting_defaults
 from app.services.shift_service import close_shift, open_shift

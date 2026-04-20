@@ -45,6 +45,13 @@ class SalesInvoice(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+    voided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    void_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    voided_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
 
 class SalesInvoiceLine(Base):

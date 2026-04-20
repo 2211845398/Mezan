@@ -60,6 +60,7 @@ DEFAULT_PERMISSIONS = [
     ("pos_payments", "create"),
     ("pos_payments", "capture"),
     ("sales_invoices", "create"),
+    ("sales_invoices", "void"),
     ("returns", "create"),
     ("customers", "create"),
     ("stock_adjustments", "create"),
@@ -141,6 +142,7 @@ SYSTEM_ROLE_SPECS = [
         "selectors": [
             ("accounting", "*"),
             ("suppliers", "*"),
+            ("sales_invoices", "void"),
         ],
     },
     {
