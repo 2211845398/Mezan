@@ -33,8 +33,11 @@ async def finalize_paid_cart(
     cart = cart_res.scalar_one_or_none()
     if not cart:
         raise NotFoundError("Cart not found")
-    if cart.status not in {"active", "checkout_locked"}:
-        raise StateTransitionError("Cart cannot be finalized")
+    if cart.status != "checkout_locked":
+        raise StateTransitionError(
+            "Cart must be checkout_locked before finalize",
+            details={"status": cart.status},
+        )
     pi_res = await db.execute(select(PaymentIntent).where(PaymentIntent.id == payment_intent_id))
     payment_intent = pi_res.scalar_one_or_none()
     if not payment_intent or payment_intent.cart_id != cart.id:

@@ -5,13 +5,21 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class PaymentIntentCreateRequest(BaseModel):
     cart_id: int
     provider: str | None = None
-    currency: str = "USD"
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, v: str) -> str:
+        s = v.strip().upper()
+        if len(s) != 3 or not s.isalpha():
+            raise ValueError("currency must be a 3-letter ISO 4217-style code")
+        return s
 
 
 class PaymentCaptureRequest(BaseModel):

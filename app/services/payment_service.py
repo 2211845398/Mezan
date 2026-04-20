@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import NotFoundError, ValidationError
+from app.models.currency import Currency
 from app.models.pos_cart import PosCart
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.services.payments.providers.base import PaymentProvider
@@ -30,17 +31,24 @@ async def create_payment_intent(
     cart = c_res.scalar_one_or_none()
     if not cart:
         raise NotFoundError("Cart not found")
-    if cart.status not in {"active", "checkout_locked"}:
-        raise ValidationError("Cart cannot be paid in current status")
+    if cart.status != "checkout_locked":
+        raise ValidationError(
+            "Cart must be checkout_locked before creating a payment intent",
+            details={"status": cart.status},
+        )
+    code = currency.strip().upper()
+    cur_res = await db.execute(select(Currency).where(Currency.code == code))
+    if cur_res.scalar_one_or_none() is None:
+        raise ValidationError("Unknown currency code", details={"currency": code})
     selected_provider = (provider_name or settings.POS_DEFAULT_PAYMENT_PROVIDER).lower()
     provider = get_provider(selected_provider)
     amount = q2(cart.total)
-    created = await provider.create_intent(amount=amount, currency=currency)
+    created = await provider.create_intent(amount=amount, currency=code)
     intent = PaymentIntent(
         cart_id=cart.id,
         provider=provider.name,
         amount=amount,
-        currency=currency,
+        currency=code,
         status=created.status,
         external_id=created.external_id,
     )
