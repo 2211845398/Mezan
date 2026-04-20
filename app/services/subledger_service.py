@@ -13,6 +13,7 @@ from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
 from app.models.ar_payment_application import ArPaymentApplication
+from app.services.document_posting_service import post_ar_cash_receipt_gl
 
 
 def _d(value: Decimal | float | int | str) -> Decimal:
@@ -132,6 +133,13 @@ async def apply_ar_payment(
     item.status = _next_status(_d(item.amount_open))
     db.add(application)
     await db.flush()
+    await post_ar_cash_receipt_gl(
+        db,
+        branch_id=item.branch_id,
+        amount=amt,
+        application_id=application.id,
+        entry_date=application.applied_at.date(),
+    )
     await db.refresh(application)
     return application
 

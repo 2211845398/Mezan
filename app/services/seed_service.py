@@ -287,12 +287,15 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
 
     defs: list[tuple[str, str, AccountType, bool, bool]] = [
         ("1000", "Cash on Hand", AccountType.ASSET, False, True),
+        ("1010", "Card Clearing", AccountType.ASSET, False, True),
+        ("1015", "Other Payments Clearing", AccountType.ASSET, False, True),
         ("1100", "Accounts Receivable", AccountType.ASSET, True, True),
         ("1200", "Inventory", AccountType.ASSET, False, True),
         ("2000", "Accounts Payable", AccountType.LIABILITY, True, True),
         ("2100", "Payroll Liability", AccountType.LIABILITY, False, True),
         ("2110", "Payroll Deductions Payable", AccountType.LIABILITY, False, True),
         ("4000", "Sales Revenue", AccountType.REVENUE, False, True),
+        ("4090", "Sales Discounts", AccountType.EXPENSE, False, True),
         ("5000", "Cost of Goods Sold", AccountType.EXPENSE, False, True),
         ("6000", "Salary Expense", AccountType.EXPENSE, False, True),
     ]
@@ -312,12 +315,15 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
 
     codes = (
         "1000",
+        "1010",
+        "1015",
         "1100",
         "1200",
         "2000",
         "2100",
         "2110",
         "4000",
+        "4090",
         "5000",
         "6000",
     )
@@ -334,6 +340,9 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
             default_inventory_account_id=by_code["1200"].id,
             default_cogs_account_id=by_code["5000"].id,
             default_sales_revenue_account_id=by_code["4000"].id,
+            default_card_clearing_account_id=by_code["1010"].id,
+            default_other_clearing_account_id=by_code["1015"].id,
+            default_sales_discount_account_id=by_code["4090"].id,
             default_salary_expense_account_id=by_code["6000"].id,
             default_payroll_liability_account_id=by_code["2100"].id,
             default_payroll_deductions_payable_account_id=by_code["2110"].id,

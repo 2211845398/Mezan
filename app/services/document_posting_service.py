@@ -11,11 +11,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.payslip import Payslip
-from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
+from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.models.suppliers import Supplier
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
 from app.utils.money import q2
+
+
+def _normalize_tender(method: str | None) -> str:
+    if method in ("cash", "card", "other"):
+        return method
+    return "cash"
+
+
+def _settlement_account_id(settings, tender: str) -> int:
+    if tender == "card":
+        return settings.default_card_clearing_account_id
+    if tender == "other":
+        return settings.default_other_clearing_account_id
+    return settings.default_cash_account_id
+
+
+async def _first_invoice_payment_tender(db: AsyncSession, invoice_id: int) -> str:
+    res = await db.execute(
+        select(InvoicePayment.method).where(InvoicePayment.sales_invoice_id == invoice_id).limit(1)
+    )
+    row = res.scalar_one_or_none()
+    return _normalize_tender(row)
 
 
 async def post_sales_invoice_gl(
@@ -24,7 +46,7 @@ async def post_sales_invoice_gl(
     invoice: SalesInvoice,
     lines: list[SalesInvoiceLine],
 ) -> None:
-    """POS sale: revenue + cash/AR pattern and COGS (WAVG). Idempotent per invoice."""
+    """POS sale: settlement (walk-in) or AR accrual (on account), revenue + discounts, COGS."""
     settings = await get_accounting_settings(db)
     total = q2(invoice.total)
     if total <= 0:
@@ -32,8 +54,11 @@ async def post_sales_invoice_gl(
 
     branch_id = invoice.branch_id
     entry_date = invoice.created_at.date() if invoice.created_at else date.today()
+    subtotal = q2(invoice.subtotal)
+    disc_debit = q2(subtotal - total)
+    if disc_debit < 0:
+        disc_debit = Decimal("0")
 
-    # COGS extension
     cogs_total = Decimal("0")
     unit_costs = await get_unit_costs_for_sale(
         db,
@@ -46,22 +71,34 @@ async def post_sales_invoice_gl(
 
     async def post_revenue_and_cash() -> None:
         if invoice.customer_id is None:
-            lines_payload = [
+            tender = await _first_invoice_payment_tender(db, invoice.id)
+            settle_id = _settlement_account_id(settings, tender)
+            lines_payload: list[dict] = [
                 {
-                    "account_id": settings.default_cash_account_id,
+                    "account_id": settle_id,
                     "branch_id": branch_id,
                     "debit": total,
                     "credit": Decimal("0"),
-                    "memo": "POS cash sale",
+                    "memo": f"POS sale ({tender})",
                 },
                 {
                     "account_id": settings.default_sales_revenue_account_id,
                     "branch_id": branch_id,
                     "debit": Decimal("0"),
-                    "credit": total,
+                    "credit": subtotal,
                     "memo": "Sales revenue",
                 },
             ]
+            if disc_debit > 0:
+                lines_payload.append(
+                    {
+                        "account_id": settings.default_sales_discount_account_id,
+                        "branch_id": branch_id,
+                        "debit": disc_debit,
+                        "credit": Decimal("0"),
+                        "memo": "Sales discounts",
+                    }
+                )
             if cogs_total > 0:
                 lines_payload.extend(
                     [
@@ -92,7 +129,6 @@ async def post_sales_invoice_gl(
             )
             return
 
-        # Account customer: AR accrual + cash clearing (payment already captured)
         ar_account = settings.default_ar_account_id
         lines_payload = [
             {
@@ -106,10 +142,20 @@ async def post_sales_invoice_gl(
                 "account_id": settings.default_sales_revenue_account_id,
                 "branch_id": branch_id,
                 "debit": Decimal("0"),
-                "credit": total,
+                "credit": subtotal,
                 "memo": "Sales revenue",
             },
         ]
+        if disc_debit > 0:
+            lines_payload.append(
+                {
+                    "account_id": settings.default_sales_discount_account_id,
+                    "branch_id": branch_id,
+                    "debit": disc_debit,
+                    "credit": Decimal("0"),
+                    "memo": "Sales discounts",
+                }
+            )
         await post_journal_entry(
             db,
             entry_date=entry_date,
@@ -118,31 +164,6 @@ async def post_sales_invoice_gl(
             source_id=str(invoice.id),
             idempotency_key=f"sales_invoice:{invoice.id}:accrual",
             lines=lines_payload,
-        )
-        cash_lines = [
-            {
-                "account_id": settings.default_cash_account_id,
-                "branch_id": branch_id,
-                "debit": total,
-                "credit": Decimal("0"),
-                "memo": "Cash receipt",
-            },
-            {
-                "account_id": ar_account,
-                "branch_id": branch_id,
-                "debit": Decimal("0"),
-                "credit": total,
-                "memo": "Clear AR",
-            },
-        ]
-        await post_journal_entry(
-            db,
-            entry_date=entry_date,
-            description=f"Sales invoice {invoice.invoice_number} cash",
-            source_type="sales_invoice",
-            source_id=str(invoice.id),
-            idempotency_key=f"sales_invoice:{invoice.id}:cash",
-            lines=cash_lines,
         )
         if cogs_total > 0:
             await post_journal_entry(
@@ -182,7 +203,7 @@ async def post_sales_return_gl(
     sales_return_id: int,
     lines: list[tuple[int, int, Decimal]],
 ) -> None:
-    """Reverse revenue and restore COGS for a processed return. lines: (product_id, qty, refund)."""
+    """Reverse revenue/discount and credit original settlement for a processed return."""
     if credit_total <= 0:
         return
     settings = await get_accounting_settings(db)
@@ -199,22 +220,57 @@ async def post_sales_return_gl(
         uc = unit_costs.get(product_id, Decimal("0"))
         cogs_back += q2(uc * Decimal(qty))
 
-    rev_lines = [
+    inv_res = await db.execute(select(SalesInvoice).where(SalesInvoice.id == sales_invoice_id))
+    orig = inv_res.scalar_one_or_none()
+    if orig and orig.customer_id is not None:
+        settle_id = settings.default_ar_account_id
+    else:
+        tender = await _first_invoice_payment_tender(db, sales_invoice_id)
+        settle_id = _settlement_account_id(settings, tender)
+
+    inv_sub = q2(orig.subtotal) if orig else total
+    inv_net = q2(orig.total) if orig else total
+    disc_amt = q2(inv_sub - inv_net) if orig else Decimal("0")
+    if disc_amt < 0:
+        disc_amt = Decimal("0")
+
+    if orig and inv_net > 0 and disc_amt > 0:
+        rev_dr = q2(inv_sub * total / inv_net)
+        disc_cr = q2(disc_amt * total / inv_net)
+        adj = q2(rev_dr - disc_cr - total)
+        rev_dr = q2(rev_dr - adj)
+    else:
+        rev_dr = total
+        disc_cr = Decimal("0")
+
+    rev_lines: list[dict] = [
         {
             "account_id": settings.default_sales_revenue_account_id,
             "branch_id": branch_id,
-            "debit": total,
+            "debit": rev_dr,
             "credit": Decimal("0"),
             "memo": "Return — revenue reversal",
         },
+    ]
+    if disc_cr > 0:
+        rev_lines.append(
+            {
+                "account_id": settings.default_sales_discount_account_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": disc_cr,
+                "memo": "Return — sales discount reversal",
+            }
+        )
+    rev_lines.append(
         {
-            "account_id": settings.default_cash_account_id,
+            "account_id": settle_id,
             "branch_id": branch_id,
             "debit": Decimal("0"),
             "credit": total,
-            "memo": "Return — cash (counter)",
-        },
-    ]
+            "memo": "Return — settlement (counter)",
+        }
+    )
     await post_journal_entry(
         db,
         entry_date=entry_date,
@@ -249,6 +305,45 @@ async def post_sales_return_gl(
                 },
             ],
         )
+
+
+async def post_ar_cash_receipt_gl(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    amount: Decimal,
+    application_id: int,
+    entry_date: date,
+) -> None:
+    """Dr Cash, Cr AR when an AR open item is collected. Idempotent per application."""
+    settings = await get_accounting_settings(db)
+    amt = q2(amount)
+    if amt <= 0:
+        return
+    await post_journal_entry(
+        db,
+        entry_date=entry_date,
+        description=f"AR cash receipt (application {application_id})",
+        source_type="ar_payment_application",
+        source_id=str(application_id),
+        idempotency_key=f"ar_payment_application:{application_id}",
+        lines=[
+            {
+                "account_id": settings.default_cash_account_id,
+                "branch_id": branch_id,
+                "debit": amt,
+                "credit": Decimal("0"),
+                "memo": "Cash received on account",
+            },
+            {
+                "account_id": settings.default_ar_account_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": amt,
+                "memo": "Clear AR",
+            },
+        ],
+    )
 
 
 async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> None:

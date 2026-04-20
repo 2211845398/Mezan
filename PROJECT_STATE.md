@@ -106,6 +106,7 @@
 
 | Area | Status |
 |------|--------|
+| **POS → GL (Milestone 2)** | Addressed: on-account sales accrue AR only (no spurious cash receipt at finalize); walk-in settlement uses cash vs card vs other clearing accounts; revenue split with sales-discount line; AR cash receipts post when `apply_ar_payment` runs; returns credit the same settlement or AR account and reverse discount proportionally (`f0a1b2c3d4e5` migration + `document_posting_service` / `subledger_service` / `invoice_service`). |
 | **SSO** | FR mentions SSO; verify and implement OIDC/SAML when required |
 | **Loyalty vs GL** | Loyalty points are not a balance-sheet liability unless explicitly modeled and posted |
 | **FIFO / LIFO** | Only weighted-average + standard cost; no cost layers |

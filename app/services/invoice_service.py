@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError
 from app.models.pos_cart import PosCart, PosCartLine
-from app.models.pos_payment import PaymentIntent
+from app.models.pos_payment import PaymentIntent, PaymentReceipt
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.inventory_service import apply_stock_movement
@@ -72,6 +72,12 @@ async def finalize_paid_cart(
     db.add(invoice)
     await db.flush()
 
+    rec_res = await db.execute(
+        select(PaymentReceipt).where(PaymentReceipt.payment_intent_id == payment_intent.id)
+    )
+    receipt = rec_res.scalar_one_or_none()
+    tender_method = receipt.method if receipt else "cash"
+
     for idx, ln in enumerate(lines):
         db.add(
             SalesInvoiceLine(
@@ -97,8 +103,8 @@ async def finalize_paid_cart(
             sales_invoice_id=invoice.id,
             payment_intent_id=payment_intent.id,
             amount=payment_intent.amount,
-            method=payment_intent.provider,
-            reference=payment_intent.external_id,
+            method=tender_method,
+            reference=receipt.reference if receipt else payment_intent.external_id,
         )
     )
     sil_res = await db.execute(

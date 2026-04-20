@@ -35,6 +35,15 @@ class AccountingSettings(Base):
     default_sales_revenue_account_id: Mapped[int] = mapped_column(
         ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
     )
+    default_card_clearing_account_id: Mapped[int] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
+    )
+    default_other_clearing_account_id: Mapped[int] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
+    )
+    default_sales_discount_account_id: Mapped[int] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
+    )
     default_salary_expense_account_id: Mapped[int] = mapped_column(
         ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
     )
