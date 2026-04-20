@@ -111,6 +111,7 @@
 | **SSO** | FR mentions SSO; verify and implement OIDC/SAML when required |
 | **Loyalty vs GL** | Loyalty points are not a balance-sheet liability unless explicitly modeled and posted |
 | **FIFO / LIFO** | Only weighted-average + standard cost; no cost layers |
+| **Inter-branch transfer GL + WAVG** | Addressed: on receive, destination `BranchProductCost` is updated via source-branch unit cost (WAVG / standard fallback); GL posts Dr/Cr `default_inventory_account_id` by branch (`transfer_batch:{id}:receive_gl`) in [`transfer_service.receive_batch`](app/services/transfer_service.py) + [`post_transfer_batch_receive_gl`](app/services/document_posting_service.py). |
 | **Multi-currency GL** | Currencies + supplier currency exist; no FX revaluation or translated statements |
 | **Cash flow statement** | Not built as a dedicated report (balance sheet + income statement APIs exist) |
 

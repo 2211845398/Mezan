@@ -13,6 +13,7 @@ from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.payslip import Payslip
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.models.suppliers import Supplier
+from app.models.transfer_batch import TransferBatch
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
 from app.utils.money import q2
@@ -376,6 +377,60 @@ async def post_ar_cash_receipt_gl(
                 "memo": "Clear AR",
             },
         ],
+    )
+
+
+async def post_transfer_batch_receive_gl(db: AsyncSession, *, batch: TransferBatch) -> None:
+    """On inter-branch receive: Dr inventory @ destination, Cr @ source at source WAVG × qty.
+
+    Idempotent per batch. Skips lines with zero extended cost.
+    """
+    settings = await get_accounting_settings(db)
+    lines = batch.lines or []
+    if not lines:
+        return
+
+    unit_costs = await get_unit_costs_for_sale(
+        db,
+        branch_id=batch.from_branch_id,
+        product_ids=[ln.product_id for ln in lines],
+    )
+    payload: list[dict] = []
+    for ln in lines:
+        uc = unit_costs.get(ln.product_id, Decimal("0"))
+        amt = q2(uc * Decimal(ln.qty))
+        if amt <= 0:
+            continue
+        payload.append(
+            {
+                "account_id": settings.default_inventory_account_id,
+                "branch_id": batch.to_branch_id,
+                "debit": amt,
+                "credit": Decimal("0"),
+                "memo": f"Inter-branch transfer in (batch {batch.id})",
+            }
+        )
+        payload.append(
+            {
+                "account_id": settings.default_inventory_account_id,
+                "branch_id": batch.from_branch_id,
+                "debit": Decimal("0"),
+                "credit": amt,
+                "memo": f"Inter-branch transfer out (batch {batch.id})",
+            }
+        )
+    if not payload:
+        return
+
+    entry_date = batch.received_at.date() if batch.received_at else date.today()
+    await post_journal_entry(
+        db,
+        entry_date=entry_date,
+        description=f"Transfer batch {batch.id} received",
+        source_type="transfer_batch",
+        source_id=str(batch.id),
+        idempotency_key=f"transfer_batch:{batch.id}:receive_gl",
+        lines=payload,
     )
 
 
