@@ -498,7 +498,7 @@ volume.
 | POS engine | Native, hybrid customer onboarding, idempotent finalize | POS module with offline mode and many UI variants | No POS — Manager is back-office only |
 | OCR ingestion | Pluggable, `BasicOcrProvider` + Tesseract fallback | Document module (Enterprise) | Manual entry; no OCR |
 | HR / payroll | Schedules, attendance, payslips, CSV bank export, GL posting | Full HR suite, country-specific payroll localization | Manual journals only |
-| Loyalty | Accrual rules + ledger, not yet a GL liability | Loyalty module (Enterprise) | None |
+| Loyalty | Accrual rules + ledger + **GL postings** (expense/liability/revenue) | Loyalty module (Enterprise) | None |
 | Reporting | Trial balance, GL, IS, BS, executive KPIs | Full reporting + customizable + BI | Trial balance, IS, BS, cash flow, statement of changes in equity |
 | AI advisory | Marketing advisory pipeline with deterministic facts → LLM → validated JSON | None native (third-party apps) | None |
 | Backups | Built-in `pg_dump` + S3 + retention | Manual / hosted | Built-in |
@@ -535,12 +535,18 @@ volume.
 | 16 | Cart `lock` is optional before finalize | `app/services/invoice_service.py:35` | Cashier can edit during payment |
 | 17 | Tests bypass Alembic with `Base.metadata.create_all` | `tests/conftest.py:37-43` | Migration drift not caught by CI |
 | 18 | No rate limit on `/auth/login` and `/auth/password-reset/request` | `app/api/v1/auth.py:26-94` | Credential stuffing / enumeration |
-| 19 | Loyalty points are not a GL liability | `app/models/loyalty.py`, `PROJECT_STATE.md:104-105` | Off-balance-sheet obligation |
+| 19 | ~~Loyalty points are not a GL liability~~ **Fixed:** each `LoyaltyLedger` row posts a balanced JE via `post_loyalty_ledger_gl` (`loyalty_ledger:{id}` idempotency); valuation `default_loyalty_point_value`; liability **2150** | `app/services/loyalty_gl_service.py`, `app/services/loyalty_service.py`, `app/models/accounting_settings.py` | Points obligation is on-balance-sheet |
 | 20 | ~~Hard delete on branches~~ **Fixed:** `archived_at` + `branch_scope` | `app/api/v1/branches.py`, `app/services/branch_scope.py`, migration `d8f1a2c3e4b5` | Soft delete; new work blocked on archived branch |
 | 21 | Lifespan startup swallows every exception | `app/main.py:86-87` | Configuration errors invisible at boot |
 | 22 | Goods-receipt cost not reconciled against PO | `app/services/document_posting_service.py:247-295` | OCR/manual mistakes silently inflate inventory + AP |
-| 23 | Payment-intent currency is free text, no FX rate captured | `app/services/payment_service.py:36-44` | Multi-currency POS impossible |
+| 23 | ~~Payment-intent currency is free text, no FX rate captured~~ **Fixed:** currency validated against `currencies`; `currencies.exchange_rate_to_base` required for non-base codes; `PaymentIntent.exchange_rate` snapshot at create | `app/services/payment_service.py`, `app/models/pos_payment.py`, `app/models/currency.py` | Audit trail and base-currency reporting |
 | 24 | No "void invoice" path | `app/services/invoice_service.py` | Cashier mistakes only fixable via full return |
+
+### 5.1 Fixed / improved — loyalty GL and FX (deterministic)
+
+**Loyalty (row 19):** On every `adjust_points`, the service flushes the append-only `LoyaltyLedger` row then calls `post_loyalty_ledger_gl`: **accrual (credit)** → Dr `default_loyalty_expense_account_id` / Cr `default_loyalty_liability_account_id` (chart code **2150**); **redemption or expiry (debit)** → Dr liability / Cr `default_sales_revenue_account_id`; other debits reverse to expense. Amounts use `default_loyalty_point_value` × points. Journal idempotency: `loyalty_ledger:{entry.id}`.
+
+**FX snapshot (row 23):** `create_payment_intent` loads `AccountingSettings` and the `Currency` row. If the intent currency is the configured base currency, `exchange_rate` is `1`. Otherwise the intent is rejected unless `currency.exchange_rate_to_base` is set and positive; the value is quantized to eight decimals and stored on `payment_intents.exchange_rate` for the life of the row.
 
 ---
 
