@@ -10,12 +10,14 @@ import pytest
 from app.core.errors import StateTransitionError, ValidationError
 from app.models.branch import Branch
 from app.models.category import Category
+from app.models.currency import Currency
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.users import User
 from app.services import invoice_service, payment_service
+from app.services.seed_service import seed_accounting_defaults
 
 
 @pytest.mark.asyncio
@@ -161,6 +163,7 @@ async def test_finalize_rejected_when_cart_not_locked(db_session, monkeypatch) -
         provider="mock",
         amount=Decimal("5.00"),
         currency="USD",
+        exchange_rate=Decimal("1"),
         status="succeeded",
         external_id="fin-test",
     )
@@ -301,3 +304,167 @@ async def test_payment_intent_rejected_via_api_when_cart_active(client, admin_au
         json={"cart_id": cart_id, "provider": "mock", "currency": "USD"},
     )
     assert pi.status_code == 422, pi.text
+
+
+@pytest.mark.asyncio
+async def test_payment_intent_rejects_non_base_currency_without_fx_rate(db_session) -> None:
+    await seed_accounting_defaults(db_session)
+    branch = Branch(
+        name="FX Missing Branch",
+        code=f"FXM-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    user = User(
+        email=f"fxm-{uuid.uuid4().hex[:8]}@example.com",
+        full_name="FX Missing",
+        password_hash="x",
+        status="active",
+        branch_id=None,
+    )
+    category = Category(
+        name="FXM Cat",
+        slug=f"fxm-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add_all([branch, user, category])
+    await db_session.flush()
+    product = Product(
+        category_id=category.id,
+        name="FXM SKU",
+        sku=f"FXM-{uuid.uuid4().hex[:8]}",
+        status="active",
+        attributes={},
+        standard_cost=Decimal("1.0000"),
+    )
+    terminal = POSTerminal(
+        branch_id=branch.id,
+        name="FXM T",
+        terminal_code=f"FXMT-{uuid.uuid4().hex[:8]}",
+        api_key_hash="h",
+        is_authorized=True,
+    )
+    db_session.add_all([product, terminal])
+    await db_session.flush()
+    db_session.add(
+        Currency(
+            code="GBP",
+            name="Pound Sterling",
+            decimal_places=2,
+            suffix=None,
+            exchange_rate_to_base=None,
+        )
+    )
+    await db_session.flush()
+    cart = PosCart(
+        terminal_id=terminal.id,
+        branch_id=branch.id,
+        shift_id=None,
+        customer_id=None,
+        status="checkout_locked",
+        subtotal=Decimal("10.00"),
+        discount_total=Decimal("0.00"),
+        tax_total=Decimal("0.00"),
+        total=Decimal("10.00"),
+    )
+    db_session.add(cart)
+    await db_session.flush()
+    db_session.add(
+        PosCartLine(
+            cart_id=cart.id,
+            product_id=product.id,
+            qty=1,
+            unit_price=Decimal("10.00"),
+            line_total=Decimal("10.00"),
+        )
+    )
+    await db_session.commit()
+
+    with pytest.raises(ValidationError, match="No exchange rate configured"):
+        await payment_service.create_payment_intent(
+            db_session, cart_id=cart.id, provider_name="mock", currency="GBP"
+        )
+
+
+@pytest.mark.asyncio
+async def test_payment_intent_snapshots_exchange_rate_for_non_base(db_session) -> None:
+    await seed_accounting_defaults(db_session)
+    branch = Branch(
+        name="FX Snap Branch",
+        code=f"FXS-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    user = User(
+        email=f"fxs-{uuid.uuid4().hex[:8]}@example.com",
+        full_name="FX Snap",
+        password_hash="x",
+        status="active",
+        branch_id=None,
+    )
+    category = Category(
+        name="FXS Cat",
+        slug=f"fxs-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add_all([branch, user, category])
+    await db_session.flush()
+    product = Product(
+        category_id=category.id,
+        name="FXS SKU",
+        sku=f"FXS-{uuid.uuid4().hex[:8]}",
+        status="active",
+        attributes={},
+        standard_cost=Decimal("1.0000"),
+    )
+    terminal = POSTerminal(
+        branch_id=branch.id,
+        name="FXS T",
+        terminal_code=f"FXST-{uuid.uuid4().hex[:8]}",
+        api_key_hash="h",
+        is_authorized=True,
+    )
+    db_session.add_all([product, terminal])
+    await db_session.flush()
+    db_session.add(
+        Currency(
+            code="EUR",
+            name="Euro",
+            decimal_places=2,
+            suffix=None,
+            exchange_rate_to_base=Decimal("1.085"),
+        )
+    )
+    await db_session.flush()
+    cart = PosCart(
+        terminal_id=terminal.id,
+        branch_id=branch.id,
+        shift_id=None,
+        customer_id=None,
+        status="checkout_locked",
+        subtotal=Decimal("10.00"),
+        discount_total=Decimal("0.00"),
+        tax_total=Decimal("0.00"),
+        total=Decimal("10.00"),
+    )
+    db_session.add(cart)
+    await db_session.flush()
+    db_session.add(
+        PosCartLine(
+            cart_id=cart.id,
+            product_id=product.id,
+            qty=1,
+            unit_price=Decimal("10.00"),
+            line_total=Decimal("10.00"),
+        )
+    )
+    await db_session.commit()
+
+    intent = await payment_service.create_payment_intent(
+        db_session, cart_id=cart.id, provider_name="mock", currency="EUR"
+    )
+    assert intent.exchange_rate == Decimal("1.08500000")

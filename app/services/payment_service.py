@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import ROUND_HALF_UP, Decimal
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,10 +12,13 @@ from app.core.errors import NotFoundError, ValidationError
 from app.models.currency import Currency
 from app.models.pos_cart import PosCart
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
+from app.services.accounting_service import get_accounting_settings
 from app.services.payments.providers.base import PaymentProvider
 from app.services.payments.providers.in_store import InStoreLedgerProvider
 from app.services.payments.providers.mock import MockPaymentProvider
 from app.utils.money import q2
+
+_FX_QUANT = Decimal("0.00000001")
 
 
 def get_provider(provider_name: str) -> PaymentProvider:
@@ -38,8 +43,22 @@ async def create_payment_intent(
         )
     code = currency.strip().upper()
     cur_res = await db.execute(select(Currency).where(Currency.code == code))
-    if cur_res.scalar_one_or_none() is None:
+    currency = cur_res.scalar_one_or_none()
+    if currency is None:
         raise ValidationError("Unknown currency code", details={"currency": code})
+
+    settings_row = await get_accounting_settings(db)
+    if currency.id == settings_row.base_currency_id:
+        snapshot = Decimal("1")
+    else:
+        raw = currency.exchange_rate_to_base
+        if raw is None or raw <= 0:
+            raise ValidationError(
+                "No exchange rate configured for currency",
+                details={"currency": code},
+            )
+        snapshot = raw.quantize(_FX_QUANT, rounding=ROUND_HALF_UP)
+
     selected_provider = (provider_name or settings.POS_DEFAULT_PAYMENT_PROVIDER).lower()
     provider = get_provider(selected_provider)
     amount = q2(cart.total)
@@ -49,6 +68,7 @@ async def create_payment_intent(
         provider=provider.name,
         amount=amount,
         currency=code,
+        exchange_rate=snapshot,
         status=created.status,
         external_id=created.external_id,
     )

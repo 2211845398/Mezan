@@ -98,6 +98,7 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
         provider="mock",
         amount=Decimal("80.00"),
         currency="USD",
+        exchange_rate=Decimal("1"),
         status="succeeded",
         external_id="atomicity-payment",
     )

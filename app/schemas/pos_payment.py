@@ -44,6 +44,7 @@ class PaymentIntentRead(BaseModel):
     provider: str
     amount: Decimal
     currency: str
+    exchange_rate: Decimal
     status: str
     external_id: str | None
 

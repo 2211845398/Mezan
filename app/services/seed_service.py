@@ -285,7 +285,13 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
     if res.scalar_one_or_none():
         return
 
-    cur = Currency(code="USD", name="US Dollar", decimal_places=2, suffix=None)
+    cur = Currency(
+        code="USD",
+        name="US Dollar",
+        decimal_places=2,
+        suffix=None,
+        exchange_rate_to_base=Decimal("1"),
+    )
     db.add(cur)
     await db.flush()
 
