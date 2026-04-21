@@ -98,6 +98,8 @@ DEFAULT_PERMISSIONS = [
     ("marketing_advisory", "run"),
     ("backups", "read"),
     ("backups", "run"),
+    # Epic 14: AI advisory expansion
+    ("ai_advisory", "run"),
 ]
 
 ADMIN_ROLE_NAME = "Admin"
@@ -168,6 +170,7 @@ SYSTEM_ROLE_SPECS = [
             ("inventory", "*"),
             ("invoice_scans", "*"),
             ("stock_adjustments", "*"),
+            ("ai_advisory", "run"),
         ],
     },
     {
@@ -179,6 +182,7 @@ SYSTEM_ROLE_SPECS = [
             ("analytics", "read"),
             ("loyalty", "read"),
             ("marketing_advisory", "run"),
+            ("ai_advisory", "run"),
         ],
     },
     {
@@ -371,6 +375,72 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
             default_loyalty_point_value=Decimal("0.01"),
         )
     )
+    await db.commit()
+
+
+DEFAULT_NOTIFICATION_TEMPLATES: list[dict] = [
+    {
+        "kind": "low_stock",
+        "title_template": "Low stock: {product_name}",
+        "body_template": (
+            "Product {product_name} (branch {branch_id}) on-hand is {on_hand} "
+            "(threshold {threshold})."
+        ),
+        "default_data": {"category": "inventory"},
+    },
+    {
+        "kind": "expiring_inventory",
+        "title_template": "Expiring soon: {product_name}",
+        "body_template": (
+            "Product {product_name} in branch {branch_id} has {on_hand} units expiring "
+            "on {expiry_date} ({days_left} days left)."
+        ),
+        "default_data": {"category": "inventory"},
+    },
+    {
+        "kind": "payroll_approval_pending",
+        "title_template": "Payroll waiting for approval",
+        "body_template": "{pending_count} draft payslips are pending approval as of {as_of}.",
+        "default_data": {"category": "hr"},
+    },
+    {
+        "kind": "shift_close_reminder",
+        "title_template": "Please close your shift",
+        "body_template": (
+            "Shift {shift_id} in branch {branch_id} has been open since {opened_at}. "
+            "Open shifts beyond {max_hours}h should be closed."
+        ),
+        "default_data": {"category": "pos"},
+    },
+    {
+        "kind": "backup_failure",
+        "title_template": "Database backup failed",
+        "body_template": "Last backup ({started_at}) failed: {error_message}",
+        "default_data": {"category": "ops"},
+    },
+]
+
+
+async def seed_notification_templates(db: AsyncSession) -> None:
+    """Idempotent seed for notification templates used by built-in generators."""
+    from app.models.notifications import NotificationTemplate
+
+    for spec in DEFAULT_NOTIFICATION_TEMPLATES:
+        res = await db.execute(
+            select(NotificationTemplate).where(NotificationTemplate.kind == spec["kind"])
+        )
+        existing = res.scalar_one_or_none()
+        if existing is not None:
+            continue
+        db.add(
+            NotificationTemplate(
+                kind=spec["kind"],
+                title_template=spec["title_template"],
+                body_template=spec["body_template"],
+                default_data=spec.get("default_data", {}),
+                is_active=True,
+            )
+        )
     await db.commit()
 
 
