@@ -223,9 +223,7 @@ async def generate_targeted_campaigns(
                 max_tokens=1200,
             )
             allowed_codes = {"champions", "loyal", "at_risk", "lost"}
-            filtered = [
-                c for c in envelope.campaigns if c.segment.segment_code in allowed_codes
-            ]
+            filtered = [c for c in envelope.campaigns if c.segment.segment_code in allowed_codes]
             if filtered:
                 campaigns = filtered[: payload.max_campaigns]
                 model_name = settings.OPENAI_MODEL

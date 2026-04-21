@@ -61,9 +61,7 @@ async def call_llm_json[T: BaseModel](
         async with httpx.AsyncClient(timeout=settings.OPENAI_REQUEST_TIMEOUT_SECONDS) as client:
             response = await client.post(url, json=payload, headers=headers)
     except httpx.HTTPError as exc:
-        raise ExternalServiceError(
-            "AI provider HTTP error", details={"error": str(exc)}
-        ) from exc
+        raise ExternalServiceError("AI provider HTTP error", details={"error": str(exc)}) from exc
 
     if response.status_code >= 400:
         raise ExternalServiceError(

@@ -134,8 +134,7 @@ async def _load_product_pool(db: AsyncSession, *, limit: int = 1000) -> list[dic
     )
     result = await db.execute(stmt)
     return [
-        {"id": int(r.id), "name": r.name, "sku": r.sku, "barcode": r.barcode}
-        for r in result.all()
+        {"id": int(r.id), "name": r.name, "sku": r.sku, "barcode": r.barcode} for r in result.all()
     ]
 
 
@@ -209,18 +208,14 @@ async def match_invoice_scan(
                 max_tokens=2000,
             )
             allowed_ids_per_line: dict[int, set[int]] = {
-                m.line_no: {c.product_id for c in m.candidates}
-                for m in deterministic_matches
+                m.line_no: {c.product_id for c in m.candidates} for m in deterministic_matches
             }
             cleaned: list[InvoiceLineMatch] = []
             for m in envelope.line_matches:
                 allowed = allowed_ids_per_line.get(m.line_no, set())
                 safe_candidates = [c for c in m.candidates if c.product_id in allowed]
                 best = None
-                if (
-                    m.best_match_product_id is not None
-                    and m.best_match_product_id in allowed
-                ):
+                if m.best_match_product_id is not None and m.best_match_product_id in allowed:
                     best = m.best_match_product_id
                 cleaned.append(
                     InvoiceLineMatch(

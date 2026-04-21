@@ -165,9 +165,7 @@ def _deterministic_anomalies(logs: list[dict]) -> list[HrAnomaly]:
                         period_end=co or ci,
                         observed_value=float(minute),
                         expected_value=float(typical_minute[emp_id]),
-                        rationale=(
-                            f"Clock-in {delta} minutes off the employee's median time."
-                        ),
+                        rationale=(f"Clock-in {delta} minutes off the employee's median time."),
                         severity="low",
                         confidence=0.75,
                     )
@@ -175,9 +173,7 @@ def _deterministic_anomalies(logs: list[dict]) -> list[HrAnomaly]:
     return out
 
 
-async def detect_hr_anomalies(
-    db: AsyncSession, *, payload: HrAnomalyRequest
-) -> HrAnomalyResponse:
+async def detect_hr_anomalies(db: AsyncSession, *, payload: HrAnomalyRequest) -> HrAnomalyResponse:
     logs = await _load_attendance(
         db,
         lookback_days=payload.lookback_days,

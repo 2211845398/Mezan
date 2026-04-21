@@ -75,9 +75,7 @@ async def _get_sales_velocity(
     }
 
 
-async def _get_stock_levels(
-    db: AsyncSession, *, branch_id: int | None
-) -> list[dict]:
+async def _get_stock_levels(db: AsyncSession, *, branch_id: int | None) -> list[dict]:
     stmt = (
         select(
             StockLevel.product_id,
@@ -174,7 +172,12 @@ def _deterministic_suggestions(
                 confidence=0.88,
             )
         )
-    out.sort(key=lambda s: (0 if s.urgency == "high" else 1 if s.urgency == "medium" else 2, -s.recommended_order_qty))
+    out.sort(
+        key=lambda s: (
+            0 if s.urgency == "high" else 1 if s.urgency == "medium" else 2,
+            -s.recommended_order_qty,
+        )
+    )
     return out[: payload.max_suggestions]
 
 

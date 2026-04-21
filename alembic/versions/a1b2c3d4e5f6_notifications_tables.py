@@ -101,9 +101,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("name", sa.String(length=128), nullable=False),
         sa.Column("kind", sa.String(length=64), nullable=False),
-        sa.Column(
-            "interval_minutes", sa.Integer(), nullable=False, server_default=sa.text("60")
-        ),
+        sa.Column("interval_minutes", sa.Integer(), nullable=False, server_default=sa.text("60")),
         sa.Column("target_role_code", sa.String(length=64), nullable=True),
         sa.Column(
             "branch_id",
@@ -140,9 +138,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("name", name="uq_notification_schedules_name"),
     )
     op.create_index("ix_notification_schedules_kind", "notification_schedules", ["kind"])
-    op.create_index(
-        "ix_notification_schedules_branch_id", "notification_schedules", ["branch_id"]
-    )
+    op.create_index("ix_notification_schedules_branch_id", "notification_schedules", ["branch_id"])
 
     op.create_table(
         "notification_runs",
@@ -232,12 +228,8 @@ def upgrade() -> None:
             name="uq_notification_deliveries_schedule_idem",
         ),
     )
-    op.create_index(
-        "ix_notification_deliveries_user_id", "notification_deliveries", ["user_id"]
-    )
-    op.create_index(
-        "ix_notification_deliveries_status", "notification_deliveries", ["status"]
-    )
+    op.create_index("ix_notification_deliveries_user_id", "notification_deliveries", ["user_id"])
+    op.create_index("ix_notification_deliveries_status", "notification_deliveries", ["status"])
     op.create_index(
         "ix_notification_deliveries_template_kind",
         "notification_deliveries",
@@ -246,9 +238,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "ix_notification_deliveries_template_kind", table_name="notification_deliveries"
-    )
+    op.drop_index("ix_notification_deliveries_template_kind", table_name="notification_deliveries")
     op.drop_index("ix_notification_deliveries_status", table_name="notification_deliveries")
     op.drop_index("ix_notification_deliveries_user_id", table_name="notification_deliveries")
     op.drop_table("notification_deliveries")
@@ -256,9 +246,7 @@ def downgrade() -> None:
     op.drop_index("ix_notification_runs_schedule_id", table_name="notification_runs")
     op.drop_table("notification_runs")
 
-    op.drop_index(
-        "ix_notification_schedules_branch_id", table_name="notification_schedules"
-    )
+    op.drop_index("ix_notification_schedules_branch_id", table_name="notification_schedules")
     op.drop_index("ix_notification_schedules_kind", table_name="notification_schedules")
     op.drop_table("notification_schedules")
 
