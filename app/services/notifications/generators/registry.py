@@ -1,0 +1,311 @@
+"""Built-in notification generators.
+
+All queries here are read-only and deterministic: the same database state plus
+the same parameters yield the same generated list. This keeps idempotency keys
+stable and makes the "have we already notified about this?" guard in
+``NotificationDelivery`` effective.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime, timedelta
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.payslip import Payslip, PayslipStatus
+from app.models.permission import Permission
+from app.models.pos_shift import PosShift
+from app.models.product import Product
+from app.models.role import Role
+from app.models.role_permission import RolePermission
+from app.models.stock_level import StockLevel
+from app.models.user_role import UserRole
+from app.models.users import User
+from app.services.notifications.generators.base import (
+    GeneratedNotification,
+    register_generator,
+)
+
+
+async def _resolve_recipients(
+    db: AsyncSession,
+    *,
+    target_role_code: str | None,
+    fallback_permission: tuple[str, str] | None,
+) -> list[int]:
+    """Return active user ids for a schedule's targeting rule.
+
+    Prefers a role code (stable business-facing) and falls back to any user
+    holding ``fallback_permission`` so that a misconfigured schedule still
+    reaches the right operators.
+    """
+    if target_role_code:
+        stmt = (
+            select(User.id)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(Role.code == target_role_code)
+            .where(User.status == "active")
+            .distinct()
+        )
+        result = await db.execute(stmt)
+        ids = [row[0] for row in result.all()]
+        if ids:
+            return ids
+
+    if fallback_permission is None:
+        return []
+    resource, action = fallback_permission
+    stmt = (
+        select(User.id)
+        .join(UserRole, UserRole.user_id == User.id)
+        .join(Role, Role.id == UserRole.role_id)
+        .join(RolePermission, RolePermission.role_id == Role.id)
+        .join(Permission, Permission.id == RolePermission.permission_id)
+        .where(Permission.resource == resource, Permission.action == action)
+        .where(User.status == "active")
+        .distinct()
+    )
+    result = await db.execute(stmt)
+    return [row[0] for row in result.all()]
+
+
+# ── low_stock ─────────────────────────────────────────────────────────────────
+
+
+@register_generator("low_stock")
+async def generate_low_stock(
+    db: AsyncSession, params: dict[str, Any]
+) -> list[GeneratedNotification]:
+    """One alert per (product, branch) pair whose on-hand <= threshold.
+
+    Parameters
+    ----------
+    threshold_qty:
+        Integer qty at or below which the product is considered low. Default 5.
+    branch_id:
+        Optional filter to a single branch.
+    target_role_code:
+        Optional role override; defaults to WAREHOUSE_MANAGER and falls back to
+        any user with permission ``inventory:update``.
+    """
+    threshold = int(params.get("threshold_qty", 5))
+    branch_id = params.get("branch_id")
+    target_role_code = params.get("target_role_code") or "WAREHOUSE_MANAGER"
+
+    stmt = (
+        select(StockLevel.product_id, StockLevel.branch_id, StockLevel.on_hand, Product.name)
+        .join(Product, Product.id == StockLevel.product_id)
+        .where(StockLevel.on_hand <= threshold)
+        .where(Product.status == "active")
+    )
+    if branch_id is not None:
+        stmt = stmt.where(StockLevel.branch_id == int(branch_id))
+    result = await db.execute(stmt)
+    rows = result.all()
+    if not rows:
+        return []
+
+    recipients = await _resolve_recipients(
+        db,
+        target_role_code=target_role_code,
+        fallback_permission=("inventory", "update"),
+    )
+    if not recipients:
+        return []
+
+    today_iso = date.today().isoformat()
+    out: list[GeneratedNotification] = []
+    for product_id, branch_id_row, on_hand, product_name in rows:
+        out.append(
+            GeneratedNotification(
+                user_ids=list(recipients),
+                idempotency_key=f"low_stock:{product_id}:{branch_id_row}:{today_iso}",
+                context={
+                    "product_id": product_id,
+                    "product_name": product_name,
+                    "branch_id": branch_id_row,
+                    "on_hand": int(on_hand),
+                    "threshold": threshold,
+                },
+            )
+        )
+    return out
+
+
+# ── expiring_inventory ────────────────────────────────────────────────────────
+
+
+@register_generator("expiring_inventory")
+async def generate_expiring_inventory(
+    db: AsyncSession, params: dict[str, Any]
+) -> list[GeneratedNotification]:
+    """One alert per (product, branch) whose stock will expire within N days."""
+    days_ahead = int(params.get("days_ahead", 30))
+    branch_id = params.get("branch_id")
+    target_role_code = params.get("target_role_code") or "WAREHOUSE_MANAGER"
+
+    cutoff = date.today() + timedelta(days=days_ahead)
+    stmt = (
+        select(
+            StockLevel.product_id,
+            StockLevel.branch_id,
+            StockLevel.on_hand,
+            StockLevel.expiry_date,
+            Product.name,
+        )
+        .join(Product, Product.id == StockLevel.product_id)
+        .where(StockLevel.expiry_date.isnot(None))
+        .where(StockLevel.expiry_date <= cutoff)
+        .where(StockLevel.on_hand > 0)
+        .order_by(StockLevel.expiry_date.asc())
+    )
+    if branch_id is not None:
+        stmt = stmt.where(StockLevel.branch_id == int(branch_id))
+    result = await db.execute(stmt)
+    rows = result.all()
+    if not rows:
+        return []
+
+    recipients = await _resolve_recipients(
+        db,
+        target_role_code=target_role_code,
+        fallback_permission=("inventory", "update"),
+    )
+    if not recipients:
+        return []
+
+    out: list[GeneratedNotification] = []
+    for product_id, branch_id_row, on_hand, expiry_date, product_name in rows:
+        days_left = (expiry_date - date.today()).days if expiry_date else None
+        out.append(
+            GeneratedNotification(
+                user_ids=list(recipients),
+                idempotency_key=(
+                    f"expiring:{product_id}:{branch_id_row}:"
+                    f"{expiry_date.isoformat() if expiry_date else 'none'}"
+                ),
+                context={
+                    "product_id": product_id,
+                    "product_name": product_name,
+                    "branch_id": branch_id_row,
+                    "on_hand": int(on_hand),
+                    "expiry_date": expiry_date.isoformat() if expiry_date else "",
+                    "days_left": days_left if days_left is not None else 0,
+                },
+            )
+        )
+    return out
+
+
+# ── payroll_approval_pending ──────────────────────────────────────────────────
+
+
+@register_generator("payroll_approval_pending")
+async def generate_payroll_approval_pending(
+    db: AsyncSession, params: dict[str, Any]
+) -> list[GeneratedNotification]:
+    """Aggregate alert: there are N draft payslips awaiting approval."""
+    target_role_code = params.get("target_role_code") or "HR_MANAGER"
+    stmt = select(Payslip.id).where(Payslip.status == PayslipStatus.DRAFT)
+    result = await db.execute(stmt)
+    draft_ids = [row[0] for row in result.all()]
+    if not draft_ids:
+        return []
+
+    recipients = await _resolve_recipients(
+        db,
+        target_role_code=target_role_code,
+        fallback_permission=("payroll", "approve"),
+    )
+    if not recipients:
+        return []
+
+    today_iso = date.today().isoformat()
+    return [
+        GeneratedNotification(
+            user_ids=recipients,
+            idempotency_key=f"payroll_pending:{today_iso}:{len(draft_ids)}",
+            context={"pending_count": len(draft_ids), "as_of": today_iso},
+        )
+    ]
+
+
+# ── shift_close_reminder ──────────────────────────────────────────────────────
+
+
+@register_generator("shift_close_reminder")
+async def generate_shift_close_reminder(
+    db: AsyncSession, params: dict[str, Any]
+) -> list[GeneratedNotification]:
+    """One reminder per shift open longer than ``max_hours`` hours.
+
+    The reminder is sent directly to the cashier who owns the shift, not to a
+    role; this is one of the rare generators that targets specific users.
+    """
+    max_hours = int(params.get("max_hours", 10))
+    cutoff = datetime.now(UTC) - timedelta(hours=max_hours)
+    stmt = select(PosShift).where(PosShift.status == "open").where(PosShift.opened_at <= cutoff)
+    result = await db.execute(stmt)
+    shifts = result.scalars().all()
+    if not shifts:
+        return []
+
+    out: list[GeneratedNotification] = []
+    for shift in shifts:
+        if shift.opened_by_user_id is None:
+            continue
+        out.append(
+            GeneratedNotification(
+                user_ids=[shift.opened_by_user_id],
+                idempotency_key=f"shift_close:{shift.id}:{shift.opened_at.date().isoformat()}",
+                context={
+                    "shift_id": shift.id,
+                    "branch_id": shift.branch_id,
+                    "opened_at": shift.opened_at.isoformat(),
+                    "max_hours": max_hours,
+                },
+            )
+        )
+    return out
+
+
+# ── backup_failure ────────────────────────────────────────────────────────────
+
+
+@register_generator("backup_failure")
+async def generate_backup_failure(
+    db: AsyncSession, params: dict[str, Any]
+) -> list[GeneratedNotification]:
+    """Fires when the last backup run failed.
+
+    Reads the persisted status file from ``backup_service`` and emits a single
+    notification keyed by the run's ``started_at`` so retries on the scheduler
+    loop never duplicate it.
+    """
+    from app.services.backup_service import read_backup_status
+
+    target_role_code = params.get("target_role_code") or "IT_ADMIN"
+    status = read_backup_status()
+    if status.get("success"):
+        return []
+    started_at = status.get("started_at") or "unknown"
+    message = status.get("message") or "Backup failed"
+
+    recipients = await _resolve_recipients(
+        db,
+        target_role_code=target_role_code,
+        fallback_permission=("backups", "read"),
+    )
+    if not recipients:
+        return []
+
+    return [
+        GeneratedNotification(
+            user_ids=recipients,
+            idempotency_key=f"backup_failure:{started_at}",
+            context={"started_at": started_at, "error_message": message[:240]},
+        )
+    ]
