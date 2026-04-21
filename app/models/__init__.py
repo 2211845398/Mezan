@@ -26,6 +26,16 @@ from app.models.invoice_scan import InvoiceScan
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.leave_request import LeaveRequest, LeaveStatus, LeaveType
 from app.models.loyalty import LedgerEntryType, LedgerReasonCode, LoyaltyAccrualRule, LoyaltyLedger
+from app.models.notifications import (
+    DevicePlatform,
+    DeviceToken,
+    NotificationDelivery,
+    NotificationRun,
+    NotificationRunStatus,
+    NotificationSchedule,
+    NotificationStatus,
+    NotificationTemplate,
+)
 from app.models.password_reset_token import PasswordResetToken
 from app.models.payslip import Payslip, PayslipStatus
 from app.models.permission import Permission
@@ -84,6 +94,14 @@ __all__ = [
     "LedgerReasonCode",
     "LoyaltyAccrualRule",
     "LoyaltyLedger",
+    "DevicePlatform",
+    "DeviceToken",
+    "NotificationDelivery",
+    "NotificationRun",
+    "NotificationRunStatus",
+    "NotificationSchedule",
+    "NotificationStatus",
+    "NotificationTemplate",
     "Payslip",
     "PayslipStatus",
     "GlobalConfig",

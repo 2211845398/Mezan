@@ -84,6 +84,24 @@ class Settings(BaseSettings):
     BACKUP_OUTPUT_DIR: str = Field(default="./backups", description="Local backup output directory")
     BACKUP_S3_BUCKET: str | None = Field(default=None, description="Optional S3 backup bucket")
 
+    # Push notifications (Epic 13)
+    NOTIFICATIONS_ENABLED: bool = Field(
+        default=False, description="Enable the notification scheduler loop"
+    )
+    NOTIFICATIONS_TICK_SECONDS: int = Field(
+        default=60, description="Scheduler tick period in seconds"
+    )
+    PUSH_PROVIDER: str = Field(default="mock", description="Push provider: mock / fcm")
+    PUSH_REQUEST_TIMEOUT_SECONDS: int = Field(
+        default=10, description="Push provider HTTP timeout in seconds"
+    )
+    FCM_CREDENTIALS_PATH: str | None = Field(
+        default=None, description="Path to FCM service-account JSON file"
+    )
+    FCM_CREDENTIALS_JSON: str | None = Field(
+        default=None, description="Inline FCM service-account JSON string"
+    )
+
     # Database
     DATABASE_URL: str = Field(
         ...,

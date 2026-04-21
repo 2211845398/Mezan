@@ -24,6 +24,7 @@ from app.api.error_handlers import (
 )
 from app.api.v1 import (
     accounting_router,
+    ai_advisory_router,
     audit_router,
     auth_router,
     backups_router,
@@ -40,6 +41,7 @@ from app.api.v1 import (
     invoice_scans_router,
     loyalty_router,
     marketing_router,
+    notifications_router,
     payments_router,
     payroll_router,
     pos_shifts_router,
@@ -57,6 +59,7 @@ from app.core.errors import AppError
 from app.core.rate_limit import limiter
 from app.db.database import close_db
 from app.services.backup_service import backup_scheduler_loop
+from app.services.notifications.service import notification_scheduler_loop
 
 logger = logging.getLogger(__name__)
 PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
@@ -71,6 +74,13 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", "/api/v1/auth/me"),
     ("PATCH", "/api/v1/auth/me"),
     ("POST", "/api/v1/customers/onboarding/complete"),
+    # Notification self-service: auth-only; a user manages their own device
+    # tokens and reads their own delivery history. No resource permission is
+    # meaningful here because the subject is always the caller (user_id=me).
+    ("POST", "/api/v1/notifications/device-tokens"),
+    ("GET", "/api/v1/notifications/device-tokens"),
+    ("DELETE", "/api/v1/notifications/device-tokens/{token_id}"),
+    ("GET", "/api/v1/notifications/deliveries/me"),
 }
 
 
@@ -125,18 +135,22 @@ async def lifespan(app: FastAPI):
     from app.services.seed_service import (
         seed_accounting_defaults,
         seed_default_admin,
+        seed_notification_templates,
         seed_permissions_and_roles,
     )
 
     # Startup (schema: use Alembic only; do not create_all on boot)
     backup_stop_event = asyncio.Event()
+    notifications_stop_event = asyncio.Event()
     backup_task: asyncio.Task | None = None
+    notifications_task: asyncio.Task | None = None
     _audit_route_permissions(app)
     if settings.SEED_ON_STARTUP:
         try:
             async with AsyncSessionLocal() as db:
                 await seed_permissions_and_roles(db)
                 await seed_accounting_defaults(db)
+                await seed_notification_templates(db)
                 if settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PASSWORD:
                     await seed_default_admin(
                         db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD
@@ -151,15 +165,21 @@ async def lifespan(app: FastAPI):
 
     if settings.BACKUP_ENABLED:
         backup_task = asyncio.create_task(backup_scheduler_loop(backup_stop_event))
+    if settings.NOTIFICATIONS_ENABLED:
+        notifications_task = asyncio.create_task(
+            notification_scheduler_loop(notifications_stop_event)
+        )
     yield
     # Shutdown
     backup_stop_event.set()
-    if backup_task:
-        backup_task.cancel()
-        try:
-            await backup_task
-        except asyncio.CancelledError:
-            pass
+    notifications_stop_event.set()
+    for task in (backup_task, notifications_task):
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
     await close_db()
 
 
@@ -217,6 +237,8 @@ app.include_router(returns_router, prefix="/api/v1", tags=["returns"])
 app.include_router(loyalty_router, prefix="/api/v1", tags=["loyalty"])
 app.include_router(discounts_router, prefix="/api/v1", tags=["discounts"])
 app.include_router(marketing_router, prefix="/api/v1", tags=["marketing"])
+app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])
+app.include_router(ai_advisory_router, prefix="/api/v1", tags=["ai_advisory"])
 app.include_router(accounting_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(executive_bi_router, prefix="/api/v1", tags=["executive_bi"])
 app.include_router(suppliers_router, prefix="/api/v1", tags=["suppliers"])

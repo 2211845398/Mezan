@@ -1,6 +1,7 @@
 """API v1 routers package."""
 
 from app.api.v1.accounting import router as accounting_router
+from app.api.v1.ai_advisory import router as ai_advisory_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.backups import router as backups_router
@@ -18,6 +19,7 @@ from app.api.v1.inventory_adjustments import router as inventory_adjustments_rou
 from app.api.v1.invoice_scans import router as invoice_scans_router
 from app.api.v1.loyalty import router as loyalty_router
 from app.api.v1.marketing import router as marketing_router
+from app.api.v1.notifications import router as notifications_router
 from app.api.v1.payments import router as payments_router
 from app.api.v1.payroll import router as payroll_router
 from app.api.v1.pos_shifts import router as pos_shifts_router
@@ -31,6 +33,7 @@ from app.api.v1.transfers import router as transfers_router
 
 __all__ = [
     "accounting_router",
+    "ai_advisory_router",
     "audit_router",
     "auth_router",
     "backups_router",
@@ -47,6 +50,7 @@ __all__ = [
     "invoice_scans_router",
     "loyalty_router",
     "marketing_router",
+    "notifications_router",
     "payroll_router",
     "payments_router",
     "pos_shifts_router",
