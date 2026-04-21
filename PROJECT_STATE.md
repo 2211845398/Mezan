@@ -194,7 +194,9 @@ All new advisors follow the established `marketing_advisory_service` pattern: de
 
 ## 5. Planned epics (frontend — `web/`)
 
-The frontend is a new, first-class deliverable that lives in this monorepo under `web/`. Scope, stack, and guardrails are derived from the audit of a comparable project (Bonyan POS) and the decisions in `OFFLINE_POS.md`. Stack direction:
+The frontend is a new, first-class deliverable that lives in this monorepo under `web/`. The authoritative engineering plan — stack, routing, API layer, design system, dashboard components, code quality, security, build/deploy, folder layout, delivery order, risks, and open questions — lives in **[`WEB_FRONTEND_PLAN.md`](WEB_FRONTEND_PLAN.md)**. This file tracks epic progress only.
+
+Summary of the stack direction (see `WEB_FRONTEND_PLAN.md` §2 for the full table):
 
 - React 18 + Vite 7 + TypeScript strict.
 - Tailwind CSS 3 + shadcn/ui + Radix + lucide-react + next-themes.
