@@ -73,3 +73,6 @@ logs/
 # OS
 Thumbs.db
 .DS_Store
+
+# pnpm (local content-addressable store; never commit)
+**/.pnpm-store/
