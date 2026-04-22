@@ -23,6 +23,10 @@
     "exactOptionalPropertyTypes": true,
     "allowJs": false,
 
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "types": ["node"]
   },
   "include": ["vite.config.ts", "eslint.config.js", "postcss.config.cjs", "tailwind.config.ts"]

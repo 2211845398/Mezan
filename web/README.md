@@ -95,10 +95,10 @@ codegen-drift CI gate ships in Epic W-4.
 | Script           | Purpose                                                       |
 | ---------------- | ------------------------------------------------------------- |
 | `pnpm dev`       | Vite dev server with HMR.                                     |
-| `pnpm build`     | `tsc -b` + `vite build` — zero TS errors required to succeed. |
+| `pnpm build`     | `tsc --noEmit` + `vite build` — zero TS errors required to succeed. |
 | `pnpm preview`   | Serve the built bundle on `http://localhost:4173`.            |
 | `pnpm lint`      | ESLint 9 flat config across `src/` and config files.          |
-| `pnpm typecheck` | `tsc -b --noEmit`.                                            |
+| `pnpm typecheck` | `tsc --noEmit` (reads [`tsconfig.json`](tsconfig.json); resolves `@/*` → `src/`). |
 | `pnpm format`    | Prettier + `prettier-plugin-tailwindcss`.                     |
 | `pnpm codegen`   | `openapi-typescript` into `src/api/generated/schema.ts`.      |
 
