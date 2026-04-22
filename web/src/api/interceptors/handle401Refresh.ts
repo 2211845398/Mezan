@@ -29,6 +29,24 @@ let inflight: Promise<string | null> | null = null;
 
 type RetryConfig = InternalAxiosRequestConfig & { _mezanRefreshRetry?: boolean };
 
+/*
+ * Endpoints whose own 401 *is the business outcome* (wrong password,
+ * expired refresh, invalid reset token). We never try to refresh on these
+ * because the refresh attempt is either guaranteed to fail or would swallow
+ * the real error, both of which surface as confusing toasts (W-2 bug 1).
+ */
+const REFRESH_SKIP_PATHS: readonly RegExp[] = [
+  /\/auth\/login$/,
+  /\/auth\/refresh$/,
+  /\/auth\/logout$/,
+  /\/auth\/password-reset\/.+$/,
+];
+
+function shouldSkipRefresh(config: InternalAxiosRequestConfig | undefined): boolean {
+  const url = config?.url ?? '';
+  return REFRESH_SKIP_PATHS.some((re) => re.test(url));
+}
+
 function broadcastExpired(): void {
   clearAuthSync();
   if (typeof window !== 'undefined') {
@@ -45,6 +63,13 @@ export function installHandle401Refresh(instance: AxiosInstance): void {
     async (error: AxiosError) => {
       const status = error.response?.status;
       const original = error.config as RetryConfig | undefined;
+
+      // Skip the refresh dance on auth endpoints whose 401 is a legitimate
+      // business response (bad password, stale refresh, invalid reset token).
+      // Propagate the error unchanged so the form handler can classify it.
+      if (status === 401 && shouldSkipRefresh(original)) {
+        throw error;
+      }
 
       if (status !== 401 || !original || original._mezanRefreshRetry) {
         if (status === 401) {
