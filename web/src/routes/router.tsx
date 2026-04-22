@@ -111,7 +111,7 @@ export const router = createBrowserRouter([
           {
             path: '/dashboard',
             element: (
-              <RequirePermission resource="bi" action="read">
+              <RequirePermission resource="analytics" action="read">
                 {withSuspense(DashboardPage)}
               </RequirePermission>
             ),
