@@ -61,6 +61,63 @@
     "close_sidebar": "Close sidebar",
     "search": "Search"
   },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "dashboard": {
+    "latest_invoices": "Recent invoices",
+    "showcase_body": "Local fixtures — W-5.8 swaps these for real BI data.",
+    "mini_form": "Amount calculator",
+    "mini_form_body": "Type an amount — display is ar-EG locale; canonical value is backend q2.",
+    "amount_label": "Amount",
+    "canonical_preview": "Canonical value: {{value}}",
+    "chart_placeholder_title": "Executive chart",
+    "chart_placeholder_body": "Recharts integration lands in W-5.8.",
+    "kpi": {
+      "paid": "Paid",
+      "outstanding": "Outstanding",
+      "invoices": "Invoices"
+    },
+    "cols": {
+      "ref": "Ref",
+      "supplier": "Supplier",
+      "status": "Status",
+      "amount": "Amount"
+    },
+    "status": {
+      "paid": "Paid",
+      "pending": "Pending",
+      "overdue": "Overdue"
+    }
+  },
+  "form": {
+    "pick_date": "Pick a date",
+    "unsaved_title": "Unsaved changes",
+    "unsaved_body": "You have unsaved changes. Leave without saving?",
+    "discard": "Discard changes"
+  },
+  "table": {
+    "label": "Data table",
+    "search_placeholder": "Search…",
+    "density": "Density",
+    "density_compact": "Compact",
+    "density_normal": "Normal",
+    "density_comfortable": "Comfortable",
+    "columns": "Columns",
+    "export": "Export",
+    "rows_per_page": "Rows per page",
+    "page_x_of_y": "Page {{page}} of {{total}}",
+    "first_page": "First page",
+    "prev_page": "Previous page",
+    "next_page": "Next page",
+    "last_page": "Last page",
+    "empty_title": "No data to display",
+    "empty_body": "Try adjusting the filters or reloading.",
+    "error_title": "The table failed to load",
+    "error_body": "Something went wrong while fetching data."
+  },
   "errors": {
     "generic": "An unexpected error occurred.",
     "network": "Unable to reach the server.",
@@ -75,6 +132,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "retry": "Retry",
-    "close": "Close"
+    "close": "Close",
+    "clear": "Clear"
   }
 }

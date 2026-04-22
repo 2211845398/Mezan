@@ -111,6 +111,74 @@ describe('RequirePermission', () => {
   });
 });
 
+describe('RequirePermission — loading race (W-2 bug 2)', () => {
+  beforeEach(() => {
+    useAuthStore.getState().clear();
+    useAuthStore.setState({ status: 'authenticated' });
+  });
+
+  it('renders the loader, NOT /403, while permissions are still loading', () => {
+    // Permissions have never been set → permissionsLoaded === false. This
+    // models the window between successful /auth/refresh and the completed
+    // /auth/me/permissions response.
+    expect(useAuthStore.getState().permissionsLoaded).toBe(false);
+
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/dashboard"
+          element={
+            <RequirePermission resource="analytics" action="read">
+              <Protected />
+            </RequirePermission>
+          }
+        />
+        <Route path="/403" element={<ForbiddenStub />} />
+      </Routes>,
+      { initialEntries: ['/dashboard'] },
+    );
+
+    // Must render the loader (role="status") rather than the 403 page or
+    // the protected content. The single aria-live="polite" spinner belongs
+    // to the guard.
+    const loader = screen.getByRole('status');
+    expect(loader).toBeInTheDocument();
+    expect(loader).toHaveAttribute('aria-busy', 'true');
+
+    expect(screen.queryByText('forbidden')).toBeNull();
+    expect(screen.queryByText('protected')).toBeNull();
+  });
+
+  it('stops rendering the loader once setPermissions flips permissionsLoaded=true', async () => {
+    const { act } = await import('@testing-library/react');
+
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/dashboard"
+          element={
+            <RequirePermission resource="analytics" action="read">
+              <Protected />
+            </RequirePermission>
+          }
+        />
+      </Routes>,
+      { initialEntries: ['/dashboard'] },
+    );
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    // Drive the auth store from outside React; Zustand triggers a re-render
+    // via its subscription so we do not need to call rerender().
+    act(() => {
+      useAuthStore.getState().setPermissions([{ resource: 'analytics', action: 'read' }]);
+    });
+
+    expect(screen.getByText('protected')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+});
+
 describe('RequireBranchContext', () => {
   beforeEach(() => {
     useAuthStore.getState().clear();

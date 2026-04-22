@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
@@ -9,6 +10,19 @@ import { useAuthStore } from '@/features/auth/stores/authStore';
  * they can sit at any level of the nested router tree.
  */
 
+function FullScreenSpinner() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className="flex min-h-[50vh] items-center justify-center"
+    >
+      <Loader2 className="size-6 animate-spin text-muted-foreground" aria-hidden="true" />
+    </div>
+  );
+}
+
 export function RequireAuth({ children }: { children?: ReactNode }) {
   const status = useAuthStore((s) => s.status);
   const location = useLocation();
@@ -17,9 +31,12 @@ export function RequireAuth({ children }: { children?: ReactNode }) {
     return <>{children ?? <Outlet />}</>;
   }
 
-  // `booting` shouldn't escape AuthBoundary, but treat it defensively the
-  // same as unauthenticated to prevent flashing the login page over a
-  // pending refresh.
+  // Boot/idle: still deciding whether the user is logged in — render a
+  // loader so we never flash /login over a valid session.
+  if (status === 'idle' || status === 'booting') {
+    return <FullScreenSpinner />;
+  }
+
   const next = `${location.pathname}${location.search}`;
   const search = next && next !== '/' ? `?next=${encodeURIComponent(next)}` : '';
   return <Navigate to={`/login${search}`} replace />;
@@ -34,7 +51,17 @@ export function RequirePermission({
   action: string;
   children?: ReactNode;
 }) {
+  const permissionsLoaded = useAuthStore((s) => s.permissionsLoaded);
   const hasPermission = useAuthStore((s) => s.permissions.has(`${resource}:${action}`));
+
+  // W-2 bug 2: if permissions haven't resolved yet we must NOT bounce to /403
+  // on the first render — that would flash "forbidden" on every successful
+  // login. Render a loader instead; `AuthBoundary` / login flip `permissionsLoaded`
+  // once `/auth/me/permissions` lands.
+  if (!permissionsLoaded) {
+    return <FullScreenSpinner />;
+  }
+
   if (!hasPermission) {
     // 403 is a render (no redirect) so the browser back button stays useful.
     return <Navigate to="/403" replace state={{ resource, action }} />;

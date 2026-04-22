@@ -232,16 +232,16 @@ Summary of the stack direction (see `WEB_FRONTEND_PLAN.md` §2 for the full tabl
 > - **D-2:** dashboard permission is `analytics:read` (what the seeded backend actually grants for `/api/v1/bi/executive-kpis`), not `bi:read`.
 
 ### Epic W-3 — Design system
-- [ ] **W-3.1** Full shadcn/ui install.
-- [ ] **W-3.2** Light / dark tokens, design-token file, RTL logical utilities everywhere.
-- [ ] **W-3.3** `DataTable` component built on **TanStack Table v8** (fixes Bonyan's weak table story).
-- [ ] **W-3.4** Shared `Form`, `Select`, `DateField`, `MoneyInput` components.
+- [x] **W-3.1** Full shadcn/ui install. *(36 primitives copied into `web/src/components/ui/` via the shadcn CLI, RTL-normalised — see [`WEB_FRONTEND_PLAN.md`](WEB_FRONTEND_PLAN.md) §6.2.)*
+- [x] **W-3.2** Light / dark tokens, design-token file, RTL logical utilities everywhere. *(Custom ESLint rule `mezan/no-physical-rtl` blocks new physical utilities in `src/**`; shadcn copy-ins are grandfathered with `// TODO(rtl)` markers. Western digits (0–9) are enforced via `web/src/lib/format.ts` + `web/src/lib/i18n-numbers.ts` with `numberingSystem: 'latn'`.)*
+- [x] **W-3.3** `DataTable` component built on **TanStack Table v8** (fixes Bonyan's weak table story). *(URL-driven server mode + opt-in client mode, density/visibility persisted per route, `@tanstack/react-virtual` auto-enables past 200 rows, first-class skeleton/empty/error states.)*
+- [x] **W-3.4** Shared `Form`, `Select`, `DateField`, `MoneyInput` components. *(+ `AsyncSelect` on `cmdk` and an `UnsavedChangesPrompt` built on React Router v7's `useBlocker`; `MoneyInput` rounds via `decimal.js` to backend `q2`.)*
 
 ### Epic W-4 — API layer and types
-- [ ] **W-4.1** Generated types checked into `web/src/api/types.ts`.
-- [ ] **W-4.2** Thin per-feature `api.ts` modules using generated types; never `any`.
-- [ ] **W-4.3** Query keys and cache policies centralized in `web/src/features/<feature>/queries.ts`.
-- [ ] **W-4.4** Mutation helpers with optimistic updates for POS.
+- [x] **W-4.1** Generated `schema.ts` plus stable re-exports in `web/src/api/types.ts`; CI codegen drift job.
+- [x] **W-4.2** Thin per-feature `api.ts` modules using generated types; never `any`.
+- [x] **W-4.3** Query keys and cache policies centralized in `web/src/features/<feature>/queries.ts`.
+- [x] **W-4.4** Mutation helpers (`createOptimisticMutation`) + idempotency keys; `useUpdateProfile` optimistic example; POS TODO for OFFLINE_POS §4.8.
 
 ### Epic W-5 — Feature modules (map 1:1 to backend epics)
 

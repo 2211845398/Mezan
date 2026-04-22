@@ -7,7 +7,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { isAxiosError } from '@/api/client';
-import { getMe, getMyPermissions,login as loginApi } from '@/features/auth/api';
+import { ApiError } from '@/api/errors';
+import { getMe, getMyPermissions, login as loginApi } from '@/features/auth/api';
 import {
   type AuthUser,
   useAuthStore,
@@ -21,6 +22,60 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+/**
+ * Classify an error raised by `/auth/login` into a localised i18n key.
+ *
+ * Accepts either a raw AxiosError (e.g. when the 401 refresh skip-list
+ * bypasses `mapErrorEnvelope`) or one of the typed `ApiError` subclasses
+ * that `mapErrorEnvelope` throws.
+ *
+ * Contract (PROJECT_STATE §5 / W-2 bug 1):
+ *  - 401              → errors.invalid_credentials
+ *  - 403 w/ "inactive"→ errors.account_inactive
+ *  - 429              → errors.rate_limited
+ *  - anything else    → errors.unexpected
+ */
+export function classifyLoginError(err: unknown): string {
+  // `ApiError` subclass → read status off the typed error directly.
+  if (err instanceof ApiError) {
+    if (err.status === 401) return 'auth:errors.invalid_credentials';
+    if (err.status === 429) return 'auth:errors.rate_limited';
+    if (err.status === 403) {
+      const detail = err.details;
+      const nestedDetail =
+        detail && typeof detail === 'object' && 'detail' in (detail as Record<string, unknown>)
+          ? String((detail as { detail?: unknown }).detail ?? '')
+          : '';
+      const haystack = `${err.message} ${nestedDetail}`.toLowerCase();
+      if (haystack.includes('inactive')) return 'auth:errors.account_inactive';
+      return 'auth:errors.unexpected';
+    }
+    return 'auth:errors.unexpected';
+  }
+
+  if (isAxiosError(err) && err.response) {
+    const { status, data } = err.response;
+    if (status === 401) return 'auth:errors.invalid_credentials';
+    if (status === 429) return 'auth:errors.rate_limited';
+    if (status === 403) {
+      const envelope = data as
+        | { error?: { message?: string; details?: { detail?: unknown } } }
+        | undefined;
+      const message =
+        (typeof envelope?.error?.message === 'string' ? envelope.error.message : '') || '';
+      const innerDetail =
+        typeof envelope?.error?.details?.detail === 'string'
+          ? (envelope.error.details.detail as string)
+          : '';
+      const haystack = `${message} ${innerDetail}`.toLowerCase();
+      if (haystack.includes('inactive')) return 'auth:errors.account_inactive';
+      return 'auth:errors.unexpected';
+    }
+  }
+
+  return 'auth:errors.unexpected';
+}
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -50,22 +105,21 @@ export default function LoginPage() {
       const tokens = await loginApi({ email: values.email, password: values.password });
       setAccessToken(tokens.access_token);
       setRefreshToken(tokens.refresh_token);
-      // Flip to authenticated before fetching /me so queries become enabled.
-      setStatus('authenticated');
 
+      // Fetch user + permissions BEFORE flipping status to 'authenticated' so
+      // guards never see a half-resolved permission set on the first render
+      // after login (W-2 bug 2).
       const [me, perms] = await Promise.all([getMe(), getMyPermissions()]);
       setUser(me as AuthUser);
       setPermissions(perms);
+      setStatus('authenticated');
 
       navigate(sanitizeNextPath(nextRaw), { replace: true });
     } catch (err) {
       // `mapErrorEnvelope` interceptor already surfaces 5xx toasts; here we
-      // show a friendly auth-specific toast for 401s.
-      if (isAxiosError(err) && err.response?.status === 401) {
-        notify.error(t('auth:errors.invalid_credentials'));
-      } else {
-        notify.error(t('auth:errors.generic'));
-      }
+      // map auth-specific codes to localised keys (W-2 bug 1).
+      const key = classifyLoginError(err);
+      notify.error(t(key));
     }
   }
 

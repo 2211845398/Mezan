@@ -34,6 +34,12 @@ export type AuthState = {
   refreshToken: string | null;
   user: AuthUser | null;
   permissions: Set<string>;
+  /**
+   * Flips to `true` only after `/auth/me/permissions` has resolved (on boot
+   * or login). Guards treat `permissionsLoaded === false` as "still loading"
+   * and render the loader instead of `/403` — fixes W-2 bug 2.
+   */
+  permissionsLoaded: boolean;
   activeBranchId: number | null;
 
   setStatus: (status: AuthStatus) => void;
@@ -76,6 +82,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshToken: readRefreshFromStorage(),
   user: null,
   permissions: new Set<string>(),
+  permissionsLoaded: false,
   activeBranchId: null,
 
   setStatus: (status) => set({ status }),
@@ -94,7 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     for (const p of pairs) {
       set_.add(permissionKey(p.resource, p.action));
     }
-    set({ permissions: set_ });
+    set({ permissions: set_, permissionsLoaded: true });
   },
   setActiveBranchId: (id) => set({ activeBranchId: id }),
   hasPermission: (resource, action) => get().permissions.has(permissionKey(resource, action)),
@@ -106,6 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       refreshToken: null,
       user: null,
       permissions: new Set<string>(),
+      permissionsLoaded: false,
       activeBranchId: null,
     });
   },
