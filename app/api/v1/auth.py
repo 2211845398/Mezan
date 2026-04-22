@@ -1,9 +1,10 @@
 """Authentication API: login, refresh, logout, password reset, SSO, profile."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_user_permissions
 from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.models.users import User
@@ -132,6 +133,27 @@ async def password_reset_confirm(
 async def me(user: User = Depends(get_current_user)) -> UserRead:
     """Return current authenticated user (profile)."""
     return UserRead.model_validate(user)
+
+
+class PermissionRead(BaseModel):
+    """A single effective permission for the current user."""
+
+    resource: str
+    action: str
+
+
+@router.get("/auth/me/permissions", response_model=list[PermissionRead])
+async def me_permissions(
+    permissions: set[tuple[str, str]] = Depends(get_current_user_permissions),
+) -> list[PermissionRead]:
+    """Return the current user's effective permissions (roles ∪ overrides).
+
+    Mirrors `get_current_user_permissions` from `app/api/deps.py`: each item is
+    a `(resource, action)` tuple already resolved with role membership and
+    per-user allow/deny overrides. Used by the frontend `<Can />` guard and
+    RBAC-driven sidebar trimming (`WEB_FRONTEND_PLAN.md` §4.3, §4.4).
+    """
+    return [PermissionRead(resource=r, action=a) for r, a in sorted(permissions)]
 
 
 @router.patch("/auth/me", response_model=UserRead)

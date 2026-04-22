@@ -1,19 +1,50 @@
 import { ChevronDown } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
+import { NavLink } from 'react-router-dom';
 
 import { navigation, type NavItem } from '@/config/navigation';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { cn } from '@/lib/utils';
 
 /*
- * Sidebar is driven by `config/navigation.ts`. The `permission` field is
- * metadata only in W-1 — RBAC trimming lands in W-2.4. All spacing uses
- * logical Tailwind utilities (ms/me/ps/pe/start/end) so switching `dir`
- * from rtl to ltr flips the layout without any CSS changes.
- *
- * Links render as plain `<a>` in W-1; W-2.1 swaps them for React Router
- * `NavLink` once the router is introduced.
+ * Sidebar is driven by `config/navigation.ts` and filtered by the user's
+ * effective permissions (W-2.4). A leaf is hidden when the user lacks its
+ * permission; a parent group is hidden when every child is hidden. The
+ * server is still authoritative — this is a UX affordance, not a security
+ * boundary.
  */
+
+function canAccess(
+  item: NavItem,
+  has: (resource: string, action: string) => boolean,
+): boolean {
+  if (item.permission && !has(item.permission.resource, item.permission.action)) {
+    return false;
+  }
+  if (item.children && item.children.length > 0) {
+    return item.children.some((child) => canAccess(child, has));
+  }
+  return true;
+}
+
+function filterNav(
+  items: readonly NavItem[],
+  has: (resource: string, action: string) => boolean,
+): NavItem[] {
+  const out: NavItem[] = [];
+  for (const item of items) {
+    if (!canAccess(item, has)) continue;
+    if (item.children && item.children.length > 0) {
+      const children = filterNav(item.children, has);
+      if (children.length === 0) continue;
+      out.push({ ...item, children });
+    } else {
+      out.push(item);
+    }
+  }
+  return out;
+}
 
 function NavGroup({ item }: { item: NavItem }) {
   const { t } = useTranslation();
@@ -23,15 +54,18 @@ function NavGroup({ item }: { item: NavItem }) {
 
   if (!item.children || item.children.length === 0) {
     return (
-      <a
-        href={item.href}
-        className={cn(
-          'flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent',
-        )}
+      <NavLink
+        to={item.href}
+        className={({ isActive }) =>
+          cn(
+            'flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent',
+            isActive && 'bg-sidebar-primary text-sidebar-primary-foreground',
+          )
+        }
       >
         <Icon className="size-4" />
         <span>{label}</span>
-      </a>
+      </NavLink>
     );
   }
 
@@ -52,14 +86,17 @@ function NavGroup({ item }: { item: NavItem }) {
         <ul className="ms-6 space-y-1 border-s border-sidebar-border ps-2">
           {item.children.map((child) => (
             <li key={child.key}>
-              <a
-                href={child.href}
-                className={cn(
-                  'block rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent',
-                )}
+              <NavLink
+                to={child.href}
+                className={({ isActive }) =>
+                  cn(
+                    'block rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent',
+                    isActive && 'bg-sidebar-primary text-sidebar-primary-foreground',
+                  )
+                }
               >
                 {t(child.labelKey)}
-              </a>
+              </NavLink>
             </li>
           ))}
         </ul>
@@ -70,6 +107,13 @@ function NavGroup({ item }: { item: NavItem }) {
 
 export function Sidebar() {
   const { t } = useTranslation();
+  const permissions = useAuthStore((s) => s.permissions);
+  const visible = React.useMemo(() => {
+    const has = (resource: string, action: string) =>
+      permissions.has(`${resource}:${action}`);
+    return filterNav(navigation, has);
+  }, [permissions]);
+
   return (
     <aside
       aria-label={t('layout.open_sidebar')}
@@ -79,7 +123,7 @@ export function Sidebar() {
         <span className="text-lg font-bold text-sidebar-foreground">{t('layout.app_name')}</span>
       </div>
       <nav className="space-y-1 p-3">
-        {navigation.map((item) => (
+        {visible.map((item) => (
           <NavGroup key={item.key} item={item} />
         ))}
       </nav>

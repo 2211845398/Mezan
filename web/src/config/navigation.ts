@@ -43,7 +43,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.dashboard',
     icon: LayoutDashboard,
     href: '/dashboard',
-    permission: { resource: 'bi', action: 'read' },
+    permission: { resource: 'analytics', action: 'read' },
   },
   {
     key: 'pos',
@@ -353,7 +353,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.bi',
     icon: BarChart3,
     href: '/dashboard',
-    permission: { resource: 'bi', action: 'read' },
+    permission: { resource: 'analytics', action: 'read' },
   },
   {
     key: 'admin',

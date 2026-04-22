@@ -363,6 +363,31 @@ export interface paths {
         patch: operations["update_me_api_v1_auth_me_patch"];
         trace?: never;
     };
+    "/api/v1/auth/me/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Me Permissions
+         * @description Return the current user's effective permissions (roles ∪ overrides).
+         *
+         *     Mirrors `get_current_user_permissions` from `app/api/deps.py`: each item is
+         *     a `(resource, action)` tuple already resolved with role membership and
+         *     per-user allow/deny overrides. Used by the frontend `<Can />` guard and
+         *     RBAC-driven sidebar trimming (`WEB_FRONTEND_PLAN.md` §4.3, §4.4).
+         */
+        get: operations["me_permissions_api_v1_auth_me_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-logs": {
         parameters: {
             query?: never;
@@ -3924,18 +3949,6 @@ export interface components {
              */
             created_at: string;
         };
-        /**
-         * PermissionRead
-         * @description Permission read.
-         */
-        PermissionRead: {
-            /** Id */
-            id: number;
-            /** Resource */
-            resource: string;
-            /** Action */
-            action: string;
-        };
         /** PosShiftCashEventRequest */
         PosShiftCashEventRequest: {
             /** Event Type */
@@ -4915,6 +4928,28 @@ export interface components {
             /** Is Day Off */
             is_day_off?: boolean | null;
         };
+        /**
+         * PermissionRead
+         * @description A single effective permission for the current user.
+         */
+        app__api__v1__auth__PermissionRead: {
+            /** Resource */
+            resource: string;
+            /** Action */
+            action: string;
+        };
+        /**
+         * PermissionRead
+         * @description Permission read.
+         */
+        app__schemas__role__PermissionRead: {
+            /** Id */
+            id: number;
+            /** Resource */
+            resource: string;
+            /** Action */
+            action: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -5603,6 +5638,26 @@ export interface operations {
             };
         };
     };
+    me_permissions_api_v1_auth_me_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__auth__PermissionRead"][];
+                };
+            };
+        };
+    };
     list_audit_logs_api_v1_audit_logs_get: {
         parameters: {
             query?: {
@@ -6025,7 +6080,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PermissionRead"][];
+                    "application/json": components["schemas"]["app__schemas__role__PermissionRead"][];
                 };
             };
         };

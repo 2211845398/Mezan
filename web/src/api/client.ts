@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance } from 'axios';
+import axios, { type AxiosError, type AxiosInstance, isAxiosError as _isAxiosError } from 'axios';
 
 import { env } from '@/config/env';
 
@@ -46,3 +46,12 @@ export function createApiClient(): AxiosInstance {
 }
 
 export const apiClient: AxiosInstance = createApiClient();
+
+/**
+ * Re-export of Axios's `isAxiosError` through the client module so feature
+ * code can branch on network errors without importing `axios` directly
+ * (which is forbidden by ESLint `no-restricted-imports`).
+ */
+export function isAxiosError(value: unknown): value is AxiosError {
+  return _isAxiosError(value);
+}

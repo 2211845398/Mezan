@@ -188,7 +188,7 @@ mezan/                              ← this repo, do not split
 /reset-password/:token
 /onboarding/complete/:token   (customer onboarding — public)
 /                             (AdminLayout)
-├── dashboard                 bi:read
+├── dashboard                 analytics:read
 ├── pos                       pos_carts:create        (separate, full-screen; no AdminLayout)
 ├── catalog
 │   ├── products              catalog:read
@@ -495,6 +495,8 @@ All items here are additive guarantees on top of backend RBAC, which stays autho
 - **Access token:** in memory only (a Zustand slice marked non-persisted). Never in `localStorage` or `sessionStorage`. This is the single most important rule we take from Bonyan's audit.
 - **Refresh token:** httpOnly + Secure + SameSite=Lax cookie, set by the backend on login. The frontend never reads it; refresh is a credentialed `POST /auth/refresh` that returns a new access token.
 - **CSRF:** for the refresh call (the only cookie-backed endpoint), the backend requires an `X-CSRF-Token` header that the frontend reads from a non-httpOnly sibling cookie named `XSRF-TOKEN`. Backend must set both on login.
+
+> **DIVERGENCE (v1, Epic W-2 → Epic 15.3):** the backend at `app/api/v1/auth.py` currently returns the refresh token in the login/refresh response body and accepts it back in the request body on `/auth/refresh` and `/auth/logout`; it does not set or read a cookie. As a pragmatic pivot we ship the frontend with the refresh token stored in **`sessionStorage`** (key `VITE_SESSION_STORAGE_KEY_REFRESH`, default `mezan.auth.refresh`). Access-in-memory stays unchanged. The `<AuthBoundary />` replays the stored refresh on boot instead of calling a cookie-backed endpoint. Full rationale and the closing criteria live in [`DIVERGENCES.md`](DIVERGENCES.md) §D-1 and [`web/SECURITY.md`](web/SECURITY.md). When Epic 15.3 (backend) lands the cookie path, the frontend store and `AuthBoundary` switch back to the cookie flow in the same PR.
 
 ### 9.2 Auth boundary
 

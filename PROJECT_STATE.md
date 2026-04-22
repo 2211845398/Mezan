@@ -222,10 +222,14 @@ Summary of the stack direction (see `WEB_FRONTEND_PLAN.md` §2 for the full tabl
 - [x] **W-1.7** `AdminLayout`, `AuthLayout`, sidebar driven by a `navigation.ts` config.
 
 ### Epic W-2 — Routing and RBAC
-- [ ] **W-2.1** React Router with declarative nested routes + per-route lazy chunks.
-- [ ] **W-2.2** `ProtectedRoute` + `<Can resource action />` component wired to `/api/v1/auth/me`.
-- [ ] **W-2.3** 401/403/404/offline routes and boundaries.
-- [ ] **W-2.4** RBAC-driven sidebar trimming (hide inaccessible links; still enforced server-side).
+- [x] **W-2.1** React Router with declarative nested routes + per-route lazy chunks.
+- [x] **W-2.2** `ProtectedRoute` + `<Can resource action />` component wired to `/api/v1/auth/me`. *(Shipped as `<RequireAuth />`, `<RequirePermission />`, `<RequireBranchContext />`, plus `<Can />` and `usePermission()` — backed by the new `GET /api/v1/auth/me/permissions` endpoint.)*
+- [x] **W-2.3** 401/403/404/offline routes and boundaries.
+- [x] **W-2.4** RBAC-driven sidebar trimming (hide inaccessible links; still enforced server-side).
+
+> **Divergence tracked in [`DIVERGENCES.md`](DIVERGENCES.md):**
+> - **D-1 (Epic 15.3):** refresh token lives in `sessionStorage` (key `VITE_SESSION_STORAGE_KEY_REFRESH`, default `mezan.auth.refresh`) until the backend issues an httpOnly cookie per `WEB_FRONTEND_PLAN.md §9.1`. See also [`web/SECURITY.md`](web/SECURITY.md).
+> - **D-2:** dashboard permission is `analytics:read` (what the seeded backend actually grants for `/api/v1/bi/executive-kpis`), not `bi:read`.
 
 ### Epic W-3 — Design system
 - [ ] **W-3.1** Full shadcn/ui install.
