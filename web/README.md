@@ -92,16 +92,15 @@ codegen-drift CI gate ships in Epic W-4.
 
 ## Scripts reference
 
-| Script             | Purpose                                                       |
-| ------------------ | ------------------------------------------------------------- |
-| `pnpm dev`         | Vite dev server with HMR.                                     |
-| `pnpm build`       | `tsc -b` + `vite build` — zero TS errors required to succeed. |
-| `pnpm preview`     | Serve the built bundle on `http://localhost:4173`.            |
-| `pnpm lint`        | ESLint 9 flat config across `src/` and config files.          |
-| `pnpm typecheck`   | `tsc -b --noEmit`.                                            |
-| `pnpm format`      | Prettier + `prettier-plugin-tailwindcss`.                     |
-| `pnpm codegen`     | `openapi-typescript` into `src/api/generated/schema.ts`.      |
-| `pnpm lint:staged` | `lint-staged`; invoked by the Husky pre-commit hook.          |
+| Script           | Purpose                                                       |
+| ---------------- | ------------------------------------------------------------- |
+| `pnpm dev`       | Vite dev server with HMR.                                     |
+| `pnpm build`     | `tsc -b` + `vite build` — zero TS errors required to succeed. |
+| `pnpm preview`   | Serve the built bundle on `http://localhost:4173`.            |
+| `pnpm lint`      | ESLint 9 flat config across `src/` and config files.          |
+| `pnpm typecheck` | `tsc -b --noEmit`.                                            |
+| `pnpm format`    | Prettier + `prettier-plugin-tailwindcss`.                     |
+| `pnpm codegen`   | `openapi-typescript` into `src/api/generated/schema.ts`.      |
 
 ---
 
