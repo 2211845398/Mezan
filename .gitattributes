@@ -2,6 +2,10 @@
 # On checkout, Git will convert to the OS-native line ending (CRLF on Windows).
 * text=auto
 
+# Force LF across the frontend workspace — bind mounts on macOS/Windows and
+# Linux containers must agree on line endings for HMR to work reliably.
+web/** text=auto eol=lf
+
 # Force LF for files that run inside Linux containers — CRLF will break them.
 *.sh text eol=lf
 *.bash text eol=lf

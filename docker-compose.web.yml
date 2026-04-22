@@ -1,0 +1,50 @@
+# Opt-in development compose file for the `web/` Vite dev server.
+# Main docker-compose.yml stays backend + db only; bring this up alongside it:
+#
+#   docker compose -f docker-compose.yml up -d db api
+#   docker compose -f docker-compose.web.yml up web
+#
+# Or run both in one command:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.web.yml up
+#
+# A named volume (web_node_modules) holds the Linux-resolved node_modules tree
+# so Mac/Windows host `node_modules` never bleeds in.
+
+services:
+  web:
+    image: node:22-bookworm-slim
+    container_name: mezan_web_dev
+    working_dir: /app/web
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      VITE_API_PROXY_TARGET: http://api:8000
+      VITE_API_BASE_URL: /api/v1
+      VITE_ENVIRONMENT: dev
+      VITE_LOCALE_NUMBERS: ar-EG
+      OPENAPI_URL: http://api:8000/openapi.json
+      PNPM_HOME: /root/.pnpm
+      PATH: /root/.pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web:/app/web:cached
+      - web_node_modules:/app/web/node_modules
+    networks:
+      - mezan_network
+    command:
+      - sh
+      - -lc
+      - |
+        corepack enable && corepack prepare pnpm@9 --activate \
+        && pnpm install --prefer-offline \
+        && pnpm dev --host 0.0.0.0 --port 5173
+
+volumes:
+  web_node_modules:
+
+networks:
+  mezan_network:
+    driver: bridge
