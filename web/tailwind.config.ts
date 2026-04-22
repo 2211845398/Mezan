@@ -91,6 +91,9 @@ const config: Config = {
   				'5': 'hsl(var(--chart-5))'
   			}
   		},
+  		ringOffsetColor: {
+  			background: 'hsl(var(--ring-offset-background))'
+  		},
   		borderRadius: {
   			lg: 'var(--radius-lg)',
   			md: 'var(--radius)',

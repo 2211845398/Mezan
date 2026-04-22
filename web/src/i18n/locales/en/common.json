@@ -61,6 +61,11 @@
     "close_sidebar": "Close sidebar",
     "search": "Search"
   },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "errors": {
     "generic": "An unexpected error occurred.",
     "network": "Unable to reach the server.",

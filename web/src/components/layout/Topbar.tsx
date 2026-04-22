@@ -1,18 +1,14 @@
-import { Languages, LogOut, Moon, Sun } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { Languages, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import ThemeToggle from '@/components/shared/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { logout as logoutApi } from '@/features/auth/api';
-import {
-  getRefreshTokenSync,
-  useAuthStore,
-} from '@/features/auth/stores/authStore';
+import { getRefreshTokenSync, useAuthStore } from '@/features/auth/stores/authStore';
 
 export function Topbar() {
   const { t, i18n } = useTranslation();
-  const { resolvedTheme, setTheme } = useTheme();
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
   const navigate = useNavigate();
@@ -52,15 +48,7 @@ export function Topbar() {
         >
           <Languages className="size-4" />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-          aria-label={t('layout.toggle_theme')}
-        >
-          {resolvedTheme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
-        </Button>
+        <ThemeToggle />
         {user ? (
           <Button
             type="button"
