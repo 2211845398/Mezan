@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# shellcheck shell=sh
+
+# TODO(W-6): enable `pnpm --dir web test -- --run` here once Vitest lands.
+# W-1 intentionally leaves pre-push as a no-op so there are no phantom test
+# failures before any tests exist.
+exit 0

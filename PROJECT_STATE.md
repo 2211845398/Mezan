@@ -213,13 +213,13 @@ Summary of the stack direction (see `WEB_FRONTEND_PLAN.md` §2 for the full tabl
 - Sentry + PostHog (optional).
 
 ### Epic W-1 — Foundations and layout
-- [ ] **W-1.1** Scaffold `web/` with Vite + TS strict, Tailwind, shadcn init, `next-themes`, Tajawal.
-- [ ] **W-1.2** `pnpm` workspaces at repo root (or npm workspaces if pnpm is rejected).
-- [ ] **W-1.3** `openapi-typescript` script wired to backend OpenAPI.
-- [ ] **W-1.4** Husky + lint-staged + Prettier + Commitlint + EditorConfig + `.nvmrc`.
-- [ ] **W-1.5** Axios wrapper with full interceptors and toast surface.
-- [ ] **W-1.6** `i18next` bootstrap with ar + en namespaces per feature.
-- [ ] **W-1.7** `AdminLayout`, `AuthLayout`, sidebar driven by a `navigation.ts` config.
+- [x] **W-1.1** Scaffold `web/` with Vite + TS strict, Tailwind, shadcn init, `next-themes`, Tajawal.
+- [x] **W-1.2** `pnpm` workspaces at repo root (or npm workspaces if pnpm is rejected). *(v1 uses a standalone `web/package.json` per `WEB_FRONTEND_PLAN.md` §3.2; workspace tooling lands only if/when shared TS packages appear.)*
+- [x] **W-1.3** `openapi-typescript` script wired to backend OpenAPI.
+- [x] **W-1.4** Husky + lint-staged + Prettier + Commitlint + EditorConfig + `.nvmrc`.
+- [x] **W-1.5** Axios wrapper with full interceptors and toast surface.
+- [x] **W-1.6** `i18next` bootstrap with ar + en namespaces per feature. *(`common` namespace is seeded in W-1; per-feature namespaces are added as each feature lands.)*
+- [x] **W-1.7** `AdminLayout`, `AuthLayout`, sidebar driven by a `navigation.ts` config.
 
 ### Epic W-2 — Routing and RBAC
 - [ ] **W-2.1** React Router with declarative nested routes + per-route lazy chunks.
