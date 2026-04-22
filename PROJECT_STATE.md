@@ -232,10 +232,10 @@ Summary of the stack direction (see `WEB_FRONTEND_PLAN.md` §2 for the full tabl
 > - **D-2:** dashboard permission is `analytics:read` (what the seeded backend actually grants for `/api/v1/bi/executive-kpis`), not `bi:read`.
 
 ### Epic W-3 — Design system
-- [ ] **W-3.1** Full shadcn/ui install.
-- [ ] **W-3.2** Light / dark tokens, design-token file, RTL logical utilities everywhere.
-- [ ] **W-3.3** `DataTable` component built on **TanStack Table v8** (fixes Bonyan's weak table story).
-- [ ] **W-3.4** Shared `Form`, `Select`, `DateField`, `MoneyInput` components.
+- [x] **W-3.1** Full shadcn/ui install. *(36 primitives copied into `web/src/components/ui/` via the shadcn CLI, RTL-normalised — see [`WEB_FRONTEND_PLAN.md`](WEB_FRONTEND_PLAN.md) §6.2.)*
+- [x] **W-3.2** Light / dark tokens, design-token file, RTL logical utilities everywhere. *(Custom ESLint rule `mezan/no-physical-rtl` blocks new physical utilities in `src/**`; shadcn copy-ins are grandfathered with `// TODO(rtl)` markers. Numeric locale wrapper lives at `web/src/lib/i18n-numbers.ts`.)*
+- [x] **W-3.3** `DataTable` component built on **TanStack Table v8** (fixes Bonyan's weak table story). *(URL-driven server mode + opt-in client mode, density/visibility persisted per route, `@tanstack/react-virtual` auto-enables past 200 rows, first-class skeleton/empty/error states.)*
+- [x] **W-3.4** Shared `Form`, `Select`, `DateField`, `MoneyInput` components. *(+ `AsyncSelect` on `cmdk` and an `UnsavedChangesPrompt` built on React Router v7's `useBlocker`; `MoneyInput` rounds via `decimal.js` to backend `q2`.)*
 
 ### Epic W-4 — API layer and types
 - [ ] **W-4.1** Generated types checked into `web/src/api/types.ts`.

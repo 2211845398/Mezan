@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { useSearchParams } from 'react-router-dom';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DataTable, defineColumns } from '@/components/shared/DataTable';
 import { renderWithProviders, screen, userEvent, waitFor } from '@/test/utils';

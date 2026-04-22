@@ -8,17 +8,18 @@ import { server } from './msw/server';
 // jsdom shims for Radix primitives that touch layout APIs. These are no-ops
 // but let Radix Select, Popover, and DropdownMenu mount without blowing up
 // during a test render.
-if (!Element.prototype.scrollIntoView) {
-  Element.prototype.scrollIntoView = () => undefined;
+const elProto = Element.prototype as unknown as Record<string, (...args: unknown[]) => unknown>;
+if (typeof elProto.scrollIntoView !== 'function') {
+  elProto.scrollIntoView = () => undefined;
 }
-if (!('hasPointerCapture' in Element.prototype)) {
-  Element.prototype.hasPointerCapture = () => false;
+if (typeof elProto.hasPointerCapture !== 'function') {
+  elProto.hasPointerCapture = () => false;
 }
-if (!('releasePointerCapture' in Element.prototype)) {
-  Element.prototype.releasePointerCapture = () => undefined;
+if (typeof elProto.releasePointerCapture !== 'function') {
+  elProto.releasePointerCapture = () => undefined;
 }
-if (!('setPointerCapture' in Element.prototype)) {
-  Element.prototype.setPointerCapture = () => undefined;
+if (typeof elProto.setPointerCapture !== 'function') {
+  elProto.setPointerCapture = () => undefined;
 }
 if (!window.PointerEvent) {
   class PointerEventPolyfill extends MouseEvent {}

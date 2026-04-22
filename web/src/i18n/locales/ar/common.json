@@ -66,6 +66,32 @@
     "dark": "داكن",
     "system": "حسب النظام"
   },
+  "dashboard": {
+    "latest_invoices": "أحدث الفواتير",
+    "showcase_body": "بيانات تجريبية لعرض مكوّنات W-3 — ستُستبدل ببيانات حقيقية في W-5.8.",
+    "mini_form": "حاسبة مبلغ",
+    "mini_form_body": "جرّب إدخال قيمة — السعر يُعرض بصيغة ar-EG والقيمة المخزّنة q2.",
+    "amount_label": "المبلغ",
+    "canonical_preview": "القيمة المخزّنة: {{value}}",
+    "chart_placeholder_title": "مخطط تنفيذي",
+    "chart_placeholder_body": "سيُستبدل بمخطط Recharts في W-5.8.",
+    "kpi": {
+      "paid": "مدفوع",
+      "outstanding": "مستحق",
+      "invoices": "عدد الفواتير"
+    },
+    "cols": {
+      "ref": "الرقم",
+      "supplier": "المورد",
+      "status": "الحالة",
+      "amount": "المبلغ"
+    },
+    "status": {
+      "paid": "مدفوع",
+      "pending": "قيد التحصيل",
+      "overdue": "متأخر"
+    }
+  },
   "form": {
     "pick_date": "اختر تاريخًا",
     "unsaved_title": "تغييرات غير محفوظة",

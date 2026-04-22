@@ -9,11 +9,11 @@ import {
 } from '@/components/ui/select';
 
 export {
-  Select as SelectRoot,
   SelectContent,
   SelectGroup,
   SelectItem,
   SelectLabel,
+  Select as SelectRoot,
   SelectSeparator,
   SelectTrigger,
   SelectValue,
