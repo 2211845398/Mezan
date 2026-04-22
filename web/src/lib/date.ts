@@ -14,6 +14,16 @@ export function now(): Date {
   return new Date();
 }
 
+/** UTC `YYYY-MM-DD` for API query params (matches backend calendar-day filtering). */
+export function utcCalendarDayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/** Serialize an instant as ISO-8601 UTC (e.g. for JSON metadata). */
+export function toISOStringUtc(date: Date): string {
+  return date.toISOString();
+}
+
 export function fromISO(iso: string): Date {
   return dfParseISO(iso);
 }

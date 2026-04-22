@@ -36,3 +36,10 @@ class TerminalCreateResponse(BaseModel):
     terminal_code: str
     is_authorized: bool
     api_key: str  # only returned on create
+
+
+class TerminalUpdate(BaseModel):
+    """Partial update (name / branch). Does not change terminal_code."""
+
+    name: str | None = None
+    branch_id: int | None = None

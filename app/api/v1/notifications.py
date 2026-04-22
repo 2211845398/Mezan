@@ -22,6 +22,7 @@ from app.schemas.notifications import (
     DeviceTokenRegisterRequest,
     NotificationDeliveryListResponse,
     NotificationDeliveryRead,
+    NotificationRunRead,
     NotificationScheduleListResponse,
     NotificationScheduleRead,
     NotificationScheduleUpsert,
@@ -32,6 +33,7 @@ from app.schemas.notifications import (
 from app.services import audit_service
 from app.services.notifications.service import (
     list_device_tokens,
+    list_notification_runs,
     list_recent_deliveries,
     list_schedules,
     list_templates,
@@ -228,6 +230,20 @@ async def list_schedules_endpoint(
     return NotificationScheduleListResponse(
         items=[NotificationScheduleRead.model_validate(r) for r in rows]
     )
+
+
+@router.get(
+    "/admin/notifications/runs",
+    response_model=list[NotificationRunRead],
+)
+async def list_notification_runs_endpoint(
+    limit: int = Query(default=200, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("config", "read"),
+) -> list[NotificationRunRead]:
+    rows = await list_notification_runs(db, limit=limit)
+    return [NotificationRunRead.model_validate(r) for r in rows]
 
 
 @router.post(

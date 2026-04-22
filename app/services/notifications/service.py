@@ -253,6 +253,16 @@ async def list_schedules(db: AsyncSession) -> list[NotificationSchedule]:
     return list(result.scalars().all())
 
 
+async def list_notification_runs(db: AsyncSession, *, limit: int = 200) -> list[NotificationRun]:
+    """Return recent runs (newest first) for admin audit UI."""
+    result = await db.execute(
+        select(NotificationRun)
+        .order_by(NotificationRun.started_at.desc())
+        .limit(max(1, min(limit, 500)))
+    )
+    return list(result.scalars().all())
+
+
 async def list_recent_deliveries(
     db: AsyncSession, *, user_id: int | None, limit: int
 ) -> list[NotificationDelivery]:

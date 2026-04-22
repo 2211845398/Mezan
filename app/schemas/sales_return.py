@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SalesReturnLineRequest(BaseModel):
@@ -15,3 +15,25 @@ class SalesReturnRequest(BaseModel):
     reason: str | None = None
     lines: list[SalesReturnLineRequest]
     exchange_cart_id: int | None = None
+
+
+class ReturnEligibleLineRead(BaseModel):
+    sales_invoice_line_id: int
+    product_id: int
+    product_name: str
+    product_sku: str
+    qty_sold: int
+    qty_already_returned: int
+    qty_remaining: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SalesInvoiceReturnLookupRead(BaseModel):
+    invoice_id: int
+    invoice_number: str
+    invoice_barcode: str
+    branch_id: int
+    lines: list[ReturnEligibleLineRead]
+
+    model_config = ConfigDict(from_attributes=True)

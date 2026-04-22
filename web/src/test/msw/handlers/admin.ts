@@ -1,12 +1,164 @@
 import { http, HttpResponse } from 'msw';
 
 import type { UserRead } from '@/api/types';
+import { now, toISOStringUtc } from '@/lib/date';
 
 import { DEFAULT_USER } from './auth';
 
 const BASE = '/api/v1';
 
+const user2: UserRead = {
+  ...DEFAULT_USER,
+  id: 2,
+  email: 'new@example.com',
+  full_name: 'New User',
+  status: 'active',
+  branch_id: 1,
+  last_login_at: null,
+} as UserRead;
+
 export const adminHandlers = [
-  http.get(`${BASE}/users`, () => HttpResponse.json([DEFAULT_USER] satisfies UserRead[])),
+  http.get(`${BASE}/users`, () => HttpResponse.json([DEFAULT_USER, user2])),
+  http.get(`${BASE}/users/1`, () => HttpResponse.json(DEFAULT_USER)),
+  http.get(`${BASE}/users/2`, () => HttpResponse.json(user2)),
+  http.patch(`${BASE}/users/:id`, () => HttpResponse.json(user2)),
+  http.post(`${BASE}/users`, async ({ request }) => {
+    const body = (await request.json()) as { email: string; full_name?: string | null };
+    return HttpResponse.json({
+      id: 2,
+      email: body.email,
+      full_name: body.full_name ?? null,
+      status: 'pending_onboarding',
+      branch_id: null,
+      last_login_at: null,
+    } satisfies UserRead);
+  }),
+  http.get(`${BASE}/users/:id/roles`, () => HttpResponse.json([])),
+  http.post(`${BASE}/users/:id/roles`, () => HttpResponse.json({ message: 'ok' })),
+  http.delete(`${BASE}/users/:id/roles`, () => new HttpResponse(null, { status: 204 })),
+  http.get(`${BASE}/users/:id/permission-overrides`, () => HttpResponse.json([])),
+  http.put(`${BASE}/users/:id/permission-overrides`, () =>
+    HttpResponse.json({
+      id: 1,
+      user_id: 1,
+      permission_id: 1,
+      branch_id: null,
+      effect: 'allow',
+      reason: null,
+      created_by_user_id: 1,
+      created_at: toISOStringUtc(now()),
+    }),
+  ),
+  http.delete(`${BASE}/users/:id/permission-overrides/:oid`, () => new HttpResponse(null, { status: 204 })),
+  http.get(`${BASE}/hr/onboarding/pending`, () => HttpResponse.json([])),
+  http.get(`${BASE}/permissions`, () => HttpResponse.json([{ id: 1, resource: 'users', action: 'read' }])),
+  http.get(`${BASE}/roles`, () =>
+    HttpResponse.json([
+      {
+        id: 1,
+        code: 'ADMIN',
+        name: 'Admin',
+        description: null,
+        is_system: true,
+        permission_ids: [1, 2],
+      },
+    ]),
+  ),
+  http.put(`${BASE}/roles/:id/permissions`, () =>
+    HttpResponse.json({
+      id: 1,
+      code: 'X',
+      name: 'X',
+      description: null,
+      is_system: false,
+      permission_ids: [1],
+    }),
+  ),
+  http.get(`${BASE}/branches`, () =>
+    HttpResponse.json([
+      {
+        id: 1,
+        code: 'MAIN',
+        name: 'Main',
+        address: null,
+        timezone: 'UTC',
+        is_active: true,
+        archived_at: null,
+      },
+    ]),
+  ),
+  http.put(`${BASE}/branches/:id`, () =>
+    HttpResponse.json({
+      id: 1,
+      code: 'MAIN',
+      name: 'Main',
+      address: null,
+      timezone: 'UTC',
+      is_active: true,
+      archived_at: null,
+    }),
+  ),
+  http.delete(`${BASE}/branches/:id`, () => new HttpResponse(null, { status: 204 })),
+  http.post(`${BASE}/terminals`, () =>
+    HttpResponse.json({
+      id: 1,
+      branch_id: 1,
+      name: 'T1',
+      terminal_code: 'T1',
+      is_authorized: false,
+      api_key: 'pos_x',
+    }),
+  ),
+  http.patch(`${BASE}/terminals/:id`, () => HttpResponse.json({})),
+  http.get(`${BASE}/admin/backups/status`, () =>
+    HttpResponse.json({
+      success: true,
+      started_at: '2020-01-01T00:00:00Z',
+      finished_at: '2020-01-01T00:01:00Z',
+      output_file: '/x.dump',
+      message: 'ok',
+      s3_uploaded: false,
+    }),
+  ),
+  http.post(`${BASE}/admin/backups/run`, () =>
+    HttpResponse.json({
+      success: true,
+      started_at: '2020-01-01T00:00:00Z',
+      finished_at: '2020-01-01T00:01:00Z',
+      output_file: '/x.dump',
+      message: 'ok',
+      s3_uploaded: false,
+    }),
+  ),
+  http.get(`${BASE}/admin/notifications/templates`, () => HttpResponse.json([])),
+  http.put(`${BASE}/admin/notifications/templates`, () =>
+    HttpResponse.json({
+      id: 1,
+      kind: 'k',
+      title_template: 't',
+      body_template: 'b',
+      default_data: {},
+      is_active: true,
+      created_at: toISOStringUtc(now()),
+      updated_at: toISOStringUtc(now()),
+    }),
+  ),
+  http.get(`${BASE}/admin/notifications/schedules`, () => HttpResponse.json({ items: [] })),
+  http.put(`${BASE}/admin/notifications/schedules`, () =>
+    HttpResponse.json({
+      id: 1,
+      name: 's',
+      kind: 'k',
+      interval_minutes: 60,
+      target_role_code: null,
+      branch_id: null,
+      parameters: {},
+      is_active: true,
+      last_run_at: null,
+      next_run_at: null,
+    }),
+  ),
+  http.get(`${BASE}/admin/notifications/runs`, () => HttpResponse.json([])),
+  http.post(`${BASE}/admin/notifications/schedules/:id/run`, () => HttpResponse.json({})),
   http.get(`${BASE}/config`, () => HttpResponse.json([])),
 ];

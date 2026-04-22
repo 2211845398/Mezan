@@ -124,6 +124,30 @@ export interface paths {
          * @description Assign a role to a user (optional branch). Requires users:update.
          */
         post: operations["add_user_role_api_v1_users__user_id__roles_post"];
+        /**
+         * Remove User Role
+         * @description Remove a role assignment (same keys as assign). Requires users:update.
+         */
+        delete: operations["remove_user_role_api_v1_users__user_id__roles_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/password-reset-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Request Password Reset
+         * @description Start password reset for another user (same effect as /auth/password-reset/request).
+         */
+        post: operations["admin_request_password_reset_api_v1_users__user_id__password_reset_request_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -528,6 +552,26 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/terminals/{terminal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Terminal
+         * @description Update terminal name and/or branch. Requires terminals:update.
+         */
+        patch: operations["update_terminal_api_v1_terminals__terminal_id__patch"];
         trace?: never;
     };
     "/api/v1/terminals/{terminal_id}/authorize": {
@@ -1024,6 +1068,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pos/shifts/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Current Shift Endpoint */
+        get: operations["get_current_shift_endpoint_api_v1_pos_shifts_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pos/shifts/open": {
         parameters: {
             query?: never;
@@ -1317,6 +1378,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pos/carts/{cart_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Cart Endpoint */
+        get: operations["get_cart_endpoint_api_v1_pos_carts__cart_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pos/carts": {
         parameters: {
             query?: never;
@@ -1504,6 +1582,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sales-invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Sales Invoice Endpoint */
+        get: operations["get_sales_invoice_endpoint_api_v1_sales_invoices__invoice_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sales-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sales Invoices Endpoint */
+        get: operations["list_sales_invoices_endpoint_api_v1_sales_invoices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pos/sales/finalize": {
         parameters: {
             query?: never;
@@ -1532,6 +1644,23 @@ export interface paths {
         put?: never;
         /** Void Sale Endpoint */
         post: operations["void_sale_endpoint_api_v1_pos_sales_void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pos/returns/invoice-lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lookup Return Invoice Endpoint */
+        get: operations["lookup_return_invoice_endpoint_api_v1_pos_returns_invoice_lookup_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1879,6 +2008,23 @@ export interface paths {
         get: operations["list_schedules_endpoint_api_v1_admin_notifications_schedules_get"];
         /** Upsert Schedule Endpoint */
         put: operations["upsert_schedule_endpoint_api_v1_admin_notifications_schedules_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/notifications/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notification Runs Endpoint */
+        get: operations["list_notification_runs_endpoint_api_v1_admin_notifications_runs_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2529,6 +2675,8 @@ export interface components {
             timezone?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+            /** Unarchive */
+            unarchive?: boolean | null;
         };
         /** CampaignSegment */
         CampaignSegment: {
@@ -2552,12 +2700,49 @@ export interface components {
             /** Customer Id */
             customer_id?: number | null;
         };
+        /** CartDiscountRead */
+        CartDiscountRead: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Amount */
+            amount: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** CartDiscountRequest */
         CartDiscountRequest: {
             /** Code */
             code: string;
             /** Amount */
             amount: number | string;
+        };
+        /** CartLineRead */
+        CartLineRead: {
+            /** Id */
+            id: number;
+            /** Product Id */
+            product_id: number;
+            /** Product Name */
+            product_name: string;
+            /** Product Sku */
+            product_sku: string;
+            /** Barcode */
+            barcode?: string | null;
+            /** Qty */
+            qty: number;
+            /** Unit Price */
+            unit_price: string;
+            /** Line Total */
+            line_total: string;
+            /** Tax Rate */
+            tax_rate: string;
+            /** Line Tax Amount */
+            line_tax_amount: string;
         };
         /** CartLineUpsertRequest */
         CartLineUpsertRequest: {
@@ -2574,14 +2759,24 @@ export interface components {
             terminal_id: number;
             /** Branch Id */
             branch_id: number;
+            /** Shift Id */
+            shift_id?: number | null;
+            /** Customer Id */
+            customer_id?: number | null;
             /** Status */
             status: string;
             /** Subtotal */
             subtotal: string;
             /** Discount Total */
             discount_total: string;
+            /** Tax Total */
+            tax_total: string;
             /** Total */
             total: string;
+            /** Lines */
+            lines?: components["schemas"]["CartLineRead"][];
+            /** Discounts */
+            discounts?: components["schemas"]["CartDiscountRead"][];
         };
         /** CartStateRequest */
         CartStateRequest: {
@@ -3649,6 +3844,26 @@ export interface components {
             /** Sent At */
             sent_at: string | null;
         };
+        /** NotificationRunRead */
+        NotificationRunRead: {
+            /** Id */
+            id: number;
+            /** Schedule Id */
+            schedule_id: number;
+            /** Status */
+            status: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Deliveries Enqueued */
+            deliveries_enqueued: number;
+            /** Error Message */
+            error_message: string | null;
+        };
         /** NotificationScheduleListResponse */
         NotificationScheduleListResponse: {
             /** Items */
@@ -4281,6 +4496,23 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
+        /** ReturnEligibleLineRead */
+        ReturnEligibleLineRead: {
+            /** Sales Invoice Line Id */
+            sales_invoice_line_id: number;
+            /** Product Id */
+            product_id: number;
+            /** Product Name */
+            product_name: string;
+            /** Product Sku */
+            product_sku: string;
+            /** Qty Sold */
+            qty_sold: number;
+            /** Qty Already Returned */
+            qty_already_returned: number;
+            /** Qty Remaining */
+            qty_remaining: number;
+        };
         /**
          * RoleCreate
          * @description Create a role.
@@ -4338,6 +4570,106 @@ export interface components {
              */
             permission_ids: number[];
         };
+        /** SalesInvoiceDetailRead */
+        SalesInvoiceDetailRead: {
+            /** Id */
+            id: number;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Barcode */
+            invoice_barcode: string;
+            /** Cart Id */
+            cart_id: number;
+            /** Terminal Id */
+            terminal_id: number;
+            /** Branch Id */
+            branch_id: number;
+            /** Customer Id */
+            customer_id?: number | null;
+            /** Subtotal */
+            subtotal: string;
+            /** Discount Total */
+            discount_total: string;
+            /** Tax Total */
+            tax_total: string;
+            /** Total */
+            total: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Voided At */
+            voided_at?: string | null;
+            /** Void Reason */
+            void_reason?: string | null;
+            /** Lines */
+            lines?: components["schemas"]["SalesInvoiceLineRead"][];
+            /** Payments */
+            payments?: components["schemas"]["SalesInvoicePaymentRead"][];
+        };
+        /** SalesInvoiceLineRead */
+        SalesInvoiceLineRead: {
+            /** Id */
+            id: number;
+            /** Product Id */
+            product_id: number;
+            /** Product Name */
+            product_name: string;
+            /** Product Sku */
+            product_sku: string;
+            /** Barcode */
+            barcode?: string | null;
+            /** Qty */
+            qty: number;
+            /** Unit Price */
+            unit_price: string;
+            /** Line Total */
+            line_total: string;
+            /** Tax Rate */
+            tax_rate: string;
+            /** Line Tax Amount */
+            line_tax_amount: string;
+        };
+        /** SalesInvoiceListItem */
+        SalesInvoiceListItem: {
+            /** Id */
+            id: number;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Barcode */
+            invoice_barcode: string;
+            /** Cart Id */
+            cart_id: number;
+            /** Terminal Id */
+            terminal_id: number;
+            /** Branch Id */
+            branch_id: number;
+            /** Subtotal */
+            subtotal: string;
+            /** Discount Total */
+            discount_total: string;
+            /** Tax Total */
+            tax_total: string;
+            /** Total */
+            total: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** SalesInvoicePaymentRead */
+        SalesInvoicePaymentRead: {
+            /** Method */
+            method: string;
+            /** Amount */
+            amount: string;
+            /** Reference */
+            reference?: string | null;
+            /** Currency */
+            currency?: string | null;
+        };
         /** SalesInvoiceRead */
         SalesInvoiceRead: {
             /** Id */
@@ -4367,6 +4699,19 @@ export interface components {
             voided_at?: string | null;
             /** Void Reason */
             void_reason?: string | null;
+        };
+        /** SalesInvoiceReturnLookupRead */
+        SalesInvoiceReturnLookupRead: {
+            /** Invoice Id */
+            invoice_id: number;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Barcode */
+            invoice_barcode: string;
+            /** Branch Id */
+            branch_id: number;
+            /** Lines */
+            lines: components["schemas"]["ReturnEligibleLineRead"][];
         };
         /** SalesReturnLineRequest */
         SalesReturnLineRequest: {
@@ -4564,6 +4909,16 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * TerminalUpdate
+         * @description Partial update (name / branch). Does not change terminal_code.
+         */
+        TerminalUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Branch Id */
+            branch_id?: number | null;
         };
         /**
          * TokenResponse
@@ -5185,6 +5540,72 @@ export interface operations {
                 "application/json": components["schemas"]["UserRoleAssign"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_user_role_api_v1_users__user_id__roles_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserRoleAssign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_request_password_reset_api_v1_users__user_id__password_reset_request_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5990,6 +6411,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TerminalCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_terminal_api_v1_terminals__terminal_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                terminal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalRead"];
                 };
             };
             /** @description Validation Error */
@@ -7196,6 +7652,38 @@ export interface operations {
             };
         };
     };
+    get_current_shift_endpoint_api_v1_pos_shifts_current_get: {
+        parameters: {
+            query: {
+                /** @description POS terminal id */
+                terminal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PosShiftRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     open_shift_endpoint_api_v1_pos_shifts_open_post: {
         parameters: {
             query?: never;
@@ -7890,6 +8378,37 @@ export interface operations {
             };
         };
     };
+    get_cart_endpoint_api_v1_pos_carts__cart_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cart_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CartRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_cart_endpoint_api_v1_pos_carts_post: {
         parameters: {
             query?: never;
@@ -8242,6 +8761,71 @@ export interface operations {
             };
         };
     };
+    get_sales_invoice_endpoint_api_v1_sales_invoices__invoice_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesInvoiceDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sales_invoices_endpoint_api_v1_sales_invoices_get: {
+        parameters: {
+            query: {
+                /** @description POS terminal id */
+                terminal_id: number;
+                /** @description Calendar day in UTC for filtering (default: today UTC) */
+                business_date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesInvoiceListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     finalize_sale_endpoint_api_v1_pos_sales_finalize_post: {
         parameters: {
             query?: never;
@@ -8295,6 +8879,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SalesInvoiceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_return_invoice_endpoint_api_v1_pos_returns_invoice_lookup_get: {
+        parameters: {
+            query: {
+                invoice_barcode: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesInvoiceReturnLookupRead"];
                 };
             };
             /** @description Validation Error */
@@ -9153,6 +9768,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationScheduleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notification_runs_endpoint_api_v1_admin_notifications_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRunRead"][];
                 };
             };
             /** @description Validation Error */

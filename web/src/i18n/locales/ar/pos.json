@@ -1,0 +1,110 @@
+{
+  "shell": {
+    "title": "نقطة البيع",
+    "online": "متصل",
+    "offline": "غير متصل",
+    "pending_sync": "عمليات بانتظار المزامنة: {{count}}",
+    "nav_gate": "الوردية",
+    "nav_register": "الكاشير",
+    "nav_close": "إغلاق الوردية",
+    "nav_invoices": "الفواتير",
+    "change_terminal": "تغيير الطرفية"
+  },
+  "gate": {
+    "select_terminal": "اختر الطرفية",
+    "no_terminals": "لا توجد طرفيات لهذا الفرع.",
+    "open_shift": "فتح وردية",
+    "opening_float": "العهدة الافتتاحية",
+    "shift_open": "الوردية مفتوحة",
+    "go_register": "الانتقال للكاشير",
+    "opened_at": "فُتحت في {{at}}"
+  },
+  "register": {
+    "need_shift": "افتح وردية من شاشة الوردية أولًا.",
+    "cart": "السلة",
+    "new_cart": "سلة جديدة",
+    "status": "الحالة",
+    "subtotal": "المجموع قبل الضريبة",
+    "discount": "الخصم",
+    "tax": "الضريبة",
+    "total": "الإجمالي",
+    "add_product": "إضافة منتج",
+    "search_product": "بحث منتج…",
+    "qty": "الكمية",
+    "park": "إيقاف مؤقت",
+    "resume": "استئناف",
+    "checkout": "الدفع",
+    "lock_first": "تأمين السلة قبل الدفع",
+    "locked": "مؤمنة للدفع",
+    "cannot_edit": "لا يمكن التعديل إلا في حالة نشطة",
+    "discount_apply": "تطبيق خصم",
+    "discount_code": "رمز الخصم",
+    "discount_amount": "مبلغ الخصم"
+  },
+  "tender": {
+    "title": "تحصيل",
+    "create_intent": "تجهيز الدفع",
+    "pay": "تأكيد الدفع",
+    "method": "طريقة الدفع",
+    "cash": "نقدي",
+    "card": "بطاقة",
+    "other": "أخرى",
+    "reference": "مرجع",
+    "card_last4": "آخر 4 أرقام",
+    "tendered": "المستلم",
+    "change": "الباقي",
+    "need_online_intent": "يلزم اتصال بالشبكة لإنشاء نية الدفع.",
+    "offline_queued": "أُضيفت العملية لقائمة الانتظار دون اتصال."
+  },
+  "receipt": {
+    "title": "إيصال",
+    "print_58": "طباعة ٥٨مم",
+    "print_80": "طباعة ٨٠مم",
+    "close": "إغلاق",
+    "sale_header": "فاتورة مبيعات",
+    "return_header": "إرجاع",
+    "credit_note": "إشعار دائن",
+    "provisional": "مسودة {{code}}",
+    "invoice_no": "رقم الفاتورة",
+    "credit_no": "رقم الإشعار",
+    "vat": "ض.ق.م",
+    "thanks": "شكرًا لزيارتكم"
+  },
+  "return": {
+    "title": "مرتجع",
+    "search": "بحث",
+    "lookup": "بحث بالباركود",
+    "scan_hint": "امسح باركود الفاتورة",
+    "lines": "الأسطر المؤهلة",
+    "qty_return": "كمية الإرجاع",
+    "reason": "السبب",
+    "none_selected": "اختر كميات للإرجاع",
+    "submit": "تسجيل المرتجع",
+    "credit_note": "إشعار دائن رقم {{id}}"
+  },
+  "close": {
+    "title": "إغلاق الوردية",
+    "declared": "النقد المصرح",
+    "submit": "إغلاق",
+    "done": "أُغلقت الوردية"
+  },
+  "invoices": {
+    "title": "فواتير اليوم",
+    "open": "عرض",
+    "reprint": "إعادة طباعة",
+    "empty": "لا فواتير في هذه النافذة."
+  },
+  "shortcuts": {
+    "title": "اختصارات",
+    "help": "مساعدة",
+    "checkout": "الدفع — إن وجدت اختصارات لوحة مفاتيح لاحقًا"
+  },
+  "customer": {
+    "walk_in": "عميل نقدي (بدون ملف)"
+  },
+  "errors": {
+    "payment": {
+      "capture_failed": "فشل التحصيل — ربما تمت المعالجة مسبقًا."
+    }
+  }
+}

@@ -12,8 +12,16 @@ from app.core.errors import ConflictError, NotFoundError, StateTransitionError, 
 from app.models.ar_open_item import ArOpenItem
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
+from app.models.pos_terminal import POSTerminal
+from app.models.product import Product
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import SalesReturn
+from app.schemas.sales_invoice import (
+    SalesInvoiceDetailRead,
+    SalesInvoiceLineRead,
+    SalesInvoiceListItem,
+    SalesInvoicePaymentRead,
+)
 from app.services.accounting_governance_service import (
     list_journal_entries_for_source,
     reverse_journal_entry,
@@ -232,3 +240,120 @@ async def void_sales_invoice(
     await db.commit()
     await db.refresh(invoice)
     return invoice
+
+
+async def _sales_invoice_to_detail_read(
+    db: AsyncSession, invoice: SalesInvoice
+) -> SalesInvoiceDetailRead:
+    line_res = await db.execute(
+        select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
+    )
+    lines = list(line_res.scalars().all())
+    product_ids = {ln.product_id for ln in lines}
+    prods: dict[int, Product] = {}
+    if product_ids:
+        pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
+        prods = {p.id: p for p in pres.scalars().all()}
+
+    line_reads: list[SalesInvoiceLineRead] = []
+    for ln in lines:
+        p = prods.get(ln.product_id)
+        line_reads.append(
+            SalesInvoiceLineRead(
+                id=ln.id,
+                product_id=ln.product_id,
+                product_name=p.name if p else "",
+                product_sku=p.sku if p else "",
+                barcode=p.barcode if p else None,
+                qty=ln.qty,
+                unit_price=ln.unit_price,
+                line_total=ln.line_total,
+                tax_rate=ln.tax_rate,
+                line_tax_amount=ln.line_tax_amount,
+            )
+        )
+
+    pay_res = await db.execute(
+        select(InvoicePayment, PaymentIntent)
+        .outerjoin(PaymentIntent, InvoicePayment.payment_intent_id == PaymentIntent.id)
+        .where(InvoicePayment.sales_invoice_id == invoice.id)
+    )
+    payments: list[SalesInvoicePaymentRead] = []
+    for ip, pint in pay_res.all():
+        payments.append(
+            SalesInvoicePaymentRead(
+                method=ip.method,
+                amount=ip.amount,
+                reference=ip.reference,
+                currency=pint.currency if pint is not None else None,
+            )
+        )
+
+    return SalesInvoiceDetailRead(
+        id=invoice.id,
+        invoice_number=invoice.invoice_number,
+        invoice_barcode=invoice.invoice_barcode,
+        cart_id=invoice.cart_id,
+        terminal_id=invoice.terminal_id,
+        branch_id=invoice.branch_id,
+        customer_id=invoice.customer_id,
+        subtotal=invoice.subtotal,
+        discount_total=invoice.discount_total,
+        tax_total=invoice.tax_total,
+        total=invoice.total,
+        created_at=invoice.created_at,
+        voided_at=invoice.voided_at,
+        void_reason=invoice.void_reason,
+        lines=line_reads,
+        payments=payments,
+    )
+
+
+async def read_sales_invoice_detail(db: AsyncSession, *, invoice_id: int) -> SalesInvoiceDetailRead:
+    inv_res = await db.execute(select(SalesInvoice).where(SalesInvoice.id == invoice_id))
+    invoice = inv_res.scalar_one_or_none()
+    if not invoice:
+        raise NotFoundError("Invoice not found")
+    return await _sales_invoice_to_detail_read(db, invoice)
+
+
+async def list_sales_invoices_for_terminal_window(
+    db: AsyncSession,
+    *,
+    terminal_id: int,
+    start_inclusive: datetime,
+    end_exclusive: datetime,
+) -> list[SalesInvoiceListItem]:
+    t_res = await db.execute(select(POSTerminal).where(POSTerminal.id == terminal_id))
+    terminal = t_res.scalar_one_or_none()
+    if not terminal:
+        raise NotFoundError("Terminal not found")
+
+    inv_res = await db.execute(
+        select(SalesInvoice)
+        .where(
+            SalesInvoice.terminal_id == terminal_id,
+            SalesInvoice.branch_id == terminal.branch_id,
+            SalesInvoice.created_at >= start_inclusive,
+            SalesInvoice.created_at < end_exclusive,
+            SalesInvoice.voided_at.is_(None),
+        )
+        .order_by(SalesInvoice.created_at.desc())
+    )
+    invoices = list(inv_res.scalars().all())
+    return [
+        SalesInvoiceListItem(
+            id=inv.id,
+            invoice_number=inv.invoice_number,
+            invoice_barcode=inv.invoice_barcode,
+            cart_id=inv.cart_id,
+            terminal_id=inv.terminal_id,
+            branch_id=inv.branch_id,
+            subtotal=inv.subtotal,
+            discount_total=inv.discount_total,
+            tax_total=inv.tax_total,
+            total=inv.total,
+            created_at=inv.created_at,
+        )
+        for inv in invoices
+    ]

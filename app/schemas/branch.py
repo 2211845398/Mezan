@@ -21,6 +21,7 @@ class BranchUpdate(BaseModel):
     address: str | None = None
     timezone: str | None = None
     is_active: bool | None = None
+    unarchive: bool | None = None
 
 
 class BranchRead(BaseModel):

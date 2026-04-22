@@ -3,7 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import AdminLayoutOutlet from '@/components/layout/AdminLayoutOutlet';
 import AuthLayoutOutlet from '@/components/layout/AuthLayoutOutlet';
-import PosLayoutOutlet from '@/components/layout/PosLayoutOutlet';
+import PosLayout from '@/components/layout/PosLayout';
 import FeatureStub from '@/components/shared/FeatureStub';
 
 import { RequireAuth, RequireBranchContext, RequirePermission } from './guards';
@@ -30,6 +30,33 @@ const ForbiddenPage = lazy(() => import('./ForbiddenPage'));
 const NotFoundPage = lazy(() => import('./NotFoundPage'));
 const OfflinePage = lazy(() => import('./OfflinePage'));
 const SelectBranchPage = lazy(() => import('./SelectBranchPage'));
+
+const ShiftGatePage = lazy(() => import('@/features/pos/pages/ShiftGate'));
+const PosRegisterPage = lazy(() => import('@/features/pos/pages/PosRegister'));
+const ShiftClosePage = lazy(() => import('@/features/pos/pages/ShiftClose'));
+const InvoiceLookupPage = lazy(() => import('@/features/pos/pages/InvoiceLookup'));
+
+const AdminUsersList = lazy(() => import('@/features/admin/pages/users/UsersList'));
+const AdminUserCreate = lazy(() => import('@/features/admin/pages/users/UserCreate'));
+const AdminUserEdit = lazy(() => import('@/features/admin/pages/users/UserEdit'));
+const AdminRolesList = lazy(() => import('@/features/admin/pages/roles/RolesList'));
+const AdminRoleEdit = lazy(() => import('@/features/admin/pages/roles/RoleEdit'));
+const AdminBranchesList = lazy(() => import('@/features/admin/pages/branches/BranchesList'));
+const AdminTerminalsList = lazy(() => import('@/features/admin/pages/terminals/TerminalsList'));
+const AdminBackupsList = lazy(() => import('@/features/admin/pages/backups/BackupsList'));
+const AdminNotificationsLayout = lazy(
+  () => import('@/features/admin/pages/notifications/NotificationsLayout'),
+);
+const AdminTemplatesList = lazy(
+  () => import('@/features/admin/pages/notifications/TemplatesList'),
+);
+const AdminTemplateEditPage = lazy(
+  () => import('@/features/admin/pages/notifications/TemplateEditPage'),
+);
+const AdminSchedulesList = lazy(
+  () => import('@/features/admin/pages/notifications/SchedulesList'),
+);
+const AdminRunsList = lazy(() => import('@/features/admin/pages/notifications/RunsList'));
 
 function withSuspense(Component: ComponentType): JSX.Element {
   return (
@@ -69,15 +96,44 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
     children: [
       {
-        element: <PosLayoutOutlet />,
+        path: 'pos',
+        element: (
+          <RequireBranchContext>
+            <Suspense fallback={<RouteLoader />}>
+              <PosLayout />
+            </Suspense>
+          </RequireBranchContext>
+        ),
         children: [
           {
-            path: '/pos',
+            index: true,
             element: (
-              <RequirePermission resource="pos_carts" action="create">
-                <RequireBranchContext>
-                  {stub('nav.pos', 'W-5.1')}
-                </RequireBranchContext>
+              <RequirePermission resource="pos_shifts" action="read">
+                {withSuspense(ShiftGatePage)}
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'register',
+            element: (
+              <RequirePermission resource="pos_carts" action="update">
+                {withSuspense(PosRegisterPage)}
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'close',
+            element: (
+              <RequirePermission resource="pos_shifts" action="close">
+                {withSuspense(ShiftClosePage)}
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'invoices',
+            element: (
+              <RequirePermission resource="sales_invoices" action="read">
+                {withSuspense(InvoiceLookupPage)}
               </RequirePermission>
             ),
           },
@@ -457,7 +513,23 @@ export const router = createBrowserRouter([
                 path: 'users',
                 element: (
                   <RequirePermission resource="users" action="read">
-                    {stub('nav.admin_users', 'W-5.9')}
+                    {withSuspense(AdminUsersList)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'users/new',
+                element: (
+                  <RequirePermission resource="users" action="create">
+                    {withSuspense(AdminUserCreate)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'users/:id',
+                element: (
+                  <RequirePermission resource="users" action="read">
+                    {withSuspense(AdminUserEdit)}
                   </RequirePermission>
                 ),
               },
@@ -465,7 +537,15 @@ export const router = createBrowserRouter([
                 path: 'roles',
                 element: (
                   <RequirePermission resource="roles" action="read">
-                    {stub('nav.admin_roles', 'W-5.9')}
+                    {withSuspense(AdminRolesList)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'roles/:code',
+                element: (
+                  <RequirePermission resource="roles" action="read">
+                    {withSuspense(AdminRoleEdit)}
                   </RequirePermission>
                 ),
               },
@@ -473,7 +553,7 @@ export const router = createBrowserRouter([
                 path: 'branches',
                 element: (
                   <RequirePermission resource="branches" action="read">
-                    {stub('nav.admin_branches', 'W-5.9')}
+                    {withSuspense(AdminBranchesList)}
                   </RequirePermission>
                 ),
               },
@@ -481,7 +561,7 @@ export const router = createBrowserRouter([
                 path: 'terminals',
                 element: (
                   <RequirePermission resource="terminals" action="read">
-                    {stub('nav.admin_terminals', 'W-5.9')}
+                    {withSuspense(AdminTerminalsList)}
                   </RequirePermission>
                 ),
               },
@@ -489,7 +569,7 @@ export const router = createBrowserRouter([
                 path: 'backups',
                 element: (
                   <RequirePermission resource="backups" action="read">
-                    {stub('nav.admin_backups', 'W-5.9')}
+                    {withSuspense(AdminBackupsList)}
                   </RequirePermission>
                 ),
               },
@@ -497,9 +577,44 @@ export const router = createBrowserRouter([
                 path: 'notifications',
                 element: (
                   <RequirePermission resource="config" action="read">
-                    {stub('nav.admin_notifications', 'W-5.9')}
+                    {withSuspense(AdminNotificationsLayout)}
                   </RequirePermission>
                 ),
+                children: [
+                  { index: true, element: <Navigate to="templates" replace /> },
+                  {
+                    path: 'templates',
+                    element: (
+                      <RequirePermission resource="config" action="read">
+                        {withSuspense(AdminTemplatesList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'templates/:kind',
+                    element: (
+                      <RequirePermission resource="config" action="read">
+                        {withSuspense(AdminTemplateEditPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'schedules',
+                    element: (
+                      <RequirePermission resource="config" action="read">
+                        {withSuspense(AdminSchedulesList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'runs',
+                    element: (
+                      <RequirePermission resource="config" action="read">
+                        {withSuspense(AdminRunsList)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
             ],
           },

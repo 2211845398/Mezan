@@ -122,6 +122,7 @@ export type AsyncSelectProps = {
   emptyLabel?: string;
   isLoading?: boolean;
   className?: string;
+  disabled?: boolean;
 };
 
 export function AsyncSelect({
@@ -134,6 +135,7 @@ export function AsyncSelect({
   emptyLabel = 'No results',
   isLoading = false,
   className,
+  disabled = false,
 }: AsyncSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -141,12 +143,18 @@ export function AsyncSelect({
   const selected = options.find((o) => o.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (!disabled) setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           className={cn(
-            'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring',
+            'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
             className,
           )}
           aria-haspopup="listbox"

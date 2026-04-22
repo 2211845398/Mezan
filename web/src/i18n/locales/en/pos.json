@@ -1,0 +1,110 @@
+{
+  "shell": {
+    "title": "Point of sale",
+    "online": "Online",
+    "offline": "Offline",
+    "pending_sync": "Pending sync operations: {{count}}",
+    "nav_gate": "Shift",
+    "nav_register": "Register",
+    "nav_close": "Close shift",
+    "nav_invoices": "Invoices",
+    "change_terminal": "Change terminal"
+  },
+  "gate": {
+    "select_terminal": "Select terminal",
+    "no_terminals": "No terminals for this branch.",
+    "open_shift": "Open shift",
+    "opening_float": "Opening float",
+    "shift_open": "Shift is open",
+    "go_register": "Go to register",
+    "opened_at": "Opened at {{at}}"
+  },
+  "register": {
+    "need_shift": "Open a shift from the shift screen first.",
+    "cart": "Cart",
+    "new_cart": "New cart",
+    "status": "Status",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "tax": "Tax",
+    "total": "Total",
+    "add_product": "Add product",
+    "search_product": "Search product…",
+    "qty": "Qty",
+    "park": "Park",
+    "resume": "Resume",
+    "checkout": "Checkout",
+    "lock_first": "Lock the cart before checkout",
+    "locked": "Locked for payment",
+    "cannot_edit": "Editing allowed only while active",
+    "discount_apply": "Apply discount",
+    "discount_code": "Discount code",
+    "discount_amount": "Discount amount"
+  },
+  "tender": {
+    "title": "Tender",
+    "create_intent": "Prepare payment",
+    "pay": "Confirm payment",
+    "method": "Method",
+    "cash": "Cash",
+    "card": "Card",
+    "other": "Other",
+    "reference": "Reference",
+    "card_last4": "Last 4 digits",
+    "tendered": "Tendered",
+    "change": "Change",
+    "need_online_intent": "Network is required to create a payment intent.",
+    "offline_queued": "Operation queued while offline."
+  },
+  "receipt": {
+    "title": "Receipt",
+    "print_58": "Print 58mm",
+    "print_80": "Print 80mm",
+    "close": "Close",
+    "sale_header": "Sales invoice",
+    "return_header": "Return",
+    "credit_note": "Credit note",
+    "provisional": "Draft {{code}}",
+    "invoice_no": "Invoice #",
+    "credit_no": "Credit #",
+    "vat": "VAT",
+    "thanks": "Thank you"
+  },
+  "return": {
+    "title": "Return",
+    "search": "Search",
+    "lookup": "Lookup by barcode",
+    "scan_hint": "Scan invoice barcode",
+    "lines": "Eligible lines",
+    "qty_return": "Return qty",
+    "reason": "Reason",
+    "none_selected": "Select quantities to return",
+    "submit": "Submit return",
+    "credit_note": "Credit note #{{id}}"
+  },
+  "close": {
+    "title": "Close shift",
+    "declared": "Declared cash",
+    "submit": "Close",
+    "done": "Shift closed"
+  },
+  "invoices": {
+    "title": "Today’s invoices",
+    "open": "Open",
+    "reprint": "Reprint",
+    "empty": "No invoices in this window."
+  },
+  "shortcuts": {
+    "title": "Shortcuts",
+    "help": "Help",
+    "checkout": "Checkout — keyboard shortcuts may be added later"
+  },
+  "customer": {
+    "walk_in": "Walk-in customer"
+  },
+  "errors": {
+    "payment": {
+      "capture_failed": "Capture failed — it may have already been processed."
+    }
+  }
+}

@@ -105,6 +105,10 @@ async def update_branch(
         branch.timezone = body.timezone
     if body.is_active is not None:
         branch.is_active = body.is_active
+    if body.unarchive:
+        if branch.archived_at is not None:
+            branch.archived_at = None
+            branch.is_active = True
     await db.commit()
     await db.refresh(branch)
     await audit_service.log(

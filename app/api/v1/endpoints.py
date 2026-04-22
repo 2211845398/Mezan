@@ -19,7 +19,7 @@ from app.schemas.users import (
     UserRead,
     UserUpdate,
 )
-from app.services import audit_service
+from app.services import audit_service, auth_service
 from app.services.user_lifecycle_service import (
     assign_role_by_code,
     complete_onboarding_task,
@@ -207,6 +207,73 @@ async def add_user_role(
         "role_id": body.role_id,
         "branch_id": body.branch_id,
     }
+
+
+@router.delete(
+    "/users/{user_id}/roles",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_user_role(
+    user_id: int,
+    body: UserRoleAssign,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("users", "update"),
+) -> None:
+    """Remove a role assignment (same keys as assign). Requires users:update."""
+    q = select(UserRole).where(
+        UserRole.user_id == user_id,
+        UserRole.role_id == body.role_id,
+    )
+    if body.branch_id is not None:
+        q = q.where(UserRole.branch_id == body.branch_id)
+    else:
+        q = q.where(UserRole.branch_id.is_(None))
+    result = await db.execute(q)
+    ur = result.scalar_one_or_none()
+    if not ur:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Role assignment not found"
+        )
+    await db.delete(ur)
+    await audit_service.log(
+        session=db,
+        action="user.role_removed",
+        resource_type="user",
+        resource_id=str(user_id),
+        new_value={"role_id": body.role_id, "branch_id": body.branch_id},
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+
+
+@router.post("/users/{user_id}/password-reset-request")
+async def admin_request_password_reset(
+    user_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("users", "update"),
+) -> dict:
+    """Start password reset for another user (same effect as /auth/password-reset/request)."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    await auth_service.request_password_reset(db, str(user.email))
+    await audit_service.log(
+        session=db,
+        action="user.password_reset.requested",
+        resource_type="user",
+        resource_id=str(user_id),
+        new_value={"email": str(user.email)},
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return {"message": "If the account exists, a reset link has been sent."}
 
 
 @router.get("/hr/onboarding/pending", response_model=list[UserOnboardingRead])

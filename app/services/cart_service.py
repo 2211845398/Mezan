@@ -12,6 +12,7 @@ from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.schemas.pos_cart import CartDiscountRead, CartLineRead, CartRead
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.pricing_service import get_active_sell_price
 from app.utils.money import q2
@@ -218,3 +219,60 @@ async def change_state(db: AsyncSession, *, cart_id: int, action: str, user_id: 
     await db.commit()
     await db.refresh(cart)
     return cart
+
+
+async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
+    """Load cart with lines/discounts and product labels for POS UI."""
+    c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
+    cart = c_res.scalar_one_or_none()
+    if not cart:
+        raise NotFoundError("Cart not found")
+
+    lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart_id))
+    lines = list(lines_res.scalars().all())
+    disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart_id))
+    discounts = list(disc_res.scalars().all())
+
+    product_ids = {ln.product_id for ln in lines}
+    prods: dict[int, Product] = {}
+    if product_ids:
+        pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
+        prods = {p.id: p for p in pres.scalars().all()}
+
+    line_reads: list[CartLineRead] = []
+    for ln in lines:
+        p = prods.get(ln.product_id)
+        line_reads.append(
+            CartLineRead(
+                id=ln.id,
+                product_id=ln.product_id,
+                product_name=p.name if p else "",
+                product_sku=p.sku if p else "",
+                barcode=p.barcode if p else None,
+                qty=ln.qty,
+                unit_price=ln.unit_price,
+                line_total=ln.line_total,
+                tax_rate=ln.tax_rate,
+                line_tax_amount=ln.line_tax_amount,
+            )
+        )
+
+    disc_reads = [
+        CartDiscountRead(id=d.id, code=d.code, amount=d.amount, created_at=d.created_at)
+        for d in discounts
+    ]
+
+    return CartRead(
+        id=cart.id,
+        terminal_id=cart.terminal_id,
+        branch_id=cart.branch_id,
+        shift_id=cart.shift_id,
+        customer_id=cart.customer_id,
+        status=cart.status,
+        subtotal=cart.subtotal,
+        discount_total=cart.discount_total,
+        tax_total=cart.tax_total,
+        total=cart.total,
+        lines=line_reads,
+        discounts=disc_reads,
+    )

@@ -47,6 +47,14 @@ async def open_shift(
     return shift
 
 
+async def get_open_shift_for_terminal(db: AsyncSession, *, terminal_id: int) -> PosShift | None:
+    """Return the single open shift for this terminal, if any."""
+    existing = await db.execute(
+        select(PosShift).where(PosShift.terminal_id == terminal_id, PosShift.status == "open")
+    )
+    return existing.scalar_one_or_none()
+
+
 async def add_cash_event(
     db: AsyncSession,
     *,

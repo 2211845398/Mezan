@@ -21,6 +21,7 @@ export default defineConfig({
           'tanstack-table': ['@tanstack/react-table', '@tanstack/react-virtual'],
           'date-fns': ['date-fns', 'date-fns/locale'],
           decimal: ['decimal.js'],
+          'react-to-print': ['react-to-print'],
         },
       },
     },

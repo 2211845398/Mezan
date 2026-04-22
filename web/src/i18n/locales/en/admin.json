@@ -1,0 +1,160 @@
+{
+  "loading": "Loading…",
+  "yes": "Yes",
+  "no": "No",
+  "actions": {
+    "back": "Back",
+    "save": "Save",
+    "create": "Create",
+    "add": "Add",
+    "remove": "Remove",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "open_menu": "Open menu"
+  },
+  "confirm": {
+    "type_keyword": "Type “{{keyword}}” to confirm"
+  },
+  "users": {
+    "title": "Users",
+    "create": "New user",
+    "create_title": "Create user",
+    "edit_title": "Edit user",
+    "empty": "No users",
+    "not_found": "User not found",
+    "password": "Initial password (optional)",
+    "role_code": "Role code",
+    "require_onboarding": "Require HR onboarding",
+    "assigned_hr_id": "Assigned HR user id",
+    "assigned_hr_help": "Optional. Must be a valid user id with onboarding permissions.",
+    "created_ok": "User #{{id}} has been created.",
+    "onboarding_status": "Onboarding",
+    "open_user": "Open user",
+    "roles": "Roles",
+    "roles_section": "Roles",
+    "add_role": "Add role",
+    "pick_role": "Choose role",
+    "deactivate": "Deactivate",
+    "deactivate_title": "Deactivate user",
+    "deactivate_desc": "The user will no longer be able to sign in.",
+    "reset_password": "Send password reset",
+    "view_permissions": "Permission overrides",
+    "perm_overrides_title": "Permission overrides",
+    "effective_permissions": "Effective permissions (client-side)",
+    "override_rows": "Overrides",
+    "add_override": "Add override",
+    "override_branch": "Branch (optional)",
+    "reason": "Reason",
+    "pick_permission": "Select permission",
+    "col": {
+      "email": "Email",
+      "full_name": "Name",
+      "status": "Status",
+      "branch": "Branch",
+      "role": "Role",
+      "last_login": "Last login",
+      "permission": "Permission",
+      "effect": "Effect"
+    },
+    "effect": {
+      "allow": "Allow",
+      "deny": "Deny"
+    }
+  },
+  "roles": {
+    "title": "Roles",
+    "empty": "No roles",
+    "not_found": "Role not found",
+    "col": {
+      "name": "Name",
+      "code": "Code",
+      "is_system": "System",
+      "permission_count": "Permissions"
+    },
+    "readonly_system": "System (read-only)",
+    "cannot_edit_system": "System role permissions are fixed.",
+    "edit_title": "Edit role: {{name}}",
+    "no_permissions": "No permissions in catalog"
+  },
+  "branches": {
+    "title": "Branches",
+    "empty": "No branches",
+    "create": "New branch",
+    "create_title": "New branch",
+    "edit_title": "Edit branch",
+    "include_archived": "Show archived",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archive_title": "Archive branch",
+    "archive_desc": "The branch is soft-deleted and hidden from default lists.",
+    "picker_placeholder": "Select branch",
+    "picker_clear": "None",
+    "archived_badge": "archived",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "timezone": "Timezone",
+      "address": "Address",
+      "state": "State"
+    },
+    "state": {
+      "active": "Active",
+      "archived": "Archived"
+    }
+  },
+  "terminals": {
+    "title": "Terminals",
+    "empty": "No terminals",
+    "create": "Register terminal",
+    "create_title": "Register terminal",
+    "edit_title": "Edit terminal",
+    "authorize": "Authorize",
+    "deauthorize": "De-authorize",
+    "last_seen": "Last seen",
+    "api_key_once": "Copy the API key now; it is shown only once: {{key}}",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "branch": "Branch",
+      "status": "Status"
+    },
+    "status": {
+      "authorized": "Authorized",
+      "unauthorized": "Not authorized"
+    }
+  },
+  "backups": {
+    "title": "Backups",
+    "empty": "No backup status",
+    "trigger": "Run backup",
+    "status": { "ok": "OK", "fail": "Failed" },
+    "col": { "started": "Started", "finished": "Finished", "status": "Status", "file": "File", "s3": "Uploaded to S3" }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "tab_templates": "Templates",
+    "tab_schedules": "Schedules",
+    "tab_runs": "Runs",
+    "templates_lead": "Render templates for each notification kind.",
+    "new_template": "New template",
+    "new_schedule": "New schedule",
+    "edit_template": "Edit template",
+    "create_template": "New template",
+    "edit_schedule": "Edit schedule",
+    "create_schedule": "New schedule",
+    "open_dedicated": "Open page",
+    "interval": "Interval (minutes)",
+    "target_role": "Target role",
+    "run_once": "Run now",
+    "runs_lead": "Recent scheduler and manual runs.",
+    "runs_empty": "No runs yet",
+    "col": {
+      "active": "Active",
+      "title_tpl": "Title template",
+      "started": "Started",
+      "finished": "Finished",
+      "enqueued": "Deliveries enqueued"
+    }
+  }
+}

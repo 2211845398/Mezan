@@ -67,3 +67,75 @@ with full seeded permissions.
 **Closing this divergence:** none required — this is a correction. The plan
 text in `WEB_FRONTEND_PLAN.md §4.1` has been updated to match, so the contract
 and the code now agree.
+
+---
+
+## D-3 — Backups admin UI shows the last run from status, not a full run history (W-5.9)
+
+**Some product sketches assume:** a sortable table of many historical backup
+runs (or S3 object keys per row).
+
+**We ship instead (Epic W-5.9):** `BackupsList` renders at most one primary row
+built from `GET /api/v1/admin/backups/status` (`BackupStatusRead`: last
+`started_at` / `finished_at`, `success`, `output_file`, `s3_uploaded` boolean).
+The “S3” column is yes/no from `s3_uploaded`, not an object key.
+
+**Why:** the backend persists a single status snapshot (see
+`app/services/backup_service.py`), not a queryable history table exposed as a
+list endpoint.
+
+**Closing this divergence:** add a read-only `GET /admin/backups/history` (or
+similar) if the product requires multi-row audit; until then the UI matches the
+available API.
+
+---
+
+## D-4 — Branch admin form fields match the `Branch` model only (W-5.9)
+
+**Some UI wireframes add:** per-branch currency, rich contact blocks, or other
+columns not on the core branch entity.
+
+**We ship instead:** create/edit forms only send fields that exist on
+`BranchUpdate` / `BranchRead` in the OpenAPI schema (e.g. `name`, `address`,
+`timezone`, `is_active`, and `unarchive` where applicable).
+
+**Why:** there are no `currency` or structured `contact` columns on the current
+`Branch` model; shipping them would be inventing data the API cannot store.
+
+**Closing this divergence:** extend the model + schema + migration, then widen
+the admin forms.
+
+---
+
+## D-5 — “Effective permissions” preview in the admin drawer is client-computed (W-5.9)
+
+**UX expectation:** the permission overrides drawer may show what the user
+“effectively” has after roles and overrides.
+
+**We ship instead:** the drawer composes an **indicative** effective set in the
+browser (roles + global overrides + `list_permissions`), mirroring the merge
+intent of `get_current_user_permissions` in `app/api/deps.py`. Branch-scoped
+override rows still come from `GET /users/{id}/permission-overrides` for
+display/editing.
+
+**Why:** there is no `GET /users/{id}/effective-permissions` endpoint; the
+authoritative permission set for authorization remains server-side on each
+request.
+
+**Closing this divergence:** optional read-only effective-permissions endpoint
+for exact parity, or keep treating the drawer as a UX aid only.
+
+---
+
+## D-6 — Admin-initiated password reset uses the gated user route (W-5.9)
+
+**Earlier notes considered:** calling the public
+`POST /auth/password-reset/request` with the user’s email from the admin UI.
+
+**We ship instead:** `POST /api/v1/users/{user_id}/password-reset-request`
+(permission-gated, audit-friendly), wired from `UserEdit` / `UsersList`.
+
+**Why:** aligns reset actions with RBAC and audit expectations for admin tools.
+
+**Closing this divergence:** none required if the backend route remains the
+contract for admin-triggered resets.

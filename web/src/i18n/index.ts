@@ -2,17 +2,21 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
+import arAdmin from './locales/ar/admin.json';
 import arAuth from './locales/ar/auth.json';
 import arCommon from './locales/ar/common.json';
+import arPos from './locales/ar/pos.json';
+import enAdmin from './locales/en/admin.json';
 import enAuth from './locales/en/auth.json';
 import enCommon from './locales/en/common.json';
+import enPos from './locales/en/pos.json';
 
 export const SUPPORTED_LANGUAGES = ['ar', 'en'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const resources = {
-  ar: { common: arCommon, auth: arAuth },
-  en: { common: enCommon, auth: enAuth },
+  ar: { common: arCommon, auth: arAuth, pos: arPos, admin: arAdmin },
+  en: { common: enCommon, auth: enAuth, pos: enPos, admin: enAdmin },
 } as const;
 
 void i18n
@@ -23,7 +27,7 @@ void i18n
     lng: 'ar',
     fallbackLng: 'en',
     supportedLngs: SUPPORTED_LANGUAGES,
-    ns: ['common', 'auth'],
+    ns: ['common', 'auth', 'pos', 'admin'],
     defaultNS: 'common',
     interpolation: { escapeValue: false },
     detection: {

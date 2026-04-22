@@ -5,12 +5,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
+from app.models.product import Product
 from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import CreditNote, ExchangeLink, SalesReturn, SalesReturnLine
+from app.schemas.sales_return import ReturnEligibleLineRead, SalesInvoiceReturnLookupRead
 from app.services.document_posting_service import post_sales_return_gl
 from app.services.inventory_service import apply_stock_movement
 from app.utils.money import q2
@@ -99,3 +101,68 @@ async def create_return_and_credit(
     await db.refresh(ret)
     await db.refresh(credit)
     return ret, credit
+
+
+async def lookup_sales_invoice_for_return(
+    db: AsyncSession, *, invoice_barcode: str
+) -> SalesInvoiceReturnLookupRead:
+    """Return invoice header and per-line remaining returnable quantities."""
+    i_res = await db.execute(
+        select(SalesInvoice).where(SalesInvoice.invoice_barcode == invoice_barcode)
+    )
+    invoice = i_res.scalar_one_or_none()
+    if not invoice:
+        raise NotFoundError("Invoice not found")
+    if invoice.voided_at is not None:
+        raise ValidationError("Cannot return lines for a voided invoice")
+
+    inv_lines_res = await db.execute(
+        select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
+    )
+    inv_lines = list(inv_lines_res.scalars().all())
+    line_ids = [ln.id for ln in inv_lines]
+
+    returned_map: dict[int, int] = {lid: 0 for lid in line_ids}
+    if line_ids:
+        ret_sum = await db.execute(
+            select(SalesReturnLine.sales_invoice_line_id, func.sum(SalesReturnLine.qty))
+            .join(SalesReturn, SalesReturn.id == SalesReturnLine.sales_return_id)
+            .where(
+                SalesReturn.sales_invoice_id == invoice.id,
+                SalesReturnLine.sales_invoice_line_id.in_(line_ids),
+            )
+            .group_by(SalesReturnLine.sales_invoice_line_id)
+        )
+        for lid, total in ret_sum.all():
+            returned_map[int(lid)] = int(total or 0)
+
+    product_ids = {ln.product_id for ln in inv_lines}
+    prods: dict[int, Product] = {}
+    if product_ids:
+        pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
+        prods = {p.id: p for p in pres.scalars().all()}
+
+    eligible: list[ReturnEligibleLineRead] = []
+    for ln in inv_lines:
+        p = prods.get(ln.product_id)
+        already = returned_map.get(ln.id, 0)
+        remaining = max(0, ln.qty - already)
+        eligible.append(
+            ReturnEligibleLineRead(
+                sales_invoice_line_id=ln.id,
+                product_id=ln.product_id,
+                product_name=p.name if p else "",
+                product_sku=p.sku if p else "",
+                qty_sold=ln.qty,
+                qty_already_returned=already,
+                qty_remaining=remaining,
+            )
+        )
+
+    return SalesInvoiceReturnLookupRead(
+        invoice_id=invoice.id,
+        invoice_number=invoice.invoice_number,
+        invoice_barcode=invoice.invoice_barcode,
+        branch_id=invoice.branch_id,
+        lines=eligible,
+    )

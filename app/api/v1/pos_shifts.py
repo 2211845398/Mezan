@@ -1,6 +1,6 @@
 """POS shift management APIs."""
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
@@ -13,9 +13,27 @@ from app.schemas.pos_shift import (
     PosShiftRead,
 )
 from app.services import audit_service
-from app.services.shift_service import add_cash_event, close_shift, open_shift
+from app.services.shift_service import (
+    add_cash_event,
+    close_shift,
+    get_open_shift_for_terminal,
+    open_shift,
+)
 
 router = APIRouter()
+
+
+@router.get("/pos/shifts/current", response_model=PosShiftRead | None)
+async def get_current_shift_endpoint(
+    terminal_id: int = Query(..., description="POS terminal id"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("pos_shifts", "read"),
+) -> PosShiftRead | None:
+    shift = await get_open_shift_for_terminal(db, terminal_id=terminal_id)
+    if shift is None:
+        return None
+    return PosShiftRead.model_validate(shift)
 
 
 @router.post("/pos/shifts/open", response_model=PosShiftRead, status_code=status.HTTP_201_CREATED)
