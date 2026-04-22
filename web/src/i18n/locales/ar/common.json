@@ -66,6 +66,26 @@
     "dark": "داكن",
     "system": "حسب النظام"
   },
+  "table": {
+    "label": "جدول بيانات",
+    "search_placeholder": "ابحث…",
+    "density": "الكثافة",
+    "density_compact": "مضغوطة",
+    "density_normal": "عادية",
+    "density_comfortable": "مريحة",
+    "columns": "الأعمدة",
+    "export": "تصدير",
+    "rows_per_page": "عدد الصفوف",
+    "page_x_of_y": "صفحة {{page}} من {{total}}",
+    "first_page": "أول صفحة",
+    "prev_page": "الصفحة السابقة",
+    "next_page": "الصفحة التالية",
+    "last_page": "آخر صفحة",
+    "empty_title": "لا توجد بيانات لعرضها",
+    "empty_body": "جرّب تعديل الفلاتر أو إعادة التحميل.",
+    "error_title": "تعذّر تحميل الجدول",
+    "error_body": "حدث خطأ أثناء جلب البيانات."
+  },
   "errors": {
     "generic": "حدث خطأ غير متوقع.",
     "network": "تعذّر الاتصال بالخادم.",
@@ -80,6 +100,7 @@
     "cancel": "إلغاء",
     "confirm": "تأكيد",
     "retry": "إعادة المحاولة",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "clear": "مسح"
   }
 }

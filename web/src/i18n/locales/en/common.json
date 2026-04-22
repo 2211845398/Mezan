@@ -66,6 +66,26 @@
     "dark": "Dark",
     "system": "System"
   },
+  "table": {
+    "label": "Data table",
+    "search_placeholder": "Search…",
+    "density": "Density",
+    "density_compact": "Compact",
+    "density_normal": "Normal",
+    "density_comfortable": "Comfortable",
+    "columns": "Columns",
+    "export": "Export",
+    "rows_per_page": "Rows per page",
+    "page_x_of_y": "Page {{page}} of {{total}}",
+    "first_page": "First page",
+    "prev_page": "Previous page",
+    "next_page": "Next page",
+    "last_page": "Last page",
+    "empty_title": "No data to display",
+    "empty_body": "Try adjusting the filters or reloading.",
+    "error_title": "The table failed to load",
+    "error_body": "Something went wrong while fetching data."
+  },
   "errors": {
     "generic": "An unexpected error occurred.",
     "network": "Unable to reach the server.",
@@ -80,6 +100,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "retry": "Retry",
-    "close": "Close"
+    "close": "Close",
+    "clear": "Clear"
   }
 }
