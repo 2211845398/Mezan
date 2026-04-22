@@ -2,6 +2,8 @@ import { CloudOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useRevalidator } from 'react-router-dom';
 
+import { getHealth } from '@/api/health';
+
 export default function OfflinePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -13,10 +15,8 @@ export default function OfflinePage() {
     // Give the revalidation loop a tick; if the user came here via a failed
     // navigation, send them back to the dashboard once the network clears.
     try {
-      const res = await fetch('/api/v1/health', { cache: 'no-store' });
-      if (res.ok) {
-        navigate('/dashboard', { replace: true });
-      }
+      await getHealth();
+      navigate('/dashboard', { replace: true });
     } catch {
       // stay on /offline; toast will already have been surfaced by the
       // Axios interceptor on the previous failure.

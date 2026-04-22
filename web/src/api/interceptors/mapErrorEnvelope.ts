@@ -1,33 +1,9 @@
 import type { AxiosError, AxiosInstance } from 'axios';
 
-import {
-  ApiError,
-  type ApiErrorPayload,
-  ConflictError,
-  ExternalServiceError,
-  NotAuthenticatedError,
-  ServerError,
-  ValidationError,
-} from '@/api/errors';
+import { ApiError, ConflictError, ExternalServiceError, ServerError, ValidationError } from '@/api/errors';
+import { type BackendEnvelope, mapResponseToApiError } from '@/api/mapError';
 import i18n from '@/i18n';
 import { notify } from '@/lib/toast';
-
-type BackendEnvelope = {
-  error?: Partial<ApiErrorPayload> & { code?: string; message?: string; details?: unknown };
-  request_id?: string;
-};
-
-function extractPayload(
-  envelope: BackendEnvelope | undefined,
-  fallbackCode: string,
-): ApiErrorPayload {
-  const e = envelope?.error;
-  return {
-    code: e?.code ?? fallbackCode,
-    message: e?.message ?? 'Request failed',
-    details: e?.details,
-  };
-}
 
 /**
  * Terminal response interceptor: anything that reaches this point has not
@@ -45,7 +21,6 @@ export function installMapErrorEnvelope(instance: AxiosInstance): void {
 
       const response = error.response;
       if (!response) {
-        // Network error — surface a generic "cannot reach server" toast.
         notify.error(i18n.t('errors.network'));
         throw new ApiError(error.message || 'Network error', {
           status: 0,
@@ -53,40 +28,32 @@ export function installMapErrorEnvelope(instance: AxiosInstance): void {
         });
       }
 
-      const requestId =
-        (response.headers?.['x-request-id'] as string | undefined) ??
-        response.data?.request_id ??
-        undefined;
-      const status = response.status;
+      const mapped = mapResponseToApiError(
+        {
+          status: response.status,
+          data: response.data,
+          headers: response.headers as Record<string, string | string[] | undefined>,
+        },
+        error,
+      );
 
-      const payload = extractPayload(response.data, `http_${status}`);
-
-      const init = { status, requestId, payload, cause: error };
-
-      switch (status) {
-        case 401:
-          throw new NotAuthenticatedError(init);
-        case 422:
-        case 400:
-          // Validation errors flow to the active form, no toast here.
-          throw new ValidationError(init);
-        case 409:
-          notify.warning(payload.message);
-          throw new ConflictError(init);
-        case 502:
-        case 503:
-        case 504:
-          notify.error(i18n.t('errors.server'));
-          throw new ExternalServiceError(init);
+      if (mapped instanceof ValidationError) {
+        throw mapped;
       }
-
-      if (status >= 500) {
+      if (mapped instanceof ConflictError) {
+        notify.warning(mapped.message);
+        throw mapped;
+      }
+      if (mapped instanceof ExternalServiceError || mapped instanceof ServerError) {
         notify.error(i18n.t('errors.server'));
-        throw new ServerError(init);
+        throw mapped;
       }
-
-      notify.error(payload.message);
-      throw new ApiError(payload.message, init);
+      if (mapped instanceof ApiError && mapped.status >= 400 && mapped.status < 500) {
+        notify.error(mapped.message);
+        throw mapped;
+      }
+      notify.error(mapped.message);
+      throw mapped;
     },
   );
 }

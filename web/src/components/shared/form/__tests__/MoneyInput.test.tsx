@@ -28,14 +28,10 @@ describe('MoneyInput', () => {
     // Canonical (backend-shaped) value:
     expect(screen.getByTestId('canonical').textContent).toBe('1234.50');
 
-    // Display (locale-formatted, ar-EG default). `Intl.NumberFormat('ar-EG')`
-    // renders Eastern Arabic digits with `٬` thousands and `٫` decimal.
+    // Display uses `@/lib/format` with `numberingSystem: 'latn'` — always 0-9.
     const displayed = (input as HTMLInputElement).value;
-    // Accept either ar-EG digits (common) or Latin digits (if a locale flag
-    // is flipped) — strip separators and compare.
-    const digitsOnly = displayed
-      .replace(/[,.،٬٫]/g, '')
-      .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660));
-    expect(digitsOnly).toBe('123450');
+    expect(displayed).not.toMatch(/[\u0660-\u0669]/);
+    const digitsOnly = displayed.replace(/[,،٬٫\s]/g, '');
+    expect(digitsOnly).toBe('1234.50');
   });
 });

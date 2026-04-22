@@ -2,11 +2,12 @@ import Decimal from 'decimal.js';
 import * as React from 'react';
 
 import { Input } from '@/components/ui/input';
+import { formatMoneyCanonicalDisplay } from '@/lib/format';
 import { getNumericLocale } from '@/lib/i18n-numbers';
 import { cn } from '@/lib/utils';
 
 /*
- * Money input. Display text is locale-formatted with `Intl.NumberFormat`;
+ * Money input. Display text is locale-formatted via `@/lib/format`;
  * the controlled value stays a canonical decimal string (backend `q2`) that
  * React Hook Form binds to. Arithmetic uses decimal.js so the rounding
  * matches the backend exactly — no float drift on totals.
@@ -35,20 +36,12 @@ function sanitiseInput(raw: string): string {
   return match ? match[0] : '';
 }
 
-function formatDisplay(canonical: string, locale: string, fractionDigits: number): string {
-  if (canonical === '' || canonical === '-' || canonical === '.' || canonical === '-.') {
-    return canonical;
-  }
-  try {
-    const d = new Decimal(canonical);
-    return new Intl.NumberFormat(locale, {
-      style: 'decimal',
-      minimumFractionDigits: fractionDigits,
-      maximumFractionDigits: fractionDigits,
-    }).format(d.toNumber());
-  } catch {
-    return canonical;
-  }
+function formatDisplay(
+  canonical: string,
+  locale: ReturnType<typeof getNumericLocale>,
+  fractionDigits: number,
+): string {
+  return formatMoneyCanonicalDisplay(canonical, locale, fractionDigits);
 }
 
 export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(

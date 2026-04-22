@@ -1,5 +1,6 @@
 import type { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
+import { notAuthenticatedFromAxios } from '@/api/mapError';
 import { clearAuthSync, setAccessTokenSync } from '@/stores/authStore';
 
 /*
@@ -68,12 +69,15 @@ export function installHandle401Refresh(instance: AxiosInstance): void {
       // business response (bad password, stale refresh, invalid reset token).
       // Propagate the error unchanged so the form handler can classify it.
       if (status === 401 && shouldSkipRefresh(original)) {
-        throw error;
+        throw notAuthenticatedFromAxios(error);
       }
 
       if (status !== 401 || !original || original._mezanRefreshRetry) {
         if (status === 401) {
           broadcastExpired();
+        }
+        if (status === 401) {
+          throw notAuthenticatedFromAxios(error);
         }
         throw error;
       }
@@ -94,7 +98,7 @@ export function installHandle401Refresh(instance: AxiosInstance): void {
 
       if (!newToken) {
         broadcastExpired();
-        throw error;
+        throw notAuthenticatedFromAxios(error);
       }
 
       setAccessTokenSync(newToken);

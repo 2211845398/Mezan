@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatNumber } from '@/lib/i18n-numbers';
+import { formatNumber } from '@/lib/format';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 

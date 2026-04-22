@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { navigation, type NavItem } from '@/config/navigation';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { formatMoney, formatNumber } from '@/lib/i18n-numbers';
+import { formatCurrency, formatNumber } from '@/lib/format';
 
 /*
  * W-3 showcase dashboard. No backend calls yet — the numbers and rows are
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           header: t('dashboard.cols.amount'),
           cell: ({ getValue }) => (
             <span className="text-end font-medium tabular-nums">
-              {formatMoney(Number(getValue()), { currency: 'EGP' })}
+              {formatCurrency(Number(getValue()), 'EGP')}
             </span>
           ),
         },
@@ -149,7 +149,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardDescription>{t('dashboard.kpi.paid')}</CardDescription>
             <CardTitle className="text-3xl">
-              {formatMoney(totals.paid, { currency: 'EGP' })}
+              {formatCurrency(totals.paid, 'EGP')}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardDescription>{t('dashboard.kpi.outstanding')}</CardDescription>
             <CardTitle className="text-3xl">
-              {formatMoney(totals.outstanding, { currency: 'EGP' })}
+              {formatCurrency(totals.outstanding, 'EGP')}
             </CardTitle>
           </CardHeader>
         </Card>

@@ -1,19 +1,9 @@
 import type { AxiosError, AxiosInstance } from 'axios';
 
 import { RateLimitedError } from '@/api/errors';
+import { parseRetryAfterHeader } from '@/api/mapError';
 import i18n from '@/i18n';
 import { notify } from '@/lib/toast';
-
-function parseRetryAfter(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const seconds = Number.parseInt(raw, 10);
-  if (Number.isFinite(seconds)) return seconds;
-  const date = Date.parse(raw);
-  if (!Number.isNaN(date)) {
-    return Math.max(0, Math.ceil((date - Date.now()) / 1000));
-  }
-  return null;
-}
 
 /**
  * On HTTP 429, surfaces the `Retry-After` delay to the toast system and
@@ -27,7 +17,7 @@ export function installHandleRateLimit(instance: AxiosInstance): void {
       if (error.response?.status !== 429) {
         throw error;
       }
-      const retryAfterSeconds = parseRetryAfter(
+      const retryAfterSeconds = parseRetryAfterHeader(
         error.response.headers?.['retry-after'] as string | undefined,
       );
       const requestId =

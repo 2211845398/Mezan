@@ -87,6 +87,20 @@ export class ServerError extends ApiError {
   }
 }
 
+export class NotFoundError extends ApiError {
+  constructor(init: ApiErrorInit) {
+    super(init.payload?.message ?? 'Not found', init);
+    this.name = 'NotFoundError';
+  }
+}
+
+export class UnexpectedError extends ApiError {
+  constructor(init: ApiErrorInit) {
+    super(init.payload?.message ?? 'Unexpected error', init);
+    this.name = 'UnexpectedError';
+  }
+}
+
 export function is4xx(err: unknown): boolean {
   return err instanceof ApiError && err.status >= 400 && err.status < 500;
 }
@@ -94,3 +108,6 @@ export function is4xx(err: unknown): boolean {
 export function is5xx(err: unknown): boolean {
   return err instanceof ApiError && err.status >= 500 && err.status < 600;
 }
+
+/** Same constructor as `NotAuthenticatedError` (shared `instanceof`). */
+export { NotAuthenticatedError as AuthenticationError };
