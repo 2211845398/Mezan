@@ -66,6 +66,12 @@
     "dark": "Dark",
     "system": "System"
   },
+  "form": {
+    "pick_date": "Pick a date",
+    "unsaved_title": "Unsaved changes",
+    "unsaved_body": "You have unsaved changes. Leave without saving?",
+    "discard": "Discard changes"
+  },
   "table": {
     "label": "Data table",
     "search_placeholder": "Search…",
