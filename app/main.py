@@ -72,6 +72,7 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("POST", "/api/v1/auth/password-reset/request"),
     ("POST", "/api/v1/auth/password-reset/confirm"),
     ("GET", "/api/v1/auth/me"),
+    ("GET", "/api/v1/auth/me/permissions"),
     ("PATCH", "/api/v1/auth/me"),
     ("POST", "/api/v1/customers/onboarding/complete"),
     # Notification self-service: auth-only; a user manages their own device
