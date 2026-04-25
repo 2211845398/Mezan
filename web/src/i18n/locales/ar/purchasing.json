@@ -1,0 +1,125 @@
+{
+  "suppliers": {
+    "title": "الموردون",
+    "new": "مورد جديد",
+    "edit": "تعديل مورد",
+    "col": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "currency": "معرّف العملة",
+      "tax_id": "الرقم الضريبي",
+      "payment_terms": "شروط الدفع"
+    },
+    "form": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "currency_id": "معرّف العملة",
+      "tax_id": "الرقم الضريبي",
+      "payment_terms": "شروط الدفع",
+      "contact_phone": "هاتف الاتصال",
+      "contact_email": "البريد الإلكتروني",
+      "payables_account_id": "معرّف حساب الذمم الدائنة",
+      "save": "حفظ",
+      "created": "تم حفظ المورد"
+    }
+  },
+  "orders": {
+    "title": "أوامر الشراء",
+    "new": "أمر جديد",
+    "edit": "تعديل أمر",
+    "detail": "تفاصيل الأمر",
+    "col": {
+      "po_number": "رقم أمر الشراء",
+      "supplier": "المورد",
+      "status": "الحالة",
+      "expected": "متوقع",
+      "total": "الإجمالي"
+    },
+    "filter_status": "الحالة",
+    "all_statuses": "الكل",
+    "form": {
+      "supplier": "المورد",
+      "supplier_name": "اسم المورد",
+      "expected_date": "التاريخ المتوقع",
+      "branch": "الفرع",
+      "branch_hint": "فرع الاستلام (اختياري حتى الاستلام)",
+      "notes": "ملاحظات",
+      "lines": "البنود",
+      "product": "المنتج",
+      "qty": "الكمية",
+      "unit_cost": "تكلفة الوحدة",
+      "line_total": "إجمالي السطر",
+      "add_line": "إضافة سطر",
+      "save_draft": "حفظ كمسودة",
+      "send": "إرسال للمورد",
+      "sent_toast": "تم إرسال أمر الشراء",
+      "footer_total": "الإجمالي",
+      "created": "تم حفظ أمر الشراء"
+    },
+    "detail_page": {
+      "timeline": "الحالة",
+      "lines": "البنود",
+      "receipts": "إيصالات الاستلام",
+      "receive": "استلام بضائع",
+      "send": "إرسال",
+      "cancel": "إلغاء",
+      "track": "تعليم كمتابَع",
+      "close": "إغلاق",
+      "partial_receive": "استلام جزئي",
+      "full_receive_hint": "حدد الكمية المستلمة لكل سطر",
+      "receipt_ok": "تم الاستلام وتحديث المخزون والقيود.",
+      "closed_ok": "تم إغلاق الأمر"
+    },
+    "status": {
+      "draft": "مسودة",
+      "sent": "مرسل",
+      "tracked": "قيد التنفيذ",
+      "closed": "مغلق",
+      "cancelled": "ملغى"
+    },
+    "receive": {
+      "title": "الاستلام على أمر الشراء",
+      "branch": "الفرع",
+      "qty": "الكمية للاستلام",
+      "submit": "ترحيل الاستلام",
+      "idempotency_note": "محمي بتكرار آمن — يمكن إعادة المحاولة."
+    }
+  },
+  "match": {
+    "title": "طابور مطابقة الفواتير",
+    "review": "مراجعة المطابقة",
+    "col": {
+      "id": "المسح",
+      "status": "الحالة",
+      "provider": "المزوّد",
+      "created": "أُنشئ"
+    },
+    "status": {
+      "pending_match": "بانتظار المطابقة",
+      "matched": "مطابَق",
+      "rejected": "مرفوض"
+    },
+    "map_ui": {
+      "needs_review": "بانتظار المطابقة",
+      "validated": "مطابَق",
+      "failed": "مرفوض"
+    },
+    "review_page": {
+      "parsed": "بنود مستخرجة",
+      "suggestions": "اقتراحات الكتالوج",
+      "confirm": "تأكيد",
+      "change": "تغيير",
+      "skip": "تخطّي",
+      "create_product": "إنشاء منتج",
+      "approve_all": "اعتماد الكل",
+      "apply_ok": "تم تطبيق مطابقة الكتالوج",
+      "load_suggestions": "تحميل الاقتراحات",
+      "confidence": "الثقة",
+      "no_candidates": "لا مرشحين",
+      "new_product_stub": "يفتح الكتالوج في تبويب جديد — أنشئ المنتج ثم حدّث الاقتراحات."
+    }
+  },
+  "errors": {
+    "generic": "حدث خطأ"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "loading": "جارٍ التحميل…",
+  "actions": { "back": "رجوع", "open": "فتح", "submit": "إرسال", "cancel": "إلغاء", "create": "إنشاء", "add_line": "إضافة بند" },
+  "errors": { "generic": "حدث خطأ." },
+  "stock": {
+    "title": "أرصدة المخزون",
+    "wavg_note": "تكلفة الوحدة مُوزونة—للعرض فقط.",
+    "filter": { "branch": "الفرع", "category": "التصنيف", "all_branches": "كل الفروع", "all_categories": "كل التصنيفات" },
+    "col": { "branch": "الفرع", "sku": "الرمز", "product": "المنتج", "category": "التصنيف", "qty": "الرصيد", "unit_cost": "ت.وحدة", "extended": "الإجمالي" }
+  },
+  "adjustments": {
+    "title": "تسويات المخزون",
+    "new": "تسوية جديدة",
+    "posted": "تمت التسوية",
+    "field": { "branch": "الفرع", "product": "المنتج", "delta": "فرق الكمية", "reason": "السبب" },
+    "col": { "branch": "الفرع", "product": "المنتج", "delta": "الفرق", "reason": "السبب", "at": "الوقت" }
+  },
+  "transfers": {
+    "title": "التحويلات",
+    "new": "تحويل جديد",
+    "created": "تم إنشاء التحويل",
+    "from": "من فرع",
+    "to": "إلى فرع",
+    "line": { "product_id": "رقم المنتج", "qty": "الكمية" },
+    "col": { "from": "من", "to": "إلى", "status": "الحالة", "created": "التاريخ" },
+    "dispatch": "إرسال",
+    "receive": "استلام",
+    "wavg_note": "التكلفة تُحسب عند الاستلام (القيد في الخادم)."
+  },
+  "scans": {
+    "title": "مسح الفواتير",
+    "review": "مراجعة",
+    "review_title": "المسح",
+    "no_preview": "لا يوجد رابط صورة.",
+    "parsed_json": "JSON المُنحَى",
+    "save_override": "حفظ التجاوز",
+    "override_ok": "تم حفظ التجاوز",
+    "json_invalid": "JSON غير صالح",
+    "validated": "تم الاعتماد",
+    "validate_branch": "الاستلام في الفرع",
+    "approve_validate": "اعتماد وترحيل استلام",
+    "validate_gl_note": "يُرحّل القيد في الخادم عند الاعتماد.",
+    "reupload": "رفع صورة جديدة (ينشئ سجل مسح جديد)",
+    "reuploaded": "تم إنشاء مسح جديد",
+    "col": { "status": "الحالة", "source": "المصدر", "provider": "المزوّد", "created": "التاريخ" },
+    "status": {
+      "received": "مستلم",
+      "parsed": "مُنحَى",
+      "needs_review": "للمراجعة",
+      "validated": "معتمد",
+      "failed": "فشل"
+    }
+  }
+}

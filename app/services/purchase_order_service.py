@@ -1,4 +1,4 @@
-"""Purchase order service with a strict state machine (Epic 2)."""
+"""Purchase order service with a strict state machine (Epic 2 + W-5.4)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 
-ALLOWED_STATUSES = {"draft", "sent", "tracked"}
+TERMINAL_STATUSES = frozenset({"closed", "cancelled"})
 
 
 async def _get_po(db: AsyncSession, po_id: int) -> PurchaseOrder:
@@ -75,14 +75,23 @@ async def create_po(
     return await _get_po(db, po.id)
 
 
-async def list_pos(db: AsyncSession, *, limit: int = 50, offset: int = 0) -> list[PurchaseOrder]:
-    result = await db.execute(
+async def list_pos(
+    db: AsyncSession,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    status: str | None = None,
+) -> list[PurchaseOrder]:
+    q = (
         select(PurchaseOrder)
         .options(selectinload(PurchaseOrder.lines))
         .order_by(PurchaseOrder.id.desc())
         .limit(limit)
         .offset(offset)
     )
+    if status is not None:
+        q = q.where(PurchaseOrder.status == status)
+    result = await db.execute(q)
     return list(result.scalars().all())
 
 
@@ -94,6 +103,7 @@ async def update_po(db: AsyncSession, *, po_id: int, data: dict[str, Any]) -> Pu
     po = await _get_po(db, po_id)
     _ensure_status(po, "draft")
 
+    data.pop("send_idempotency_key", None)
     lines = data.pop("lines", None)
     for k, v in data.items():
         setattr(po, k, v)
@@ -110,24 +120,73 @@ async def update_po(db: AsyncSession, *, po_id: int, data: dict[str, Any]) -> Pu
     return await _get_po(db, po.id)
 
 
-async def mark_po_sent(db: AsyncSession, *, po_id: int) -> PurchaseOrder:
+async def mark_po_sent(
+    db: AsyncSession,
+    *,
+    po_id: int,
+    idempotency_key: str | None = None,
+) -> PurchaseOrder:
     po = await _get_po(db, po_id)
+    if po.status == "sent":
+        if idempotency_key and po.send_idempotency_key == idempotency_key:
+            return po
+        raise ValidationError(
+            "Purchase order already sent",
+            details={"po_id": po_id},
+        )
+    if po.status in TERMINAL_STATUSES:
+        raise StateTransitionError(
+            "PO is in a terminal status",
+            details={"current_status": po.status},
+        )
     _ensure_status(po, "draft")
     if not po.lines:
         raise ValidationError("Cannot send a PO with no lines")
     po.status = "sent"
     po.sent_at = datetime.now(UTC)
+    if idempotency_key:
+        po.send_idempotency_key = idempotency_key
     await db.commit()
     return await _get_po(db, po.id)
 
 
 async def mark_po_tracked(db: AsyncSession, *, po_id: int) -> PurchaseOrder:
     po = await _get_po(db, po_id)
+    if po.status in TERMINAL_STATUSES:
+        raise StateTransitionError(
+            "PO is in a terminal status",
+            details={"current_status": po.status},
+        )
     if po.status not in {"sent", "tracked"}:
         raise StateTransitionError(
             "PO must be sent before tracking",
             details={"current_status": po.status, "expected_status": "sent"},
         )
     po.status = "tracked"
+    await db.commit()
+    return await _get_po(db, po.id)
+
+
+async def mark_po_cancelled(db: AsyncSession, *, po_id: int) -> PurchaseOrder:
+    po = await _get_po(db, po_id)
+    _ensure_status(po, "draft")
+    po.status = "cancelled"
+    await db.commit()
+    return await _get_po(db, po.id)
+
+
+async def mark_po_closed(db: AsyncSession, *, po_id: int) -> PurchaseOrder:
+    po = await _get_po(db, po_id)
+    if po.status in TERMINAL_STATUSES:
+        raise StateTransitionError(
+            "PO is already closed or cancelled",
+            details={"current_status": po.status},
+        )
+    if po.status not in {"sent", "tracked"}:
+        raise StateTransitionError(
+            "Only sent or tracked POs can be closed",
+            details={"current_status": po.status},
+        )
+    po.status = "closed"
     await db.commit()
     return await _get_po(db, po.id)

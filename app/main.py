@@ -36,8 +36,10 @@ from app.api.v1 import (
     discounts_router,
     employees_router,
     executive_bi_router,
+    goods_receipts_router,
     health_router,
     inventory_adjustments_router,
+    inventory_reporting_router,
     invoice_scans_router,
     loyalty_router,
     marketing_router,
@@ -45,6 +47,7 @@ from app.api.v1 import (
     payments_router,
     payroll_router,
     pos_shifts_router,
+    price_lists_router,
     purchase_orders_router,
     returns_router,
     roles_router,
@@ -223,11 +226,14 @@ app.include_router(branches_router, prefix="/api/v1", tags=["branches"])
 app.include_router(terminals_router, prefix="/api/v1", tags=["terminals"])
 app.include_router(roles_router, prefix="/api/v1", tags=["roles"])
 app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(price_lists_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["purchase_orders"])
+app.include_router(goods_receipts_router, prefix="/api/v1", tags=["goods_receipts"])
 app.include_router(invoice_scans_router, prefix="/api/v1", tags=["invoice_scans"])
 app.include_router(transfers_router, prefix="/api/v1", tags=["transfers"])
 app.include_router(pos_shifts_router, prefix="/api/v1", tags=["pos_shifts"])
 app.include_router(inventory_adjustments_router, prefix="/api/v1", tags=["inventory"])
+app.include_router(inventory_reporting_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(customers_router, prefix="/api/v1", tags=["customers"])
 app.include_router(employees_router, prefix="/api/v1", tags=["employees"])
 app.include_router(carts_router, prefix="/api/v1", tags=["pos_carts"])

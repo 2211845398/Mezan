@@ -11,7 +11,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_permission
+from app.api.deps import get_current_user, require_any_permission, require_permission
 from app.db.database import get_db
 from app.schemas.ai_advisory import (
     HrAnomalyRequest,
@@ -78,6 +78,9 @@ async def invoice_match_endpoint(
     body: InvoiceMatchRequest,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
-    __: None = require_permission("ai_advisory", "run"),
+    __: None = require_any_permission(
+        ("ai_advisory", "run"),
+        ("invoice_scans", "validate"),
+    ),
 ) -> InvoiceMatchResponse:
     return await match_invoice_scan(db, payload=body)

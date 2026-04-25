@@ -249,8 +249,8 @@ Each feature module sits at `web/src/features/<domain>/{api,components,hooks,pag
 
 - [ ] **W-5.1** Auth (login, forgot, reset, onboarding completion).
 - [x] **W-5.2** POS web (W-5.1 plan): `/pos` shell + `ShiftGate` / `PosRegister` / `ShiftClose` / `InvoiceLookup`; detailed `CartRead` + invoice read/list + return lookup on backend; `react-to-print` thermal 58/80 + credit note; `localStorage` offline queue + flush on reconnect (Dexie/service worker → W-9); i18n `pos` namespace; MSW + Vitest smoke/RBAC/offline-queue tests.
-- [ ] **W-5.3** Inventory and catalog.
-- [ ] **W-5.4** Purchase orders + goods receipts + invoice scans.
+- [x] **W-5.3** Inventory and catalog: stock-on-hand + invoice-scan list + minimal price lists (backend); catalog/inventory feature modules (products, categories, price lists, stock, adjustments, transfers, scans); shared `FileDrop`, `AttributeFieldset`, `BarcodeRepeater`, `BranchStockFilterBar`; i18n `catalog` + `inventory`; Vitest/MSW smoke; routes under `/catalog/*` and `/inventory/*`.
+- [x] **W-5.4** Purchase orders + goods receipts + invoice scans.
 - [ ] **W-5.5** HR (employees, attendance, leave) + Payroll.
 - [ ] **W-5.6** Accounting (journals, trial balance, financial reports) + Fiscal periods.
 - [ ] **W-5.7** CRM (loyalty, discounts) + Marketing advisory.

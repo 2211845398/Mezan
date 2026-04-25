@@ -1,6 +1,8 @@
-"""Supplier master service (Epic 5)."""
+"""Supplier master service (Epic 5 + W-5.4)."""
 
 from __future__ import annotations
+
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +18,9 @@ async def create_supplier(
     name: str,
     currency_id: int,
     payables_account_id: int | None,
+    tax_id: str | None = None,
+    contact: dict[str, Any] | None = None,
+    payment_terms: str | None = None,
 ) -> Supplier:
     existing = await db.execute(select(Supplier).where(Supplier.code == code))
     if existing.scalar_one_or_none():
@@ -25,6 +30,9 @@ async def create_supplier(
         name=name,
         currency_id=currency_id,
         payables_account_id=payables_account_id,
+        tax_id=tax_id,
+        contact=contact or {},
+        payment_terms=payment_terms,
     )
     db.add(s)
     await db.commit()
@@ -42,4 +50,18 @@ async def get_supplier(db: AsyncSession, supplier_id: int) -> Supplier:
     s = res.scalar_one_or_none()
     if not s:
         raise NotFoundError("Supplier not found", details={"supplier_id": supplier_id})
+    return s
+
+
+async def update_supplier(
+    db: AsyncSession,
+    *,
+    supplier_id: int,
+    data: dict[str, Any],
+) -> Supplier:
+    s = await get_supplier(db, supplier_id)
+    for k, v in data.items():
+        setattr(s, k, v)
+    await db.commit()
+    await db.refresh(s)
     return s

@@ -58,6 +58,31 @@ const AdminSchedulesList = lazy(
 );
 const AdminRunsList = lazy(() => import('@/features/admin/pages/notifications/RunsList'));
 
+const CatalogProductsList = lazy(() => import('@/features/catalog/pages/products/ProductsList'));
+const CatalogCategoriesTree = lazy(() => import('@/features/catalog/pages/categories/CategoriesTree'));
+const CatalogPriceListsList = lazy(() => import('@/features/catalog/pages/price-lists/PriceListsList'));
+const CatalogPriceListEdit = lazy(() => import('@/features/catalog/pages/price-lists/PriceListEdit'));
+
+const InventoryStockOnHand = lazy(() => import('@/features/inventory/pages/stock/StockOnHand'));
+const InventoryAdjustmentsList = lazy(
+  () => import('@/features/inventory/pages/adjustments/AdjustmentsList'),
+);
+const InventoryAdjustmentForm = lazy(
+  () => import('@/features/inventory/pages/adjustments/AdjustmentForm'),
+);
+const InventoryTransfersList = lazy(() => import('@/features/inventory/pages/transfers/TransfersList'));
+const InventoryTransferForm = lazy(() => import('@/features/inventory/pages/transfers/TransferForm'));
+const InventoryScansList = lazy(() => import('@/features/inventory/pages/scans/ScansList'));
+const InventoryScanReview = lazy(() => import('@/features/inventory/pages/scans/ScanReview'));
+
+const PurchasingOrdersList = lazy(() => import('@/features/purchasing/pages/orders/OrdersList'));
+const PurchasingOrderForm = lazy(() => import('@/features/purchasing/pages/orders/OrderForm'));
+const PurchasingOrderDetail = lazy(() => import('@/features/purchasing/pages/orders/OrderDetail'));
+const PurchasingSuppliersList = lazy(() => import('@/features/purchasing/pages/suppliers/SuppliersList'));
+const PurchasingSupplierForm = lazy(() => import('@/features/purchasing/pages/suppliers/SupplierForm'));
+const PurchasingMatchQueue = lazy(() => import('@/features/purchasing/pages/invoice-match/MatchQueue'));
+const PurchasingMatchReview = lazy(() => import('@/features/purchasing/pages/invoice-match/MatchReview'));
+
 function withSuspense(Component: ComponentType): JSX.Element {
   return (
     <Suspense fallback={<RouteLoader />}>
@@ -182,7 +207,7 @@ export const router = createBrowserRouter([
                 path: 'products',
                 element: (
                   <RequirePermission resource="catalog" action="read">
-                    {stub('nav.catalog_products', 'W-5.3')}
+                    {withSuspense(CatalogProductsList)}
                   </RequirePermission>
                 ),
               },
@@ -190,17 +215,38 @@ export const router = createBrowserRouter([
                 path: 'categories',
                 element: (
                   <RequirePermission resource="catalog" action="read">
-                    {stub('nav.catalog_categories', 'W-5.3')}
+                    {withSuspense(CatalogCategoriesTree)}
                   </RequirePermission>
                 ),
               },
               {
                 path: 'price-lists',
-                element: (
-                  <RequirePermission resource="catalog" action="update">
-                    {stub('nav.catalog_price_lists', 'W-5.3')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="catalog" action="read">
+                        {withSuspense(CatalogPriceListsList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="catalog" action="update">
+                        {withSuspense(CatalogPriceListEdit)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="catalog" action="read">
+                        {withSuspense(CatalogPriceListEdit)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
             ],
           },
@@ -214,33 +260,80 @@ export const router = createBrowserRouter([
                 path: 'stock',
                 element: (
                   <RequirePermission resource="inventory" action="read">
-                    {stub('nav.inventory_stock', 'W-5.3')}
+                    {withSuspense(InventoryStockOnHand)}
                   </RequirePermission>
                 ),
               },
               {
                 path: 'adjustments',
-                element: (
-                  <RequirePermission resource="stock_adjustments" action="read">
-                    {stub('nav.inventory_adjustments', 'W-5.3')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="stock_adjustments" action="read">
+                        {withSuspense(InventoryAdjustmentsList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="stock_adjustments" action="create">
+                        {withSuspense(InventoryAdjustmentForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'transfers',
-                element: (
-                  <RequirePermission resource="inventory" action="read">
-                    {stub('nav.inventory_transfers', 'W-5.3')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="inventory" action="read">
+                        {withSuspense(InventoryTransfersList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="inventory" action="update">
+                        {withSuspense(InventoryTransferForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="inventory" action="read">
+                        {withSuspense(InventoryTransferForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'scans',
-                element: (
-                  <RequirePermission resource="invoice_scans" action="read">
-                    {stub('nav.inventory_scans', 'W-5.4')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="invoice_scans" action="read">
+                        {withSuspense(InventoryScansList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="invoice_scans" action="read">
+                        {withSuspense(InventoryScanReview)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
             ],
           },
@@ -252,27 +345,91 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="/purchasing/orders" replace /> },
               {
                 path: 'orders',
-                element: (
-                  <RequirePermission resource="purchase_orders" action="read">
-                    {stub('nav.purchasing_orders', 'W-5.4')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="purchase_orders" action="read">
+                        {withSuspense(PurchasingOrdersList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="purchase_orders" action="create">
+                        {withSuspense(PurchasingOrderForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id/edit',
+                    element: (
+                      <RequirePermission resource="purchase_orders" action="update">
+                        {withSuspense(PurchasingOrderForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="purchase_orders" action="read">
+                        {withSuspense(PurchasingOrderDetail)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'suppliers',
-                element: (
-                  <RequirePermission resource="suppliers" action="read">
-                    {stub('nav.purchasing_suppliers', 'W-5.4')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="suppliers" action="read">
+                        {withSuspense(PurchasingSuppliersList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="suppliers" action="create">
+                        {withSuspense(PurchasingSupplierForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id/edit',
+                    element: (
+                      <RequirePermission resource="suppliers" action="update">
+                        {withSuspense(PurchasingSupplierForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
+              { path: 'goods-receipts', element: <Navigate to="/purchasing/orders" replace /> },
               {
-                path: 'goods-receipts',
-                element: (
-                  <RequirePermission resource="invoice_scans" action="validate">
-                    {stub('nav.purchasing_goods_receipts', 'W-5.4')}
-                  </RequirePermission>
-                ),
+                path: 'invoice-match',
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="invoice_scans" action="validate">
+                        {withSuspense(PurchasingMatchQueue)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="invoice_scans" action="validate">
+                        {withSuspense(PurchasingMatchReview)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
             ],
           },

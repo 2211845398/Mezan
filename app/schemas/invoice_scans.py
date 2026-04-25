@@ -40,3 +40,13 @@ class InvoiceScanValidateRequest(BaseModel):
 class InvoiceScanValidateResponse(BaseModel):
     scan: InvoiceScanRead
     goods_receipt_id: int
+
+
+class CatalogMatchLineApply(BaseModel):
+    line_no: int = Field(gt=0)
+    product_id: int | None = None
+
+
+class InvoiceScanApplyCatalogMatchesRequest(BaseModel):
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    line_matches: list[CatalogMatchLineApply] = Field(default_factory=list)

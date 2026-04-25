@@ -1,0 +1,54 @@
+{
+  "loading": "Loading…",
+  "actions": { "back": "Back", "open": "Open", "submit": "Submit", "cancel": "Cancel", "create": "Create", "add_line": "Add line" },
+  "errors": { "generic": "Something went wrong." },
+  "stock": {
+    "title": "Stock on hand",
+    "wavg_note": "Unit cost is weighted-average (display only).",
+    "filter": { "branch": "Branch", "category": "Category", "all_branches": "All branches", "all_categories": "All categories" },
+    "col": { "branch": "Branch", "sku": "SKU", "product": "Product", "category": "Category", "qty": "On hand", "unit_cost": "Unit cost", "extended": "Extended" }
+  },
+  "adjustments": {
+    "title": "Stock adjustments",
+    "new": "New adjustment",
+    "posted": "Adjustment posted",
+    "field": { "branch": "Branch", "product": "Product", "delta": "Quantity delta", "reason": "Reason" },
+    "col": { "branch": "Branch", "product": "Product", "delta": "Delta", "reason": "Reason", "at": "Time" }
+  },
+  "transfers": {
+    "title": "Transfers",
+    "new": "New transfer",
+    "created": "Transfer created",
+    "from": "From branch",
+    "to": "To branch",
+    "line": { "product_id": "Product id", "qty": "Qty" },
+    "col": { "from": "From", "to": "To", "status": "Status", "created": "Created" },
+    "dispatch": "Dispatch",
+    "receive": "Receive",
+    "wavg_note": "Cost follows weighted-average on receive (GL posted server-side)."
+  },
+  "scans": {
+    "title": "Invoice scans",
+    "review": "Review",
+    "review_title": "Scan",
+    "no_preview": "No image URL on this scan.",
+    "parsed_json": "Parsed / override JSON",
+    "save_override": "Save override",
+    "override_ok": "Override saved",
+    "json_invalid": "Invalid JSON",
+    "validated": "Validated",
+    "validate_branch": "Receive at branch",
+    "approve_validate": "Validate & post goods receipt",
+    "validate_gl_note": "GL posts on the server when validation succeeds.",
+    "reupload": "Upload a new image (creates a new scan record)",
+    "reuploaded": "New scan created",
+    "col": { "status": "Status", "source": "Source", "provider": "Provider", "created": "Created" },
+    "status": {
+      "received": "Received",
+      "parsed": "Parsed",
+      "needs_review": "Review",
+      "validated": "Validated",
+      "failed": "Failed"
+    }
+  }
+}

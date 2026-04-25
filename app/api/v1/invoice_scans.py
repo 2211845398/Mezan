@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
+from app.models.invoice_scan import InvoiceScan
 from app.models.users import User
 from app.schemas.invoice_scans import (
+    InvoiceScanApplyCatalogMatchesRequest,
     InvoiceScanCreate,
     InvoiceScanOverride,
     InvoiceScanRead,
@@ -17,6 +20,7 @@ from app.schemas.invoice_scans import (
 )
 from app.services import audit_service
 from app.services.invoice_scan_service import (
+    apply_catalog_matches,
     create_scan,
     get_scan,
     override_scan,
@@ -53,6 +57,25 @@ async def create_invoice_scan_endpoint(
     return InvoiceScanRead.model_validate(scan)
 
 
+@router.get("/invoice-scans", response_model=list[InvoiceScanRead])
+async def list_invoice_scans_endpoint(
+    status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("invoice_scans", "read"),
+) -> list[InvoiceScanRead]:
+    """Paginated list of invoice scans (OCR runs), optional status filter."""
+    q = select(InvoiceScan).order_by(InvoiceScan.id.desc())
+    if status is not None:
+        q = q.where(InvoiceScan.status == status)
+    q = q.limit(min(max(limit, 1), 200)).offset(max(offset, 0))
+    res = await db.execute(q)
+    rows = res.scalars().all()
+    return [InvoiceScanRead.model_validate(r) for r in rows]
+
+
 @router.get("/invoice-scans/{scan_id}", response_model=InvoiceScanRead)
 async def get_invoice_scan_endpoint(
     scan_id: int,
@@ -77,6 +100,37 @@ async def override_invoice_scan_endpoint(
     await audit_service.log(
         session=db,
         action="invoice_scan.overridden",
+        resource_type="invoice_scan",
+        resource_id=str(scan.id),
+        new_value=InvoiceScanRead.model_validate(scan).model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return InvoiceScanRead.model_validate(scan)
+
+
+@router.post("/invoice-scans/{scan_id}/apply-catalog-matches", response_model=InvoiceScanRead)
+async def apply_catalog_matches_endpoint(
+    scan_id: int,
+    body: InvoiceScanApplyCatalogMatchesRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("invoice_scans", "validate"),
+) -> InvoiceScanRead:
+    pre = await get_scan(db, scan_id)
+    if pre.catalog_match_apply_idempotency_key == body.idempotency_key:
+        return InvoiceScanRead.model_validate(pre)
+    scan = await apply_catalog_matches(
+        db,
+        scan_id=scan_id,
+        idempotency_key=body.idempotency_key,
+        line_matches=[m.model_dump() for m in body.line_matches],
+    )
+    await audit_service.log(
+        session=db,
+        action="invoice_scan.catalog_matches_applied",
         resource_type="invoice_scan",
         resource_id=str(scan.id),
         new_value=InvoiceScanRead.model_validate(scan).model_dump(),

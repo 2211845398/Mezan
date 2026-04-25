@@ -1,25 +1,134 @@
 import { useQuery } from '@tanstack/react-query';
 
-import type { paths } from '@/api/generated/schema';
+import type { ProductRead } from './api';
+import {
+  getCategory,
+  getCategoryTree,
+  getPriceList,
+  getProduct,
+  listCategories,
+  listCategoryAttributes,
+  listPriceLists,
+  listProducts,
+} from './api';
 
-import { listProducts } from './api';
+export const catalogKeys = {
+  root: ['catalog'] as const,
+  products: (q: Record<string, unknown>) => [...catalogKeys.root, 'products', q] as const,
+  product: (id: number) => [...catalogKeys.root, 'product', id] as const,
+  categoryTree: () => [...catalogKeys.root, 'categoryTree'] as const,
+  categories: (parentId: number | null) => [...catalogKeys.root, 'categories', { parentId }] as const,
+  category: (id: number) => [...catalogKeys.root, 'category', id] as const,
+  categoryAttrs: (id: number) => [...catalogKeys.root, 'categoryAttrs', id] as const,
+  priceLists: (q: Record<string, unknown>) => [...catalogKeys.root, 'priceLists', q] as const,
+  priceList: (id: number) => [...catalogKeys.root, 'priceList', id] as const,
+};
 
-export type ListProductsParams = NonNullable<
-  paths['/api/v1/products']['get']['parameters']['query']
->;
+export type ListProductsParams = {
+  q?: string;
+  category_id?: number;
+  status?: string;
+  limit: number;
+  offset: number;
+};
 
-export const productKeys = {
-  all: ['products'] as const,
-  lists: () => [...productKeys.all, 'list'] as const,
-  list: (params: ListProductsParams | undefined) => [...productKeys.lists(), params] as const,
-  details: () => [...productKeys.all, 'detail'] as const,
-  detail: (id: number) => [...productKeys.details(), id] as const,
-} as const;
+function buildListParams(p: ListProductsParams): Parameters<typeof listProducts>[0] {
+  const o: Parameters<typeof listProducts>[0] = { limit: p.limit, offset: p.offset };
+  if (p.q !== undefined) {
+    o.q = p.q;
+  }
+  if (p.category_id !== undefined) {
+    o.category_id = p.category_id;
+  }
+  if (p.status !== undefined) {
+    o.status = p.status;
+  }
+  return o;
+}
 
-export function useProducts(params?: ListProductsParams, options?: { enabled?: boolean }) {
+/** Used by POS product search (W-5.1) and catalog lists. */
+export function useProducts(
+  params: ListProductsParams,
+  options?: { enabled?: boolean },
+): ReturnType<typeof useQuery<ProductRead[]>> {
   return useQuery({
-    queryKey: productKeys.list(params),
-    queryFn: () => listProducts(params),
+    queryKey: catalogKeys.products(params as unknown as Record<string, unknown>),
+    queryFn: () => listProducts(buildListParams(params)),
     enabled: options?.enabled ?? true,
+  });
+}
+
+export function useProductListQuery(params: {
+  q?: string;
+  category_id?: number;
+  status?: string | null;
+  limit: number;
+  offset: number;
+}) {
+  const q = params.q;
+  const category_id = params.category_id;
+  const status = params.status ?? undefined;
+  return useQuery({
+    queryKey: catalogKeys.products({ q, category_id, status, limit: params.limit, offset: params.offset }),
+    queryFn: () =>
+      listProducts(
+        buildListParams({
+          limit: params.limit,
+          offset: params.offset,
+          ...(q !== undefined ? { q } : {}),
+          ...(category_id !== undefined ? { category_id } : {}),
+          ...(status !== undefined ? { status } : {}),
+        }),
+      ),
+  });
+}
+
+export function useProductQuery(id: number | null) {
+  return useQuery({
+    queryKey: catalogKeys.product(id ?? 0),
+    queryFn: () => getProduct(id!),
+    enabled: id != null,
+  });
+}
+
+export function useCategoryTreeQuery() {
+  return useQuery({ queryKey: catalogKeys.categoryTree(), queryFn: getCategoryTree });
+}
+
+export function useCategoriesQuery(parentId: number | null) {
+  return useQuery({
+    queryKey: catalogKeys.categories(parentId),
+    queryFn: () => listCategories(parentId ?? undefined),
+  });
+}
+
+export function useCategoryQuery(id: number | null) {
+  return useQuery({
+    queryKey: catalogKeys.category(id ?? 0),
+    queryFn: () => getCategory(id!),
+    enabled: id != null,
+  });
+}
+
+export function useCategoryAttributesQuery(categoryId: number | null) {
+  return useQuery({
+    queryKey: catalogKeys.categoryAttrs(categoryId ?? 0),
+    queryFn: () => listCategoryAttributes(categoryId!),
+    enabled: categoryId != null,
+  });
+}
+
+export function usePriceListsQuery(params?: { limit?: number; offset?: number }) {
+  return useQuery({
+    queryKey: catalogKeys.priceLists(params ?? {}),
+    queryFn: () => listPriceLists(params),
+  });
+}
+
+export function usePriceListQuery(id: number | null) {
+  return useQuery({
+    queryKey: catalogKeys.priceList(id ?? 0),
+    queryFn: () => getPriceList(id!),
+    enabled: id != null,
   });
 }

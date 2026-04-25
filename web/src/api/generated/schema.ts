@@ -861,6 +861,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/price-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Price Lists Endpoint */
+        get: operations["list_price_lists_endpoint_api_v1_price_lists_get"];
+        put?: never;
+        /** Create Price List Endpoint */
+        post: operations["create_price_list_endpoint_api_v1_price_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/price-lists/{price_list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Price List Endpoint */
+        get: operations["get_price_list_endpoint_api_v1_price_lists__price_list_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Price List Endpoint */
+        patch: operations["update_price_list_endpoint_api_v1_price_lists__price_list_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/price-lists/{price_list_id}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Or Replace Line Endpoint */
+        post: operations["add_or_replace_line_endpoint_api_v1_price_lists__price_list_id__lines_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/price-lists/{price_list_id}/lines/{line_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Line Endpoint */
+        delete: operations["delete_line_endpoint_api_v1_price_lists__price_list_id__lines__line_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Line Endpoint */
+        patch: operations["patch_line_endpoint_api_v1_price_lists__price_list_id__lines__line_id__patch"];
+        trace?: never;
+    };
     "/api/v1/purchase-orders": {
         parameters: {
             query?: never;
@@ -931,7 +1002,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/invoice-scans": {
+    "/api/v1/purchase-orders/{po_id}/cancel": {
         parameters: {
             query?: never;
             header?: never;
@@ -939,6 +1010,95 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        put?: never;
+        /** Cancel Po Endpoint */
+        post: operations["cancel_po_endpoint_api_v1_purchase_orders__po_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/purchase-orders/{po_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close Po Endpoint */
+        post: operations["close_po_endpoint_api_v1_purchase_orders__po_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goods-receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Goods Receipts Endpoint */
+        get: operations["list_goods_receipts_endpoint_api_v1_goods_receipts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goods-receipts/{receipt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Goods Receipt Endpoint */
+        get: operations["get_goods_receipt_endpoint_api_v1_goods_receipts__receipt_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/purchase-orders/{purchase_order_id}/receive-goods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive Goods Endpoint */
+        post: operations["receive_goods_endpoint_api_v1_purchase_orders__purchase_order_id__receive_goods_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoice-scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Invoice Scans Endpoint
+         * @description Paginated list of invoice scans (OCR runs), optional status filter.
+         */
+        get: operations["list_invoice_scans_endpoint_api_v1_invoice_scans_get"];
         put?: never;
         /** Create Invoice Scan Endpoint */
         post: operations["create_invoice_scan_endpoint_api_v1_invoice_scans_post"];
@@ -980,6 +1140,23 @@ export interface paths {
         head?: never;
         /** Override Invoice Scan Endpoint */
         patch: operations["override_invoice_scan_endpoint_api_v1_invoice_scans__scan_id__override_patch"];
+        trace?: never;
+    };
+    "/api/v1/invoice-scans/{scan_id}/apply-catalog-matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Catalog Matches Endpoint */
+        post: operations["apply_catalog_matches_endpoint_api_v1_invoice_scans__scan_id__apply_catalog_matches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/invoice-scans/{scan_id}/validate": {
@@ -1162,6 +1339,26 @@ export interface paths {
         };
         /** List Stock Movements */
         get: operations["list_stock_movements_api_v1_inventory_movements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/stock-on-hand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Stock On Hand Endpoint
+         * @description List stock levels with WAVG unit cost (display-only) per branch/product.
+         */
+        get: operations["list_stock_on_hand_endpoint_api_v1_inventory_stock_on_hand_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2341,6 +2538,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/suppliers/{supplier_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Supplier Endpoint */
+        get: operations["get_supplier_endpoint_api_v1_suppliers__supplier_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Supplier Endpoint */
+        patch: operations["update_supplier_endpoint_api_v1_suppliers__supplier_id__patch"];
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -2782,6 +2997,13 @@ export interface components {
         CartStateRequest: {
             /** Action */
             action: string;
+        };
+        /** CatalogMatchLineApply */
+        CatalogMatchLineApply: {
+            /** Line No */
+            line_no: number;
+            /** Product Id */
+            product_id?: number | null;
         };
         /** CategoryAttributeDefCreate */
         CategoryAttributeDefCreate: {
@@ -3322,6 +3544,59 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** GoodsReceiptLineRead */
+        GoodsReceiptLineRead: {
+            /** Id */
+            id: number;
+            /** Purchase Order Line Id */
+            purchase_order_line_id: number | null;
+            /** Product Id */
+            product_id: number;
+            /** Qty */
+            qty: number;
+            /** Unit Cost */
+            unit_cost: string;
+        };
+        /** GoodsReceiptRead */
+        GoodsReceiptRead: {
+            /** Id */
+            id: number;
+            /** Purchase Order Id */
+            purchase_order_id: number | null;
+            /** Branch Id */
+            branch_id: number;
+            /** Supplier Name */
+            supplier_name: string | null;
+            /** Supplier Id */
+            supplier_id: number | null;
+            /** Source Invoice Scan Id */
+            source_invoice_scan_id: number | null;
+            /** Created By User Id */
+            created_by_user_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Lines */
+            lines?: components["schemas"]["GoodsReceiptLineRead"][];
+        };
+        /** GoodsReceiptReceiveLine */
+        GoodsReceiptReceiveLine: {
+            /** Purchase Order Line Id */
+            purchase_order_line_id: number;
+            /** Qty */
+            qty: number;
+        };
+        /** GoodsReceiptReceiveRequest */
+        GoodsReceiptReceiveRequest: {
+            /** Branch Id */
+            branch_id: number;
+            /** Lines */
+            lines: components["schemas"]["GoodsReceiptReceiveLine"][];
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -3497,6 +3772,13 @@ export interface components {
             };
             /** Line Matches */
             line_matches: components["schemas"]["InvoiceLineMatch"][];
+        };
+        /** InvoiceScanApplyCatalogMatchesRequest */
+        InvoiceScanApplyCatalogMatchesRequest: {
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Line Matches */
+            line_matches?: components["schemas"]["CatalogMatchLineApply"][];
         };
         /** InvoiceScanCreate */
         InvoiceScanCreate: {
@@ -4211,6 +4493,132 @@ export interface components {
             /** Closed At */
             closed_at: string | null;
         };
+        /** PriceListCreate */
+        PriceListCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /** Effective To */
+            effective_to?: string | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Branch Ids */
+            branch_ids?: number[];
+            /** Lines */
+            lines?: components["schemas"]["PriceListLineCreate"][];
+        };
+        /** PriceListLineCreate */
+        PriceListLineCreate: {
+            /** Product Id */
+            product_id: number;
+            /**
+             * Unit Price
+             * @description Major units; 2 d.p. in DB.
+             */
+            unit_price: number | string;
+            /** Currency Id */
+            currency_id?: number | null;
+        };
+        /** PriceListLineRead */
+        PriceListLineRead: {
+            /** Id */
+            id: number;
+            /** Price List Id */
+            price_list_id: number;
+            /** Product Id */
+            product_id: number;
+            /** Unit Price */
+            unit_price: string;
+            /** Currency Id */
+            currency_id: number | null;
+        };
+        /** PriceListLineUpdate */
+        PriceListLineUpdate: {
+            /** Unit Price */
+            unit_price?: number | string | null;
+            /** Currency Id */
+            currency_id?: number | null;
+        };
+        /** PriceListRead */
+        PriceListRead: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /** Effective To */
+            effective_to: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Branch Ids */
+            branch_ids: number[];
+            /** Lines */
+            lines: components["schemas"]["PriceListLineRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PriceListSummaryRead */
+        PriceListSummaryRead: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /** Effective To */
+            effective_to: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Branch Count */
+            branch_count: number;
+            /** Line Count */
+            line_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PriceListUpdate */
+        PriceListUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Effective From */
+            effective_from?: string | null;
+            /** Effective To */
+            effective_to?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Branch Ids */
+            branch_ids?: number[] | null;
+        };
         /** ProductCreate */
         ProductCreate: {
             /** Category Id */
@@ -4350,6 +4758,8 @@ export interface components {
             supplier_name: string;
             /** Supplier Id */
             supplier_id?: number | null;
+            /** Branch Id */
+            branch_id?: number | null;
             /** Notes */
             notes?: string | null;
             /** Expected At */
@@ -4383,6 +4793,8 @@ export interface components {
             supplier_name: string;
             /** Supplier Id */
             supplier_id?: number | null;
+            /** Branch Id */
+            branch_id?: number | null;
             /** Notes */
             notes?: string | null;
             /** Expected At */
@@ -4408,12 +4820,19 @@ export interface components {
             /** Lines */
             lines?: components["schemas"]["PurchaseOrderLineRead"][];
         };
+        /** PurchaseOrderSendRequest */
+        PurchaseOrderSendRequest: {
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+        };
         /** PurchaseOrderUpdate */
         PurchaseOrderUpdate: {
             /** Supplier Name */
             supplier_name?: string | null;
             /** Supplier Id */
             supplier_id?: number | null;
+            /** Branch Id */
+            branch_id?: number | null;
             /** Notes */
             notes?: string | null;
             /** Expected At */
@@ -4775,6 +5194,36 @@ export interface components {
             /** Idempotency Key */
             idempotency_key: string;
         };
+        /**
+         * StockOnHandRowRead
+         * @description Per branch/product row: on-hand quantity and weighted-average cost display.
+         */
+        StockOnHandRowRead: {
+            /** Branch Id */
+            branch_id: number;
+            /** Product Id */
+            product_id: number;
+            /** Sku */
+            sku: string;
+            /** Product Name */
+            product_name: string;
+            /** Category Id */
+            category_id: number;
+            /** Category Name */
+            category_name: string;
+            /** On Hand */
+            on_hand: number;
+            /**
+             * Unit Cost
+             * @description WAVG from branch_product_costs with standard_cost fallback; display-only.
+             */
+            unit_cost: string;
+            /**
+             * Extended Cost
+             * @description on_hand * unit_cost; display-only (no FIFO/LIFO layers).
+             */
+            extended_cost: string;
+        };
         /** SupplierCreate */
         SupplierCreate: {
             /** Code */
@@ -4785,6 +5234,14 @@ export interface components {
             currency_id: number;
             /** Payables Account Id */
             payables_account_id?: number | null;
+            /** Tax Id */
+            tax_id?: string | null;
+            /** Contact */
+            contact?: {
+                [key: string]: unknown;
+            };
+            /** Payment Terms */
+            payment_terms?: string | null;
         };
         /** SupplierRead */
         SupplierRead: {
@@ -4798,11 +5255,36 @@ export interface components {
             currency_id: number;
             /** Payables Account Id */
             payables_account_id: number | null;
+            /** Tax Id */
+            tax_id: string | null;
+            /** Contact */
+            contact: {
+                [key: string]: unknown;
+            };
+            /** Payment Terms */
+            payment_terms: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /** SupplierUpdate */
+        SupplierUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Currency Id */
+            currency_id?: number | null;
+            /** Payables Account Id */
+            payables_account_id?: number | null;
+            /** Tax Id */
+            tax_id?: string | null;
+            /** Contact */
+            contact?: {
+                [key: string]: unknown;
+            } | null;
+            /** Payment Terms */
+            payment_terms?: string | null;
         };
         /** TargetedCampaign */
         TargetedCampaign: {
@@ -7167,11 +7649,244 @@ export interface operations {
             };
         };
     };
+    list_price_lists_endpoint_api_v1_price_lists_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceListSummaryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_price_list_endpoint_api_v1_price_lists_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceListCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_price_list_endpoint_api_v1_price_lists__price_list_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                price_list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_price_list_endpoint_api_v1_price_lists__price_list_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                price_list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceListUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_or_replace_line_endpoint_api_v1_price_lists__price_list_id__lines_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                price_list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceListLineCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_line_endpoint_api_v1_price_lists__price_list_id__lines__line_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                price_list_id: number;
+                line_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_line_endpoint_api_v1_price_lists__price_list_id__lines__line_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                price_list_id: number;
+                line_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceListLineUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_pos_endpoint_api_v1_purchase_orders_get: {
         parameters: {
             query?: {
                 limit?: number;
                 offset?: number;
+                status?: string | null;
             };
             header?: never;
             path?: never;
@@ -7307,7 +8022,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderSendRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -7347,6 +8066,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PurchaseOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_po_endpoint_api_v1_purchase_orders__po_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                po_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_po_endpoint_api_v1_purchase_orders__po_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                po_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_goods_receipts_endpoint_api_v1_goods_receipts_get: {
+        parameters: {
+            query: {
+                purchase_order_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceiptRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_goods_receipt_endpoint_api_v1_goods_receipts__receipt_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceiptRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_goods_endpoint_api_v1_purchase_orders__purchase_order_id__receive_goods_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_order_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoodsReceiptReceiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceiptRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_invoice_scans_endpoint_api_v1_invoice_scans_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceScanRead"][];
                 };
             };
             /** @description Validation Error */
@@ -7436,6 +8347,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["InvoiceScanOverride"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceScanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_catalog_matches_endpoint_api_v1_invoice_scans__scan_id__apply_catalog_matches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceScanApplyCatalogMatchesRequest"];
             };
         };
         responses: {
@@ -7845,6 +8791,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_stock_on_hand_endpoint_api_v1_inventory_stock_on_hand_get: {
+        parameters: {
+            query?: {
+                branch_id?: number | null;
+                category_id?: number | null;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockOnHandRowRead"][];
                 };
             };
             /** @description Validation Error */
@@ -10459,6 +11440,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SupplierCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_supplier_endpoint_api_v1_suppliers__supplier_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_supplier_endpoint_api_v1_suppliers__supplier_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplier_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierUpdate"];
             };
         };
         responses: {

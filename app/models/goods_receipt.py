@@ -14,6 +14,10 @@ class GoodsReceipt(Base):
     __tablename__ = "goods_receipts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    purchase_order_id: Mapped[int | None] = mapped_column(
+        ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True)
     branch_id: Mapped[int] = mapped_column(
         ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True
     )

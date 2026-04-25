@@ -107,3 +107,20 @@ def require_permission(resource: str, action: str) -> Callable:
 
     setattr(_check, PERMISSION_DEPENDENCY_MARKER, (resource, action))
     return Depends(_check)
+
+
+def require_any_permission(*pairs: tuple[str, str]) -> Callable:
+    """Require at least one of the given (resource, action) permissions."""
+
+    async def _check(
+        perms: Annotated[set[tuple[str, str]], Depends(get_current_user_permissions)],
+    ) -> None:
+        if not any(pair in perms for pair in pairs):
+            needed = ", ".join(f"{r}:{a}" for r, a in pairs)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"One of these permissions required: {needed}",
+            )
+
+    setattr(_check, PERMISSION_DEPENDENCY_MARKER, pairs[0])
+    return Depends(_check)

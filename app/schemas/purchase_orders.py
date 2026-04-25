@@ -27,6 +27,7 @@ class PurchaseOrderLineRead(PurchaseOrderLineBase):
 class PurchaseOrderBase(BaseModel):
     supplier_name: str = Field(min_length=1, max_length=255)
     supplier_id: int | None = None
+    branch_id: int | None = None
     notes: str | None = Field(default=None, max_length=1024)
     expected_at: datetime | None = None
 
@@ -38,6 +39,7 @@ class PurchaseOrderCreate(PurchaseOrderBase):
 class PurchaseOrderUpdate(BaseModel):
     supplier_name: str | None = Field(default=None, min_length=1, max_length=255)
     supplier_id: int | None = None
+    branch_id: int | None = None
     notes: str | None = Field(default=None, max_length=1024)
     expected_at: datetime | None = None
     lines: list[PurchaseOrderLineCreate] | None = None
@@ -54,3 +56,7 @@ class PurchaseOrderRead(PurchaseOrderBase):
     lines: list[PurchaseOrderLineRead] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class PurchaseOrderSendRequest(BaseModel):
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)

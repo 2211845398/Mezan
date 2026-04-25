@@ -1,0 +1,125 @@
+{
+  "suppliers": {
+    "title": "Suppliers",
+    "new": "New supplier",
+    "edit": "Edit supplier",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "currency": "Currency ID",
+      "tax_id": "Tax ID",
+      "payment_terms": "Payment terms"
+    },
+    "form": {
+      "code": "Code",
+      "name": "Name",
+      "currency_id": "Currency ID",
+      "tax_id": "Tax ID",
+      "payment_terms": "Payment terms",
+      "contact_phone": "Contact phone",
+      "contact_email": "Contact email",
+      "payables_account_id": "Payables account ID",
+      "save": "Save",
+      "created": "Supplier saved"
+    }
+  },
+  "orders": {
+    "title": "Purchase orders",
+    "new": "New order",
+    "edit": "Edit order",
+    "detail": "Order detail",
+    "col": {
+      "po_number": "PO #",
+      "supplier": "Supplier",
+      "status": "Status",
+      "expected": "Expected",
+      "total": "Total"
+    },
+    "filter_status": "Status",
+    "all_statuses": "All",
+    "form": {
+      "supplier": "Supplier",
+      "supplier_name": "Supplier name",
+      "expected_date": "Expected date",
+      "branch": "Branch",
+      "branch_hint": "Receiving branch (optional until receipt)",
+      "notes": "Notes",
+      "lines": "Lines",
+      "product": "Product",
+      "qty": "Qty",
+      "unit_cost": "Unit cost",
+      "line_total": "Line total",
+      "add_line": "Add line",
+      "save_draft": "Save as draft",
+      "send": "Send to supplier",
+      "sent_toast": "Purchase order sent",
+      "footer_total": "Total",
+      "created": "Purchase order saved"
+    },
+    "detail_page": {
+      "timeline": "Status",
+      "lines": "Lines",
+      "receipts": "Goods receipts",
+      "receive": "Receive goods",
+      "send": "Send",
+      "cancel": "Cancel",
+      "track": "Mark tracked",
+      "close": "Close",
+      "partial_receive": "Partial receive",
+      "full_receive_hint": "Set received qty per line",
+      "receipt_ok": "Goods received; inventory and GL updated.",
+      "closed_ok": "Order closed"
+    },
+    "status": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "tracked": "Tracked",
+      "closed": "Closed",
+      "cancelled": "Cancelled"
+    },
+    "receive": {
+      "title": "Receive against PO",
+      "branch": "Branch",
+      "qty": "Qty to receive",
+      "submit": "Post receipt",
+      "idempotency_note": "Protected by idempotency — safe to retry."
+    }
+  },
+  "match": {
+    "title": "Invoice match queue",
+    "review": "Review matches",
+    "col": {
+      "id": "Scan",
+      "status": "Status",
+      "provider": "Provider",
+      "created": "Created"
+    },
+    "status": {
+      "pending_match": "Pending match",
+      "matched": "Matched",
+      "rejected": "Rejected"
+    },
+    "map_ui": {
+      "needs_review": "Pending match",
+      "validated": "Matched",
+      "failed": "Rejected"
+    },
+    "review_page": {
+      "parsed": "Parsed lines",
+      "suggestions": "Suggested catalog matches",
+      "confirm": "Confirm",
+      "change": "Change",
+      "skip": "Skip",
+      "create_product": "Create product",
+      "approve_all": "Approve all",
+      "apply_ok": "Catalog matches applied",
+      "load_suggestions": "Load suggestions",
+      "confidence": "Confidence",
+      "no_candidates": "No candidates",
+      "new_product_stub": "Opens catalog in new tab — create product then refresh suggestions."
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong"
+  }
+}

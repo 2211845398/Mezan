@@ -1,0 +1,82 @@
+{
+  "loading": "Loading…",
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "save_meta": "Save",
+    "add": "Add",
+    "add_line": "Add line",
+    "delete": "Delete",
+    "open": "Open",
+    "back": "Back",
+    "refresh": "Refresh",
+    "create": "Create",
+    "submit": "Submit"
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "not_found": "Not found."
+  },
+  "products": {
+    "title": "Products",
+    "create": "New product",
+    "edit": "Edit product",
+    "save_ok": "Product saved",
+    "list_note": "Showing up to 2000 products from the server. Use filters to narrow results.",
+    "attributes": "Category attributes",
+    "field": {
+      "category": "Category",
+      "name": "Name",
+      "sku": "SKU",
+      "sell_price": "Default sell price",
+      "vat": "Output VAT (fraction, e.g. 0.15)",
+      "active": "Active"
+    },
+    "col": {
+      "sku": "SKU",
+      "name": "Name",
+      "category": "Category",
+      "barcode_count": "Barcodes",
+      "default_price": "Price",
+      "status": "Status",
+      "vat": "VAT"
+    },
+    "filter": { "status": "Status", "category": "Category", "all": "All" },
+    "status": { "active": "Active", "archived": "Archived" }
+  },
+  "barcode": {
+    "label": "Barcode",
+    "generate": "Generate EAN-13",
+    "hint": "Generate is available after the product is created."
+  },
+  "categories": {
+    "title": "Categories",
+    "child": "Add child",
+    "attributes": "Attributes",
+    "add_root": "Add root category",
+    "new": "New category",
+    "field": { "name": "Name", "slug": "Slug" },
+    "created": "Category created",
+    "attr_editor": "Attribute definitions",
+    "attr_add": "New attribute",
+    "attr_deleted": "Attribute removed"
+  },
+  "priceLists": {
+    "title": "Price lists",
+    "create": "New list",
+    "edit": "Price list",
+    "save_ok": "Saved",
+    "hint": "Save the list first, then add product lines by product id.",
+    "field": { "name": "Name", "from": "Effective from", "to": "Effective to (optional)", "active": "Active", "branches": "Branches" },
+    "lines": "Line overrides",
+    "line": { "product_id": "Product id", "unit_price": "Unit price" },
+    "col": {
+      "name": "Name",
+      "from": "From",
+      "to": "To",
+      "branches": "Branches",
+      "lines": "Lines",
+      "updated": "Updated"
+    }
+  }
+}

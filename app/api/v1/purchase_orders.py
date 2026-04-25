@@ -8,12 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
-from app.schemas.purchase_orders import PurchaseOrderCreate, PurchaseOrderRead, PurchaseOrderUpdate
+from app.schemas.purchase_orders import (
+    PurchaseOrderCreate,
+    PurchaseOrderRead,
+    PurchaseOrderSendRequest,
+    PurchaseOrderUpdate,
+)
 from app.services import audit_service
 from app.services.purchase_order_service import (
     create_po,
     get_po,
     list_pos,
+    mark_po_cancelled,
+    mark_po_closed,
     mark_po_sent,
     mark_po_tracked,
     update_po,
@@ -50,11 +57,12 @@ async def create_po_endpoint(
 async def list_pos_endpoint(
     limit: int = 50,
     offset: int = 0,
+    status: str | None = None,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("purchase_orders", "read"),
 ) -> list[PurchaseOrderRead]:
-    rows = await list_pos(db, limit=limit, offset=offset)
+    rows = await list_pos(db, limit=limit, offset=offset, status=status)
     return [PurchaseOrderRead.model_validate(r) for r in rows]
 
 
@@ -94,23 +102,29 @@ async def update_po_endpoint(
 
 @router.post("/purchase-orders/{po_id}/send", response_model=PurchaseOrderRead)
 async def send_po_endpoint(
-    po_id: int,
     request: Request,
+    po_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("purchase_orders", "update"),
+    body: PurchaseOrderSendRequest = PurchaseOrderSendRequest(),
 ) -> PurchaseOrderRead:
-    po = await mark_po_sent(db, po_id=po_id)
-    await audit_service.log(
-        session=db,
-        action="purchase_order.sent",
-        resource_type="purchase_order",
-        resource_id=str(po.id),
-        new_value=PurchaseOrderRead.model_validate(po).model_dump(),
-        user_id=current_user.id,
-        request=request,
+    prev = await get_po(db, po_id)
+    prev_status = prev.status
+    po = await mark_po_sent(
+        db, po_id=po_id, idempotency_key=body.idempotency_key
     )
-    await db.commit()
+    if prev_status != "sent":
+        await audit_service.log(
+            session=db,
+            action="purchase_order.sent",
+            resource_type="purchase_order",
+            resource_id=str(po.id),
+            new_value=PurchaseOrderRead.model_validate(po).model_dump(),
+            user_id=current_user.id,
+            request=request,
+        )
+        await db.commit()
     return PurchaseOrderRead.model_validate(po)
 
 
@@ -126,6 +140,50 @@ async def track_po_endpoint(
     await audit_service.log(
         session=db,
         action="purchase_order.tracked",
+        resource_type="purchase_order",
+        resource_id=str(po.id),
+        new_value=PurchaseOrderRead.model_validate(po).model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return PurchaseOrderRead.model_validate(po)
+
+
+@router.post("/purchase-orders/{po_id}/cancel", response_model=PurchaseOrderRead)
+async def cancel_po_endpoint(
+    po_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("purchase_orders", "update"),
+) -> PurchaseOrderRead:
+    po = await mark_po_cancelled(db, po_id=po_id)
+    await audit_service.log(
+        session=db,
+        action="purchase_order.cancelled",
+        resource_type="purchase_order",
+        resource_id=str(po.id),
+        new_value=PurchaseOrderRead.model_validate(po).model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return PurchaseOrderRead.model_validate(po)
+
+
+@router.post("/purchase-orders/{po_id}/close", response_model=PurchaseOrderRead)
+async def close_po_endpoint(
+    po_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("purchase_orders", "update"),
+) -> PurchaseOrderRead:
+    po = await mark_po_closed(db, po_id=po_id)
+    await audit_service.log(
+        session=db,
+        action="purchase_order.closed",
         resource_type="purchase_order",
         resource_id=str(po.id),
         new_value=PurchaseOrderRead.model_validate(po).model_dump(),

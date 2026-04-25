@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import copy
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
@@ -177,6 +179,63 @@ async def override_scan(
     scan.override_output = override_output
     scan.status = "needs_review"
     await db.commit()
+    await db.refresh(scan)
+    return scan
+
+
+async def apply_catalog_matches(
+    db: AsyncSession,
+    *,
+    scan_id: int,
+    idempotency_key: str,
+    line_matches: list[dict[str, Any]],
+) -> InvoiceScan:
+    if len(idempotency_key) < 8:
+        raise ValidationError(
+            "idempotency_key must be at least 8 characters",
+            details={"field": "idempotency_key"},
+        )
+    scan = await get_scan(db, scan_id)
+    if scan.catalog_match_apply_idempotency_key == idempotency_key:
+        return scan
+    if scan.status == "validated":
+        raise ValidationError("Scan already validated", details={"scan_id": scan_id})
+
+    base_src = (
+        scan.override_output
+        if isinstance(scan.override_output, dict)
+        else scan.parsed_output
+    )
+    if isinstance(base_src, dict):
+        base: dict[str, Any] = copy.deepcopy(base_src)
+    else:
+        base = {}
+    line_items = base.get("line_items")
+    if not isinstance(line_items, list):
+        line_items = []
+
+    for lm in line_matches:
+        line_no = lm.get("line_no")
+        pid = lm.get("product_id")
+        if not isinstance(line_no, int):
+            raise ValidationError("line_no must be int", details={"line": lm})
+        for item in line_items:
+            if isinstance(item, dict) and item.get("line_no") == line_no:
+                if pid is not None:
+                    item["product_id"] = int(pid)
+                else:
+                    item.pop("product_id", None)
+                break
+
+    base["line_items"] = line_items
+    scan.override_output = base
+    scan.status = "needs_review"
+    scan.catalog_match_apply_idempotency_key = idempotency_key
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise ConflictError("Idempotency key already used for another scan") from e
     await db.refresh(scan)
     return scan
 
