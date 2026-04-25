@@ -6,7 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TrialBalanceRow(BaseModel):
@@ -17,26 +17,6 @@ class TrialBalanceRow(BaseModel):
     total_debit: Decimal
     total_credit: Decimal
     net: Decimal
-
-    model_config = ConfigDict(json_encoders={Decimal: str})
-
-
-class IncomeStatementRead(BaseModel):
-    period_start: str
-    period_end: str
-    total_revenue: Decimal
-    total_expense: Decimal
-    net_income: Decimal
-
-    model_config = ConfigDict(json_encoders={Decimal: str})
-
-
-class BalanceSheetRead(BaseModel):
-    as_of: str
-    total_assets: Decimal
-    total_liabilities: Decimal
-    total_equity: Decimal
-    assets_minus_liabilities_equity: Decimal
 
     model_config = ConfigDict(json_encoders={Decimal: str})
 
@@ -150,5 +130,121 @@ class GeneralLedgerLineRead(BaseModel):
     credit: Decimal
     branch_id: int
     memo: str | None = None
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class JournalEntryListItemRead(BaseModel):
+    id: int
+    entry_date: date
+    description: str
+    source_type: str
+    source_id: str
+    total_debit: Decimal
+    total_credit: Decimal
+    reverses_entry_id: int | None = None
+    reversed_by_entry_id: int | None = None
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class JournalEntryListResponse(BaseModel):
+    items: list[JournalEntryListItemRead]
+    total: int
+
+
+class JournalEntryLineRead(BaseModel):
+    line_no: int
+    account_id: int
+    code: str
+    name: str
+    account_type: str
+    branch_id: int
+    debit: Decimal
+    credit: Decimal
+    memo: str | None = None
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class JournalEntryDetailRead(BaseModel):
+    id: int
+    entry_date: date
+    description: str
+    source_type: str
+    source_id: str
+    reverses_entry_id: int | None = None
+    reversed_by_entry_id: int | None = None
+    lines: list[JournalEntryLineRead]
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class ChartAccountRead(BaseModel):
+    id: int
+    code: str
+    name: str
+    account_type: str
+    parent_id: int | None = None
+    is_control: bool
+    is_system: bool
+    active: bool
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("account_type", mode="before")
+    @classmethod
+    def _account_type_to_str(cls, v: object) -> str:
+        if v is not None and hasattr(v, "value"):
+            return str(v.value)
+        return str(v)
+
+
+class ManualJournalLineIn(BaseModel):
+    account_id: int
+    branch_id: int
+    debit: Decimal = Field(default=Decimal("0"))
+    credit: Decimal = Field(default=Decimal("0"))
+    memo: str | None = Field(default=None, max_length=512)
+
+
+class ManualJournalCreate(BaseModel):
+    entry_date: date
+    description: str = Field(max_length=512)
+    lines: list[ManualJournalLineIn] = Field(min_length=2)
+    idempotency_key: str | None = None
+
+
+class StatementAccountLineRead(BaseModel):
+    account_id: int
+    code: str
+    name: str
+    account_type: str
+    amount: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class IncomeStatementRead(BaseModel):
+    period_start: str
+    period_end: str
+    total_revenue: Decimal
+    total_expense: Decimal
+    net_income: Decimal
+    revenue_lines: list[StatementAccountLineRead] = Field(default_factory=list)
+    expense_lines: list[StatementAccountLineRead] = Field(default_factory=list)
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class BalanceSheetRead(BaseModel):
+    as_of: str
+    total_assets: Decimal
+    total_liabilities: Decimal
+    total_equity: Decimal
+    assets_minus_liabilities_equity: Decimal
+    asset_lines: list[StatementAccountLineRead] = Field(default_factory=list)
+    liability_lines: list[StatementAccountLineRead] = Field(default_factory=list)
+    equity_lines: list[StatementAccountLineRead] = Field(default_factory=list)
 
     model_config = ConfigDict(json_encoders={Decimal: str})

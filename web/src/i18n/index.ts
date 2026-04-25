@@ -4,6 +4,7 @@ import { initReactI18next } from 'react-i18next';
 
 import arAdmin from './locales/ar/admin.json';
 import arAuth from './locales/ar/auth.json';
+import arAccounting from './locales/ar/accounting.json';
 import arCatalog from './locales/ar/catalog.json';
 import arCommon from './locales/ar/common.json';
 import arHr from './locales/ar/hr.json';
@@ -13,6 +14,7 @@ import arPos from './locales/ar/pos.json';
 import arPurchasing from './locales/ar/purchasing.json';
 import enAdmin from './locales/en/admin.json';
 import enAuth from './locales/en/auth.json';
+import enAccounting from './locales/en/accounting.json';
 import enCatalog from './locales/en/catalog.json';
 import enCommon from './locales/en/common.json';
 import enHr from './locales/en/hr.json';
@@ -30,6 +32,7 @@ export const resources = {
     auth: arAuth,
     pos: arPos,
     admin: arAdmin,
+    accounting: arAccounting,
     catalog: arCatalog,
     hr: arHr,
     inventory: arInventory,
@@ -41,6 +44,7 @@ export const resources = {
     auth: enAuth,
     pos: enPos,
     admin: enAdmin,
+    accounting: enAccounting,
     catalog: enCatalog,
     hr: enHr,
     inventory: enInventory,
@@ -57,7 +61,7 @@ void i18n
     lng: 'ar',
     fallbackLng: 'en',
     supportedLngs: SUPPORTED_LANGUAGES,
-    ns: ['common', 'auth', 'pos', 'admin', 'catalog', 'hr', 'inventory', 'payroll', 'purchasing'],
+    ns: ['common', 'auth', 'pos', 'admin', 'accounting', 'catalog', 'hr', 'inventory', 'payroll', 'purchasing'],
     defaultNS: 'common',
     interpolation: { escapeValue: false },
     detection: {

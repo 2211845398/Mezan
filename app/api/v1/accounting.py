@@ -1,8 +1,12 @@
 """Financial reporting API (Epic 5.5)."""
 
+import csv
+import io
+import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
@@ -12,12 +16,18 @@ from app.schemas.accounting import (
     ApOpenItemCreate,
     ArOpenItemCreate,
     BalanceSheetRead,
+    ChartAccountRead,
     FiscalPeriodRead,
     FiscalPeriodStatusUpdate,
     GeneralLedgerLineRead,
     IncomeStatementRead,
+    JournalEntryDetailRead,
+    JournalEntryLineRead,
+    JournalEntryListItemRead,
+    JournalEntryListResponse,
     JournalReversalRequest,
     JournalReversalResponse,
+    ManualJournalCreate,
     OpenItemRead,
     PaymentApplicationCreate,
     PaymentApplicationRead,
@@ -29,6 +39,7 @@ from app.services.accounting_governance_service import (
     reverse_journal_entry,
     set_period_status,
 )
+from app.services.accounting_service import get_journal_by_idempotency, post_journal_entry
 from app.services.financial_reports_service import (
     balance_sheet,
     income_statement,
@@ -36,6 +47,12 @@ from app.services.financial_reports_service import (
 )
 from app.services.financial_reports_service import (
     general_ledger_lines as gl_lines_svc,
+)
+from app.services.journal_inquiry_service import (
+    JournalEntryDetail,
+    get_journal_entry_detail,
+    list_chart_accounts,
+    list_journal_entries,
 )
 from app.services.subledger_service import (
     apply_ap_payment,
@@ -317,3 +334,201 @@ async def apply_ap_payment_endpoint(
     )
     await db.commit()
     return PaymentApplicationRead.model_validate(row)
+
+
+def _journal_detail_to_read(d: JournalEntryDetail) -> JournalEntryDetailRead:
+    return JournalEntryDetailRead(
+        id=d.id,
+        entry_date=d.entry_date,
+        description=d.description,
+        source_type=d.source_type,
+        source_id=d.source_id,
+        reverses_entry_id=d.reverses_entry_id,
+        reversed_by_entry_id=d.reversed_by_entry_id,
+        lines=[
+            JournalEntryLineRead(
+                line_no=ln.line_no,
+                account_id=ln.account_id,
+                code=ln.code,
+                name=ln.name,
+                account_type=ln.account_type,
+                branch_id=ln.branch_id,
+                debit=ln.debit,
+                credit=ln.credit,
+                memo=ln.memo,
+            )
+            for ln in d.lines
+        ],
+    )
+
+
+@router.get("/accounting/journal-entries", response_model=JournalEntryListResponse)
+async def list_journal_entries_endpoint(
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    branch_id: int | None = Query(default=None),
+    source_type: str | None = Query(
+        default=None, description="Filter: source_type starts with (case-insensitive)"
+    ),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> JournalEntryListResponse:
+    rows, total = await list_journal_entries(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        branch_id=branch_id,
+        source_type_prefix=source_type,
+        limit=limit,
+        offset=offset,
+    )
+    items = [
+        JournalEntryListItemRead(
+            id=r.id,
+            entry_date=r.entry_date,
+            description=r.description,
+            source_type=r.source_type,
+            source_id=r.source_id,
+            total_debit=r.total_debit,
+            total_credit=r.total_credit,
+            reverses_entry_id=r.reverses_entry_id,
+            reversed_by_entry_id=r.reversed_by_entry_id,
+        )
+        for r in rows
+    ]
+    return JournalEntryListResponse(items=items, total=total)
+
+
+@router.get(
+    "/accounting/journal-entries/{journal_entry_id}",
+    response_model=JournalEntryDetailRead,
+)
+async def get_journal_entry_endpoint(
+    journal_entry_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> JournalEntryDetailRead:
+    d = await get_journal_entry_detail(db, journal_entry_id=journal_entry_id)
+    return _journal_detail_to_read(d)
+
+
+@router.get("/accounting/chart-accounts", response_model=list[ChartAccountRead])
+async def list_chart_accounts_endpoint(
+    include_inactive: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> list[ChartAccountRead]:
+    rows = await list_chart_accounts(db, include_inactive=include_inactive)
+    return [ChartAccountRead.model_validate(r) for r in rows]
+
+
+@router.get("/accounting/trial-balance/export")
+async def export_trial_balance_csv(
+    as_of: date = Query(...),
+    branch_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> StreamingResponse:
+    rows = await trial_balance(db, as_of=as_of, branch_id=branch_id)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(
+        [
+            "account_id",
+            "code",
+            "name",
+            "account_type",
+            "total_debit",
+            "total_credit",
+            "net",
+        ]
+    )
+    for r in rows:
+        w.writerow(
+            [
+                r["account_id"],
+                r["code"],
+                r["name"],
+                r["account_type"],
+                str(r["total_debit"]),
+                str(r["total_credit"]),
+                str(r["net"]),
+            ]
+        )
+    data = buf.getvalue().encode("utf-8")
+    return StreamingResponse(
+        iter([data]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="trial_balance.csv"'},
+    )
+
+
+@router.post(
+    "/accounting/journal-entries",
+    response_model=JournalEntryDetailRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_manual_journal_entry(
+    body: ManualJournalCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("accounting", "create"),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> JournalEntryDetailRead:
+    ikey = idempotency_key or body.idempotency_key
+    if not ikey or len(ikey.strip()) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Idempotency-Key header (or body) required, min 8 characters",
+        )
+    ikey = ikey.strip()[:256]
+    existing = await get_journal_by_idempotency(db, ikey)
+    if existing is not None:
+        d = await get_journal_entry_detail(db, journal_entry_id=existing.id)
+        return _journal_detail_to_read(d)
+    line_dicts: list[dict] = []
+    for ln in body.lines:
+        line_dicts.append(
+            {
+                "account_id": ln.account_id,
+                "branch_id": ln.branch_id,
+                "debit": ln.debit,
+                "credit": ln.credit,
+                "memo": ln.memo,
+            }
+        )
+    source_id = str(uuid.uuid4())[:32]
+    je = await post_journal_entry(
+        db,
+        entry_date=body.entry_date,
+        description=body.description,
+        source_type="manual",
+        source_id=source_id,
+        idempotency_key=ikey,
+        lines=line_dicts,
+    )
+    if je is None:
+        ex2 = await get_journal_by_idempotency(db, ikey)
+        if ex2 is None:
+            raise HTTPException(status_code=500, detail="idempotent post failed")
+        d = await get_journal_entry_detail(db, journal_entry_id=ex2.id)
+        return _journal_detail_to_read(d)
+    await audit_service.log(
+        session=db,
+        action="journal_entry.manual_posted",
+        resource_type="journal_entry",
+        resource_id=str(je.id),
+        new_value={"id": je.id, "idempotency_key": ikey},
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    d = await get_journal_entry_detail(db, journal_entry_id=je.id)
+    return _journal_detail_to_read(d)

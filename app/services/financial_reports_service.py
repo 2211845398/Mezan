@@ -159,12 +159,75 @@ async def income_statement(
         elif at == AccountType.EXPENSE:
             expense_total += dr - cr
     net = revenue_total - expense_total
+
+    acct_stmt = (
+        select(
+            ChartAccount.id,
+            ChartAccount.code,
+            ChartAccount.name,
+            ChartAccount.account_type,
+            func.coalesce(func.sum(JournalEntryLine.debit), 0).label("dr"),
+            func.coalesce(func.sum(JournalEntryLine.credit), 0).label("cr"),
+        )
+        .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+        .join(ChartAccount, ChartAccount.id == JournalEntryLine.account_id)
+        .where(
+            JournalEntry.entry_date >= period_start,
+            JournalEntry.entry_date <= period_end,
+            cast(ChartAccount.account_type, String).in_(
+                [AccountType.REVENUE.value, AccountType.EXPENSE.value]
+            ),
+        )
+    )
+    if branch_id is not None:
+        acct_stmt = acct_stmt.where(JournalEntryLine.branch_id == branch_id)
+    acct_stmt = acct_stmt.group_by(
+        ChartAccount.id,
+        ChartAccount.code,
+        ChartAccount.name,
+        ChartAccount.account_type,
+    )
+    a_res = await db.execute(acct_stmt)
+    revenue_lines: list[dict] = []
+    expense_lines: list[dict] = []
+    for row in a_res.all():
+        dr, cr = q2(row.dr), q2(row.cr)
+        at = row.account_type
+        at_s = at.value if isinstance(at, AccountType) else str(at)
+        if at == AccountType.REVENUE:
+            amt = cr - dr
+            if amt == 0:
+                continue
+            revenue_lines.append(
+                {
+                    "account_id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "account_type": at_s,
+                    "amount": q2(amt),
+                }
+            )
+        elif at == AccountType.EXPENSE:
+            amt = dr - cr
+            if amt == 0:
+                continue
+            expense_lines.append(
+                {
+                    "account_id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "account_type": at_s,
+                    "amount": q2(amt),
+                }
+            )
     return {
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
         "total_revenue": q2(revenue_total),
         "total_expense": q2(expense_total),
         "net_income": q2(net),
+        "revenue_lines": revenue_lines,
+        "expense_lines": expense_lines,
     }
 
 
@@ -211,10 +274,73 @@ async def balance_sheet(
             liabilities += cr - dr
         elif at == AccountType.EQUITY:
             equity += cr - dr
+
+    acct_stmt2 = (
+        select(
+            ChartAccount.id,
+            ChartAccount.code,
+            ChartAccount.name,
+            ChartAccount.account_type,
+            func.coalesce(func.sum(JournalEntryLine.debit), 0).label("dr"),
+            func.coalesce(func.sum(JournalEntryLine.credit), 0).label("cr"),
+        )
+        .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+        .join(ChartAccount, ChartAccount.id == JournalEntryLine.account_id)
+        .where(
+            JournalEntry.entry_date <= as_of,
+            cast(ChartAccount.account_type, String).in_(
+                [
+                    AccountType.ASSET.value,
+                    AccountType.LIABILITY.value,
+                    AccountType.EQUITY.value,
+                ]
+            ),
+        )
+    )
+    if branch_id is not None:
+        acct_stmt2 = acct_stmt2.where(JournalEntryLine.branch_id == branch_id)
+    acct_stmt2 = acct_stmt2.group_by(
+        ChartAccount.id,
+        ChartAccount.code,
+        ChartAccount.name,
+        ChartAccount.account_type,
+    )
+    a2 = await db.execute(acct_stmt2)
+    asset_lines: list[dict] = []
+    liability_lines: list[dict] = []
+    equity_lines: list[dict] = []
+    for row in a2.all():
+        dr, cr = q2(row.dr), q2(row.cr)
+        at = row.account_type
+        at_s = at.value if isinstance(at, AccountType) else str(at)
+        if at == AccountType.ASSET:
+            amt = dr - cr
+        elif at == AccountType.LIABILITY:
+            amt = cr - dr
+        else:
+            amt = cr - dr
+        if amt == 0:
+            continue
+        line = {
+            "account_id": row.id,
+            "code": row.code,
+            "name": row.name,
+            "account_type": at_s,
+            "amount": q2(amt),
+        }
+        if at == AccountType.ASSET:
+            asset_lines.append(line)
+        elif at == AccountType.LIABILITY:
+            liability_lines.append(line)
+        else:
+            equity_lines.append(line)
     return {
         "as_of": as_of.isoformat(),
         "total_assets": q2(assets),
         "total_liabilities": q2(liabilities),
         "total_equity": q2(equity),
         "assets_minus_liabilities_equity": q2(assets - liabilities - equity),
+        "asset_lines": asset_lines,
+        "liability_lines": liability_lines,
+        "equity_lines": equity_lines,
     }

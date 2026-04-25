@@ -1,0 +1,172 @@
+{
+  "errors": {
+    "generic": "Something went wrong.",
+    "forbidden": "You do not have permission for this action.",
+    "forbidden_link": "Back"
+  },
+  "actions": {
+    "cancel": "Cancel"
+  },
+  "toolbar": {
+    "branch": "Branch",
+    "all_branches": "All branches",
+    "apply": "Apply"
+  },
+  "period": {
+    "from": "From",
+    "to": "To"
+  },
+  "account_picker": {
+    "placeholder": "Select account",
+    "search": "Search account",
+    "empty": "No accounts"
+  },
+  "journal": {
+    "list_title": "Journal entries",
+    "new_manual": "New journal entry",
+    "detail_title": "Journal #{{id}}",
+    "view": "View",
+    "back": "Back",
+    "link_original": "Original #{{id}}",
+    "link_reversal": "Reversal #{{id}}",
+    "reverse": "Reverse",
+    "filter": {
+      "source_prefix": "Source prefix"
+    },
+    "total_rows": "Total: {{total}}",
+    "col": {
+      "id": "No.",
+      "date": "Date",
+      "source": "Source",
+      "memo": "Description",
+      "debit": "Debit",
+      "credit": "Credit"
+    },
+    "line": {
+      "account": "Account",
+      "branch": "Branch",
+      "memo": "Line memo"
+    }
+  },
+  "manual": {
+    "title": "Manual journal entry",
+    "entry_date": "Entry date",
+    "description": "Description",
+    "account": "Account",
+    "branch": "Branch",
+    "add_line": "Add line",
+    "submit": "Post",
+    "saved": "Journal posted"
+  },
+  "reversal": {
+    "title": "Reverse journal #{{id}}",
+    "posting_date": "Reversal date",
+    "reason": "Reason",
+    "submit": "Create reversal",
+    "ok": "Reversal created"
+  },
+  "tb": {
+    "title": "Trial balance",
+    "as_of": "As of",
+    "export": "Export CSV",
+    "totals": "Total debit: {{dr}} · Total credit: {{cr}}",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "type": "Type",
+      "debit": "Debit",
+      "credit": "Credit",
+      "net": "Net"
+    }
+  },
+  "is": {
+    "title": "Income statement",
+    "period_start": "Period start",
+    "period_end": "Period end",
+    "revenue": "Total revenue",
+    "expense": "Total expense",
+    "net_income": "Net income",
+    "revenue_lines": "Revenue by account",
+    "expense_lines": "Expense by account",
+    "amount": "Amount"
+  },
+  "bs": {
+    "title": "Balance sheet",
+    "as_of": "As of",
+    "total_assets": "Total assets",
+    "total_liabilities": "Total liabilities",
+    "total_equity": "Total equity",
+    "imbalance": "Assets − Liabilities − Equity",
+    "section": {
+      "assets": "Assets",
+      "liabilities": "Liabilities",
+      "equity": "Equity"
+    }
+  },
+  "gl": {
+    "title": "General ledger",
+    "account": "Account",
+    "col": {
+      "date": "Date",
+      "je": "JE",
+      "desc": "Description",
+      "balance": "Balance"
+    }
+  },
+  "ar": {
+    "title": "AR open items",
+    "col": {
+      "open": "Open",
+      "source": "Source",
+      "status": "Status"
+    },
+    "filter_status": "Status",
+    "status": {
+      "open": "Open",
+      "closed": "Closed",
+      "all": "All"
+    },
+    "apply_selected": "Apply payment",
+    "drawer_title": "Apply AR payment",
+    "tendered": "Tendered (max total)",
+    "total_applied": "Applied: {{v}}",
+    "reference": "Reference",
+    "note": "Note",
+    "submit": "Submit applications",
+    "apply_ok": "Payment applied"
+  },
+  "ap": {
+    "title": "AP open items",
+    "col": {
+      "open": "Open",
+      "source": "Source",
+      "status": "Status"
+    },
+    "filter_status": "Status",
+    "status": {
+      "open": "Open",
+      "closed": "Closed",
+      "all": "All"
+    },
+    "apply_selected": "Apply payment",
+    "drawer_title": "Apply AP payment",
+    "submit": "Submit applications",
+    "apply_ok": "Payment applied"
+  },
+  "fiscal": {
+    "title": "Fiscal periods",
+    "hint": "Periods are global (calendar month). Branch filters apply to reports and postings, not to period rows here.",
+    "col": {
+      "key": "Period",
+      "status": "Status"
+    },
+    "close": "Close",
+    "reopen": "Reopen",
+    "close_confirm_title": "Close fiscal period",
+    "close_confirm_body": "Closing prevents new postings in this period. Type CLOSE to confirm.",
+    "reopen_confirm_title": "Reopen fiscal period",
+    "reopen_confirm_body": "Reopening allows posting again. Type REOPEN to confirm.",
+    "closed_ok": "Period closed",
+    "reopened_ok": "Period reopened"
+  }
+}

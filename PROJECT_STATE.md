@@ -252,7 +252,7 @@ Each feature module sits at `web/src/features/<domain>/{api,components,hooks,pag
 - [x] **W-5.3** Inventory and catalog: stock-on-hand + invoice-scan list + minimal price lists (backend); catalog/inventory feature modules (products, categories, price lists, stock, adjustments, transfers, scans); shared `FileDrop`, `AttributeFieldset`, `BarcodeRepeater`, `BranchStockFilterBar`; i18n `catalog` + `inventory`; Vitest/MSW smoke; routes under `/catalog/*` and `/inventory/*`.
 - [x] **W-5.4** Purchase orders + goods receipts + invoice scans.
 - [x] **W-5.5** HR (employees, attendance, leave) + Payroll.
-- [ ] **W-5.6** Accounting (journals, trial balance, financial reports) + Fiscal periods.
+- [x] **W-5.6** Accounting (journals, trial balance, financial reports) + Fiscal periods.
 - [ ] **W-5.7** CRM (loyalty, discounts) + Marketing advisory.
 - [ ] **W-5.8** Executive BI dashboard.
 - [x] **W-5.9** Admin (users, roles, permissions, branches, terminals, backups, notifications).

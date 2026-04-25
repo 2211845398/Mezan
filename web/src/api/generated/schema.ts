@@ -2554,6 +2554,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/accounting/journal-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Journal Entries Endpoint */
+        get: operations["list_journal_entries_endpoint_api_v1_accounting_journal_entries_get"];
+        put?: never;
+        /** Create Manual Journal Entry */
+        post: operations["create_manual_journal_entry_api_v1_accounting_journal_entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounting/journal-entries/{journal_entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Journal Entry Endpoint */
+        get: operations["get_journal_entry_endpoint_api_v1_accounting_journal_entries__journal_entry_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounting/chart-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Chart Accounts Endpoint */
+        get: operations["list_chart_accounts_endpoint_api_v1_accounting_chart_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounting/trial-balance/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Trial Balance Csv */
+        get: operations["export_trial_balance_csv_api_v1_accounting_trial_balance_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bi/executive-kpis": {
         parameters: {
             query?: never;
@@ -2890,6 +2959,12 @@ export interface components {
             total_equity: string;
             /** Assets Minus Liabilities Equity */
             assets_minus_liabilities_equity: string;
+            /** Asset Lines */
+            asset_lines?: components["schemas"]["StatementAccountLineRead"][];
+            /** Liability Lines */
+            liability_lines?: components["schemas"]["StatementAccountLineRead"][];
+            /** Equity Lines */
+            equity_lines?: components["schemas"]["StatementAccountLineRead"][];
         };
         /**
          * BranchCreate
@@ -3238,6 +3313,25 @@ export interface components {
             is_active?: boolean | null;
             /** Parent Id */
             parent_id?: number | null;
+        };
+        /** ChartAccountRead */
+        ChartAccountRead: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Account Type */
+            account_type: string;
+            /** Parent Id */
+            parent_id?: number | null;
+            /** Is Control */
+            is_control: boolean;
+            /** Is System */
+            is_system: boolean;
+            /** Active */
+            active: boolean;
         };
         /** CustomerCompleteOnboardingRequest */
         CustomerCompleteOnboardingRequest: {
@@ -3745,6 +3839,10 @@ export interface components {
             total_expense: string;
             /** Net Income */
             net_income: string;
+            /** Revenue Lines */
+            revenue_lines?: components["schemas"]["StatementAccountLineRead"][];
+            /** Expense Lines */
+            expense_lines?: components["schemas"]["StatementAccountLineRead"][];
         };
         /** InventoryAlertItem */
         InventoryAlertItem: {
@@ -3894,6 +3992,80 @@ export interface components {
             scan: components["schemas"]["InvoiceScanRead"];
             /** Goods Receipt Id */
             goods_receipt_id: number;
+        };
+        /** JournalEntryDetailRead */
+        JournalEntryDetailRead: {
+            /** Id */
+            id: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /** Description */
+            description: string;
+            /** Source Type */
+            source_type: string;
+            /** Source Id */
+            source_id: string;
+            /** Reverses Entry Id */
+            reverses_entry_id?: number | null;
+            /** Reversed By Entry Id */
+            reversed_by_entry_id?: number | null;
+            /** Lines */
+            lines: components["schemas"]["JournalEntryLineRead"][];
+        };
+        /** JournalEntryLineRead */
+        JournalEntryLineRead: {
+            /** Line No */
+            line_no: number;
+            /** Account Id */
+            account_id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Account Type */
+            account_type: string;
+            /** Branch Id */
+            branch_id: number;
+            /** Debit */
+            debit: string;
+            /** Credit */
+            credit: string;
+            /** Memo */
+            memo?: string | null;
+        };
+        /** JournalEntryListItemRead */
+        JournalEntryListItemRead: {
+            /** Id */
+            id: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /** Description */
+            description: string;
+            /** Source Type */
+            source_type: string;
+            /** Source Id */
+            source_id: string;
+            /** Total Debit */
+            total_debit: string;
+            /** Total Credit */
+            total_credit: string;
+            /** Reverses Entry Id */
+            reverses_entry_id?: number | null;
+            /** Reversed By Entry Id */
+            reversed_by_entry_id?: number | null;
+        };
+        /** JournalEntryListResponse */
+        JournalEntryListResponse: {
+            /** Items */
+            items: components["schemas"]["JournalEntryListItemRead"][];
+            /** Total */
+            total: number;
         };
         /** JournalReversalRequest */
         JournalReversalRequest: {
@@ -4077,6 +4249,39 @@ export interface components {
             customer_id: number;
             /** Total Points */
             total_points: number;
+        };
+        /** ManualJournalCreate */
+        ManualJournalCreate: {
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /** Description */
+            description: string;
+            /** Lines */
+            lines: components["schemas"]["ManualJournalLineIn"][];
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+        };
+        /** ManualJournalLineIn */
+        ManualJournalLineIn: {
+            /** Account Id */
+            account_id: number;
+            /** Branch Id */
+            branch_id: number;
+            /**
+             * Debit
+             * @default 0
+             */
+            debit: number | string;
+            /**
+             * Credit
+             * @default 0
+             */
+            credit: number | string;
+            /** Memo */
+            memo?: string | null;
         };
         /**
          * ManualPointAdjustment
@@ -5245,6 +5450,19 @@ export interface components {
             items: components["schemas"]["SlowMovingProductItem"][];
             /** Threshold Qty */
             threshold_qty: number;
+        };
+        /** StatementAccountLineRead */
+        StatementAccountLineRead: {
+            /** Account Id */
+            account_id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Account Type */
+            account_type: string;
+            /** Amount */
+            amount: string;
         };
         /** StockAdjustmentRequest */
         StockAdjustmentRequest: {
@@ -11530,6 +11748,172 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentApplicationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_journal_entries_endpoint_api_v1_accounting_journal_entries_get: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                branch_id?: number | null;
+                /** @description Filter: source_type starts with (case-insensitive) */
+                source_type?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalEntryListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_manual_journal_entry_api_v1_accounting_journal_entries_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualJournalCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalEntryDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_journal_entry_endpoint_api_v1_accounting_journal_entries__journal_entry_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                journal_entry_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalEntryDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_chart_accounts_endpoint_api_v1_accounting_chart_accounts_get: {
+        parameters: {
+            query?: {
+                include_inactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChartAccountRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_trial_balance_csv_api_v1_accounting_trial_balance_export_get: {
+        parameters: {
+            query: {
+                as_of: string;
+                branch_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

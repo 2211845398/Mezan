@@ -83,6 +83,24 @@ const PurchasingSupplierForm = lazy(() => import('@/features/purchasing/pages/su
 const PurchasingMatchQueue = lazy(() => import('@/features/purchasing/pages/invoice-match/MatchQueue'));
 const PurchasingMatchReview = lazy(() => import('@/features/purchasing/pages/invoice-match/MatchReview'));
 
+const AccountingJournalList = lazy(() => import('@/features/accounting/pages/journal/JournalList'));
+const AccountingJournalDetail = lazy(() => import('@/features/accounting/pages/journal/JournalDetail'));
+const AccountingManualJournalForm = lazy(
+  () => import('@/features/accounting/pages/journal/ManualJournalForm'),
+);
+const AccountingReversalForm = lazy(() => import('@/features/accounting/pages/journal/ReversalForm'));
+const AccountingTrialBalance = lazy(() => import('@/features/accounting/pages/trial-balance/TrialBalance'));
+const AccountingIncomeStatement = lazy(
+  () => import('@/features/accounting/pages/income-statement/IncomeStatement'),
+);
+const AccountingBalanceSheet = lazy(() => import('@/features/accounting/pages/balance-sheet/BalanceSheet'));
+const AccountingGeneralLedger = lazy(() => import('@/features/accounting/pages/general-ledger/GeneralLedger'));
+const AccountingAROpenItems = lazy(() => import('@/features/accounting/pages/ar/AROpenItems'));
+const AccountingApOpenItems = lazy(() => import('@/features/accounting/pages/ap/ApOpenItems'));
+const AccountingFiscalPeriodsList = lazy(
+  () => import('@/features/accounting/pages/fiscal-periods/FiscalPeriodsList'),
+);
+
 const HrEmployeesList = lazy(() => import('@/features/hr/pages/employees/EmployeesList'));
 const HrEmployeeForm = lazy(() => import('@/features/hr/pages/employees/EmployeeForm'));
 const HrAttendanceList = lazy(() => import('@/features/hr/pages/attendance/AttendanceList'));
@@ -577,17 +595,46 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="/accounting/journal" replace /> },
               {
                 path: 'journal',
-                element: (
-                  <RequirePermission resource="accounting" action="read">
-                    {stub('nav.accounting_journal', 'W-5.6')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="accounting" action="read">
+                        {withSuspense(AccountingJournalList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="accounting" action="create">
+                        {withSuspense(AccountingManualJournalForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id/reverse',
+                    element: (
+                      <RequirePermission resource="accounting" action="create">
+                        {withSuspense(AccountingReversalForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="accounting" action="read">
+                        {withSuspense(AccountingJournalDetail)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'trial-balance',
                 element: (
                   <RequirePermission resource="accounting" action="read">
-                    {stub('nav.accounting_trial_balance', 'W-5.6')}
+                    {withSuspense(AccountingTrialBalance)}
                   </RequirePermission>
                 ),
               },
@@ -595,7 +642,7 @@ export const router = createBrowserRouter([
                 path: 'income-statement',
                 element: (
                   <RequirePermission resource="accounting" action="read">
-                    {stub('nav.accounting_income_statement', 'W-5.6')}
+                    {withSuspense(AccountingIncomeStatement)}
                   </RequirePermission>
                 ),
               },
@@ -603,7 +650,7 @@ export const router = createBrowserRouter([
                 path: 'balance-sheet',
                 element: (
                   <RequirePermission resource="accounting" action="read">
-                    {stub('nav.accounting_balance_sheet', 'W-5.6')}
+                    {withSuspense(AccountingBalanceSheet)}
                   </RequirePermission>
                 ),
               },
@@ -611,7 +658,7 @@ export const router = createBrowserRouter([
                 path: 'general-ledger',
                 element: (
                   <RequirePermission resource="accounting" action="read">
-                    {stub('nav.accounting_general_ledger', 'W-5.6')}
+                    {withSuspense(AccountingGeneralLedger)}
                   </RequirePermission>
                 ),
               },
@@ -619,7 +666,7 @@ export const router = createBrowserRouter([
                 path: 'ar',
                 element: (
                   <RequirePermission resource="accounting" action="read">
-                    {stub('nav.accounting_ar', 'W-5.6')}
+                    {withSuspense(AccountingAROpenItems)}
                   </RequirePermission>
                 ),
               },
@@ -627,7 +674,7 @@ export const router = createBrowserRouter([
                 path: 'ap',
                 element: (
                   <RequirePermission resource="accounting" action="read">
-                    {stub('nav.accounting_ap', 'W-5.6')}
+                    {withSuspense(AccountingApOpenItems)}
                   </RequirePermission>
                 ),
               },
@@ -635,7 +682,7 @@ export const router = createBrowserRouter([
                 path: 'fiscal-periods',
                 element: (
                   <RequirePermission resource="accounting" action="update">
-                    {stub('nav.accounting_fiscal_periods', 'W-5.6')}
+                    {withSuspense(AccountingFiscalPeriodsList)}
                   </RequirePermission>
                 ),
               },

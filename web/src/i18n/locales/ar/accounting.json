@@ -1,0 +1,172 @@
+{
+  "errors": {
+    "generic": "حدث خطأ.",
+    "forbidden": "لا تملك صلاحية لهذا الإجراء.",
+    "forbidden_link": "رجوع"
+  },
+  "actions": {
+    "cancel": "إلغاء"
+  },
+  "toolbar": {
+    "branch": "الفرع",
+    "all_branches": "كل الفروع",
+    "apply": "تطبيق"
+  },
+  "period": {
+    "from": "من",
+    "to": "إلى"
+  },
+  "account_picker": {
+    "placeholder": "اختر حساباً",
+    "search": "بحث",
+    "empty": "لا نتائج"
+  },
+  "journal": {
+    "list_title": "القيود اليومية",
+    "new_manual": "قيد جديد",
+    "detail_title": "قيد #{{id}}",
+    "view": "عرض",
+    "back": "رجوع",
+    "link_original": "الأصل #{{id}}",
+    "link_reversal": "العكس #{{id}}",
+    "reverse": "عكس",
+    "filter": {
+      "source_prefix": "بادئة المصدر"
+    },
+    "total_rows": "الإجمالي: {{total}}",
+    "col": {
+      "id": "رقم",
+      "date": "التاريخ",
+      "source": "المصدر",
+      "memo": "البيان",
+      "debit": "مدين",
+      "credit": "دائن"
+    },
+    "line": {
+      "account": "الحساب",
+      "branch": "الفرع",
+      "memo": "بيان السطر"
+    }
+  },
+  "manual": {
+    "title": "قيد يدوي",
+    "entry_date": "تاريخ القيد",
+    "description": "الوصف",
+    "account": "الحساب",
+    "branch": "الفرع",
+    "add_line": "سطر جديد",
+    "submit": "ترحيل",
+    "saved": "تم الترحيل"
+  },
+  "reversal": {
+    "title": "عكس قيد #{{id}}",
+    "posting_date": "تاريخ العكس",
+    "reason": "السبب",
+    "submit": "إنشاء عكس",
+    "ok": "تم إنشاء قيد العكس"
+  },
+  "tb": {
+    "title": "ميزان المراجعة",
+    "as_of": "كما في",
+    "export": "تصدير CSV",
+    "totals": "إجمالي المدين: {{dr}} · إجمالي الدائن: {{cr}}",
+    "col": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "type": "النوع",
+      "debit": "مدين",
+      "credit": "دائن",
+      "net": "الصافي"
+    }
+  },
+  "is": {
+    "title": "قائمة الدخل",
+    "period_start": "بداية الفترة",
+    "period_end": "نهاية الفترة",
+    "revenue": "إجمالي الإيراد",
+    "expense": "إجمالي المصروف",
+    "net_income": "صافي الدخل",
+    "revenue_lines": "الإيراد حسب الحساب",
+    "expense_lines": "المصروف حسب الحساب",
+    "amount": "المبلغ"
+  },
+  "bs": {
+    "title": "الميزانية العمومية",
+    "as_of": "كما في",
+    "total_assets": "إجمالي الأصول",
+    "total_liabilities": "إجمالي الالتزامات",
+    "total_equity": "إجمالي حقوق الملكية",
+    "imbalance": "الأصول − الالتزامات − حقوق الملكية",
+    "section": {
+      "assets": "الأصول",
+      "liabilities": "الالتزامات",
+      "equity": "حقوق الملكية"
+    }
+  },
+  "gl": {
+    "title": "دفتر الأستاذ العام",
+    "account": "الحساب",
+    "col": {
+      "date": "التاريخ",
+      "je": "قيد",
+      "desc": "الوصف",
+      "balance": "الرصيد"
+    }
+  },
+  "ar": {
+    "title": "الذمم المدينة المفتوحة",
+    "col": {
+      "open": "مفتوح",
+      "source": "مرجع",
+      "status": "الحالة"
+    },
+    "filter_status": "الحالة",
+    "status": {
+      "open": "مفتوح",
+      "closed": "مغلق",
+      "all": "الكل"
+    },
+    "apply_selected": "تطبيق دفعة",
+    "drawer_title": "تطبيق دفعة (مدين)",
+    "tendered": "المسدد (أقصى إجمالي)",
+    "total_applied": "المطبّق: {{v}}",
+    "reference": "مرجع",
+    "note": "ملاحظة",
+    "submit": "إرسال التطبيقات",
+    "apply_ok": "تم تطبيق الدفعة"
+  },
+  "ap": {
+    "title": "الذمم الدائنة المفتوحة",
+    "col": {
+      "open": "مفتوح",
+      "source": "مرجع",
+      "status": "الحالة"
+    },
+    "filter_status": "الحالة",
+    "status": {
+      "open": "مفتوح",
+      "closed": "مغلق",
+      "all": "الكل"
+    },
+    "apply_selected": "تطبيق دفعة",
+    "drawer_title": "تطبيق دفعة (دائن)",
+    "submit": "إرسال التطبيقات",
+    "apply_ok": "تم تطبيق الدفعة"
+  },
+  "fiscal": {
+    "title": "الفترات المالية",
+    "hint": "الفترات عالمية (شهر تقويمي). فلترة الفروع تنطبق على التقارير والقيود لا على صف الفترة.",
+    "col": {
+      "key": "الفترة",
+      "status": "الحالة"
+    },
+    "close": "إقفال",
+    "reopen": "إعادة فتح",
+    "close_confirm_title": "إقفال فترة مالية",
+    "close_confirm_body": "يمنع إقفال الفترة الترحيلات الجديدة. اكتب CLOSE للتأكيد.",
+    "reopen_confirm_title": "إعادة فتح فترة",
+    "reopen_confirm_body": "يسمح بإعادة الترحيل. اكتب REOPEN للتأكيد.",
+    "closed_ok": "تم الإقفال",
+    "reopened_ok": "تم إعادة الفتح"
+  }
+}
