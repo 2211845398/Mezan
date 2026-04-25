@@ -43,6 +43,7 @@
       "expected_date": "Expected date",
       "branch": "Branch",
       "branch_hint": "Receiving branch (optional until receipt)",
+      "supplier_currency": "Supplier currency (ID)",
       "notes": "Notes",
       "lines": "Lines",
       "product": "Product",
@@ -68,7 +69,9 @@
       "partial_receive": "Partial receive",
       "full_receive_hint": "Set received qty per line",
       "receipt_ok": "Goods received; inventory and GL updated.",
-      "closed_ok": "Order closed"
+      "closed_ok": "Order closed",
+      "remaining": "Remaining",
+      "received_col": "Received"
     },
     "status": {
       "draft": "Draft",
@@ -116,7 +119,8 @@
       "load_suggestions": "Load suggestions",
       "confidence": "Confidence",
       "no_candidates": "No candidates",
-      "new_product_stub": "Opens catalog in new tab — create product then refresh suggestions."
+      "new_product_stub": "Opens catalog in new tab — create product then refresh suggestions.",
+      "line_confirmed": "Confirmed"
     }
   },
   "errors": {

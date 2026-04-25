@@ -29,6 +29,8 @@ import { newIdempotencyKey } from '@/lib/idempotency';
 import {
   createPurchaseOrder,
   type PurchaseOrderLineCreate,
+  type PurchaseOrderLineRead,
+  type PurchaseOrderRead,
   sendPurchaseOrder,
   updatePurchaseOrder,
 } from '../../api';
@@ -113,6 +115,11 @@ export default function OrderForm() {
     return total.toFixed(2);
   }, [lines]);
 
+  const supplierCurrencyId = useMemo(() => {
+    if (!supplierId) return null;
+    return suppliers.find((s) => s.id === Number(supplierId))?.currency_id ?? null;
+  }, [supplierId, suppliers]);
+
   const buildPayloadLines = (): PurchaseOrderLineCreate[] =>
     lines
       .filter((l) => l.product_id > 0 && l.qty > 0)
@@ -148,6 +155,45 @@ export default function OrderForm() {
         lines: payloadLines,
       });
     },
+    onMutate: async () => {
+      if (isNew || Number.isNaN(poId)) {
+        return {};
+      }
+      await qc.cancelQueries({ queryKey: purchasingKeys.order(poId) });
+      const prev = qc.getQueryData<PurchaseOrderRead>(purchasingKeys.order(poId));
+      if (!prev) {
+        return {};
+      }
+      const payloadLines = buildPayloadLines();
+      const expected_at =
+        expectedDate.trim() === ''
+          ? null
+          : toISOStringUtc(fromISO(`${expectedDate}T00:00:00.000Z`));
+      const optimisticLines: PurchaseOrderLineRead[] = payloadLines.map((pl, i) => ({
+        id: prev.lines?.[i]?.id ?? -(i + 1),
+        product_id: pl.product_id,
+        qty: pl.qty,
+        unit_cost: pl.unit_cost,
+      }));
+      const optimistic: PurchaseOrderRead = {
+        ...prev,
+        supplier_name: supplierName.trim() || '—',
+        supplier_id: supplierId ? Number(supplierId) : null,
+        branch_id: branchId ? Number(branchId) : null,
+        notes: notes.trim() || null,
+        expected_at,
+        lines: optimisticLines,
+      };
+      qc.setQueryData(purchasingKeys.order(poId), optimistic);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      const snap = ctx as { prev?: PurchaseOrderRead } | undefined;
+      if (snap?.prev && !Number.isNaN(poId)) {
+        qc.setQueryData(purchasingKeys.order(poId), snap.prev);
+      }
+      toast.error(t('errors.generic'));
+    },
     onSuccess: async (row) => {
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
       toast.success(t('orders.form.created'));
@@ -155,7 +201,6 @@ export default function OrderForm() {
         navigate(`/purchasing/orders/${row.id}/edit`, { replace: true });
       }
     },
-    onError: () => toast.error(t('errors.generic')),
   });
 
   const send = useMutation({
@@ -217,6 +262,11 @@ export default function OrderForm() {
           <Label htmlFor="supplier_name">{t('orders.form.supplier_name')}</Label>
           <Input id="supplier_name" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
         </div>
+        {supplierCurrencyId != null ? (
+          <p className="text-sm text-muted-foreground">
+            {t('orders.form.supplier_currency')}: {supplierCurrencyId}
+          </p>
+        ) : null}
         <div className="grid gap-2">
           <Label>{t('orders.form.branch')}</Label>
           <Select value={branchId || '__none'} onValueChange={(v) => setBranchId(v === '__none' ? '' : v)}>

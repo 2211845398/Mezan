@@ -1,27 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Decimal from 'decimal.js';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -39,10 +23,10 @@ import {
   cancelPurchaseOrder,
   closePurchaseOrder,
   type GoodsReceiptRead,
-  receiveGoodsForPurchaseOrder,
   sendPurchaseOrder,
   trackPurchaseOrder,
 } from '../../api';
+import GoodsReceiptForm, { aggregateReceivedQtyByPoLine } from '../receipts/GoodsReceiptForm';
 import { goodsReceiptsQueryOptions, purchaseOrderQueryOptions, purchasingKeys } from '../../queries';
 
 function lineTotal(unit: string, qty: number): string {
@@ -111,42 +95,8 @@ export default function OrderDetail() {
   });
 
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const [recvBranch, setRecvBranch] = useState<string>('');
-  const [recvQty, setRecvQty] = useState<Record<number, string>>({});
 
-  useEffect(() => {
-    if (receiveOpen && po?.branch_id) {
-      setRecvBranch(String(po.branch_id));
-    }
-  }, [receiveOpen, po?.branch_id]);
-
-  const receiveM = useMutation({
-    mutationFn: async () => {
-      const branch_id = Number(recvBranch);
-      const lines = (po?.lines ?? [])
-        .map((ln) => ({
-          purchase_order_line_id: ln.id,
-          qty: Number(recvQty[ln.id] ?? 0),
-        }))
-        .filter((l) => l.qty > 0);
-      if (!branch_id || lines.length === 0) {
-        throw new Error('branch and qty');
-      }
-      return receiveGoodsForPurchaseOrder(poId, {
-        branch_id,
-        lines,
-        idempotency_key: newIdempotencyKey(),
-      });
-    },
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: purchasingKeys.root });
-      toast.success(t('orders.detail_page.receipt_ok'));
-      setReceiveOpen(false);
-      void refetch();
-      void refetchReceipts();
-    },
-    onError: () => toast.error(t('errors.generic')),
-  });
+  const receivedByLine = aggregateReceivedQtyByPoLine(receipts);
 
   if (Number.isNaN(poId)) {
     return null;
@@ -246,20 +196,28 @@ export default function OrderDetail() {
               <TableHead>#</TableHead>
               <TableHead>{t('orders.form.product')}</TableHead>
               <TableHead>{t('orders.form.qty')}</TableHead>
+              <TableHead>{t('orders.detail_page.received_col')}</TableHead>
+              <TableHead>{t('orders.detail_page.remaining')}</TableHead>
               <TableHead>{t('orders.form.unit_cost')}</TableHead>
               <TableHead>{t('orders.form.line_total')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(po.lines ?? []).map((ln) => (
-              <TableRow key={ln.id}>
-                <TableCell>{ln.id}</TableCell>
-                <TableCell>{ln.product_id}</TableCell>
-                <TableCell>{ln.qty}</TableCell>
-                <TableCell>{ln.unit_cost}</TableCell>
-                <TableCell>{lineTotal(String(ln.unit_cost), ln.qty)}</TableCell>
-              </TableRow>
-            ))}
+            {(po.lines ?? []).map((ln) => {
+              const got = receivedByLine[ln.id] ?? 0;
+              const rem = Math.max(0, ln.qty - got);
+              return (
+                <TableRow key={ln.id}>
+                  <TableCell>{ln.id}</TableCell>
+                  <TableCell>{ln.product_id}</TableCell>
+                  <TableCell>{ln.qty}</TableCell>
+                  <TableCell>{got}</TableCell>
+                  <TableCell>{rem}</TableCell>
+                  <TableCell>{ln.unit_cost}</TableCell>
+                  <TableCell>{lineTotal(String(ln.unit_cost), ln.qty)}</TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </section>
@@ -286,56 +244,26 @@ export default function OrderDetail() {
         )}
       </section>
 
-      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t('orders.receive.title')}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3">
-            <div className="grid gap-2">
-              <Label>{t('orders.receive.branch')}</Label>
-              <Select value={recvBranch || '__'} onValueChange={(v) => setRecvBranch(v === '__' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__">—</SelectItem>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={String(b.id)}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-xs text-muted-foreground">{t('orders.receive.idempotency_note')}</p>
-            {(po.lines ?? []).map((ln) => (
-              <div key={ln.id} className="grid gap-1">
-                <Label>
-                  {t('orders.receive.qty')} (line {ln.id} · product {ln.product_id})
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={ln.qty}
-                  value={recvQty[ln.id] ?? ''}
-                  onChange={(e) =>
-                    setRecvQty((prev) => ({ ...prev, [ln.id]: e.target.value }))
-                  }
-                />
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setReceiveOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={receiveM.isPending} onClick={() => void receiveM.mutate()}>
-              {t('orders.receive.submit')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <GoodsReceiptForm
+        open={receiveOpen}
+        onOpenChange={setReceiveOpen}
+        purchaseOrder={po}
+        receipts={receipts}
+        branches={branches}
+        onPosted={async () => {
+          void refetch();
+          void refetchReceipts();
+          if (po.status === 'sent') {
+            try {
+              await trackPurchaseOrder(poId);
+              await qc.invalidateQueries({ queryKey: purchasingKeys.root });
+              void refetch();
+            } catch {
+              toast.error(t('errors.generic'));
+            }
+          }
+        }}
+      />
     </div>
   );
 }

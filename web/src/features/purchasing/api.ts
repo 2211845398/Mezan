@@ -101,6 +101,7 @@ export async function receiveGoodsForPurchaseOrder(
   const { data } = await apiClient.post<GoodsReceiptRead>(
     `/purchase-orders/${purchaseOrderId}/receive-goods`,
     body,
+    { headers: { 'Idempotency-Key': body.idempotency_key } },
   );
   return data;
 }
@@ -134,6 +135,7 @@ export async function applyCatalogMatches(
   const { data } = await apiClient.post<InvoiceScanRead>(
     `/invoice-scans/${scanId}/apply-catalog-matches`,
     body,
+    { headers: { 'Idempotency-Key': body.idempotency_key } },
   );
   return data;
 }

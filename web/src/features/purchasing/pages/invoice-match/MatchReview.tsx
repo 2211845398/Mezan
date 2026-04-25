@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
-import { applyCatalogMatches, type InvoiceMatchResponse,postInvoiceMatch } from '../../api';
+import { applyCatalogMatches, type InvoiceMatchResponse, postInvoiceMatch } from '../../api';
 import { invoiceScanQueryOptions, purchasingKeys } from '../../queries';
 
 type LineMatch = InvoiceMatchResponse['line_matches'][number];
@@ -39,34 +39,46 @@ export default function MatchReview() {
   const [suggestions, setSuggestions] = useState<InvoiceMatchResponse | null>(null);
   /** line_no -> chosen product_id or null (skip) */
   const [choices, setChoices] = useState<Record<number, number | null>>({});
+  /** line_no -> operator confirmed review (local only until approve-all) */
+  const [lineConfirmed, setLineConfirmed] = useState<Record<number, boolean>>({});
+  const applyIdempotencyRef = useRef<string | null>(null);
 
   const loadSuggestions = useMutation({
     mutationFn: () => postInvoiceMatch({ invoice_scan_id: scanId, max_candidates_per_line: 5 }),
     onSuccess: (res) => {
       setSuggestions(res);
       const init: Record<number, number | null> = {};
+      const initConf: Record<number, boolean> = {};
       for (const lm of res.line_matches) {
         init[lm.line_no] =
           lm.best_match_product_id ??
           (lm.candidates[0] ? lm.candidates[0].product_id : null);
+        initConf[lm.line_no] = false;
       }
       setChoices(init);
+      setLineConfirmed(initConf);
+      applyIdempotencyRef.current = null;
     },
     onError: () => toast.error(t('errors.generic')),
   });
 
   const approveAll = useMutation({
     mutationFn: async () => {
+      if (!applyIdempotencyRef.current) {
+        applyIdempotencyRef.current = newIdempotencyKey();
+      }
+      const idem = applyIdempotencyRef.current;
       const line_matches = Object.entries(choices).map(([line_no, product_id]) => ({
         line_no: Number(line_no),
         product_id,
       }));
       return applyCatalogMatches(scanId, {
-        idempotency_key: newIdempotencyKey(),
+        idempotency_key: idem,
         line_matches,
       });
     },
     onSuccess: async () => {
+      applyIdempotencyRef.current = null;
       toast.success(t('match.review_page.apply_ok'));
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
       void refetchScan();
@@ -110,9 +122,9 @@ export default function MatchReview() {
           {t('match.review_page.approve_all')}
         </Button>
         <Button type="button" variant="outline" asChild>
-          <a href="/catalog/products" target="_blank" rel="noreferrer">
+          <Link to="/catalog/products" target="_blank" rel="noreferrer">
             {t('match.review_page.create_product')}
-          </a>
+          </Link>
         </Button>
       </div>
 
@@ -150,6 +162,7 @@ export default function MatchReview() {
                   <TableHead>#</TableHead>
                   <TableHead>{t('match.review_page.change')}</TableHead>
                   <TableHead>{t('match.review_page.confidence')}</TableHead>
+                  <TableHead>{t('match.review_page.confirm')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -197,6 +210,25 @@ export default function MatchReview() {
                         </div>
                       </TableCell>
                       <TableCell>{best ? best.confidence.toFixed(2) : '—'}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={lineConfirmed[lm.line_no] ? 'secondary' : 'outline'}
+                            onClick={() =>
+                              setLineConfirmed((prev) => ({ ...prev, [lm.line_no]: true }))
+                            }
+                          >
+                            {t('match.review_page.confirm')}
+                          </Button>
+                          {lineConfirmed[lm.line_no] ? (
+                            <span className="text-xs text-muted-foreground" data-testid={`confirmed-${lm.line_no}`}>
+                              {t('match.review_page.line_confirmed')}
+                            </span>
+                          ) : null}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                 })}

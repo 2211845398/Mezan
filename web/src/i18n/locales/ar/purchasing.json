@@ -43,6 +43,7 @@
       "expected_date": "التاريخ المتوقع",
       "branch": "الفرع",
       "branch_hint": "فرع الاستلام (اختياري حتى الاستلام)",
+      "supplier_currency": "عملة المورد (المعرّف)",
       "notes": "ملاحظات",
       "lines": "البنود",
       "product": "المنتج",
@@ -68,7 +69,9 @@
       "partial_receive": "استلام جزئي",
       "full_receive_hint": "حدد الكمية المستلمة لكل سطر",
       "receipt_ok": "تم الاستلام وتحديث المخزون والقيود.",
-      "closed_ok": "تم إغلاق الأمر"
+      "closed_ok": "تم إغلاق الأمر",
+      "remaining": "المتبقي",
+      "received_col": "المستلم"
     },
     "status": {
       "draft": "مسودة",
@@ -116,7 +119,8 @@
       "load_suggestions": "تحميل الاقتراحات",
       "confidence": "الثقة",
       "no_candidates": "لا مرشحين",
-      "new_product_stub": "يفتح الكتالوج في تبويب جديد — أنشئ المنتج ثم حدّث الاقتراحات."
+      "new_product_stub": "يفتح الكتالوج في تبويب جديد — أنشئ المنتج ثم حدّث الاقتراحات.",
+      "line_confirmed": "مؤكّد"
     }
   },
   "errors": {

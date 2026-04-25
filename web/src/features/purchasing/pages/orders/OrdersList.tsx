@@ -57,10 +57,8 @@ export default function OrdersList() {
           header: t('orders.col.status'),
           cell: ({ row }) => {
             const s = row.original.status;
-            const key = ['draft', 'sent', 'tracked', 'closed', 'cancelled'].includes(s)
-              ? s
-              : 'draft';
-            return t(`orders.status.${key as 'draft'}`);
+            const key = (['draft', 'sent', 'tracked', 'closed', 'cancelled'] as const).find((x) => x === s) ?? 'draft';
+            return t(`orders.status.${key}`);
           },
         },
         {
