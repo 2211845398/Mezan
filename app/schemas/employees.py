@@ -94,6 +94,8 @@ class LeaveRequestCreate(BaseModel):
 
 class LeaveRequestReview(BaseModel):
     action: Literal["approve", "reject"]
+    review_notes: str | None = Field(default=None, max_length=1024)
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class LeaveRequestRead(BaseModel):
@@ -108,5 +110,6 @@ class LeaveRequestRead(BaseModel):
     reason: str | None = None
     reviewed_by_user_id: int | None = None
     reviewed_at: datetime | None = None
+    review_notes: str | None = None
     created_at: datetime
     updated_at: datetime

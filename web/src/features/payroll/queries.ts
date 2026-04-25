@@ -1,24 +1,24 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 
-import type { paths } from '@/api/generated/schema';
-
-import { listPayslips } from './api';
-
-export type ListPayslipsParams = NonNullable<
-  paths['/api/v1/payroll/payslips']['get']['parameters']['query']
->;
+import * as api from './api';
 
 export const payrollKeys = {
-  all: ['payroll'] as const,
-  payslips: () => [...payrollKeys.all, 'payslips'] as const,
-  payslipList: (params: ListPayslipsParams | undefined) =>
-    [...payrollKeys.payslips(), params] as const,
-} as const;
+  root: ['payroll'] as const,
+  list: (status?: string) => [...payrollKeys.root, 'payslips', status ?? 'all'] as const,
+  detail: (id: number) => [...payrollKeys.root, 'payslip', id] as const,
+};
 
-export function usePayslips(params?: ListPayslipsParams, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: payrollKeys.payslipList(params),
-    queryFn: () => listPayslips(params),
-    enabled: options?.enabled ?? true,
+export function payslipsQueryOptions(status?: string) {
+  return queryOptions({
+    queryKey: payrollKeys.list(status),
+    queryFn: () => api.listPayslips(status ? { status } : undefined),
+  });
+}
+
+export function payslipQueryOptions(id: number) {
+  return queryOptions({
+    queryKey: payrollKeys.detail(id),
+    queryFn: () => api.getPayslip(id),
+    enabled: !Number.isNaN(id),
   });
 }

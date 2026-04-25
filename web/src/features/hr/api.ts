@@ -1,21 +1,127 @@
 import { apiClient } from '@/api/client';
-import type { paths } from '@/api/generated/schema';
+import type { components } from '@/api/generated/schema';
 
-type ListEmployeesResponse =
-  paths['/api/v1/employees']['get']['responses']['200']['content']['application/json'];
+export type EmployeeProfileRead = components['schemas']['EmployeeProfileRead'];
+export type EmployeeProfileCreate = components['schemas']['EmployeeProfileCreate'];
+export type EmployeeProfileUpdate = components['schemas']['EmployeeProfileUpdate'];
+export type WeeklyScheduleRead = components['schemas']['WeeklyScheduleRead'];
+export type WeeklyScheduleCreate = components['schemas']['WeeklyScheduleCreate'];
+export type WeeklyScheduleUpdate = components['schemas']['WeeklyScheduleUpdate'];
+export type AttendanceLogRead = components['schemas']['AttendanceLogRead'];
+export type LeaveRequestRead = components['schemas']['LeaveRequestRead'];
+export type LeaveRequestCreate = components['schemas']['LeaveRequestCreate'];
+export type LeaveRequestReview = components['schemas']['LeaveRequestReview'];
+export type HrAnomalyRequest = components['schemas']['HrAnomalyRequest'];
+export type HrAnomalyResponse = components['schemas']['HrAnomalyResponse'];
 
-export async function listEmployees(): Promise<ListEmployeesResponse> {
-  const { data } = await apiClient.get<ListEmployeesResponse>('/employees');
+export async function listEmployees(): Promise<EmployeeProfileRead[]> {
+  const { data } = await apiClient.get<EmployeeProfileRead[]>('/employees');
   return data;
 }
 
-type GetEmployeeParams = paths['/api/v1/employees/{employee_profile_id}']['get']['parameters']['path'];
-type GetEmployeeResponse =
-  paths['/api/v1/employees/{employee_profile_id}']['get']['responses']['200']['content']['application/json'];
+export async function getEmployee(id: number): Promise<EmployeeProfileRead> {
+  const { data } = await apiClient.get<EmployeeProfileRead>(`/employees/${id}`);
+  return data;
+}
 
-export async function getEmployee(path: GetEmployeeParams): Promise<GetEmployeeResponse> {
-  const { data } = await apiClient.get<GetEmployeeResponse>(
-    `/employees/${path.employee_profile_id}`,
+export async function createEmployee(body: EmployeeProfileCreate): Promise<EmployeeProfileRead> {
+  const { data } = await apiClient.post<EmployeeProfileRead>('/employees', body);
+  return data;
+}
+
+export async function updateEmployee(
+  id: number,
+  body: EmployeeProfileUpdate,
+): Promise<EmployeeProfileRead> {
+  const { data } = await apiClient.patch<EmployeeProfileRead>(`/employees/${id}`, body);
+  return data;
+}
+
+export async function listSchedules(employeeProfileId: number): Promise<WeeklyScheduleRead[]> {
+  const { data } = await apiClient.get<WeeklyScheduleRead[]>(
+    `/employees/${employeeProfileId}/schedules`,
   );
+  return data;
+}
+
+export async function createSchedule(
+  employeeProfileId: number,
+  body: WeeklyScheduleCreate,
+): Promise<WeeklyScheduleRead> {
+  const { data } = await apiClient.post<WeeklyScheduleRead>(
+    `/employees/${employeeProfileId}/schedules`,
+    body,
+  );
+  return data;
+}
+
+export async function updateSchedule(
+  employeeProfileId: number,
+  scheduleId: number,
+  body: WeeklyScheduleUpdate,
+): Promise<WeeklyScheduleRead> {
+  const { data } = await apiClient.patch<WeeklyScheduleRead>(
+    `/employees/${employeeProfileId}/schedules/${scheduleId}`,
+    body,
+  );
+  return data;
+}
+
+export async function listAttendanceLogsGlobal(params: {
+  branch_id?: number;
+  employee_profile_id?: number;
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AttendanceLogRead[]> {
+  const { data } = await apiClient.get<AttendanceLogRead[]>('/attendance/logs', { params });
+  return data;
+}
+
+export async function listAttendanceForEmployee(employeeProfileId: number): Promise<AttendanceLogRead[]> {
+  const { data } = await apiClient.get<AttendanceLogRead[]>(
+    `/employees/${employeeProfileId}/attendance`,
+  );
+  return data;
+}
+
+export async function listLeaveRequestsGlobal(params: {
+  status?: string;
+  employee_profile_id?: number;
+  limit?: number;
+  offset?: number;
+}): Promise<LeaveRequestRead[]> {
+  const { data } = await apiClient.get<LeaveRequestRead[]>('/leave-requests', { params });
+  return data;
+}
+
+export async function createLeaveRequest(
+  employeeProfileId: number,
+  body: LeaveRequestCreate,
+): Promise<LeaveRequestRead> {
+  const { data } = await apiClient.post<LeaveRequestRead>(
+    `/employees/${employeeProfileId}/leave-requests`,
+    body,
+  );
+  return data;
+}
+
+export async function reviewLeaveRequest(
+  leaveRequestId: number,
+  body: LeaveRequestReview,
+  idempotencyKey?: string,
+): Promise<LeaveRequestRead> {
+  const key = idempotencyKey ?? body.idempotency_key;
+  const { data } = await apiClient.post<LeaveRequestRead>(
+    `/leave-requests/${leaveRequestId}/review`,
+    body,
+    key ? { headers: { 'Idempotency-Key': key } } : undefined,
+  );
+  return data;
+}
+
+export async function postHrAnomalies(body: HrAnomalyRequest): Promise<HrAnomalyResponse> {
+  const { data } = await apiClient.post<HrAnomalyResponse>('/ai/advisory/hr-anomalies', body);
   return data;
 }

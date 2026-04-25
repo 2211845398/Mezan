@@ -15,10 +15,12 @@ class PayslipGenerateRequest(BaseModel):
     period_end: date
     deductions: Decimal = Field(default=Decimal("0.00"), ge=0)
     hourly_rate_override: Decimal | None = Field(default=None, ge=0)
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class PayslipApproveRequest(BaseModel):
     payslip_id: int
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class PayslipRead(BaseModel):
@@ -37,4 +39,6 @@ class PayslipRead(BaseModel):
     immutable_hash: str
     approved_by_user_id: int | None = None
     approved_at: datetime | None = None
+    generate_idempotency_key: str | None = None
+    approve_idempotency_key: str | None = None
     created_at: datetime

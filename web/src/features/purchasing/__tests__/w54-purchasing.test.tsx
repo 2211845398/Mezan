@@ -139,7 +139,7 @@ describe('W-5.4 purchasing', () => {
       }),
       http.post(`${API}/purchase-orders/5/receive-goods`, async ({ request }) => {
         const b = (await request.json()) as { lines: { qty: number }[] };
-        expect(b.lines[0].qty).toBe(3);
+        expect(b.lines[0]?.qty).toBe(3);
         return HttpResponse.json({
           id: 99,
           purchase_order_id: 5,

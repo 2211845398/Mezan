@@ -83,6 +83,18 @@ const PurchasingSupplierForm = lazy(() => import('@/features/purchasing/pages/su
 const PurchasingMatchQueue = lazy(() => import('@/features/purchasing/pages/invoice-match/MatchQueue'));
 const PurchasingMatchReview = lazy(() => import('@/features/purchasing/pages/invoice-match/MatchReview'));
 
+const HrEmployeesList = lazy(() => import('@/features/hr/pages/employees/EmployeesList'));
+const HrEmployeeForm = lazy(() => import('@/features/hr/pages/employees/EmployeeForm'));
+const HrAttendanceList = lazy(() => import('@/features/hr/pages/attendance/AttendanceList'));
+const HrTimesheetDetail = lazy(() => import('@/features/hr/pages/attendance/TimesheetDetail'));
+const HrLeaveList = lazy(() => import('@/features/hr/pages/leave/LeaveList'));
+const HrLeaveRequestForm = lazy(() => import('@/features/hr/pages/leave/LeaveRequestForm'));
+const HrAnomaliesDashboard = lazy(() => import('@/features/hr/pages/anomalies/AnomaliesDashboard'));
+
+const PayrollRunsList = lazy(() => import('@/features/payroll/pages/runs/RunsList'));
+const PayrollRunDetail = lazy(() => import('@/features/payroll/pages/runs/RunDetail'));
+const PayrollApprovalsQueue = lazy(() => import('@/features/payroll/pages/approvals/ApprovalsQueue'));
+
 function withSuspense(Component: ComponentType): JSX.Element {
   return (
     <Suspense fallback={<RouteLoader />}>
@@ -441,25 +453,80 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="/hr/employees" replace /> },
               {
                 path: 'employees',
-                element: (
-                  <RequirePermission resource="employees" action="read">
-                    {stub('nav.hr_employees', 'W-5.5')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="employees" action="read">
+                        {withSuspense(HrEmployeesList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="employees" action="create">
+                        {withSuspense(HrEmployeeForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id/edit',
+                    element: (
+                      <RequirePermission resource="employees" action="update">
+                        {withSuspense(HrEmployeeForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'attendance',
-                element: (
-                  <RequirePermission resource="employees" action="read">
-                    {stub('nav.hr_attendance', 'W-5.5')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="employees" action="read">
+                        {withSuspense(HrAttendanceList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'timesheet/:employeeProfileId',
+                    element: (
+                      <RequirePermission resource="employees" action="read">
+                        {withSuspense(HrTimesheetDetail)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'leave',
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="employees" action="read">
+                        {withSuspense(HrLeaveList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="employees" action="create">
+                        {withSuspense(HrLeaveRequestForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
+              },
+              {
+                path: 'anomalies',
                 element: (
-                  <RequirePermission resource="employees" action="read">
-                    {stub('nav.hr_leave', 'W-5.5')}
+                  <RequirePermission resource="ai_advisory" action="run">
+                    {withSuspense(HrAnomaliesDashboard)}
                   </RequirePermission>
                 ),
               },
@@ -473,17 +540,30 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="/payroll/runs" replace /> },
               {
                 path: 'runs',
-                element: (
-                  <RequirePermission resource="payroll" action="read">
-                    {stub('nav.payroll_runs', 'W-5.5')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="payroll" action="read">
+                        {withSuspense(PayrollRunsList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="payroll" action="read">
+                        {withSuspense(PayrollRunDetail)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'approvals',
                 element: (
                   <RequirePermission resource="payroll" action="approve">
-                    {stub('nav.payroll_approvals', 'W-5.5')}
+                    {withSuspense(PayrollApprovalsQueue)}
                   </RequirePermission>
                 ),
               },

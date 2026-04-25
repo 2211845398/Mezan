@@ -1523,6 +1523,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attendance/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Attendance Logs Global */
+        get: operations["list_attendance_logs_global_api_v1_attendance_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{employee_profile_id}/leave-requests": {
         parameters: {
             query?: never;
@@ -1535,6 +1552,23 @@ export interface paths {
         put?: never;
         /** Create Leave Request Endpoint */
         post: operations["create_leave_request_endpoint_api_v1_employees__employee_profile_id__leave_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Leave Requests Global */
+        get: operations["list_leave_requests_global_api_v1_leave_requests_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1739,6 +1773,23 @@ export interface paths {
         get: operations["get_payslip_endpoint_api_v1_payroll_payslips__payslip_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payroll/payslips/{payslip_id}/recalculate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recalculate Payslip Endpoint */
+        post: operations["recalculate_payslip_endpoint_api_v1_payroll_payslips__payslip_id__recalculate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3917,6 +3968,8 @@ export interface components {
             reviewed_by_user_id?: number | null;
             /** Reviewed At */
             reviewed_at?: string | null;
+            /** Review Notes */
+            review_notes?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3935,6 +3988,10 @@ export interface components {
              * @enum {string}
              */
             action: "approve" | "reject";
+            /** Review Notes */
+            review_notes?: string | null;
+            /** Idempotency Key */
+            idempotency_key?: string | null;
         };
         /** LedgerEntryRead */
         LedgerEntryRead: {
@@ -4380,6 +4437,8 @@ export interface components {
         PayslipApproveRequest: {
             /** Payslip Id */
             payslip_id: number;
+            /** Idempotency Key */
+            idempotency_key?: string | null;
         };
         /** PayslipGenerateRequest */
         PayslipGenerateRequest: {
@@ -4402,6 +4461,8 @@ export interface components {
             deductions: number | string;
             /** Hourly Rate Override */
             hourly_rate_override?: number | string | null;
+            /** Idempotency Key */
+            idempotency_key?: string | null;
         };
         /** PayslipRead */
         PayslipRead: {
@@ -4440,6 +4501,10 @@ export interface components {
             approved_by_user_id?: number | null;
             /** Approved At */
             approved_at?: string | null;
+            /** Generate Idempotency Key */
+            generate_idempotency_key?: string | null;
+            /** Approve Idempotency Key */
+            approve_idempotency_key?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -9229,6 +9294,42 @@ export interface operations {
             };
         };
     };
+    list_attendance_logs_global_api_v1_attendance_logs_get: {
+        parameters: {
+            query?: {
+                branch_id?: number | null;
+                employee_profile_id?: number | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceLogRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_leave_requests_endpoint_api_v1_employees__employee_profile_id__leave_requests_get: {
         parameters: {
             query?: never;
@@ -9282,6 +9383,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeaveRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_leave_requests_global_api_v1_leave_requests_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                employee_profile_id?: number | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRequestRead"][];
                 };
             };
             /** @description Validation Error */
@@ -9659,6 +9794,37 @@ export interface operations {
         };
     };
     get_payslip_endpoint_api_v1_payroll_payslips__payslip_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payslip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayslipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recalculate_payslip_endpoint_api_v1_payroll_payslips__payslip_id__recalculate_post: {
         parameters: {
             query?: never;
             header?: never;

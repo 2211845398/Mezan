@@ -1,0 +1,49 @@
+{
+  "runs": {
+    "title": "Payroll runs",
+    "generate_section": "Generate payslip"
+  },
+  "run": {
+    "title": "Payslip #{{id}}"
+  },
+  "approvals": {
+    "title": "Payroll approvals"
+  },
+  "form": {
+    "emp_id": "Employee profile ID",
+    "period_start": "Period start",
+    "period_end": "Period end",
+    "deductions": "Deductions"
+  },
+  "col": {
+    "id": "ID",
+    "employee": "Employee",
+    "period": "Period",
+    "status": "Status",
+    "hours": "Hours",
+    "rate": "Rate",
+    "gross": "Gross",
+    "deductions": "Deductions",
+    "net": "Net"
+  },
+  "status": {
+    "calculated": "Calculated (draft)",
+    "approved": "Approved"
+  },
+  "actions": {
+    "generate": "Generate",
+    "gen_ok": "Payslip generated",
+    "detail": "View detail",
+    "recalculate": "Recalculate",
+    "approve": "Approve",
+    "export_csv": "Export CSV (approved)",
+    "approved_ok": "Payslip approved",
+    "recalc_ok": "Payslip recalculated"
+  },
+  "export": {
+    "filename": "approved_payslips.csv"
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again."
+  }
+}

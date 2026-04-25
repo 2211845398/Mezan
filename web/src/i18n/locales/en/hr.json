@@ -1,0 +1,101 @@
+{
+  "hr_errors": {
+    "generic": "Something went wrong. Try again."
+  },
+  "employees": {
+    "title": "Employees",
+    "new": "New employee",
+    "edit": "Edit employee",
+    "col": {
+      "id": "ID",
+      "user_id": "User",
+      "hire_date": "Hire date",
+      "hourly_rate": "Hourly rate"
+    },
+    "form": {
+      "user": "User ID",
+      "hire_date": "Hire date",
+      "base_salary": "Base salary",
+      "hourly_rate": "Hourly rate",
+      "rate_hint": "Enter either base salary or hourly rate, not both.",
+      "base_or_hourly": "Provide base salary or hourly rate.",
+      "bank": "Bank account (IBAN)",
+      "save": "Save",
+      "saved": "Employee saved",
+      "schedule": "Weekly schedule",
+      "schedule_hint": "Mark a weekday as day off or add blocks from the list.",
+      "weekday": "Day {{d}}",
+      "day_off": "Day off",
+      "add_day": "Add day off ({{d}})"
+    }
+  },
+  "attendance": {
+    "title": "Attendance",
+    "from": "From",
+    "to": "To",
+    "branch": "Branch",
+    "employee": "Employee",
+    "all": "All",
+    "timesheet_link": "Timesheet",
+    "col": {
+      "id": "ID",
+      "employee": "Employee",
+      "branch": "Branch",
+      "in": "In",
+      "out": "Out"
+    }
+  },
+  "timesheet": {
+    "title": "Timesheet",
+    "hours": "Hours",
+    "hours_total": "Total hours"
+  },
+  "leave": {
+    "title": "Leave",
+    "new": "New request",
+    "review": "Review",
+    "review_title": "Review leave",
+    "review_notes": "Notes",
+    "review_ok": "Review submitted",
+    "reject": "Reject",
+    "approve": "Approve",
+    "filter_status": "Status",
+    "created": "Leave request created",
+    "col": {
+      "id": "ID",
+      "employee": "Employee",
+      "type": "Type",
+      "status": "Status",
+      "from": "From",
+      "to": "To"
+    },
+    "st": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "all": "All"
+    },
+    "form": {
+      "employee": "Employee",
+      "type": "Type",
+      "start": "Start",
+      "end": "End",
+      "reason": "Reason",
+      "submit": "Submit"
+    }
+  },
+  "anomalies": {
+    "title": "HR anomalies",
+    "lookback": "Lookback (days)",
+    "branch": "Branch ID (optional)",
+    "run": "Run analysis",
+    "model": "Model",
+    "facts": "Facts used",
+    "col": {
+      "employee": "Employee",
+      "type": "Type",
+      "severity": "Severity",
+      "rationale": "Rationale"
+    }
+  }
+}

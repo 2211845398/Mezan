@@ -1,26 +1,70 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 
-import { getEmployee, listEmployees } from './api';
+import * as api from './api';
 
 export const hrKeys = {
-  all: ['hr'] as const,
-  employees: () => [...hrKeys.all, 'employees'] as const,
-  employeeList: () => [...hrKeys.employees(), 'list'] as const,
-  employeeDetail: (id: number) => [...hrKeys.employees(), 'detail', id] as const,
-} as const;
+  root: ['hr'] as const,
+  employees: () => [...hrKeys.root, 'employees'] as const,
+  employee: (id: number) => [...hrKeys.root, 'employee', id] as const,
+  schedules: (employeeId: number) => [...hrKeys.root, 'schedules', employeeId] as const,
+  attendance: (q: {
+    date_from?: string;
+    date_to?: string;
+    branch_id?: number;
+    employee_profile_id?: number;
+  }) => [...hrKeys.root, 'attendance', q] as const,
+  timesheet: (employeeId: number) => [...hrKeys.root, 'timesheet', employeeId] as const,
+  leaveList: (q: { status?: string; employee_profile_id?: number }) =>
+    [...hrKeys.root, 'leave', q] as const,
+  anomalies: (payload: string) => [...hrKeys.root, 'anomalies', payload] as const,
+};
 
-export function useEmployees(options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: hrKeys.employeeList(),
-    queryFn: listEmployees,
-    enabled: options?.enabled ?? true,
+export function employeesQueryOptions() {
+  return queryOptions({
+    queryKey: hrKeys.employees(),
+    queryFn: () => api.listEmployees(),
   });
 }
 
-export function useEmployee(id: number, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: hrKeys.employeeDetail(id),
-    queryFn: () => getEmployee({ employee_profile_id: id }),
-    enabled: (options?.enabled ?? true) && id > 0,
+export function employeeQueryOptions(id: number) {
+  return queryOptions({
+    queryKey: hrKeys.employee(id),
+    queryFn: () => api.getEmployee(id),
+    enabled: !Number.isNaN(id),
+  });
+}
+
+export function schedulesQueryOptions(employeeId: number) {
+  return queryOptions({
+    queryKey: hrKeys.schedules(employeeId),
+    queryFn: () => api.listSchedules(employeeId),
+    enabled: !Number.isNaN(employeeId),
+  });
+}
+
+export function attendanceListQueryOptions(params: {
+  date_from?: string;
+  date_to?: string;
+  branch_id?: number;
+  employee_profile_id?: number;
+}) {
+  return queryOptions({
+    queryKey: hrKeys.attendance(params),
+    queryFn: () => api.listAttendanceLogsGlobal({ ...params, limit: 500, offset: 0 }),
+  });
+}
+
+export function timesheetQueryOptions(employeeId: number) {
+  return queryOptions({
+    queryKey: hrKeys.timesheet(employeeId),
+    queryFn: () => api.listAttendanceForEmployee(employeeId),
+    enabled: !Number.isNaN(employeeId),
+  });
+}
+
+export function leaveListQueryOptions(params: { status?: string; employee_profile_id?: number }) {
+  return queryOptions({
+    queryKey: hrKeys.leaveList(params),
+    queryFn: () => api.listLeaveRequestsGlobal({ ...params, limit: 200, offset: 0 }),
   });
 }

@@ -173,7 +173,7 @@ export default function OrderForm() {
         id: prev.lines?.[i]?.id ?? -(i + 1),
         product_id: pl.product_id,
         qty: pl.qty,
-        unit_cost: pl.unit_cost,
+        unit_cost: String(pl.unit_cost),
       }));
       const optimistic: PurchaseOrderRead = {
         ...prev,

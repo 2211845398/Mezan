@@ -5,6 +5,7 @@ export type PurchaseOrderRead = components['schemas']['PurchaseOrderRead'];
 export type PurchaseOrderCreate = components['schemas']['PurchaseOrderCreate'];
 export type PurchaseOrderUpdate = components['schemas']['PurchaseOrderUpdate'];
 export type PurchaseOrderLineCreate = components['schemas']['PurchaseOrderLineCreate'];
+export type PurchaseOrderLineRead = components['schemas']['PurchaseOrderLineRead'];
 export type PurchaseOrderSendRequest = components['schemas']['PurchaseOrderSendRequest'];
 export type SupplierRead = components['schemas']['SupplierRead'];
 export type SupplierCreate = components['schemas']['SupplierCreate'];

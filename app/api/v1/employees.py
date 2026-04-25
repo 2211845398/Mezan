@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,8 +33,10 @@ from app.services.employee_service import (
     create_weekly_schedule,
     get_employee_profile,
     list_attendance_logs,
+    list_attendance_logs_filtered,
     list_employee_profiles,
     list_leave_requests,
+    list_leave_requests_filtered,
     list_weekly_schedules,
     review_leave_request,
     soft_delete_leave_request,
@@ -41,6 +45,13 @@ from app.services.employee_service import (
 )
 
 router = APIRouter()
+
+
+def _review_idempotency_key(request: Request, body_key: str | None) -> str | None:
+    h = request.headers.get("Idempotency-Key")
+    if h and len(h.strip()) >= 8:
+        return h.strip()
+    return body_key
 
 
 @router.post("/employees", response_model=EmployeeProfileRead, status_code=status.HTTP_201_CREATED)
@@ -251,6 +262,30 @@ async def list_attendance_endpoint(
     return [AttendanceLogRead.model_validate(r) for r in rows]
 
 
+@router.get("/attendance/logs", response_model=list[AttendanceLogRead])
+async def list_attendance_logs_global(
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("employees", "read"),
+    branch_id: int | None = None,
+    employee_profile_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> list[AttendanceLogRead]:
+    rows = await list_attendance_logs_filtered(
+        db,
+        branch_id=branch_id,
+        employee_profile_id=employee_profile_id,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+    return [AttendanceLogRead.model_validate(r) for r in rows]
+
+
 @router.post(
     "/employees/{employee_profile_id}/leave-requests",
     response_model=LeaveRequestRead,
@@ -292,6 +327,26 @@ async def list_leave_requests_endpoint(
     return [LeaveRequestRead.model_validate(r) for r in rows]
 
 
+@router.get("/leave-requests", response_model=list[LeaveRequestRead])
+async def list_leave_requests_global(
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("employees", "read"),
+    status: str | None = None,
+    employee_profile_id: int | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[LeaveRequestRead]:
+    rows = await list_leave_requests_filtered(
+        db,
+        status=status,
+        employee_profile_id=employee_profile_id,
+        limit=limit,
+        offset=offset,
+    )
+    return [LeaveRequestRead.model_validate(r) for r in rows]
+
+
 @router.post("/leave-requests/{leave_request_id}/review", response_model=LeaveRequestRead)
 async def review_leave_request_endpoint(
     leave_request_id: int,
@@ -301,20 +356,24 @@ async def review_leave_request_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("employees", "approve"),
 ) -> LeaveRequestRead:
-    row = await review_leave_request(
+    idem = _review_idempotency_key(request, body.idempotency_key)
+    row, applied = await review_leave_request(
         db,
         leave_request_id=leave_request_id,
         action=body.action,
         reviewer_user_id=current_user.id,
+        review_notes=body.review_notes,
+        idempotency_key=idem,
     )
-    await audit_service.log(
-        session=db,
-        action="leave_request.reviewed",
-        resource_type="leave_request",
-        resource_id=str(row.id),
-        user_id=current_user.id,
-        request=request,
-    )
+    if applied:
+        await audit_service.log(
+            session=db,
+            action="leave_request.reviewed",
+            resource_type="leave_request",
+            resource_id=str(row.id),
+            user_id=current_user.id,
+            request=request,
+        )
     await db.commit()
     return LeaveRequestRead.model_validate(row)
 

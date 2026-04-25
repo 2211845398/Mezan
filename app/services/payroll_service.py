@@ -99,9 +99,24 @@ async def generate_payslip(
     period_end: date,
     deductions: Decimal,
     hourly_rate_override: Decimal | None = None,
-) -> Payslip:
+    idempotency_key: str | None = None,
+) -> tuple[Payslip, bool]:
+    """Returns (payslip, created). When idempotency_key replays, created is False."""
     if period_end < period_start:
         raise ValidationError("period_end must be on or after period_start")
+    if idempotency_key is not None and len(idempotency_key) < 8:
+        raise ValidationError(
+            "idempotency_key must be at least 8 characters",
+            details={"field": "idempotency_key"},
+        )
+    if idempotency_key is not None:
+        prior = await db.execute(
+            select(Payslip).where(Payslip.generate_idempotency_key == idempotency_key)
+        )
+        found = prior.scalar_one_or_none()
+        if found:
+            return found, False
+
     employee = await _get_employee_profile(db, employee_profile_id)
 
     existing = await db.execute(
@@ -131,6 +146,15 @@ async def generate_payslip(
     if net < Decimal("0"):
         raise ValidationError("Net amount cannot be negative")
 
+    h = _make_immutable_hash(
+        employee_profile_id=employee_profile_id,
+        period_start=period_start,
+        period_end=period_end,
+        hours_worked=hours_worked,
+        hourly_rate=_q(rate),
+        deductions=_q(deductions),
+        net_amount=net,
+    )
     payslip = Payslip(
         employee_profile_id=employee_profile_id,
         period_start=period_start,
@@ -141,20 +165,13 @@ async def generate_payslip(
         gross_amount=gross,
         net_amount=net,
         status=PayslipStatus.DRAFT,
-        immutable_hash=_make_immutable_hash(
-            employee_profile_id=employee_profile_id,
-            period_start=period_start,
-            period_end=period_end,
-            hours_worked=hours_worked,
-            hourly_rate=_q(rate),
-            deductions=_q(deductions),
-            net_amount=net,
-        ),
+        immutable_hash=h,
+        generate_idempotency_key=idempotency_key,
     )
     db.add(payslip)
     await db.flush()
     await db.refresh(payslip)
-    return payslip
+    return payslip, True
 
 
 async def get_payslip(db: AsyncSession, payslip_id: int) -> Payslip:
@@ -173,13 +190,31 @@ async def list_payslips(db: AsyncSession, *, status: str | None = None) -> list[
     return list(res.scalars().all())
 
 
-async def approve_payslip(db: AsyncSession, *, payslip_id: int, approver_user_id: int) -> Payslip:
+async def approve_payslip(
+    db: AsyncSession,
+    *,
+    payslip_id: int,
+    approver_user_id: int,
+    idempotency_key: str | None = None,
+) -> tuple[Payslip, bool]:
+    """Returns (payslip, applied). applied is False on idempotent replay."""
+    if idempotency_key is not None and len(idempotency_key) < 8:
+        raise ValidationError(
+            "idempotency_key must be at least 8 characters",
+            details={"field": "idempotency_key"},
+        )
     payslip = await get_payslip(db, payslip_id)
+    if payslip.status == PayslipStatus.APPROVED:
+        if idempotency_key and payslip.approve_idempotency_key == idempotency_key:
+            return payslip, False
+        raise StateTransitionError("Payslip is already approved")
     if payslip.status != PayslipStatus.DRAFT:
         raise StateTransitionError("Only draft payslips can be approved")
     payslip.status = PayslipStatus.APPROVED
     payslip.approved_by_user_id = approver_user_id
     payslip.approved_at = datetime.now(UTC)
+    if idempotency_key:
+        payslip.approve_idempotency_key = idempotency_key
     await db.flush()
     br = await db.execute(
         select(User.branch_id)
@@ -188,6 +223,41 @@ async def approve_payslip(db: AsyncSession, *, payslip_id: int, approver_user_id
     )
     branch_id = br.scalar_one_or_none()
     await post_payslip_approved_gl(db, payslip=payslip, branch_id=branch_id or 1)
+    await db.flush()
+    await db.refresh(payslip)
+    return payslip, True
+
+
+async def recalculate_draft_payslip(db: AsyncSession, *, payslip_id: int) -> Payslip:
+    """Recompute hours and gross/net for a draft payslip; keeps period, hourly_rate, and deductions."""
+    payslip = await get_payslip(db, payslip_id)
+    if payslip.status != PayslipStatus.DRAFT:
+        raise StateTransitionError("Only draft payslips can be recalculated")
+    await _get_employee_profile(db, payslip.employee_profile_id)
+    hours_worked = await _compute_hours_worked(
+        db,
+        employee_profile_id=payslip.employee_profile_id,
+        period_start=payslip.period_start,
+        period_end=payslip.period_end,
+    )
+    rate = payslip.hourly_rate
+    gross = _q(hours_worked * rate)
+    net = _q(gross - payslip.deductions)
+    if net < Decimal("0"):
+        raise ValidationError("Net amount cannot be negative after recalculation")
+    h = _make_immutable_hash(
+        employee_profile_id=payslip.employee_profile_id,
+        period_start=payslip.period_start,
+        period_end=payslip.period_end,
+        hours_worked=hours_worked,
+        hourly_rate=rate,
+        deductions=payslip.deductions,
+        net_amount=net,
+    )
+    payslip.hours_worked = hours_worked
+    payslip.gross_amount = gross
+    payslip.net_amount = net
+    payslip.immutable_hash = h
     await db.flush()
     await db.refresh(payslip)
     return payslip

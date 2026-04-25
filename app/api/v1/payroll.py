@@ -17,9 +17,17 @@ from app.services.payroll_service import (
     generate_payslip,
     get_payslip,
     list_payslips,
+    recalculate_draft_payslip,
 )
 
 router = APIRouter()
+
+
+def _idempotency_key(request: Request, body_key: str | None) -> str | None:
+    h = request.headers.get("Idempotency-Key")
+    if h and len(h.strip()) >= 8:
+        return h.strip()
+    return body_key
 
 
 @router.post(
@@ -32,22 +40,25 @@ async def generate_payslip_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("payroll", "create"),
 ) -> PayslipRead:
-    payslip = await generate_payslip(
+    idem = _idempotency_key(request, body.idempotency_key)
+    payslip, created = await generate_payslip(
         db,
         employee_profile_id=body.employee_profile_id,
         period_start=body.period_start,
         period_end=body.period_end,
         deductions=body.deductions,
         hourly_rate_override=body.hourly_rate_override,
+        idempotency_key=idem,
     )
-    await audit_service.log(
-        session=db,
-        action="payslip.generated",
-        resource_type="payslip",
-        resource_id=str(payslip.id),
-        user_id=current_user.id,
-        request=request,
-    )
+    if created:
+        await audit_service.log(
+            session=db,
+            action="payslip.generated",
+            resource_type="payslip",
+            resource_id=str(payslip.id),
+            user_id=current_user.id,
+            request=request,
+        )
     await db.commit()
     return PayslipRead.model_validate(payslip)
 
@@ -74,6 +85,27 @@ async def get_payslip_endpoint(
     return PayslipRead.model_validate(row)
 
 
+@router.post("/payroll/payslips/{payslip_id}/recalculate", response_model=PayslipRead)
+async def recalculate_payslip_endpoint(
+    payslip_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("payroll", "create"),
+) -> PayslipRead:
+    row = await recalculate_draft_payslip(db, payslip_id=payslip_id)
+    await audit_service.log(
+        session=db,
+        action="payslip.recalculated",
+        resource_type="payslip",
+        resource_id=str(row.id),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return PayslipRead.model_validate(row)
+
+
 @router.post("/payroll/payslips/approve", response_model=PayslipRead)
 async def approve_payslip_endpoint(
     body: PayslipApproveRequest,
@@ -82,15 +114,19 @@ async def approve_payslip_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("payroll", "approve"),
 ) -> PayslipRead:
-    row = await approve_payslip(db, payslip_id=body.payslip_id, approver_user_id=current_user.id)
-    await audit_service.log(
-        session=db,
-        action="payslip.approved",
-        resource_type="payslip",
-        resource_id=str(row.id),
-        user_id=current_user.id,
-        request=request,
+    idem = _idempotency_key(request, body.idempotency_key)
+    row, applied = await approve_payslip(
+        db, payslip_id=body.payslip_id, approver_user_id=current_user.id, idempotency_key=idem
     )
+    if applied:
+        await audit_service.log(
+            session=db,
+            action="payslip.approved",
+            resource_type="payslip",
+            resource_id=str(row.id),
+            user_id=current_user.id,
+            request=request,
+        )
     await db.commit()
     return PayslipRead.model_validate(row)
 

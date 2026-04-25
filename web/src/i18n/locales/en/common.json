@@ -20,6 +20,7 @@
     "hr_employees": "Employees",
     "hr_attendance": "Attendance",
     "hr_leave": "Leave",
+    "hr_anomalies": "Anomalies",
     "payroll": "Payroll",
     "payroll_runs": "Runs",
     "payroll_approvals": "Approvals",

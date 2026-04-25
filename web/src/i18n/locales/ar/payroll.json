@@ -1,0 +1,49 @@
+{
+  "runs": {
+    "title": "تشغيل الرواتب",
+    "generate_section": "إصدار قسيمة"
+  },
+  "run": {
+    "title": "قسيمة راتب #{{id}}"
+  },
+  "approvals": {
+    "title": "اعتماد الرواتب"
+  },
+  "form": {
+    "emp_id": "رقم موظف",
+    "period_start": "بداية الفترة",
+    "period_end": "نهاية الفترة",
+    "deductions": "الخصومات"
+  },
+  "col": {
+    "id": "المعرّف",
+    "employee": "الموظف",
+    "period": "الفترة",
+    "status": "الحالة",
+    "hours": "ساعات",
+    "rate": "المعدل",
+    "gross": "الإجمالي",
+    "deductions": "الخصومات",
+    "net": "الصافي"
+  },
+  "status": {
+    "calculated": "محسوبة (مسودة)",
+    "approved": "معتمدة"
+  },
+  "actions": {
+    "generate": "إصدار",
+    "gen_ok": "تم إصدار القسيمة",
+    "detail": "عرض التفاصيل",
+    "recalculate": "إعادة احتساب",
+    "approve": "اعتماد",
+    "export_csv": "تصدير CSV (المعتمدة)",
+    "approved_ok": "تم اعتماد القسيمة",
+    "recalc_ok": "تمت إعادة الاحتساب"
+  },
+  "export": {
+    "filename": "payslips_approved.csv"
+  },
+  "errors": {
+    "generic": "حدث خطأ. حاول مرة أخرى."
+  }
+}

@@ -173,6 +173,13 @@ export const navigation: NavItem[] = [
         href: '/hr/leave',
         permission: { resource: 'employees', action: 'read' },
       },
+      {
+        key: 'hr-anomalies',
+        labelKey: 'nav.hr_anomalies',
+        icon: Users,
+        href: '/hr/anomalies',
+        permission: { resource: 'ai_advisory', action: 'run' },
+      },
     ],
   },
   {

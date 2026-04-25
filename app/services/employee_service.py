@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError, StateTransitionError, ValidationError
+from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
 from app.models.attendance_log import AttendanceLog
 from app.models.employee_profile import EmployeeProfile
 from app.models.leave_request import LeaveRequest, LeaveStatus, LeaveType
@@ -219,9 +219,77 @@ async def list_leave_requests(db: AsyncSession, *, employee_profile_id: int) -> 
     return list(result.scalars().all())
 
 
+async def list_leave_requests_filtered(
+    db: AsyncSession,
+    *,
+    status: str | None = None,
+    employee_profile_id: int | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[LeaveRequest]:
+    q = select(LeaveRequest).where(LeaveRequest.is_deleted.is_(False))
+    if status is not None:
+        q = q.where(LeaveRequest.status == LeaveStatus(status))
+    if employee_profile_id is not None:
+        q = q.where(LeaveRequest.employee_profile_id == employee_profile_id)
+    q = q.order_by(LeaveRequest.created_at.desc()).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    result = await db.execute(q)
+    return list(result.scalars().all())
+
+
+async def list_attendance_logs_filtered(
+    db: AsyncSession,
+    *,
+    branch_id: int | None = None,
+    employee_profile_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> list[AttendanceLog]:
+    q = select(AttendanceLog)
+    if employee_profile_id is not None:
+        q = q.where(AttendanceLog.employee_profile_id == employee_profile_id)
+    if branch_id is not None:
+        q = q.where(AttendanceLog.branch_id == branch_id)
+    if date_from is not None:
+        start_dt = datetime.combine(date_from, time.min).replace(tzinfo=UTC)
+        q = q.where(AttendanceLog.clock_in_at >= start_dt)
+    if date_to is not None:
+        end_dt = datetime.combine(date_to + timedelta(days=1), time.min).replace(tzinfo=UTC)
+        q = q.where(AttendanceLog.clock_in_at < end_dt)
+    q = q.order_by(AttendanceLog.clock_in_at.desc()).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    result = await db.execute(q)
+    return list(result.scalars().all())
+
+
 async def review_leave_request(
-    db: AsyncSession, *, leave_request_id: int, action: str, reviewer_user_id: int
-) -> LeaveRequest:
+    db: AsyncSession,
+    *,
+    leave_request_id: int,
+    action: str,
+    reviewer_user_id: int,
+    review_notes: str | None = None,
+    idempotency_key: str | None = None,
+) -> tuple[LeaveRequest, bool]:
+    if idempotency_key is not None and len(idempotency_key) < 8:
+        raise ValidationError(
+            "idempotency_key must be at least 8 characters",
+            details={"field": "idempotency_key"},
+        )
+    if idempotency_key is not None:
+        prior = await db.execute(
+            select(LeaveRequest).where(LeaveRequest.review_idempotency_key == idempotency_key)
+        )
+        found = prior.scalar_one_or_none()
+        if found:
+            if found.id != leave_request_id:
+                raise ConflictError(
+                    "Idempotency key already used for a different leave request",
+                    details={"leave_request_id": found.id},
+                )
+            return found, False
+
     result = await db.execute(
         select(LeaveRequest).where(
             LeaveRequest.id == leave_request_id,
@@ -239,9 +307,12 @@ async def review_leave_request(
     leave.status = LeaveStatus.APPROVED if action == "approve" else LeaveStatus.REJECTED
     leave.reviewed_by_user_id = reviewer_user_id
     leave.reviewed_at = datetime.now(UTC)
+    leave.review_notes = review_notes
+    if idempotency_key:
+        leave.review_idempotency_key = idempotency_key
     await db.flush()
     await db.refresh(leave)
-    return leave
+    return leave, True
 
 
 async def soft_delete_leave_request(db: AsyncSession, *, leave_request_id: int) -> LeaveRequest:
