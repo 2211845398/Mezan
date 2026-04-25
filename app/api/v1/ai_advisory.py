@@ -9,11 +9,13 @@ IT_ADMIN system roles by default (see ``seed_service``).
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_any_permission, require_permission
 from app.db.database import get_db
 from app.schemas.ai_advisory import (
+    CampaignSegmentExportRequest,
     HrAnomalyRequest,
     HrAnomalyResponse,
     InvoiceMatchRequest,
@@ -23,7 +25,10 @@ from app.schemas.ai_advisory import (
     TargetedCampaignRequest,
     TargetedCampaignResponse,
 )
-from app.services.ai.campaign_advisor_service import generate_targeted_campaigns
+from app.services.ai.campaign_advisor_service import (
+    export_segment_customer_ids_csv,
+    generate_targeted_campaigns,
+)
 from app.services.ai.hr_anomaly_service import detect_hr_anomalies
 from app.services.ai.invoice_matcher_service import match_invoice_scan
 from app.services.ai.purchase_reorder_service import generate_purchase_reorder
@@ -68,6 +73,29 @@ async def campaigns_endpoint(
     __: None = require_permission("ai_advisory", "run"),
 ) -> TargetedCampaignResponse:
     return await generate_targeted_campaigns(db, payload=body)
+
+
+@router.post(
+    "/ai/advisory/campaigns/segment-export",
+    response_class=PlainTextResponse,
+)
+async def campaign_segment_export_endpoint(
+    body: CampaignSegmentExportRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("ai_advisory", "run"),
+) -> PlainTextResponse:
+    csv_text = await export_segment_customer_ids_csv(
+        db,
+        segment_code=body.segment_code,
+        lookback_days=body.lookback_days,
+        min_purchases=body.min_purchases,
+    )
+    return PlainTextResponse(
+        csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="segment_customers.csv"'},
+    )
 
 
 @router.post(

@@ -7,20 +7,24 @@ import arAuth from './locales/ar/auth.json';
 import arAccounting from './locales/ar/accounting.json';
 import arCatalog from './locales/ar/catalog.json';
 import arCommon from './locales/ar/common.json';
+import arCrm from './locales/ar/crm.json';
 import arHr from './locales/ar/hr.json';
 import arInventory from './locales/ar/inventory.json';
 import arPayroll from './locales/ar/payroll.json';
 import arPos from './locales/ar/pos.json';
+import arMarketing from './locales/ar/marketing.json';
 import arPurchasing from './locales/ar/purchasing.json';
 import enAdmin from './locales/en/admin.json';
 import enAuth from './locales/en/auth.json';
 import enAccounting from './locales/en/accounting.json';
 import enCatalog from './locales/en/catalog.json';
 import enCommon from './locales/en/common.json';
+import enCrm from './locales/en/crm.json';
 import enHr from './locales/en/hr.json';
 import enInventory from './locales/en/inventory.json';
 import enPayroll from './locales/en/payroll.json';
 import enPos from './locales/en/pos.json';
+import enMarketing from './locales/en/marketing.json';
 import enPurchasing from './locales/en/purchasing.json';
 
 export const SUPPORTED_LANGUAGES = ['ar', 'en'] as const;
@@ -37,6 +41,8 @@ export const resources = {
     hr: arHr,
     inventory: arInventory,
     payroll: arPayroll,
+    crm: arCrm,
+    marketing: arMarketing,
     purchasing: arPurchasing,
   },
   en: {
@@ -49,6 +55,8 @@ export const resources = {
     hr: enHr,
     inventory: enInventory,
     payroll: enPayroll,
+    crm: enCrm,
+    marketing: enMarketing,
     purchasing: enPurchasing,
   },
 } as const;
@@ -61,7 +69,20 @@ void i18n
     lng: 'ar',
     fallbackLng: 'en',
     supportedLngs: SUPPORTED_LANGUAGES,
-    ns: ['common', 'auth', 'pos', 'admin', 'accounting', 'catalog', 'hr', 'inventory', 'payroll', 'purchasing'],
+    ns: [
+      'common',
+      'auth',
+      'pos',
+      'admin',
+      'accounting',
+      'catalog',
+      'crm',
+      'marketing',
+      'hr',
+      'inventory',
+      'payroll',
+      'purchasing',
+    ],
     defaultNS: 'common',
     interpolation: { escapeValue: false },
     detection: {

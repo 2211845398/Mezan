@@ -1,0 +1,40 @@
+{
+  "analytics": {
+    "title": "Retail analytics",
+    "period_start": "Period start",
+    "period_end": "Period end",
+    "apply": "Apply",
+    "top_count": "Top products (rows)",
+    "slow_count": "Slow movers (rows)",
+    "alerts_count": "Inventory alerts",
+    "promo_count": "Promotion rows",
+    "load_error": "One or more analytics requests failed."
+  },
+  "advisory": {
+    "title": "Marketing advisory",
+    "hint": "Run a deterministic facts-backed analysis. Output is read-only.",
+    "branch": "Branch",
+    "all_branches": "All branches",
+    "days": "Horizon (days)",
+    "run": "Run advisor",
+    "run_failed": "Advisory run failed",
+    "error_generic": "Could not load advisory results.",
+    "empty": "No suggestions for the selected parameters.",
+    "priority": "Priority",
+    "confidence": "Confidence"
+  },
+  "campaigns": {
+    "title": "Campaign advisor",
+    "hint": "Segment-based campaign ideas from purchase history. Export lists customer IDs in a segment (deterministic bucketing).",
+    "lookback": "Lookback (days)",
+    "min_purchases": "Min purchases",
+    "run": "Generate campaigns",
+    "error_generic": "Campaign advisor failed.",
+    "empty": "No campaigns returned for this window.",
+    "lift": "Expected lift",
+    "export_segment": "Segment for CSV",
+    "export_csv": "Export segment CSV",
+    "export_ok": "Download started",
+    "export_fail": "Export failed"
+  }
+}

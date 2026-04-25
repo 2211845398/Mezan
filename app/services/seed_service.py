@@ -66,6 +66,8 @@ DEFAULT_PERMISSIONS = [
     ("sales_invoices", "void"),
     ("returns", "create"),
     ("customers", "create"),
+    ("customers", "read"),
+    ("customers", "update"),
     ("stock_adjustments", "create"),
     ("stock_adjustments", "read"),
     # Epic 4 HR & Payroll
@@ -163,6 +165,7 @@ SYSTEM_ROLE_SPECS = [
             ("sales_invoices", "read"),
             ("returns", "create"),
             ("customers", "create"),
+            ("customers", "read"),
         ],
     },
     {
@@ -186,6 +189,10 @@ SYSTEM_ROLE_SPECS = [
             ("discounts", "*"),
             ("analytics", "read"),
             ("loyalty", "read"),
+            ("loyalty", "update"),
+            ("loyalty", "adjust"),
+            ("customers", "read"),
+            ("customers", "update"),
             ("marketing_advisory", "run"),
             ("ai_advisory", "run"),
         ],

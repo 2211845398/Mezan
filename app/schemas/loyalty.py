@@ -82,7 +82,7 @@ class ManualPointAdjustment(BaseModel):
     points: int = Field(gt=0)
     entry_type: LedgerEntryType
     reason_code: LedgerReasonCode = LedgerReasonCode.MANUAL_ADJUSTMENT
-    note: str | None = Field(default=None, max_length=512)
+    note: str = Field(min_length=1, max_length=512)
 
 
 class LoyaltyBalanceRead(BaseModel):

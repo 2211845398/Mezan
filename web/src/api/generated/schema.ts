@@ -1401,6 +1401,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Customers Endpoint */
+        get: operations["list_customers_endpoint_api_v1_customers_get"];
+        put?: never;
+        /** Create Customer Staff Endpoint */
+        post: operations["create_customer_staff_endpoint_api_v1_customers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/{customer_id}/sales-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Customer Sales Invoices Endpoint */
+        get: operations["list_customer_sales_invoices_endpoint_api_v1_customers__customer_id__sales_invoices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/{customer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Customer Endpoint */
+        get: operations["get_customer_endpoint_api_v1_customers__customer_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Customer Endpoint */
+        patch: operations["update_customer_endpoint_api_v1_customers__customer_id__patch"];
+        trace?: never;
+    };
     "/api/v1/employees": {
         parameters: {
             query?: never;
@@ -2348,6 +2401,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/advisory/campaigns/segment-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Campaign Segment Export Endpoint */
+        post: operations["campaign_segment_export_endpoint_api_v1_ai_advisory_campaigns_segment_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/advisory/invoice-match": {
         parameters: {
             query?: never;
@@ -3032,6 +3102,24 @@ export interface components {
             /** Rationale */
             rationale: string;
         };
+        /**
+         * CampaignSegmentExportRequest
+         * @description Export customer_id rows for a deterministic segment bucket.
+         */
+        CampaignSegmentExportRequest: {
+            /** Segment Code */
+            segment_code: string;
+            /**
+             * Lookback Days
+             * @default 90
+             */
+            lookback_days: number;
+            /**
+             * Min Purchases
+             * @default 2
+             */
+            min_purchases: number;
+        };
         /** CartCreateRequest */
         CartCreateRequest: {
             /** Terminal Id */
@@ -3342,10 +3430,87 @@ export interface components {
             /** Email */
             email?: string | null;
         };
+        /** CustomerCreateStaff */
+        CustomerCreateStaff: {
+            /** Phone */
+            phone: string;
+            /** Full Name */
+            full_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /**
+             * Is Temporary
+             * @default false
+             */
+            is_temporary: boolean;
+            /** Default Currency Id */
+            default_currency_id?: number | null;
+            /** Receivables Account Id */
+            receivables_account_id?: number | null;
+        };
         /** CustomerCreateTemporaryRequest */
         CustomerCreateTemporaryRequest: {
             /** Phone */
             phone: string;
+        };
+        /** CustomerDetailRead */
+        CustomerDetailRead: {
+            /** Id */
+            id: number;
+            /** Phone */
+            phone: string;
+            /** Full Name */
+            full_name: string | null;
+            /** Email */
+            email: string | null;
+            /** Is Temporary */
+            is_temporary: boolean;
+            /** Default Currency Id */
+            default_currency_id?: number | null;
+            /** Receivables Account Id */
+            receivables_account_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Loyalty Balance */
+            loyalty_balance: number;
+            /** Lifetime Spend */
+            lifetime_spend: string;
+        };
+        /** CustomerListItemRead */
+        CustomerListItemRead: {
+            /** Id */
+            id: number;
+            /** Phone */
+            phone: string;
+            /** Full Name */
+            full_name: string | null;
+            /** Email */
+            email: string | null;
+            /** Is Temporary */
+            is_temporary: boolean;
+            /** Loyalty Balance */
+            loyalty_balance: number;
+            /** Lifetime Spend */
+            lifetime_spend: string;
+        };
+        /** CustomerListResponse */
+        CustomerListResponse: {
+            /** Items */
+            items: components["schemas"]["CustomerListItemRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /** CustomerRead */
         CustomerRead: {
@@ -3359,6 +3524,58 @@ export interface components {
             email: string | null;
             /** Is Temporary */
             is_temporary: boolean;
+        };
+        /** CustomerSalesInvoiceListItem */
+        CustomerSalesInvoiceListItem: {
+            /** Id */
+            id: number;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Barcode */
+            invoice_barcode: string;
+            /** Cart Id */
+            cart_id: number;
+            /** Terminal Id */
+            terminal_id: number;
+            /** Branch Id */
+            branch_id: number;
+            /** Subtotal */
+            subtotal: string;
+            /** Discount Total */
+            discount_total: string;
+            /** Tax Total */
+            tax_total: string;
+            /** Total */
+            total: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** CustomerSalesInvoiceListResponse */
+        CustomerSalesInvoiceListResponse: {
+            /** Items */
+            items: components["schemas"]["CustomerSalesInvoiceListItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** CustomerUpdate */
+        CustomerUpdate: {
+            /** Full Name */
+            full_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Is Temporary */
+            is_temporary?: boolean | null;
+            /** Default Currency Id */
+            default_currency_id?: number | null;
+            /** Receivables Account Id */
+            receivables_account_id?: number | null;
         };
         /** DeviceTokenListResponse */
         DeviceTokenListResponse: {
@@ -4296,7 +4513,7 @@ export interface components {
             /** @default manual_adjustment */
             reason_code: components["schemas"]["LedgerReasonCode"];
             /** Note */
-            note?: string | null;
+            note: string;
         };
         /** MarketingAdvisoryRequest */
         MarketingAdvisoryRequest: {
@@ -9190,6 +9407,172 @@ export interface operations {
             };
         };
     };
+    list_customers_endpoint_api_v1_customers_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_customer_staff_endpoint_api_v1_customers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerCreateStaff"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_customer_sales_invoices_endpoint_api_v1_customers__customer_id__sales_invoices_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                customer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerSalesInvoiceListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_customer_endpoint_api_v1_customers__customer_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_customer_endpoint_api_v1_customers__customer_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_employee_profiles_endpoint_api_v1_employees_get: {
         parameters: {
             query?: never;
@@ -11294,6 +11677,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TargetedCampaignResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    campaign_segment_export_endpoint_api_v1_ai_advisory_campaigns_segment_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignSegmentExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
             /** @description Validation Error */

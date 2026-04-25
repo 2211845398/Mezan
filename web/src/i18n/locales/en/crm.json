@@ -1,0 +1,106 @@
+{
+  "errors": {
+    "generic": "Something went wrong."
+  },
+  "customers": {
+    "title": "Customers",
+    "new": "New customer",
+    "edit": "Edit",
+    "view": "View",
+    "search": "Search (phone, name, email)",
+    "apply": "Apply",
+    "total": "Total: {{total}}",
+    "prev": "Previous",
+    "next": "Next",
+    "col": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email",
+      "loyalty": "Points",
+      "lifetime": "Lifetime spend"
+    },
+    "new_title": "New customer",
+    "edit_title": "Edit customer",
+    "phone": "Phone",
+    "phone_required": "Phone is required",
+    "phone_locked": "Phone: {{phone}} (cannot change)",
+    "full_name": "Full name",
+    "email": "Email",
+    "temporary": "Temporary profile",
+    "saved": "Customer saved",
+    "back_list": "Back to list",
+    "tab_profile": "Profile",
+    "tab_purchases": "Purchases",
+    "tab_loyalty": "Loyalty ledger",
+    "tab_addresses": "Addresses",
+    "invoice_no": "Invoice",
+    "invoice_total": "Total",
+    "invoice_date": "Date",
+    "profile_line": "{{phone}} · {{email}} · Points: {{points}} · Lifetime: {{spend}}",
+    "addresses_placeholder": "Address book is not available in this release.",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "loyalty": {
+    "rules_title": "Loyalty accrual rules",
+    "rules_hint": "Global earn rate: points per unit of currency spent. Product/category/branch scoping is not available in this schema yet.",
+    "rule": {
+      "name": "Rule name",
+      "points_per_unit": "Points per unit",
+      "currency_per_point": "Currency per point",
+      "active": "Active",
+      "new": "New rule",
+      "edit": "Edit rule",
+      "saved": "Rule saved",
+      "new_title": "New accrual rule",
+      "edit_title": "Edit accrual rule",
+      "name_required": "Name is required"
+    },
+    "adjust_points": "Adjust points",
+    "adjust_title": "Manual loyalty adjustment",
+    "adjust_hint": "Posts to the general ledger. A clear reason is required.",
+    "entry_type": "Entry type",
+    "credit": "Credit (add points)",
+    "debit": "Debit (remove points)",
+    "points": "Points",
+    "reason_note": "Reason / note",
+    "submit_adjust": "Post adjustment",
+    "adjust_ok": "Adjustment posted",
+    "ledger": {
+      "when": "When",
+      "type": "Type",
+      "points": "Points",
+      "balance": "Balance after",
+      "reason": "Reason"
+    }
+  },
+  "discounts": {
+    "title": "Discount rules",
+    "new": "New discount",
+    "edit": "Edit",
+    "saved": "Discount saved",
+    "new_title": "New discount rule",
+    "edit_title": "Edit discount rule",
+    "required": "Name and code are required",
+    "value": "Value",
+    "buy_qty": "Buy quantity",
+    "get_qty": "Get quantity",
+    "target_products": "Target product IDs (comma-separated)",
+    "start": "Start",
+    "end": "End (optional)",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "type": "Type",
+      "status": "Status",
+      "start": "Start"
+    },
+    "type": {
+      "percentage": "Percentage",
+      "flat": "Fixed amount",
+      "bogo": "Buy X get Y"
+    }
+  }
+}

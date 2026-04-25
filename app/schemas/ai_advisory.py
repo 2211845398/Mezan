@@ -113,6 +113,14 @@ class TargetedCampaignResponse(BaseModel):
     campaigns: list[TargetedCampaign]
 
 
+class CampaignSegmentExportRequest(BaseModel):
+    """Export customer_id rows for a deterministic segment bucket."""
+
+    segment_code: str = Field(min_length=1, max_length=32)
+    lookback_days: int = Field(default=90, ge=14, le=365)
+    min_purchases: int = Field(default=2, ge=1, le=50)
+
+
 # ── Invoice-to-catalog matcher ───────────────────────────────────────────────
 
 

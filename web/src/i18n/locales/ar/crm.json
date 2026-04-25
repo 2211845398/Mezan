@@ -1,0 +1,106 @@
+{
+  "errors": {
+    "generic": "حدث خطأ."
+  },
+  "customers": {
+    "title": "العملاء",
+    "new": "عميل جديد",
+    "edit": "تعديل",
+    "view": "عرض",
+    "search": "بحث (هاتف، اسم، بريد)",
+    "apply": "تطبيق",
+    "total": "الإجمالي: {{total}}",
+    "prev": "السابق",
+    "next": "التالي",
+    "col": {
+      "name": "الاسم",
+      "phone": "الهاتف",
+      "email": "البريد",
+      "loyalty": "النقاط",
+      "lifetime": "إجمالي الإنفاق"
+    },
+    "new_title": "عميل جديد",
+    "edit_title": "تعديل عميل",
+    "phone": "الهاتف",
+    "phone_required": "الهاتف مطلوب",
+    "phone_locked": "الهاتف: {{phone}} (لا يمكن تغييره)",
+    "full_name": "الاسم الكامل",
+    "email": "البريد",
+    "temporary": "ملف مؤقت",
+    "saved": "تم حفظ العميل",
+    "back_list": "العودة للقائمة",
+    "tab_profile": "الملف",
+    "tab_purchases": "المشتريات",
+    "tab_loyalty": "دفتر النقاط",
+    "tab_addresses": "العناوين",
+    "invoice_no": "الفاتورة",
+    "invoice_total": "الإجمالي",
+    "invoice_date": "التاريخ",
+    "profile_line": "{{phone}} · {{email}} · النقاط: {{points}} · الإنفاق: {{spend}}",
+    "addresses_placeholder": "دفتر العناوين غير متوفر في هذا الإصدار.",
+    "yes": "نعم",
+    "no": "لا"
+  },
+  "loyalty": {
+    "rules_title": "قواعد تراكم النقاط",
+    "rules_hint": "معدل تراكم عام لكل عملة. نطاق المنتج/التصنيف/الفرع غير متوفر في المخطط الحالي.",
+    "rule": {
+      "name": "اسم القاعدة",
+      "points_per_unit": "نقاط لكل وحدة",
+      "currency_per_point": "عملة لكل نقطة",
+      "active": "نشط",
+      "new": "قاعدة جديدة",
+      "edit": "تعديل القاعدة",
+      "saved": "تم حفظ القاعدة",
+      "new_title": "قاعدة تراكم جديدة",
+      "edit_title": "تعديل قاعدة التراكم",
+      "name_required": "الاسم مطلوب"
+    },
+    "adjust_points": "تعديل النقاط",
+    "adjust_title": "تعديل يدوي للنقاط",
+    "adjust_hint": "يُرحَّل إلى دفتر الأستاذ. يلزم سبب واضح.",
+    "entry_type": "نوع القيد",
+    "credit": "إضافة نقاط",
+    "debit": "خصم نقاط",
+    "points": "النقاط",
+    "reason_note": "السبب / ملاحظة",
+    "submit_adjust": "ترحيل التعديل",
+    "adjust_ok": "تم الترحيل",
+    "ledger": {
+      "when": "الوقت",
+      "type": "النوع",
+      "points": "النقاط",
+      "balance": "الرصيد بعد",
+      "reason": "السبب"
+    }
+  },
+  "discounts": {
+    "title": "قواعد الخصم",
+    "new": "خصم جديد",
+    "edit": "تعديل",
+    "saved": "تم الحفظ",
+    "new_title": "قاعدة خصم جديدة",
+    "edit_title": "تعديل قاعدة الخصم",
+    "required": "الاسم والرمز مطلوبان",
+    "value": "القيمة",
+    "buy_qty": "كمية الشراء",
+    "get_qty": "كمية الهدية",
+    "target_products": "معرّفات المنتجات (مفصولة بفاصلة)",
+    "start": "البداية",
+    "end": "النهاية (اختياري)",
+    "activate": "تفعيل",
+    "deactivate": "تعطيل",
+    "col": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "type": "النوع",
+      "status": "الحالة",
+      "start": "البداية"
+    },
+    "type": {
+      "percentage": "نسبة",
+      "flat": "مبلغ ثابت",
+      "bogo": "اشتري X واحصل على Y"
+    }
+  }
+}

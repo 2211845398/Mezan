@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.errors import ExternalServiceError
+from app.core.errors import ExternalServiceError, ValidationError
 from app.models.sales_invoice import SalesInvoice
 from app.schemas.ai_advisory import (
     CampaignSegment,
@@ -236,3 +236,23 @@ async def generate_targeted_campaigns(
         facts_used=facts,
         campaigns=campaigns,
     )
+
+
+_ALLOWED_SEGMENT_CODES = frozenset({"champions", "loyal", "at_risk", "lost"})
+
+
+async def export_segment_customer_ids_csv(
+    db: AsyncSession, *, segment_code: str, lookback_days: int, min_purchases: int
+) -> str:
+    """Return CSV text with header ``customer_id`` for customers in one segment."""
+    code = segment_code.strip().lower()
+    if code not in _ALLOWED_SEGMENT_CODES:
+        raise ValidationError(
+            "Invalid segment_code",
+            details={"segment_code": segment_code, "allowed": sorted(_ALLOWED_SEGMENT_CODES)},
+        )
+    rows = await _aggregate_customers(db, lookback_days=lookback_days, min_purchases=min_purchases)
+    buckets = _segment(rows)
+    members = buckets.get(code) or []
+    lines = ["customer_id"] + [str(r["customer_id"]) for r in members]
+    return "\n".join(lines) + ("\n" if members else "")

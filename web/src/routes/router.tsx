@@ -101,6 +101,18 @@ const AccountingFiscalPeriodsList = lazy(
   () => import('@/features/accounting/pages/fiscal-periods/FiscalPeriodsList'),
 );
 
+const CrmCustomersList = lazy(() => import('@/features/crm/pages/customers/CustomersList'));
+const CrmCustomerForm = lazy(() => import('@/features/crm/pages/customers/CustomerForm'));
+const CrmCustomerDetail = lazy(() => import('@/features/crm/pages/customers/CustomerDetail'));
+const CrmAccrualRulesList = lazy(() => import('@/features/crm/pages/loyalty/AccrualRulesList'));
+const CrmAccrualRuleForm = lazy(() => import('@/features/crm/pages/loyalty/AccrualRuleForm'));
+const CrmDiscountsList = lazy(() => import('@/features/crm/pages/discounts/DiscountsList'));
+const CrmDiscountForm = lazy(() => import('@/features/crm/pages/discounts/DiscountForm'));
+
+const MarketingAnalytics = lazy(() => import('@/features/marketing/pages/analytics/Analytics'));
+const MarketingAdvisoryPage = lazy(() => import('@/features/marketing/pages/advisory/MarketingAdvisory'));
+const MarketingCampaignAdvisor = lazy(() => import('@/features/marketing/pages/campaigns/CampaignAdvisor'));
+
 const HrEmployeesList = lazy(() => import('@/features/hr/pages/employees/EmployeesList'));
 const HrEmployeeForm = lazy(() => import('@/features/hr/pages/employees/EmployeeForm'));
 const HrAttendanceList = lazy(() => import('@/features/hr/pages/attendance/AttendanceList'));
@@ -696,27 +708,98 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="/crm/customers" replace /> },
               {
                 path: 'customers',
-                element: (
-                  <RequirePermission resource="customers" action="create">
-                    {stub('nav.crm_customers', 'W-5.7')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="customers" action="read">
+                        {withSuspense(CrmCustomersList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="customers" action="create">
+                        {withSuspense(CrmCustomerForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id/edit',
+                    element: (
+                      <RequirePermission resource="customers" action="update">
+                        {withSuspense(CrmCustomerForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="customers" action="read">
+                        {withSuspense(CrmCustomerDetail)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'loyalty',
-                element: (
-                  <RequirePermission resource="loyalty" action="read">
-                    {stub('nav.crm_loyalty', 'W-5.7')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="loyalty" action="read">
+                        {withSuspense(CrmAccrualRulesList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="loyalty" action="create">
+                        {withSuspense(CrmAccrualRuleForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':ruleId/edit',
+                    element: (
+                      <RequirePermission resource="loyalty" action="update">
+                        {withSuspense(CrmAccrualRuleForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'discounts',
-                element: (
-                  <RequirePermission resource="discounts" action="read">
-                    {stub('nav.crm_discounts', 'W-5.7')}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="discounts" action="read">
+                        {withSuspense(CrmDiscountsList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="discounts" action="create">
+                        {withSuspense(CrmDiscountForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':discountId/edit',
+                    element: (
+                      <RequirePermission resource="discounts" action="update">
+                        {withSuspense(CrmDiscountForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
             ],
           },
@@ -730,7 +813,7 @@ export const router = createBrowserRouter([
                 path: 'analytics',
                 element: (
                   <RequirePermission resource="analytics" action="read">
-                    {stub('nav.marketing_analytics', 'W-5.7')}
+                    {withSuspense(MarketingAnalytics)}
                   </RequirePermission>
                 ),
               },
@@ -738,7 +821,7 @@ export const router = createBrowserRouter([
                 path: 'advisory',
                 element: (
                   <RequirePermission resource="marketing_advisory" action="run">
-                    {stub('nav.marketing_advisory', 'W-5.7')}
+                    {withSuspense(MarketingAdvisoryPage)}
                   </RequirePermission>
                 ),
               },
@@ -746,7 +829,7 @@ export const router = createBrowserRouter([
                 path: 'campaigns',
                 element: (
                   <RequirePermission resource="ai_advisory" action="run">
-                    {stub('nav.marketing_campaigns', 'W-5.7')}
+                    {withSuspense(MarketingCampaignAdvisor)}
                   </RequirePermission>
                 ),
               },
