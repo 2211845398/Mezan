@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Decimal from 'decimal.js';
 import { Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { DateField } from '@/components/shared/form/DateField';
@@ -47,13 +47,19 @@ function newLine(): LineDraft {
   return { key: crypto.randomUUID(), product_id: 0, qty: 1, unit_cost: '0' };
 }
 
+type ReorderLocationState = {
+  reorderLines?: Array<{ product_id: number; qty: number; unit_cost?: string }>;
+};
+
 export default function OrderForm() {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation('purchasing');
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const isNew = id === 'new';
   const poId = id && !isNew ? Number(id) : NaN;
+  const reorderAppliedRef = useRef(false);
 
   const { data: existing } = useQuery({
     ...purchaseOrderQueryOptions(poId),
@@ -75,6 +81,30 @@ export default function OrderForm() {
   const [expectedDate, setExpectedDate] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<LineDraft[]>([newLine()]);
+
+  useEffect(() => {
+    reorderAppliedRef.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    if (!isNew || reorderAppliedRef.current) {
+      return;
+    }
+    const st = (location.state as ReorderLocationState | null)?.reorderLines;
+    if (!st?.length) {
+      return;
+    }
+    reorderAppliedRef.current = true;
+    setLines(
+      st.map((ln) => ({
+        key: crypto.randomUUID(),
+        product_id: ln.product_id,
+        qty: ln.qty,
+        unit_cost: ln.unit_cost && ln.unit_cost.length > 0 ? ln.unit_cost : '0',
+      })),
+    );
+    navigate('.', { replace: true, state: {} });
+  }, [isNew, location.state, navigate]);
 
   useEffect(() => {
     if (!existing) {

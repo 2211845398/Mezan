@@ -121,7 +121,14 @@ export async function reviewLeaveRequest(
   return data;
 }
 
-export async function postHrAnomalies(body: HrAnomalyRequest): Promise<HrAnomalyResponse> {
-  const { data } = await apiClient.post<HrAnomalyResponse>('/ai/advisory/hr-anomalies', body);
+export async function postHrAnomalies(
+  body: HrAnomalyRequest,
+  idempotencyKey?: string,
+): Promise<HrAnomalyResponse> {
+  const { data } = await apiClient.post<HrAnomalyResponse>(
+    '/ai/advisory/hr-anomalies',
+    body,
+    idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined,
+  );
   return data;
 }

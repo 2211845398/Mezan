@@ -1,121 +1,104 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
+import { subDays } from 'date-fns';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { z } from 'zod';
 
+import {
+  AreaChart,
+  ChartError,
+  ChartSkeleton,
+  KpiCard,
+  LineChart,
+  PieChart,
+} from '@/components/shared/charts';
 import { DataTable, defineColumns } from '@/components/shared/DataTable';
-import { MoneyInput } from '@/components/shared/form';
-import { Badge } from '@/components/ui/badge';
+import { DateField } from '@/components/shared/form/DateField';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { navigation, type NavItem } from '@/config/navigation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { listBranches } from '@/features/admin/api';
+import { adminKeys } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { formatCurrency, formatNumber } from '@/lib/format';
+import { format } from '@/lib/date';
+import { formatCompactNumber, formatCurrency, formatNumber, formatPercent } from '@/lib/format';
 
-/*
- * W-3 showcase dashboard. No backend calls yet — the numbers and rows are
- * local fixtures so reviewers can see every shared component working
- * together in both light and dark modes, RTL and LTR.
- *
- * Epic W-5.8 replaces this with real BI widgets.
- */
+import type { ExecutiveKpiRead } from '../api';
+import { executiveKpisQueryOptions } from '../queries';
 
-type DashboardRow = {
-  id: string;
-  supplier: string;
-  status: 'paid' | 'pending' | 'overdue';
-  amount: number;
-};
+const DISPLAY_CURRENCY = 'USD';
 
-const SHOWCASE_ROWS: readonly DashboardRow[] = [
-  { id: 'INV-0001', supplier: 'ميزان للمواد الغذائية', status: 'paid', amount: 1234.5 },
-  { id: 'INV-0002', supplier: 'شركة النور', status: 'pending', amount: 780 },
-  { id: 'INV-0003', supplier: 'مستودعات الشرق', status: 'paid', amount: 5500.25 },
-  { id: 'INV-0004', supplier: 'شركة الأمل', status: 'overdue', amount: 320 },
-  { id: 'INV-0005', supplier: 'الرياض للتوريد', status: 'pending', amount: 4120.75 },
-];
-
-function flattenAccessible(
-  items: NavItem[],
-  has: (resource: string, action: string) => boolean,
-): NavItem[] {
-  const out: NavItem[] = [];
-  for (const item of items) {
-    if (item.children && item.children.length > 0) {
-      const accessibleChildren = flattenAccessible(item.children, has);
-      out.push(...accessibleChildren);
-    } else if (!item.permission) {
-      out.push(item);
-    } else if (has(item.permission.resource, item.permission.action)) {
-      out.push(item);
-    }
-  }
-  return out;
+function num(s: string | undefined | null): number {
+  if (s == null || s === '') return 0;
+  const n = Number.parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
 }
 
-const miniFormSchema = z.object({
-  amount: z.string().min(1),
-});
-type MiniFormValues = z.infer<typeof miniFormSchema>;
-
 export default function DashboardPage() {
-  const { t } = useTranslation();
-  const user = useAuthStore((s) => s.user);
-  const branchId = useAuthStore((s) => s.activeBranchId);
-  const permissions = useAuthStore((s) => s.permissions);
+  const { t } = useTranslation('bi');
+  const activeBranchId = useAuthStore((s) => s.activeBranchId);
+  const [periodEnd, setPeriodEnd] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [periodStart, setPeriodStart] = useState(() =>
+    format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+  );
+  const [branchFilter, setBranchFilter] = useState<string>(
+    activeBranchId != null ? String(activeBranchId) : 'all',
+  );
 
-  const accessible = useMemo(() => {
-    const has = (resource: string, action: string) =>
-      permissions.has(`${resource}:${action}`);
-    return flattenAccessible(navigation, has);
-  }, [permissions]);
+  const qArgs = useMemo(() => {
+    const args: { period_start?: string; period_end?: string; branch_id?: number } = {
+      period_start: periodStart,
+      period_end: periodEnd,
+    };
+    if (branchFilter !== 'all' && branchFilter !== '') {
+      const id = Number(branchFilter);
+      if (!Number.isNaN(id)) args.branch_id = id;
+    }
+    return args;
+  }, [periodStart, periodEnd, branchFilter]);
 
-  const totals = useMemo(() => {
-    const paid = SHOWCASE_ROWS.filter((r) => r.status === 'paid').reduce(
-      (sum, r) => sum + r.amount,
-      0,
-    );
-    const outstanding = SHOWCASE_ROWS.filter((r) => r.status !== 'paid').reduce(
-      (sum, r) => sum + r.amount,
-      0,
-    );
-    return { paid, outstanding, count: SHOWCASE_ROWS.length };
-  }, []);
+  const { data: branches = [] } = useQuery({
+    queryKey: adminKeys.branches(false),
+    queryFn: () => listBranches({ include_archived: false }),
+  });
 
-  const columns = useMemo(
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    ...executiveKpisQueryOptions(qArgs),
+  });
+
+  const trendData = useMemo(() => {
+    const rows = data?.revenue_trend ?? [];
+    return rows.map((r) => ({
+      bucket_date: r.bucket_date,
+      gross_sales: num(r.gross_sales as unknown as string),
+    }));
+  }, [data?.revenue_trend]);
+
+  const mixData = useMemo(() => {
+    const rows = data?.category_mix ?? [];
+    return rows.map((r) => ({
+      category_name: r.category_name,
+      gross_sales: num(r.gross_sales as unknown as string),
+    }));
+  }, [data?.category_mix]);
+
+  const topCols = useMemo(
     () =>
-      defineColumns<DashboardRow>()([
+      defineColumns<NonNullable<ExecutiveKpiRead['top_products']>[0]>()([
+        { id: 'n', accessorKey: 'product_name', header: t('tables.product') },
+        { id: 'q', accessorKey: 'qty_sold', header: t('tables.qty') },
         {
-          id: 'id',
-          accessorKey: 'id',
-          header: t('dashboard.cols.ref'),
-          cell: ({ getValue }) => <span className="num-latin">{String(getValue())}</span>,
-        },
-        {
-          id: 'supplier',
-          accessorKey: 'supplier',
-          header: t('dashboard.cols.supplier'),
-          cell: ({ getValue }) => String(getValue()),
-        },
-        {
-          id: 'status',
-          accessorKey: 'status',
-          header: t('dashboard.cols.status'),
-          cell: ({ getValue }) => {
-            const v = String(getValue()) as DashboardRow['status'];
-            const variant: 'default' | 'secondary' | 'destructive' =
-              v === 'paid' ? 'secondary' : v === 'pending' ? 'default' : 'destructive';
-            return <Badge variant={variant}>{t(`dashboard.status.${v}`)}</Badge>;
-          },
-        },
-        {
-          id: 'amount',
-          accessorKey: 'amount',
-          header: t('dashboard.cols.amount'),
+          id: 'r',
+          accessorKey: 'revenue',
+          header: t('tables.revenue'),
           cell: ({ getValue }) => (
-            <span className="text-end font-medium tabular-nums">
-              {formatCurrency(Number(getValue()), 'EGP')}
+            <span className="tabular-nums num-latin">
+              {formatCurrency(num(String(getValue())), DISPLAY_CURRENCY)}
             </span>
           ),
         },
@@ -123,126 +106,180 @@ export default function DashboardPage() {
     [t],
   );
 
-  const miniForm = useForm<MiniFormValues>({
-    resolver: zodResolver(miniFormSchema),
-    defaultValues: { amount: '0.00' },
-  });
-  const previewValue = miniForm.watch('amount');
+  const poCols = useMemo(
+    () =>
+      defineColumns<NonNullable<ExecutiveKpiRead['recent_purchase_orders']>[0]>()([
+        { id: 'id', accessorKey: 'id', header: t('tables.po_id') },
+        { id: 'sup', accessorKey: 'supplier_name', header: t('tables.supplier') },
+        { id: 'st', accessorKey: 'status', header: t('tables.status') },
+        {
+          id: 'at',
+          accessorKey: 'created_at',
+          header: t('tables.created'),
+          cell: ({ getValue }) => (
+            <span className="num-latin">
+              {typeof getValue() === 'string' ? String(getValue()).slice(0, 10) : '—'}
+            </span>
+          ),
+        },
+      ]),
+    [t],
+  );
+
+  const marginLabel =
+    data?.gross_margin_ratio != null && data.gross_margin_ratio !== ''
+      ? formatPercent(Number.parseFloat(String(data.gross_margin_ratio)), { fractionDigits: 1 })
+      : '—';
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">
-          {t('auth:dashboard.hello', {
-            name: user?.full_name ?? user?.email ?? t('auth:dashboard.user_fallback'),
-          })}
-        </h1>
-        <p className="text-muted-foreground">
-          {branchId === null
-            ? t('auth:dashboard.no_branch')
-            : t('auth:dashboard.branch', { id: branchId })}
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>{t('dashboard.kpi.paid')}</CardDescription>
-            <CardTitle className="text-3xl">
-              {formatCurrency(totals.paid, 'EGP')}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>{t('dashboard.kpi.outstanding')}</CardDescription>
-            <CardTitle className="text-3xl">
-              {formatCurrency(totals.outstanding, 'EGP')}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>{t('dashboard.kpi.invoices')}</CardDescription>
-            <CardTitle className="text-3xl">{formatNumber(totals.count)}</CardTitle>
-          </CardHeader>
-        </Card>
-      </section>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{t('filters.title')}</CardTitle>
+          <CardDescription>{t('filters.hint')}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-end gap-4">
+          <div className="grid gap-1">
+            <span className="text-sm font-medium">{t('filters.period_start')}</span>
+            <DateField value={periodStart} onChange={(next) => setPeriodStart(next)} />
+          </div>
+          <div className="grid gap-1">
+            <span className="text-sm font-medium">{t('filters.period_end')}</span>
+            <DateField value={periodEnd} onChange={(next) => setPeriodEnd(next)} />
+          </div>
+          <div className="grid min-w-[200px] gap-1">
+            <span className="text-sm font-medium">{t('filters.branch')}</span>
+            <Select value={branchFilter} onValueChange={setBranchFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder={t('filters.branch_all')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('filters.branch_all')}</SelectItem>
+                {branches.map((b) => (
+                  <SelectItem key={b.id} value={String(b.id)}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button type="button" variant="secondary" onClick={() => void refetch()} disabled={isFetching}>
+            {t('filters.apply')}
+          </Button>
+        </CardContent>
+      </Card>
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('dashboard.latest_invoices')}</CardTitle>
-            <CardDescription>{t('dashboard.showcase_body')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              columns={columns}
-              data={SHOWCASE_ROWS as DashboardRow[]}
-              totalRows={SHOWCASE_ROWS.length}
-              mode="client"
-            />
-          </CardContent>
-        </Card>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('dashboard.mini_form')}</CardTitle>
-              <CardDescription>{t('dashboard.mini_form_body')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <label className="text-sm font-medium" htmlFor="showcase-amount">
-                {t('dashboard.amount_label')}
-              </label>
-              <MoneyInput
-                id="showcase-amount"
-                currency="EGP"
-                value={previewValue}
-                onChange={(v) => miniForm.setValue('amount', v, { shouldDirty: true })}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t('dashboard.canonical_preview', { value: previewValue })}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('dashboard.chart_placeholder_title')}</CardTitle>
-              <CardDescription>{t('dashboard.chart_placeholder_body')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-48 w-full rounded-md border border-dashed border-border bg-muted/30" />
-            </CardContent>
-          </Card>
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-28 animate-pulse rounded-lg border bg-muted/40" />
+          ))}
         </div>
-      </section>
+      ) : isError || !data ? (
+        <ChartError message={t('error.load')} onRetry={() => void refetch()} />
+      ) : (
+        <>
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <KpiCard
+              title={t('kpi.revenue')}
+              value={formatCurrency(num(data.gross_sales), DISPLAY_CURRENCY)}
+              description={t('kpi.revenue_hint')}
+              sparkline={
+                trendData.length > 1 ? (
+                  <div className="h-14 w-full">
+                    <LineChart data={trendData} xKey="bucket_date" yKey="gross_sales" height={56} />
+                  </div>
+                ) : null
+              }
+            />
+            <KpiCard
+              title={t('kpi.margin')}
+              value={marginLabel}
+              description={t('kpi.margin_hint')}
+            />
+            <KpiCard
+              title={t('kpi.orders')}
+              value={formatNumber(data.invoice_count)}
+              description={t('kpi.orders_hint')}
+            />
+            <KpiCard
+              title={t('kpi.avg_ticket')}
+              value={formatCurrency(num(data.avg_ticket), DISPLAY_CURRENCY)}
+              description={t('kpi.avg_ticket_hint')}
+            />
+            <KpiCard
+              title={t('kpi.loyalty')}
+              value={formatCompactNumber(data.loyalty_points_accrued)}
+              description={t('kpi.loyalty_hint')}
+            />
+          </section>
 
-      <Separator />
+          <section className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('charts.revenue_trend')}</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                {trendData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('empty.trend')}</p>
+                ) : isFetching ? (
+                  <ChartSkeleton />
+                ) : (
+                  <AreaChart data={trendData} xKey="bucket_date" yKey="gross_sales" height={280} />
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('charts.category_mix')}</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                {mixData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('empty.mix')}</p>
+                ) : (
+                  <PieChart data={mixData} nameKey="category_name" valueKey="gross_sales" height={280} />
+                )}
+              </CardContent>
+            </Card>
+          </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('auth:dashboard.your_access')}</h2>
-        {accessible.length === 0 ? (
-          <p className="rounded-md border border-dashed border-border p-6 text-sm text-muted-foreground">
-            {t('auth:dashboard.no_access')}
-          </p>
-        ) : (
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {accessible.map((item) => (
-              <li
-                key={item.key}
-                className="rounded-md border border-border p-3 text-sm hover:bg-accent"
-              >
-                <a href={item.href} className="flex items-center gap-3">
-                  <item.icon className="size-4 text-muted-foreground" aria-hidden="true" />
-                  <span>{t(item.labelKey)}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          <section className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('tables.top_products_title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  mode="client"
+                  columns={topCols}
+                  data={data.top_products ?? []}
+                  isLoading={false}
+                  isError={false}
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('tables.recent_pos_title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  mode="client"
+                  columns={poCols}
+                  data={data.recent_purchase_orders ?? []}
+                  isLoading={false}
+                  isError={false}
+                />
+              </CardContent>
+            </Card>
+          </section>
+        </>
+      )}
     </div>
   );
 }

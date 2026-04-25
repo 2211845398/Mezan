@@ -2,8 +2,10 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
+import arAi from './locales/ar/ai.json';
 import arAdmin from './locales/ar/admin.json';
 import arAuth from './locales/ar/auth.json';
+import arBi from './locales/ar/bi.json';
 import arAccounting from './locales/ar/accounting.json';
 import arCatalog from './locales/ar/catalog.json';
 import arCommon from './locales/ar/common.json';
@@ -14,8 +16,10 @@ import arPayroll from './locales/ar/payroll.json';
 import arPos from './locales/ar/pos.json';
 import arMarketing from './locales/ar/marketing.json';
 import arPurchasing from './locales/ar/purchasing.json';
+import enAi from './locales/en/ai.json';
 import enAdmin from './locales/en/admin.json';
 import enAuth from './locales/en/auth.json';
+import enBi from './locales/en/bi.json';
 import enAccounting from './locales/en/accounting.json';
 import enCatalog from './locales/en/catalog.json';
 import enCommon from './locales/en/common.json';
@@ -33,6 +37,8 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export const resources = {
   ar: {
     common: arCommon,
+    bi: arBi,
+    ai: arAi,
     auth: arAuth,
     pos: arPos,
     admin: arAdmin,
@@ -47,6 +53,8 @@ export const resources = {
   },
   en: {
     common: enCommon,
+    bi: enBi,
+    ai: enAi,
     auth: enAuth,
     pos: enPos,
     admin: enAdmin,
@@ -78,6 +86,8 @@ void i18n
       'catalog',
       'crm',
       'marketing',
+      'bi',
+      'ai',
       'hr',
       'inventory',
       'payroll',

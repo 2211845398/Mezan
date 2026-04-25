@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -15,6 +15,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+import { newIdempotencyKey } from '@/lib/idempotency';
+
 import { postHrAnomalies, type HrAnomalyResponse } from '../../api';
 
 export default function AnomaliesDashboard() {
@@ -22,18 +24,29 @@ export default function AnomaliesDashboard() {
   const [lookback, setLookback] = useState(14);
   const [branchId, setBranchId] = useState('');
   const [res, setRes] = useState<HrAnomalyResponse | null>(null);
+  const runKeyRef = useRef<string | null>(null);
 
   const run = useMutation({
-    mutationFn: () =>
-      postHrAnomalies({
-        lookback_days: lookback,
-        branch_id: branchId ? Number(branchId) : null,
-        max_anomalies: 50,
-      }),
+    mutationFn: async () => {
+      const key = runKeyRef.current ?? newIdempotencyKey();
+      runKeyRef.current = key;
+      return postHrAnomalies(
+        {
+          lookback_days: lookback,
+          branch_id: branchId ? Number(branchId) : null,
+          max_anomalies: 50,
+        },
+        key,
+      );
+    },
     onSuccess: (r) => {
       setRes(r);
+      runKeyRef.current = null;
     },
-    onError: () => toast.error(t('hr_errors.generic')),
+    onError: () => {
+      runKeyRef.current = null;
+      toast.error(t('hr_errors.generic'));
+    },
   });
 
   return (

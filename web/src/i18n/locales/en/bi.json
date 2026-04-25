@@ -1,0 +1,42 @@
+{
+  "title": "Executive dashboard",
+  "subtitle": "Sales KPIs, trends, and operational snapshot for the selected period.",
+  "error": { "load": "Could not load executive KPIs. Try again." },
+  "filters": {
+    "title": "Period & branch",
+    "hint": "Filters apply to sales-based metrics. Loyalty accruals use the same dates globally.",
+    "period_start": "From",
+    "period_end": "To",
+    "branch": "Branch",
+    "branch_all": "All branches",
+    "apply": "Apply"
+  },
+  "kpi": {
+    "revenue": "Revenue",
+    "revenue_hint": "Gross sales (posted invoices)",
+    "margin": "Gross margin",
+    "margin_hint": "Estimated from standard product cost",
+    "orders": "Orders",
+    "orders_hint": "Posted invoice count",
+    "avg_ticket": "Avg ticket",
+    "avg_ticket_hint": "Revenue ÷ orders",
+    "loyalty": "Loyalty accruals",
+    "loyalty_hint": "Purchase points credited (global)"
+  },
+  "charts": {
+    "revenue_trend": "Revenue trend",
+    "category_mix": "Revenue by category"
+  },
+  "empty": { "trend": "No sales in this period.", "mix": "No category data." },
+  "tables": {
+    "top_products_title": "Top products",
+    "recent_pos_title": "Recent purchase orders",
+    "product": "Product",
+    "qty": "Qty",
+    "revenue": "Revenue",
+    "po_id": "PO",
+    "supplier": "Supplier",
+    "status": "Status",
+    "created": "Created"
+  }
+}

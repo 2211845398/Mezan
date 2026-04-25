@@ -195,6 +195,8 @@ SYSTEM_ROLE_SPECS = [
             ("customers", "update"),
             ("marketing_advisory", "run"),
             ("ai_advisory", "run"),
+            ("invoice_scans", "read"),
+            ("invoice_scans", "validate"),
         ],
     },
     {

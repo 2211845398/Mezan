@@ -20,6 +20,23 @@ export function formatNumber(
   ).format(value);
 }
 
+/** Compact notation (e.g. 1.2K) with Western digits. */
+export function formatCompactNumber(
+  value: number,
+  options?: Intl.NumberFormatOptions,
+  locale?: NumericLocale,
+): string {
+  const loc = locale ?? getNumericLocale();
+  return new Intl.NumberFormat(
+    loc,
+    numberFormatOptions({
+      notation: 'compact',
+      maximumFractionDigits: 1,
+      ...(options ?? {}),
+    }),
+  ).format(value);
+}
+
 /**
  * Fixed decimal places for display (MoneyInput, tables). Canonical value stays a string.
  */

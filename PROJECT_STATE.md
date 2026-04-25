@@ -247,6 +247,8 @@ Summary of the stack direction (see `WEB_FRONTEND_PLAN.md` §2 for the full tabl
 
 Each feature module sits at `web/src/features/<domain>/{api,components,hooks,pages,types}`.
 
+> **W-5 note:** **W-5.1** (Auth completion) remains open; other W-5.x boxes are done.
+
 - [ ] **W-5.1** Auth (login, forgot, reset, onboarding completion).
 - [x] **W-5.2** POS web (W-5.1 plan): `/pos` shell + `ShiftGate` / `PosRegister` / `ShiftClose` / `InvoiceLookup`; detailed `CartRead` + invoice read/list + return lookup on backend; `react-to-print` thermal 58/80 + credit note; `localStorage` offline queue + flush on reconnect (Dexie/service worker → W-9); i18n `pos` namespace; MSW + Vitest smoke/RBAC/offline-queue tests.
 - [x] **W-5.3** Inventory and catalog: stock-on-hand + invoice-scan list + minimal price lists (backend); catalog/inventory feature modules (products, categories, price lists, stock, adjustments, transfers, scans); shared `FileDrop`, `AttributeFieldset`, `BarcodeRepeater`, `BranchStockFilterBar`; i18n `catalog` + `inventory`; Vitest/MSW smoke; routes under `/catalog/*` and `/inventory/*`.
@@ -254,7 +256,7 @@ Each feature module sits at `web/src/features/<domain>/{api,components,hooks,pag
 - [x] **W-5.5** HR (employees, attendance, leave) + Payroll.
 - [x] **W-5.6** Accounting (journals, trial balance, financial reports) + Fiscal periods.
 - [x] **W-5.7** CRM (loyalty, discounts) + Marketing advisory.
-- [ ] **W-5.8** Executive BI dashboard.
+- [x] **W-5.8** Executive BI dashboard (`/dashboard` + Recharts KPIs; `/ai/*` purchase reorder, HR anomalies reuse, invoice-match alias; `pnpm run analyze` — main entry ~139 KB gz, `recharts` chunk ~113 KB gz as of last build).
 - [x] **W-5.9** Admin (users, roles, permissions, branches, terminals, backups, notifications).
 
 ### Epic W-6 — Code quality and DX

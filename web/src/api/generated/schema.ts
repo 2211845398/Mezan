@@ -3325,6 +3325,18 @@ export interface components {
             /** Parent Id */
             parent_id?: number | null;
         };
+        /**
+         * CategoryMixRow
+         * @description Revenue share by product category (from invoice lines).
+         */
+        CategoryMixRow: {
+            /** Category Id */
+            category_id: number;
+            /** Category Name */
+            category_name: string;
+            /** Gross Sales */
+            gross_sales: string;
+        };
         /** CategoryRead */
         CategoryRead: {
             /** Name */
@@ -3799,7 +3811,15 @@ export interface components {
             /** Bank Account */
             bank_account?: string | null;
         };
-        /** ExecutiveKpiRead */
+        /**
+         * ExecutiveKpiRead
+         * @description Executive dashboard aggregates from operational sales + PO snapshot.
+         *
+         *     ``gross_margin_ratio`` and ``estimated_cogs`` use product ``standard_cost``
+         *     × sold qty as a COGS estimate (not FIFO/WAC at sale time).
+         *     ``loyalty_points_accrued`` sums purchase-accrual credits in the date range;
+         *     it is not branch-scoped (loyalty ledger has no branch_id).
+         */
         ExecutiveKpiRead: {
             /** Invoice Count */
             invoice_count: number;
@@ -3811,6 +3831,31 @@ export interface components {
             period_end: string | null;
             /** Branch Id */
             branch_id: number | null;
+            /**
+             * Avg Ticket
+             * @default 0
+             */
+            avg_ticket: string;
+            /**
+             * Estimated Cogs
+             * @default 0
+             */
+            estimated_cogs: string;
+            /** Gross Margin Ratio */
+            gross_margin_ratio?: string | null;
+            /**
+             * Loyalty Points Accrued
+             * @default 0
+             */
+            loyalty_points_accrued: number;
+            /** Revenue Trend */
+            revenue_trend?: components["schemas"]["RevenueTrendPoint"][];
+            /** Category Mix */
+            category_mix?: components["schemas"]["CategoryMixRow"][];
+            /** Top Products */
+            top_products?: components["schemas"]["TopProductRow"][];
+            /** Recent Purchase Orders */
+            recent_purchase_orders?: components["schemas"]["RecentPurchaseOrderRow"][];
         };
         /** FinalizeInvoiceRequest */
         FinalizeInvoiceRequest: {
@@ -5395,6 +5440,25 @@ export interface components {
             confidence: number;
         };
         /**
+         * RecentPurchaseOrderRow
+         * @description Latest purchase orders for executive snapshot.
+         */
+        RecentPurchaseOrderRow: {
+            /** Id */
+            id: number;
+            /** Supplier Name */
+            supplier_name: string;
+            /** Status */
+            status: string;
+            /** Branch Id */
+            branch_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
          * RefreshRequest
          * @description Refresh token request.
          */
@@ -5418,6 +5482,19 @@ export interface components {
             qty_already_returned: number;
             /** Qty Remaining */
             qty_remaining: number;
+        };
+        /**
+         * RevenueTrendPoint
+         * @description One calendar day of posted sales revenue.
+         */
+        RevenueTrendPoint: {
+            /**
+             * Bucket Date
+             * Format: date
+             */
+            bucket_date: string;
+            /** Gross Sales */
+            gross_sales: string;
         };
         /**
          * RoleCreate
@@ -5916,6 +5993,20 @@ export interface components {
             token_type: string;
             /** Expires In */
             expires_in: number;
+        };
+        /**
+         * TopProductRow
+         * @description Top seller by line revenue in the filtered period.
+         */
+        TopProductRow: {
+            /** Product Id */
+            product_id: number;
+            /** Product Name */
+            product_name: string;
+            /** Qty Sold */
+            qty_sold: number;
+            /** Revenue */
+            revenue: string;
         };
         /** TopSellingProductItem */
         TopSellingProductItem: {

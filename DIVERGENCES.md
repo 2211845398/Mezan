@@ -70,6 +70,23 @@ and the code now agree.
 
 ---
 
+## D-4 — AI advisory POST idempotency: client header only (W-5.8 / Epic 14)
+
+**Product direction:** replay-safe `Idempotency-Key` on `POST /ai/advisory/*` with
+server-side deduplication / cached body (Epic 14.7 style).
+
+**We ship instead:** the SPA sends `Idempotency-Key` on purchase-reorder and
+HR-anomalies runs; the FastAPI routes remain stateless and do **not** persist
+keys or return cached responses for duplicates.
+
+**Why:** no idempotency store is wired for read-only AI advisors yet; the header
+is forward-compatible when a cache layer is added.
+
+**Closing this divergence:** add optional Redis/DB idempotency middleware keyed
+by `(user_id, route, idempotency_key)` returning the prior JSON on replay.
+
+---
+
 ## D-3 — Backups admin UI shows the last run from status, not a full run history (W-5.9)
 
 **Some product sketches assume:** a sortable table of many historical backup

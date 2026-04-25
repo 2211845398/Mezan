@@ -21,12 +21,70 @@ class TrialBalanceRow(BaseModel):
     model_config = ConfigDict(json_encoders={Decimal: str})
 
 
+class RevenueTrendPoint(BaseModel):
+    """One calendar day of posted sales revenue."""
+
+    bucket_date: date
+    gross_sales: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class CategoryMixRow(BaseModel):
+    """Revenue share by product category (from invoice lines)."""
+
+    category_id: int
+    category_name: str
+    gross_sales: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class TopProductRow(BaseModel):
+    """Top seller by line revenue in the filtered period."""
+
+    product_id: int
+    product_name: str
+    qty_sold: int
+    revenue: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class RecentPurchaseOrderRow(BaseModel):
+    """Latest purchase orders for executive snapshot."""
+
+    id: int
+    supplier_name: str
+    status: str
+    branch_id: int | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ExecutiveKpiRead(BaseModel):
+    """Executive dashboard aggregates from operational sales + PO snapshot.
+
+    ``gross_margin_ratio`` and ``estimated_cogs`` use product ``standard_cost``
+    × sold qty as a COGS estimate (not FIFO/WAC at sale time).
+    ``loyalty_points_accrued`` sums purchase-accrual credits in the date range;
+    it is not branch-scoped (loyalty ledger has no branch_id).
+    """
+
     invoice_count: int
     gross_sales: Decimal
     period_start: str | None
     period_end: str | None
     branch_id: int | None
+    avg_ticket: Decimal = Decimal("0")
+    estimated_cogs: Decimal = Decimal("0")
+    gross_margin_ratio: Decimal | None = None
+    loyalty_points_accrued: int = 0
+    revenue_trend: list[RevenueTrendPoint] = Field(default_factory=list)
+    category_mix: list[CategoryMixRow] = Field(default_factory=list)
+    top_products: list[TopProductRow] = Field(default_factory=list)
+    recent_purchase_orders: list[RecentPurchaseOrderRow] = Field(default_factory=list)
 
     model_config = ConfigDict(json_encoders={Decimal: str})
 

@@ -1,16 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 
-import { getExecutiveKpis } from './api';
+import * as api from './api';
 
 export const biKeys = {
-  all: ['bi'] as const,
-  executiveKpis: () => [...biKeys.all, 'executive-kpis'] as const,
-} as const;
+  root: ['bi'] as const,
+  executive: (q: { period_start?: string; period_end?: string; branch_id?: number }) =>
+    [...biKeys.root, 'executive-kpis', q] as const,
+};
 
-export function useExecutiveKpis(options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: biKeys.executiveKpis(),
-    queryFn: getExecutiveKpis,
-    enabled: options?.enabled ?? true,
+export function executiveKpisQueryOptions(args: {
+  period_start?: string;
+  period_end?: string;
+  branch_id?: number;
+}) {
+  return queryOptions({
+    queryKey: biKeys.executive(args),
+    queryFn: () => api.getExecutiveKpis(args),
   });
 }

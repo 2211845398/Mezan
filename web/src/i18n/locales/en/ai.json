@@ -1,0 +1,28 @@
+{
+  "hr": {
+    "intro": "HR anomaly detection uses the same engine as HR → Anomalies. Results are read-only suggestions."
+  },
+  "reorder": {
+    "title": "Purchase reorder advisor",
+    "subtitle": "Velocity, stock, and lead-time assumptions produce suggested order quantities.",
+    "idempotency_note": "Each run sends an Idempotency-Key; the server does not yet cache duplicate replays (see DIVERGENCES D-4).",
+    "branch": "Branch",
+    "branch_all": "All branches",
+    "lookback": "Lookback (days)",
+    "lead_time": "Lead time (days)",
+    "safety": "Safety stock (days)",
+    "run": "Run advisor",
+    "error": "Advisor request failed.",
+    "meta": "Model: {{model}} · {{at}}",
+    "create_po": "Create PO",
+    "create_po_all": "Create PO with all",
+    "empty": "No suggestions for these parameters.",
+    "col": {
+      "product": "Product",
+      "qty": "Suggested qty",
+      "urgency": "Urgency",
+      "rationale": "Rationale",
+      "action": "Action"
+    }
+  }
+}

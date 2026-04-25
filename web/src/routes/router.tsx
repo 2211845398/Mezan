@@ -4,8 +4,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AdminLayoutOutlet from '@/components/layout/AdminLayoutOutlet';
 import AuthLayoutOutlet from '@/components/layout/AuthLayoutOutlet';
 import PosLayout from '@/components/layout/PosLayout';
-import FeatureStub from '@/components/shared/FeatureStub';
-
 import { RequireAuth, RequireBranchContext, RequirePermission } from './guards';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import RouteLoader from './RouteLoader';
@@ -14,7 +12,7 @@ import RouteLoader from './RouteLoader';
  * React Router v7 data router. The route tree mirrors `WEB_FRONTEND_PLAN.md`
  * §4.1 one-to-one, with `RequirePermission` wrappers carrying the exact
  * `resource:action` strings from that document. Feature pages that have not
- * shipped yet render through `<FeatureStub />` so the routes remain navigable.
+ * shipped yet should render a thin placeholder or redirect until implemented.
  */
 
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'));
@@ -121,6 +119,10 @@ const HrLeaveList = lazy(() => import('@/features/hr/pages/leave/LeaveList'));
 const HrLeaveRequestForm = lazy(() => import('@/features/hr/pages/leave/LeaveRequestForm'));
 const HrAnomaliesDashboard = lazy(() => import('@/features/hr/pages/anomalies/AnomaliesDashboard'));
 
+const AiPurchaseReorder = lazy(() => import('@/features/ai/pages/PurchaseReorderAdvisor'));
+const AiHrAnomaliesView = lazy(() => import('@/features/ai/pages/HrAnomaliesView'));
+const AiInvoiceMatchReview = lazy(() => import('@/features/ai/pages/InvoiceMatchReview'));
+
 const PayrollRunsList = lazy(() => import('@/features/payroll/pages/runs/RunsList'));
 const PayrollRunDetail = lazy(() => import('@/features/payroll/pages/runs/RunDetail'));
 const PayrollApprovalsQueue = lazy(() => import('@/features/payroll/pages/approvals/ApprovalsQueue'));
@@ -129,14 +131,6 @@ function withSuspense(Component: ComponentType): JSX.Element {
   return (
     <Suspense fallback={<RouteLoader />}>
       <Component />
-    </Suspense>
-  );
-}
-
-function stub(labelKey: string, epic: string): JSX.Element {
-  return (
-    <Suspense fallback={<RouteLoader />}>
-      <FeatureStub labelKey={labelKey} epic={epic} />
     </Suspense>
   );
 }
@@ -848,7 +842,7 @@ export const router = createBrowserRouter([
                 path: 'purchase-reorder',
                 element: (
                   <RequirePermission resource="ai_advisory" action="run">
-                    {stub('nav.ai_purchase_reorder', 'W-5.7')}
+                    {withSuspense(AiPurchaseReorder)}
                   </RequirePermission>
                 ),
               },
@@ -856,7 +850,7 @@ export const router = createBrowserRouter([
                 path: 'hr-anomalies',
                 element: (
                   <RequirePermission resource="ai_advisory" action="run">
-                    {stub('nav.ai_hr_anomalies', 'W-5.7')}
+                    {withSuspense(AiHrAnomaliesView)}
                   </RequirePermission>
                 ),
               },
@@ -864,7 +858,7 @@ export const router = createBrowserRouter([
                 path: 'invoice-match',
                 element: (
                   <RequirePermission resource="ai_advisory" action="run">
-                    {stub('nav.ai_invoice_match', 'W-5.7')}
+                    {withSuspense(AiInvoiceMatchReview)}
                   </RequirePermission>
                 ),
               },
