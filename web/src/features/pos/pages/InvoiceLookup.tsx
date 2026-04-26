@@ -2,16 +2,28 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { Can } from '@/components/shared/Can';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
 import { formatDateTime, fromISO } from '@/lib/date';
 import { formatCurrency } from '@/lib/format';
+import { notify } from '@/lib/toast';
 
+import type { SalesInvoiceListItem } from '../api';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { thermalModelFromInvoiceDetail } from '../print/mapModel';
 import type { ThermalReceiptModel } from '../print/types';
-import { useInvoice, useTodayInvoices } from '../queries';
+import { useInvoice, useTodayInvoices, useVoidSale } from '../queries';
 import { usePosTerminalStore } from '../stores/posTerminalStore';
 
 const POS_CURRENCY = 'USD';
@@ -30,6 +42,10 @@ export default function InvoiceLookup() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptModel, setReceiptModel] = useState<ThermalReceiptModel | null>(null);
 
+  const voidSale = useVoidSale();
+  const [voidTarget, setVoidTarget] = useState<SalesInvoiceListItem | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+
   useEffect(() => {
     if (!selectedId || !detail || detail.id !== selectedId) return;
     const model = thermalModelFromInvoiceDetail(detail, {
@@ -42,6 +58,22 @@ export default function InvoiceLookup() {
 
   if (!canRead) {
     return <p className="p-6 text-sm text-muted-foreground">403</p>;
+  }
+
+  async function confirmVoid() {
+    if (!voidTarget) return;
+    try {
+      await voidSale.mutateAsync({
+        invoice_id: voidTarget.id,
+        invoice_barcode: null,
+        reason: voidReason.trim() || null,
+      });
+      notify.success(t('invoices.void_success', { number: voidTarget.invoice_number }));
+      setVoidTarget(null);
+      setVoidReason('');
+    } catch (e) {
+      notify.error(e instanceof Error ? e.message : String(e));
+    }
   }
 
   return (
@@ -81,9 +113,25 @@ export default function InvoiceLookup() {
                     {formatCurrency(Number.parseFloat(r.total), POS_CURRENCY)}
                   </td>
                   <td className="p-2">
-                    <Button type="button" size="sm" variant="secondary" onClick={() => setSelectedId(r.id)}>
-                      {t('invoices.reprint')}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant="secondary" onClick={() => setSelectedId(r.id)}>
+                        {t('invoices.reprint')}
+                      </Button>
+                      <Can resource="sales_invoices" action="void">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          className="min-h-9"
+                          onClick={() => {
+                            setVoidTarget(r);
+                            setVoidReason('');
+                          }}
+                        >
+                          {t('invoices.void')}
+                        </Button>
+                      </Can>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -97,6 +145,61 @@ export default function InvoiceLookup() {
           {detail.invoice_number} · {formatDateTime(fromISO(detail.created_at))}
         </p>
       ) : null}
+
+      <Dialog
+        open={voidTarget != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVoidTarget(null);
+            setVoidReason('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('invoices.void_title')}</DialogTitle>
+          </DialogHeader>
+          {voidTarget ? (
+            <p className="text-sm text-muted-foreground">
+              {voidTarget.invoice_number} ·{' '}
+              <span dir="ltr">
+                {formatCurrency(Number.parseFloat(voidTarget.total), POS_CURRENCY)}
+              </span>
+            </p>
+          ) : null}
+          <div className="space-y-2">
+            <Label htmlFor="void-reason">{t('invoices.void_reason')}</Label>
+            <Input
+              id="void-reason"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder={t('invoices.void_reason_placeholder')}
+              disabled={voidSale.isPending}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setVoidTarget(null);
+                setVoidReason('');
+              }}
+              disabled={voidSale.isPending}
+            >
+              {t('actions.cancel', { ns: 'common' })}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={voidSale.isPending}
+              onClick={() => void confirmVoid()}
+            >
+              {t('invoices.void_confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {receiptModel ? (
         <ReceiptModal

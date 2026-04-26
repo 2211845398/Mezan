@@ -1,6 +1,8 @@
 {
   "shell": {
+    "brand": "Mezan POS",
     "title": "Point of sale",
+    "nav_label": "POS primary navigation",
     "online": "Online",
     "offline": "Offline",
     "pending_sync": "Pending sync operations: {{count}}",
@@ -92,6 +94,12 @@
     "title": "Today’s invoices",
     "open": "Open",
     "reprint": "Reprint",
+    "void": "Void",
+    "void_title": "Void invoice",
+    "void_reason": "Reason (optional)",
+    "void_reason_placeholder": "e.g. customer cancelled",
+    "void_confirm": "Void invoice",
+    "void_success": "Invoice {{number}} voided.",
     "empty": "No invoices in this window."
   },
   "shortcuts": {

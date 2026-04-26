@@ -16,7 +16,7 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
   const { t } = useTranslation('pos');
 
   return (
-    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-border py-2 text-sm">
+    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-border py-3 text-sm">
       <div className="min-w-0">
         <div className="truncate font-medium">{line.product_name || line.product_sku}</div>
         <div className="text-[11px] text-muted-foreground" dir="ltr">
@@ -27,7 +27,7 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
         <Input
           type="number"
           min={1}
-          className="h-9"
+          className="min-h-11"
           value={line.qty}
           disabled={!editable}
           aria-label={t('register.qty')}

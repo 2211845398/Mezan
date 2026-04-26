@@ -56,12 +56,22 @@
   },
   "layout": {
     "app_name": "Mezan",
+    "page": "Page",
+    "menu": "Menu",
     "sign_out": "Sign out",
     "toggle_theme": "Toggle theme",
     "toggle_language": "Toggle language",
     "open_sidebar": "Open sidebar",
     "close_sidebar": "Close sidebar",
-    "search": "Search"
+    "collapse_sidebar": "Collapse sidebar",
+    "expand_sidebar": "Expand sidebar",
+    "branch_context": "Branch #{{id}}",
+    "search": "Search",
+    "nav_section_ops": "Operations",
+    "nav_section_finance": "Finance",
+    "nav_section_people": "People",
+    "nav_section_growth": "Growth & AI",
+    "nav_section_system": "System"
   },
   "theme": {
     "light": "Light",

@@ -56,12 +56,22 @@
   },
   "layout": {
     "app_name": "ميزان",
+    "page": "صفحة",
+    "menu": "القائمة",
     "sign_out": "تسجيل الخروج",
     "toggle_theme": "تبديل السمة",
     "toggle_language": "تبديل اللغة",
     "open_sidebar": "فتح القائمة الجانبية",
     "close_sidebar": "إغلاق القائمة الجانبية",
-    "search": "بحث"
+    "collapse_sidebar": "طي القائمة الجانبية",
+    "expand_sidebar": "توسيع القائمة الجانبية",
+    "branch_context": "فرع رقم {{id}}",
+    "search": "بحث",
+    "nav_section_ops": "التشغيل",
+    "nav_section_finance": "المالية",
+    "nav_section_people": "الموارد البشرية",
+    "nav_section_growth": "النمو والذكاء",
+    "nav_section_system": "النظام"
   },
   "theme": {
     "light": "فاتح",

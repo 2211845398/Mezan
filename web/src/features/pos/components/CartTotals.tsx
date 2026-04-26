@@ -23,7 +23,7 @@ export function CartTotals({ cart, currency }: CartTotalsProps) {
   );
 
   return (
-    <div className="space-y-1 rounded-md border bg-muted/30 p-3">
+    <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
       {row(t('register.subtotal'), cart.subtotal)}
       {row(t('register.discount'), cart.discount_total)}
       {row(t('register.tax'), cart.tax_total)}

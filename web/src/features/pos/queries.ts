@@ -30,6 +30,8 @@ import {
   type PaymentIntentBody,
   type ReturnBody,
   submitReturn,
+  type VoidSaleBody,
+  voidSale,
 } from './api';
 
 export const shiftKeys = {
@@ -289,6 +291,17 @@ export function useFinalizeSaleMutation() {
     mutationFn: (body: FinalizeBody) => finalizeSale(body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: invoiceKeys.all });
+    },
+  });
+}
+
+export function useVoidSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: VoidSaleBody) => voidSale(body),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      void qc.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) });
     },
   });
 }

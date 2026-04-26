@@ -14,6 +14,7 @@ from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.product import Product
+from app.schemas.catalog import CategoryTreeNode
 from app.services.pricing_service import set_product_sell_price
 from app.utils.money import to_decimal
 
@@ -63,20 +64,34 @@ async def list_all_categories(db: AsyncSession) -> list[Category]:
     return list(result.scalars().all())
 
 
-def build_category_tree(categories: Iterable[Category]) -> list[Category]:
-    by_parent: dict[int | None, list[Category]] = {}
-    by_id: dict[int, Category] = {}
-    for c in categories:
-        by_id[c.id] = c
-        by_parent.setdefault(c.parent_id, []).append(c)
-    for children in by_parent.values():
-        children.sort(key=lambda x: (x.sort_order, x.name))
-    roots = by_parent.get(None, [])
+def build_category_tree_nodes(categories: Iterable[Category]) -> list[CategoryTreeNode]:
+    """Build nested tree DTOs without touching ORM ``children`` (mapped relationship).
 
-    # Attach a transient attribute `children` for response shaping.
-    for c in by_id.values():
-        setattr(c, "children", by_parent.get(c.id, []))
-    return roots
+    Mutating ``Category.children`` with ``setattr`` triggers implicit loads under
+    ``AsyncSession`` and can raise ``MissingGreenlet``.
+    """
+    cat_list = list(categories)
+    by_parent: dict[int | None, list[Category]] = {}
+    for c in cat_list:
+        by_parent.setdefault(c.parent_id, []).append(c)
+    for sibs in by_parent.values():
+        sibs.sort(key=lambda x: (x.sort_order, x.name))
+
+    def to_node(c: Category) -> CategoryTreeNode:
+        kids = by_parent.get(c.id, [])
+        return CategoryTreeNode(
+            id=c.id,
+            name=c.name,
+            slug=c.slug,
+            sort_order=c.sort_order,
+            is_active=c.is_active,
+            parent_id=c.parent_id,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
+            children=[to_node(ch) for ch in kids],
+        )
+
+    return [to_node(r) for r in by_parent.get(None, [])]
 
 
 async def create_category(db: AsyncSession, *, data: dict[str, Any]) -> Category:

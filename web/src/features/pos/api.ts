@@ -31,6 +31,8 @@ type PaymentCaptureBody =
 
 type FinalizeBody =
   paths['/api/v1/pos/sales/finalize']['post']['requestBody']['content']['application/json'];
+type VoidSaleBody =
+  paths['/api/v1/pos/sales/void']['post']['requestBody']['content']['application/json'];
 type SalesInvoiceRead =
   paths['/api/v1/pos/sales/finalize']['post']['responses']['200']['content']['application/json'];
 type SalesInvoiceDetailRead =
@@ -72,6 +74,7 @@ export type {
   SalesInvoiceListItem,
   SalesInvoiceRead,
   TerminalRead,
+  VoidSaleBody,
 };
 
 export async function getCurrentShift(
@@ -148,6 +151,11 @@ export async function capturePayment(body: PaymentCaptureBody): Promise<PaymentI
 
 export async function finalizeSale(body: FinalizeBody): Promise<SalesInvoiceRead> {
   const { data } = await apiClient.post<SalesInvoiceRead>('/pos/sales/finalize', body);
+  return data;
+}
+
+export async function voidSale(body: VoidSaleBody): Promise<SalesInvoiceRead> {
+  const { data } = await apiClient.post<SalesInvoiceRead>('/pos/sales/void', body);
   return data;
 }
 

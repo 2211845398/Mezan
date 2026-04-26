@@ -1,6 +1,6 @@
 # `web/` Frontend — Engineering Plan
 
-**Status:** Planning. No code in this iteration.
+**Status:** Active — `web/` ships in-repo; this document tracks conventions and drift.
 **Owner:** Future `web/` SPA, Arabic-first, built alongside the Mezan backend in this monorepo.
 **Pair documents:**
 - [`PROJECT_STATE.md`](PROJECT_STATE.md) §5 — tracks Epic W-1..W-10 progress boxes.
@@ -17,6 +17,7 @@ This document is authoritative for everything inside `web/`. Progress is tracked
 - **Why SPA and not Next.js:** every screen is behind authentication; SEO is irrelevant; an SSR server is operational weight we do not want to pay for. Vite dev server is also ~2–3× lighter on RAM than a Next.js dev server, which matters on the target 8 GB developer machine.
 - **Why monorepo:** `web/`, future `mobile/`, and `backend/` share one repo so `openapi.json` changes, API contracts, and `PROJECT_STATE.md` stay atomic in a single PR.
 - **Priority use cases (pick Feature order from these):** POS checkout, catalog + inventory, purchase orders + goods receipts, HR + payroll, accounting + fiscal reports, BI dashboard, admin (users/roles/branches/backups/notifications).
+- **UI-first shell:** Layout, sidebar, topbar, and dashboard *composition* may evolve in focused PRs without new backend contracts. Layout and POS chrome are **owned entirely inside `web/`** (no dependency on any external frontend tree). Before large layout changes, use the internal checklist [`web/docs/design-reference-inventory.md`](web/docs/design-reference-inventory.md). Shell contract: [`web/docs/SHELL_CONTRACT.md`](web/docs/SHELL_CONTRACT.md).
 
 ---
 
@@ -93,7 +94,12 @@ mezan/                              ← this repo, do not split
 │   │   │   └── shared/
 │   │   ├── config/
 │   │   │   ├── env.ts              ← typed import.meta.env access
-│   │   │   └── navigation.ts       ← RBAC-aware sidebar items
+│   │   │   ├── navigation.ts       ← RBAC-aware sidebar tree (+ optional `section` grouping)
+│   │   │   ├── navigationFilter.ts ← `filterNav` + `useFilteredNavigation()`
+│   │   │   ├── navigationLeaves.ts ← leaf hrefs for home shortcuts
+│   │   │   ├── routeTitle.ts       ← longest-prefix title key for Topbar
+│   │   │   ├── dashboardWidgets.ts ← permission-gated dashboard block registry
+│   │   │   └── roleDashboardPresets.ts ← optional role-code → defaults (when API exposes roles)
 │   │   ├── features/
 │   │   │   ├── auth/
 │   │   │   │   ├── api.ts
@@ -131,7 +137,7 @@ mezan/                              ← this repo, do not split
 │   │   ├── routes/
 │   │   │   ├── router.tsx
 │   │   │   └── guards.tsx
-│   │   ├── stores/                 ← Zustand (UI-only)
+│   │   ├── stores/                 ← Zustand (UI-only); `shellStore` persists sidebar collapsed
 │   │   ├── styles/
 │   │   ├── test/
 │   │   │   ├── setup.ts
@@ -344,6 +350,8 @@ Interceptor responsibilities (each has one job):
 
 All design decisions live in **`web/src/styles/tokens.css`** as CSS variables consumed by Tailwind via `theme.extend.colors = { primary: 'hsl(var(--primary))' }`. Tokens, not utility classes, are the stable interface.
 
+**Brand palette (do not revert to slate without an explicit design decision):** Palm Green `#003218` (primary / key text), Crown Gold `#AA8E60` (secondary), White `#FFFFFF` (light surfaces). Dark mode derives a deep-Palm shell with the same hue family in `tokens.css` under `.dark`.
+
 Token families:
 - **Color:** `--background`, `--foreground`, `--primary`, `--primary-foreground`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--border`, `--ring`, `--success`, `--warning`, sidebar-specific tokens. Each has a `.dark` override.
 - **Radius:** `--radius-sm`, `--radius`, `--radius-lg`, `--radius-xl`.
@@ -382,6 +390,15 @@ Token families:
 - `eslint-plugin-jsx-a11y` recommended preset is non-negotiable.
 - All interactive elements reachable by keyboard; focus ring uses `--ring` token (never `outline: none` without a replacement).
 - Color contrast checked by a Storybook a11y add-on in v2; v1 relies on shadcn tokens which are already compliant at the defaults.
+
+### 6A. App shell, sidebar, topbar, and dashboard composition
+
+- **Admin shell:** `components/layout/AdminLayout.tsx` — desktop **sidebar** + **topbar** + scrolling `<main>`. Wraps `TooltipProvider` for collapsed-rail tooltips. Mobile: sidebar hidden; **Sheet** nav from Topbar menu (`stores/shellStore.ts` for `mobileNavOpen`; `sidebarCollapsed` persisted via Zustand `persist` partial `mezan-ui-shell`).
+- **Sidebar:** `Sidebar.tsx` + `SidebarNav.tsx` — zones: brand strip, RBAC-filtered nav (`useFilteredNavigation`), footer collapse toggle. **Collapsed rail** (`w-[4.5rem]`): icon-only leaves with `Tooltip`; parent groups use `DropdownMenu` for children. Optional **section** labels on top-level `NavItem.section` (`ops` / `finance` / `people` / `growth` / `system`) with i18n keys under `common.layout.nav_section_*`.
+- **Topbar:** Current route title from `getTitleKeyForPath()` (`config/routeTitle.ts`) + optional `layout.branch_context` line from `user.branch_id`. No duplicate product name (brand stays in sidebar). Global actions: language, theme, sign-out.
+- **Home `/`:** `features/bi/pages/HomePage.tsx` — users with `analytics:read` redirect to `/dashboard`; others see `DashboardHomeFallback` (shortcut grid from `flattenNavLeaves(useFilteredNavigation())`, no extra API).
+- **Dashboard `/dashboard`:** `DashboardPage.tsx` orchestrates **widgets** declared in `config/dashboardWidgets.ts` (permission intersection). Heavy executive BI body lives in `ExecutiveBiDashboardContent.tsx`, loaded with **`React.lazy` + `Suspense`** so Recharts parses only after entering the route.
+- **Role presets (optional):** `config/roleDashboardPresets.ts` — empty until `/auth/me` includes role codes; RBAC stays server-side.
 
 ---
 
@@ -479,6 +496,13 @@ Features, all opt-in:
 - `rollup-plugin-visualizer` wired behind `pnpm run analyze`.
 - CI fails if the main chunk exceeds 250 KB gzipped or any feature chunk exceeds 150 KB gzipped.
 - `manualChunks` baseline splits: `recharts`, `dexie`, `framer-motion`, `@react-pdf/renderer`, `i18next`.
+
+**Perceived performance (shell + routes):**
+
+- **Shell imports:** `AdminLayout`, `Sidebar`, and `Topbar` must not import chart stacks, PDF, or feature `api` modules — only nav/config/stores/ui.
+- **Route-level lazy:** keep feature pages behind `lazy()` in `routes/router.tsx` (§4.2).
+- **Dashboard:** BI charts load inside `React.lazy` subchunks (`ExecutiveBiDashboardContent`); KPI query uses a longer `staleTime` (`features/bi/queries.ts`) than the global default to reduce refetch churn when `refetchOnWindowFocus` fires.
+- **Baseline:** run `pnpm run build` then `pnpm run analyze` locally; compare main + `recharts` gz sizes to the budgets above.
 
 ### 8.7 Storybook (v2, not v1)
 
@@ -631,7 +655,7 @@ Exit: 100% of network calls go through `api/client.ts`.
 
 ### W-5 — Feature modules (ordered by daily-use priority)
 
-Each sub-epic adds routes, pages, forms, queries, and a smoke test. Offline-first rules from `OFFLINE_POS.md` apply to the POS module.
+Each sub-epic adds routes, pages, forms, queries, and a smoke test. Offline-first rules from `OFFLINE_POS.md` apply to the POS module. **UI-first slices** (shell, sidebar, dashboard composition, lazy BI chunk) may land without extending this ordered list — see §6A.
 
 1. **POS** — shift open/close, cart, tender, receipts, offline queue + sync UI. Consumes Epic 12 backend contracts.
 2. **Catalog + inventory** — products, categories, price lists, stock, adjustments, transfers, scans.

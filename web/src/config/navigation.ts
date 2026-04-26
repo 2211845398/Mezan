@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  BarChart3,
   Boxes,
   Briefcase,
   Building2,
@@ -28,12 +27,16 @@ export type Permission = {
   action: string;
 };
 
+export type NavSection = 'ops' | 'finance' | 'people' | 'growth' | 'system';
+
 export type NavItem = {
   key: string;
   labelKey: string;
   icon: LucideIcon;
   href: string;
   permission?: Permission;
+  /** Optional grouping label in the sidebar (top-level items only). */
+  section?: NavSection;
   children?: NavItem[];
 };
 
@@ -43,6 +46,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.dashboard',
     icon: LayoutDashboard,
     href: '/dashboard',
+    section: 'ops',
     permission: { resource: 'analytics', action: 'read' },
   },
   {
@@ -50,6 +54,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.pos',
     icon: ShoppingCart,
     href: '/pos',
+    section: 'ops',
     permission: { resource: 'pos_carts', action: 'create' },
   },
   {
@@ -57,6 +62,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.catalog',
     icon: ShoppingBag,
     href: '/catalog',
+    section: 'ops',
     children: [
       {
         key: 'catalog-products',
@@ -86,6 +92,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.inventory',
     icon: Boxes,
     href: '/inventory',
+    section: 'ops',
     children: [
       {
         key: 'inventory-stock',
@@ -122,6 +129,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.purchasing',
     icon: ClipboardList,
     href: '/purchasing',
+    section: 'ops',
     children: [
       {
         key: 'purchasing-orders',
@@ -151,6 +159,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.hr',
     icon: Users,
     href: '/hr',
+    section: 'people',
     children: [
       {
         key: 'hr-employees',
@@ -187,6 +196,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.payroll',
     icon: Wallet,
     href: '/payroll',
+    section: 'people',
     children: [
       {
         key: 'payroll-runs',
@@ -209,6 +219,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.accounting',
     icon: Calculator,
     href: '/accounting',
+    section: 'finance',
     children: [
       {
         key: 'accounting-journal',
@@ -273,6 +284,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.crm',
     icon: Heart,
     href: '/crm',
+    section: 'growth',
     children: [
       {
         key: 'crm-customers',
@@ -302,6 +314,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.marketing',
     icon: Sparkles,
     href: '/marketing',
+    section: 'growth',
     children: [
       {
         key: 'marketing-analytics',
@@ -331,6 +344,7 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.ai',
     icon: Sparkles,
     href: '/ai',
+    section: 'growth',
     children: [
       {
         key: 'ai-purchase-reorder',
@@ -356,17 +370,11 @@ export const navigation: NavItem[] = [
     ],
   },
   {
-    key: 'bi',
-    labelKey: 'nav.bi',
-    icon: BarChart3,
-    href: '/dashboard',
-    permission: { resource: 'analytics', action: 'read' },
-  },
-  {
     key: 'admin',
     labelKey: 'nav.admin',
     icon: Briefcase,
     href: '/admin',
+    section: 'system',
     children: [
       {
         key: 'admin-users',

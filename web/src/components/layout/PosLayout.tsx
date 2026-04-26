@@ -1,15 +1,25 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Outlet } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 
 import { OfflineBadge } from '@/components/shared/OfflineBadge';
 import { usePendingOps } from '@/features/pos/hooks/usePendingOps';
 import { flushPosOfflineQueue } from '@/features/pos/offline/flushQueue';
 import { useOnline } from '@/hooks/useOnline';
+import { cn } from '@/lib/utils';
 
 /*
  * POS runs full-screen, deliberately outside `AdminLayout`.
+ * Chrome is self-contained in `web/` (brand strip + primary nav).
  */
+
+const navClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    'inline-flex min-h-11 min-w-[5.5rem] items-center justify-center rounded-md px-3 text-sm font-medium transition-colors',
+    isActive
+      ? 'bg-primary text-primary-foreground shadow-sm'
+      : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary hover:text-secondary-foreground',
+  );
 
 export default function PosLayout() {
   const { t } = useTranslation('pos');
@@ -24,31 +34,34 @@ export default function PosLayout() {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-background">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-        <div className="flex flex-wrap items-center gap-3 text-sm font-medium">
-          <span>{t('shell.title')}</span>
-          <nav className="flex flex-wrap gap-2">
-            <Link className="text-primary underline-offset-4 hover:underline" to="/pos">
+      <header className="shrink-0 border-b border-border bg-muted/20">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-lg font-bold tracking-tight text-primary">{t('shell.brand')}</span>
+            <span className="text-xs font-medium text-muted-foreground">{t('shell.title')}</span>
+          </div>
+          <nav className="flex flex-wrap items-center gap-2" aria-label={t('shell.nav_label')}>
+            <NavLink to="/pos" end className={navClass}>
               {t('shell.nav_gate')}
-            </Link>
-            <Link className="text-primary underline-offset-4 hover:underline" to="/pos/register">
+            </NavLink>
+            <NavLink to="/pos/register" className={navClass}>
               {t('shell.nav_register')}
-            </Link>
-            <Link className="text-primary underline-offset-4 hover:underline" to="/pos/close">
+            </NavLink>
+            <NavLink to="/pos/close" className={navClass}>
               {t('shell.nav_close')}
-            </Link>
-            <Link className="text-primary underline-offset-4 hover:underline" to="/pos/invoices">
+            </NavLink>
+            <NavLink to="/pos/invoices" className={navClass}>
               {t('shell.nav_invoices')}
-            </Link>
+            </NavLink>
           </nav>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <OfflineBadge online={online} />
-          {pending > 0 ? (
-            <span className="text-[11px] text-amber-700 dark:text-amber-400">
-              {t('shell.pending_sync', { count: pending })}
-            </span>
-          ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <OfflineBadge online={online} />
+            {pending > 0 ? (
+              <span className="max-w-[14rem] text-xs text-amber-800 dark:text-amber-300">
+                {t('shell.pending_sync', { count: pending })}
+              </span>
+            ) : null}
+          </div>
         </div>
       </header>
       <main className="min-h-0 flex-1 overflow-hidden">

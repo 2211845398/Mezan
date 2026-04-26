@@ -23,6 +23,7 @@ const OnboardingCompletePage = lazy(
 );
 
 const DashboardPage = lazy(() => import('@/features/bi/pages/DashboardPage'));
+const HomePage = lazy(() => import('@/features/bi/pages/HomePage'));
 
 const ForbiddenPage = lazy(() => import('./ForbiddenPage'));
 const NotFoundPage = lazy(() => import('./NotFoundPage'));
@@ -224,7 +225,7 @@ export const router = createBrowserRouter([
       {
         element: <AdminLayoutOutlet />,
         children: [
-          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { index: true, element: withSuspense(HomePage) },
           {
             path: '/dashboard',
             element: (

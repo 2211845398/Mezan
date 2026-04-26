@@ -236,6 +236,7 @@ Summary of the stack direction (see `WEB_FRONTEND_PLAN.md` §2 for the full tabl
 - [x] **W-3.2** Light / dark tokens, design-token file, RTL logical utilities everywhere. *(Custom ESLint rule `mezan/no-physical-rtl` blocks new physical utilities in `src/**`; shadcn copy-ins are grandfathered with `// TODO(rtl)` markers. Western digits (0–9) are enforced via `web/src/lib/format.ts` + `web/src/lib/i18n-numbers.ts` with `numberingSystem: 'latn'`.)*
 - [x] **W-3.3** `DataTable` component built on **TanStack Table v8** (fixes Bonyan's weak table story). *(URL-driven server mode + opt-in client mode, density/visibility persisted per route, `@tanstack/react-virtual` auto-enables past 200 rows, first-class skeleton/empty/error states.)*
 - [x] **W-3.4** Shared `Form`, `Select`, `DateField`, `MoneyInput` components. *(+ `AsyncSelect` on `cmdk` and an `UnsavedChangesPrompt` built on React Router v7's `useBlocker`; `MoneyInput` rounds via `decimal.js` to backend `q2`.)*
+- [x] **W-3.5** App shell refresh — collapsible desktop sidebar + persisted rail, mobile `Sheet` nav, Topbar route title + branch line, `/` home fallback without `analytics:read`, dashboard widget registry + `React.lazy` executive BI chunk, `WEB_FRONTEND_PLAN.md` §6A + `web/docs/SHELL_CONTRACT.md`. *(No new automated tests in this slice.)*
 
 ### Epic W-4 — API layer and types
 - [x] **W-4.1** Generated `schema.ts` plus stable re-exports in `web/src/api/types.ts`; CI codegen drift job.

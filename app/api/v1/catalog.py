@@ -23,7 +23,7 @@ from app.schemas.catalog import (
 from app.services import audit_service
 from app.services.catalog_service import (
     archive_product,
-    build_category_tree,
+    build_category_tree_nodes,
     create_category,
     create_category_attribute_def,
     create_product,
@@ -86,8 +86,7 @@ async def get_category_tree_endpoint(
     __: None = require_permission("catalog", "read"),
 ) -> list[CategoryTreeNode]:
     cats = await list_all_categories(db)
-    roots = build_category_tree(cats)
-    return [CategoryTreeNode.model_validate(r) for r in roots]
+    return build_category_tree_nodes(cats)
 
 
 @router.get("/categories/{category_id}", response_model=CategoryRead)

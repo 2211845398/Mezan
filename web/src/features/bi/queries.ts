@@ -16,5 +16,7 @@ export function executiveKpisQueryOptions(args: {
   return queryOptions({
     queryKey: biKeys.executive(args),
     queryFn: () => api.getExecutiveKpis(args),
+    /** BI panels are heavy; reduce refetch churn vs global 30s (`queryClient.ts`). */
+    staleTime: 120_000,
   });
 }

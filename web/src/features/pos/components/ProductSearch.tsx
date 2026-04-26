@@ -42,7 +42,7 @@ export function ProductSearch({ value, onChange, disabled }: ProductSearchProps)
       searchPlaceholder={t('register.search_product')}
       emptyLabel={t('register.search_product')}
       isLoading={isFetching}
-      className="max-w-xl"
+      className="min-h-11 w-full max-w-none"
       disabled={disabled ?? false}
     />
   );

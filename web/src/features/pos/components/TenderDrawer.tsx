@@ -185,7 +185,7 @@ export function TenderDrawer({
               <Button
                 key={m}
                 type="button"
-                size="sm"
+                className="min-h-11 min-w-[5rem]"
                 variant={method === m ? 'default' : 'outline'}
                 onClick={() => setMethod(m)}
               >
@@ -230,11 +230,17 @@ export function TenderDrawer({
           ) : null}
         </div>
         <SheetFooter className="gap-2 sm:justify-between">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => onOpenChange(false)}
+          >
             {t('actions.cancel', { ns: 'common' })}
           </Button>
           <Button
             type="button"
+            className="min-h-12 min-w-[8rem] font-semibold"
             onClick={() => void pay()}
             disabled={
               busy ||

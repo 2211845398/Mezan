@@ -1,6 +1,13 @@
 {
   "title": "Executive dashboard",
   "subtitle": "Sales KPIs, trends, and operational snapshot for the selected period.",
+  "no_widgets": "No dashboard modules are available for your account.",
+  "home": {
+    "welcome_title": "Home",
+    "welcome_subtitle": "You do not have the executive dashboard role; open a module below.",
+    "shortcuts_hint": "Shortcuts match your permissions — the same links as the sidebar.",
+    "no_shortcuts": "No modules are available for your account. Contact an administrator."
+  },
   "error": { "load": "Could not load executive KPIs. Try again." },
   "filters": {
     "title": "Period & branch",

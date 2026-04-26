@@ -17,9 +17,11 @@ import { Label } from '@/components/ui/label';
 export type DiscountPickerProps = {
   disabled?: boolean;
   onApply: (code: string, amount: string) => Promise<void> | void;
+  /** Extra classes on the trigger button (e.g. touch target height). */
+  triggerClassName?: string;
 };
 
-export function DiscountPicker({ disabled, onApply }: DiscountPickerProps) {
+export function DiscountPicker({ disabled, onApply, triggerClassName }: DiscountPickerProps) {
   const { t } = useTranslation('pos');
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState('');
@@ -41,7 +43,7 @@ export function DiscountPicker({ disabled, onApply }: DiscountPickerProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="secondary" disabled={disabled}>
+        <Button type="button" variant="secondary" className={triggerClassName} disabled={disabled}>
           {t('register.discount_apply')}
         </Button>
       </DialogTrigger>
