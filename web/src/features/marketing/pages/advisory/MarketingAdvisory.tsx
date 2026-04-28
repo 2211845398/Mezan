@@ -2,8 +2,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { isAxiosError } from 'axios';
 
+import { isAxiosError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,10 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { postMarketingAdvisory } from '../../api';
-import type { MarketingAdvisoryResponse } from '../../api';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+
+import type { MarketingAdvisoryResponse } from '../../api';
+import { postMarketingAdvisory } from '../../api';
 
 export default function MarketingAdvisory() {
   const { t } = useTranslation('marketing');

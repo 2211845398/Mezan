@@ -12,11 +12,10 @@ import {
 
 import { formatCompactNumber } from '@/lib/format';
 
-import { mirrorCategoriesForRtl } from './mirrorCategoriesForRtl';
 import { chartColor } from './chartTokens';
-import { useChartRtl } from './useChartRtl';
-
 import type { ChartRow } from './LineChart';
+import { mirrorCategoriesForRtl } from './mirrorCategoriesForRtl';
+import { useChartRtl } from './useChartRtl';
 
 export function StackedBarChart({
   data,

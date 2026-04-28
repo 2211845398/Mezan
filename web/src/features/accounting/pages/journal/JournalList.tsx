@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
+import { subDays } from 'date-fns';
 import { Eye } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { CreateButton,PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,16 +22,15 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import type { JournalEntryListItemRead } from '../../api';
 import { journalListQueryOptions } from '../../queries';
 
 function defaultDateRange() {
-  const to = new Date();
-  const from = new Date();
-  from.setDate(from.getDate() - 30);
-  const s = (d: Date) => d.toISOString().slice(0, 10);
-  return { from: s(from), to: s(to) };
+  const to = now();
+  const from = subDays(to, 30);
+  return { from: utcCalendarDayKey(from), to: utcCalendarDayKey(to) };
 }
 
 export default function JournalList() {
@@ -107,15 +109,17 @@ export default function JournalList() {
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{t('journal.list_title')}</h1>
-        {canCreate ? (
-          <Button asChild>
-            <Link to="/accounting/journal/new">{t('journal.new_manual')}</Link>
-          </Button>
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        title={t('journal.list_title')}
+        actions={
+          <CreateButton
+            to="/accounting/journal/new"
+            label={t('journal.new_manual')}
+            visible={canCreate}
+          />
+        }
+      />
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('period.from')}</Label>

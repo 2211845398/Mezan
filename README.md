@@ -110,6 +110,7 @@ Create a `.env` file based on `.env.example` with the following variables:
 - `SECRET_KEY`: Secret key for security operations. In production it must be a strong unique value, not a placeholder or short dev secret.
 - `ALLOWED_ORIGINS`: Comma-separated or JSON-array list of trusted browser origins for CORS credentials. Example: `http://localhost:3000,http://127.0.0.1:5173`
 - `SEED_ON_STARTUP`: Set to `true` only when you intentionally want startup seeding to run. Development compose enables it; production compose disables it.
+- `MEZAN_ALLOW_DEV_SEED`: Set to `1` / `true` only to allow `app.scripts.dev_seed` when `ENVIRONMENT` is production (not recommended).
 - `DATABASE_URL`: PostgreSQL connection string
 - `POSTGRES_*`: Database configuration variables
 
@@ -130,6 +131,38 @@ docker-compose exec api uv run python -m app.scripts.seed
 ```
 
 If you want a default admin account to be created during manual or startup seeding, set both `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD`.
+
+## Dev database bootstrap
+
+`app/scripts/dev_seed.py` loads a **rich local dataset** (multiple branches, admin with a home `branch_id`, categories, products, sell prices, stock, and one authorized POS terminal per branch). It is **separate** from the minimal `app/scripts/seed.py` and is safe to delete or stop using in your workflow.
+
+**Safety:** the script **refuses to run** when `ENVIRONMENT` is `production` or `prod` unless you set `MEZAN_ALLOW_DEV_SEED=1` (explicit opt-in).
+
+**`--reset`:** truncates all `public` tables **except** `alembic_version` (schema and migration history stay). You must set `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD` in the environment, or pass `--email` and `--password`.
+
+**POS terminals (dev):** each branch gets a terminal with plain API key `pos_dev_<branch_code>_mezan2026` (logged once when the terminal row is created).
+
+Run inside Docker (recommended; the API container uses `POSTGRES_HOST=db`):
+
+```bash
+docker compose exec api uv run python -m app.scripts.dev_seed --reset
+```
+
+Fresh Postgres volume instead of in-database truncate:
+
+```bash
+docker compose down -v
+docker compose up -d
+docker compose exec api alembic upgrade head
+docker compose exec api uv run python -m app.scripts.dev_seed
+```
+
+From the host with local `uv`, point `.env` at Docker Postgres on `localhost` (not `db`), then:
+
+```bash
+cd mezan
+uv run python -m app.scripts.dev_seed --reset
+```
 
 ## Database Migrations
 

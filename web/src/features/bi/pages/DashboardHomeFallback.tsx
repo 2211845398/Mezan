@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFilteredNavigation } from '@/config/navigationFilter';
@@ -18,14 +19,14 @@ export default function DashboardHomeFallback() {
   const leaves = useMemo(() => flattenNavLeaves(visible), [visible]);
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader title={t('home.welcome_title')} subtitle={t('home.welcome_subtitle')} />
       <Card>
         <CardHeader>
-          <CardTitle>{t('home.welcome_title')}</CardTitle>
-          <CardDescription>{t('home.welcome_subtitle')}</CardDescription>
+          <CardTitle>{t('home.shortcuts_title')}</CardTitle>
+          <CardDescription>{t('home.shortcuts_hint')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-muted-foreground">{t('home.shortcuts_hint')}</p>
           {leaves.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('home.no_shortcuts')}</p>
           ) : (

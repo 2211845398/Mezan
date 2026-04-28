@@ -1,18 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { isAxiosError } from '@/api/client';
 import { completeCustomerOnboarding } from '@/features/auth/api';
 import { notify } from '@/lib/toast';
 
-/*
+/**
  * Public onboarding page — no authentication required. Consumes the existing
- * `POST /api/v1/customers/onboarding/complete` endpoint (app/api/v1/customers.py).
+ * `POST /api/v1/customers/onboarding/complete` endpoint.
  */
 
 const schema = z.object({
@@ -53,25 +53,33 @@ export default function OnboardingCompletePage() {
 
   if (!token) {
     return (
-      <div className="space-y-4 text-center">
+      <div className="space-y-6 text-center" dir="auto">
         <h1 className="text-xl font-semibold">{t('auth:onboarding.missing_token')}</h1>
+        <Link to="/login" className="text-sm text-primary underline-offset-4 hover:underline">
+          {t('auth:actions.back_to_login')}
+        </Link>
       </div>
     );
   }
 
   if (done) {
     return (
-      <div className="space-y-4 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">
-          {t('auth:onboarding.success_title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('auth:onboarding.success_body')}</p>
+      <div className="space-y-6 text-center" dir="auto">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-success/10">
+          <CheckCircle2 className="size-6 text-success" aria-hidden="true" />
+        </div>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">
+            {t('auth:onboarding.success_title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t('auth:onboarding.success_body')}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="auto">
       <div className="space-y-1 text-center">
         <h1 className="text-2xl font-bold tracking-tight">{t('auth:onboarding.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('auth:onboarding.subtitle')}</p>
@@ -91,7 +99,7 @@ export default function OnboardingCompletePage() {
           <input
             id="onboarding-name"
             type="text"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             {...form.register('full_name')}
           />
         </div>
@@ -104,7 +112,7 @@ export default function OnboardingCompletePage() {
             id="onboarding-email"
             type="email"
             dir="ltr"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             aria-invalid={form.formState.errors.email ? true : undefined}
             {...form.register('email')}
           />
@@ -118,7 +126,7 @@ export default function OnboardingCompletePage() {
         <button
           type="submit"
           disabled={form.formState.isSubmitting}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {form.formState.isSubmitting ? (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />

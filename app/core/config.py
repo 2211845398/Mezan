@@ -33,6 +33,10 @@ class Settings(BaseSettings):
         default=False,
         description="Run idempotent seed routines during application startup",
     )
+    MEZAN_ALLOW_DEV_SEED: bool = Field(
+        default=False,
+        description="Allow app.scripts.dev_seed destructive/bootstrap (requires explicit opt-in in prod)",
+    )
 
     # JWT
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(

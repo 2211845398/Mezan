@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router-dom';
+import { Clock3, Menu, ReceiptText } from 'lucide-react';
 
 import { OfflineBadge } from '@/components/shared/OfflineBadge';
 import { usePendingOps } from '@/features/pos/hooks/usePendingOps';
@@ -15,10 +16,10 @@ import { cn } from '@/lib/utils';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'inline-flex min-h-11 min-w-[5.5rem] items-center justify-center rounded-md px-3 text-sm font-medium transition-colors',
+    'inline-flex min-h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
     isActive
-      ? 'bg-primary text-primary-foreground shadow-sm'
-      : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary hover:text-secondary-foreground',
+      ? 'bg-muted text-foreground shadow-sm'
+      : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
   );
 
 export default function PosLayout() {
@@ -33,18 +34,23 @@ export default function PosLayout() {
   }, [online]);
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-background">
-      <header className="shrink-0 border-b border-border bg-muted/20">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-lg font-bold tracking-tight text-primary">{t('shell.brand')}</span>
-            <span className="text-xs font-medium text-muted-foreground">{t('shell.title')}</span>
+    <div className="flex h-screen w-screen flex-col bg-[#f8f7f4]">
+      <header className="shrink-0 border-b border-border bg-background/95">
+        <div className="flex h-12 items-center justify-between gap-3 px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Menu className="size-4 text-muted-foreground" aria-hidden />
+            <span className="truncate text-sm font-semibold text-foreground">{t('shell.title')}</span>
           </div>
-          <nav className="flex flex-wrap items-center gap-2" aria-label={t('shell.nav_label')}>
+          <nav
+            className="flex items-center gap-1 rounded-lg bg-background"
+            aria-label={t('shell.nav_label')}
+          >
             <NavLink to="/pos" end className={navClass}>
+              <Clock3 className="size-4" aria-hidden />
               {t('shell.nav_gate')}
             </NavLink>
             <NavLink to="/pos/register" className={navClass}>
+              <ReceiptText className="size-4" aria-hidden />
               {t('shell.nav_register')}
             </NavLink>
             <NavLink to="/pos/close" className={navClass}>
@@ -54,7 +60,7 @@ export default function PosLayout() {
               {t('shell.nav_invoices')}
             </NavLink>
           </nav>
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex min-w-0 items-center justify-end gap-3">
             <OfflineBadge online={online} />
             {pending > 0 ? (
               <span className="max-w-[14rem] text-xs text-amber-800 dark:text-amber-300">

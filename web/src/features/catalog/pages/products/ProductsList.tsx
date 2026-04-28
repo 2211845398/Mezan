@@ -1,9 +1,11 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Archive, Pencil, RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -13,10 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DangerConfirmDialog } from '@/features/admin/components/DangerConfirmDialog';
 import { usePermission } from '@/hooks/usePermission';
 import { formatNumber } from '@/lib/format';
 
-import { getBarcodeCount, getDisplayPrice, type ProductRead } from '../../api';
+import {
+  getBarcodeCount,
+  getDisplayPrice,
+  postArchiveProduct,
+  postUnarchiveProduct,
+  type ProductRead,
+} from '../../api';
 import { catalogKeys, useCategoryTreeQuery, useProductListQuery } from '../../queries';
 import { ProductFormSheet } from './ProductForm';
 
@@ -43,6 +52,14 @@ export default function ProductsList() {
   const { data: treeData = [] } = useCategoryTreeQuery();
   const categoryOptions = useMemo(() => flattenCategoryTree(treeData), [treeData]);
   const [editorId, setEditorId] = useState<number | 'new' | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<ProductRead | null>(null);
+  const archiveProduct = useMutation({
+    mutationFn: async (row: ProductRead) =>
+      row.status === 'archived' ? postUnarchiveProduct(row.id) : postArchiveProduct(row.id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: catalogKeys.root });
+    },
+  });
   const { data: rows = [], isLoading, isError, refetch } = useProductListQuery({
     limit: 2000,
     offset: 0,
@@ -88,34 +105,48 @@ export default function ProductsList() {
         {
           id: 'actions',
           header: '',
-          cell: ({ row }) =>
-            canUpdate ? (
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => setEditorId(row.original.id)}
-                aria-label={t('products.edit')}
-              >
-                <Pencil className="size-4" />
-              </Button>
-            ) : null,
+          cell: ({ row }) => {
+            const product = row.original;
+            const archived = product.status === 'archived';
+            return canUpdate ? (
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setEditorId(product.id)}
+                  aria-label={t('products.edit')}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setArchiveTarget(product)}
+                  disabled={archiveProduct.isPending}
+                  aria-label={archived ? t('products.unarchive') : t('products.archive')}
+                >
+                  {archived ? <RotateCcw className="size-4" /> : <Archive className="size-4" />}
+                </Button>
+              </div>
+            ) : null;
+          },
         },
       ]),
-    [t, canUpdate, categoryNameById],
+    [t, canUpdate, categoryNameById, archiveProduct],
   );
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('products.title')}</h1>
-        {canCreate ? (
-          <Button type="button" onClick={() => setEditorId('new')}>
-            <Plus className="me-1 size-4" />
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        title={t('products.title')}
+        actions={
+          <Button type="button" onClick={() => setEditorId('new')} disabled={!canCreate}>
             {t('products.create')}
           </Button>
-        ) : null}
-      </div>
+        }
+      />
       <div className="flex flex-wrap gap-4">
         <div className="min-w-40 space-y-1">
           <Label>{t('products.filter.status')}</Label>
@@ -170,6 +201,21 @@ export default function ProductsList() {
           }}
         />
       ) : null}
+      <DangerConfirmDialog
+        open={archiveTarget != null}
+        onOpenChange={(open) => !open && setArchiveTarget(null)}
+        title={
+          archiveTarget?.status === 'archived' ? t('products.unarchive') : t('products.archive')
+        }
+        description={t('products.archive_desc')}
+        confirmKeyword="DELETE"
+        isLoading={archiveProduct.isPending}
+        onConfirm={async () => {
+          if (!archiveTarget) return;
+          await archiveProduct.mutateAsync(archiveTarget);
+          setArchiveTarget(null);
+        }}
+      />
     </div>
   );
 }

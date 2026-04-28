@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -13,9 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { usePermission } from '@/hooks/usePermission';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { usePermission } from '@/hooks/usePermission';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import type { TrialBalanceRow } from '../../api';
 import { exportTrialBalanceCsvBlob } from '../../api';
@@ -23,7 +25,7 @@ import { trialBalanceQueryOptions } from '../../queries';
 
 export default function TrialBalance() {
   const { t } = useTranslation('accounting');
-  const t0 = new Date().toISOString().slice(0, 10);
+  const t0 = utcCalendarDayKey(now());
   const [asOf, setAsOf] = useState(t0);
   const [branch, setBranch] = useState('__all');
   const [applied, setApplied] = useState<{ as_of: string; branch_id?: number }>({ as_of: t0 });

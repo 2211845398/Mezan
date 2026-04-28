@@ -14,7 +14,7 @@ export function CartTotals({ cart, currency }: CartTotalsProps) {
 
   const row = (label: string, amount: string, bold?: boolean) => (
     <div
-      className={`flex justify-between gap-4 text-sm ${bold ? 'font-semibold' : ''}`}
+      className={`flex justify-between gap-4 ${bold ? 'text-2xl font-bold' : 'text-sm'}`}
       dir="ltr"
     >
       <span className="text-muted-foreground">{label}</span>
@@ -23,10 +23,11 @@ export function CartTotals({ cart, currency }: CartTotalsProps) {
   );
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4 shadow-inner">
       {row(t('register.subtotal'), cart.subtotal)}
       {row(t('register.discount'), cart.discount_total)}
       {row(t('register.tax'), cart.tax_total)}
+      <div className="h-px bg-border" />
       {row(t('register.total'), cart.total, true)}
       <div className="pt-1 text-[11px] text-muted-foreground">
         {t('register.status')}: {cart.status}

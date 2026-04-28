@@ -2,8 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { isAxiosError } from 'axios';
 
+import { isAxiosError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,8 +16,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-import { postCampaignSegmentExport, postTargetedCampaigns } from '../../api';
 import type { TargetedCampaignResponse } from '../../api';
+import { postCampaignSegmentExport, postTargetedCampaigns } from '../../api';
 
 const SEGMENTS = ['champions', 'loyal', 'at_risk', 'lost'] as const;
 

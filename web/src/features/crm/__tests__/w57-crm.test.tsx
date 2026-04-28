@@ -1,7 +1,7 @@
-import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import { Route, Routes } from 'react-router-dom';
+import { afterEach,beforeEach, describe, expect, it } from 'vitest';
 
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import i18n from '@/i18n';

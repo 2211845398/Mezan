@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -13,9 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { usePermission } from '@/hooks/usePermission';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { usePermission } from '@/hooks/usePermission';
 
 import type { OpenItemRead } from '../../api';
 import { arOpenItemsQueryOptions } from '../../queries';

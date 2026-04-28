@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import i18n from '@/i18n';
+import { now, toISOStringUtc } from '@/lib/date';
 import { RequirePermission } from '@/routes/guards';
 import { server } from '@/test/msw/server';
 import { renderWithProviders, screen, userEvent } from '@/test/utils';
@@ -101,7 +102,7 @@ describe('W-5.4 purchasing', () => {
       updated_at: string;
       lines: { id: number; product_id: number; qty: number; unit_cost: string }[];
     };
-    const now = new Date().toISOString();
+    const createdIso = toISOStringUtc(now());
     po = {
       id: 5,
       status: 'draft',
@@ -112,8 +113,8 @@ describe('W-5.4 purchasing', () => {
       expected_at: null,
       sent_at: null,
       created_by_user_id: 1,
-      created_at: now,
-      updated_at: now,
+      created_at: createdIso,
+      updated_at: createdIso,
       lines: [{ id: 20, product_id: 1, qty: 10, unit_cost: '2' }],
     };
     server.use(
@@ -134,7 +135,7 @@ describe('W-5.4 purchasing', () => {
       http.post(`${API}/purchase-orders/5/send`, async ({ request }) => {
         const j = (await request.json()) as { idempotency_key?: string };
         expect(j.idempotency_key?.length).toBeGreaterThanOrEqual(8);
-        po = { ...po, status: 'sent', sent_at: new Date().toISOString() };
+        po = { ...po, status: 'sent', sent_at: toISOStringUtc(now()) };
         return HttpResponse.json(po);
       }),
       http.post(`${API}/purchase-orders/5/receive-goods`, async ({ request }) => {
@@ -148,7 +149,7 @@ describe('W-5.4 purchasing', () => {
           supplier_id: null,
           source_invoice_scan_id: null,
           created_by_user_id: 1,
-          created_at: new Date().toISOString(),
+          created_at: toISOStringUtc(now()),
           lines: [],
         });
       }),
@@ -223,8 +224,8 @@ describe('W-5.4 purchasing', () => {
           raw_output: null,
           parsed_output: { line_items: [{ line_no: 1, description: 'A' }] },
           override_output: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          created_at: toISOStringUtc(now()),
+          updated_at: toISOStringUtc(now()),
         }),
       ),
       http.post(`${API}/ai/advisory/invoice-match`, () =>

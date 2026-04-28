@@ -15,6 +15,7 @@ function walkCollect(items: readonly NavItem[], out: TitleEntry[]): void {
 
 const TITLE_INDEX: TitleEntry[] = [];
 walkCollect(navigation, TITLE_INDEX);
+TITLE_INDEX.push({ href: '/profile', labelKey: 'layout.profile' });
 
 /**
  * Longest-prefix match on `pathname` for a nav `href` (e.g. `/catalog/products`

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { subDays } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import {
   AreaChart,
@@ -11,10 +12,18 @@ import {
   LineChart,
   PieChart,
 } from '@/components/shared/charts';
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -25,8 +34,15 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { format } from '@/lib/date';
-import { formatCompactNumber, formatCurrency, formatNumber, formatPercent } from '@/lib/format';
+import { usePermission } from '@/hooks/usePermission';
+import { format, now } from '@/lib/date';
+import {
+  formatCompactCurrency,
+  formatCompactNumber,
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+} from '@/lib/format';
 
 import type { ExecutiveKpiRead } from '../api';
 import { executiveKpisQueryOptions } from '../queries';
@@ -46,9 +62,13 @@ function num(s: string | undefined | null): number {
 export default function ExecutiveBiDashboardContent() {
   const { t } = useTranslation('bi');
   const activeBranchId = useAuthStore((s) => s.activeBranchId);
-  const [periodEnd, setPeriodEnd] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const canViewAccounting = usePermission('accounting', 'read');
+  const canViewInvoices = usePermission('sales_invoices', 'read');
+  const canViewLoyalty = usePermission('loyalty', 'read');
+  const canViewCatalog = usePermission('catalog', 'read');
+  const [periodEnd, setPeriodEnd] = useState(() => format(now(), 'yyyy-MM-dd'));
   const [periodStart, setPeriodStart] = useState(() =>
-    format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    format(subDays(now(), 30), 'yyyy-MM-dd'),
   );
   const [branchFilter, setBranchFilter] = useState<string>(
     activeBranchId != null ? String(activeBranchId) : 'all',
@@ -134,6 +154,17 @@ export default function ExecutiveBiDashboardContent() {
     data?.gross_margin_ratio != null && data.gross_margin_ratio !== ''
       ? formatPercent(Number.parseFloat(String(data.gross_margin_ratio)), { fractionDigits: 1 })
       : '—';
+  const revenueLink = canViewInvoices
+    ? '/pos/invoices'
+    : canViewAccounting
+      ? '/accounting/income-statement'
+      : undefined;
+  const accountingLink = canViewAccounting ? '/accounting/income-statement' : undefined;
+
+  const grossSales = data ? num(data.gross_sales) : 0;
+  const avgTicket = data ? num(data.avg_ticket) : 0;
+  const invoiceCount = data?.invoice_count ?? 0;
+  const loyaltyPts = data?.loyalty_points_accrued ?? 0;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -169,7 +200,7 @@ export default function ExecutiveBiDashboardContent() {
               </SelectContent>
             </Select>
           </div>
-          <Button type="button" variant="secondary" onClick={() => void refetch()} disabled={isFetching}>
+          <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
             {t('filters.apply')}
           </Button>
         </CardContent>
@@ -188,8 +219,12 @@ export default function ExecutiveBiDashboardContent() {
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <KpiCard
               title={t('kpi.revenue')}
-              value={formatCurrency(num(data.gross_sales), DISPLAY_CURRENCY)}
+              value={formatCompactCurrency(grossSales, DISPLAY_CURRENCY)}
+              footnote={t('kpi.value_exact_currency', {
+                value: formatCurrency(grossSales, DISPLAY_CURRENCY),
+              })}
               description={t('kpi.revenue_hint')}
+              {...(revenueLink ? { to: revenueLink } : {})}
               sparkline={
                 trendData.length > 1 ? (
                   <div className="h-14 w-full">
@@ -202,50 +237,82 @@ export default function ExecutiveBiDashboardContent() {
               title={t('kpi.margin')}
               value={marginLabel}
               description={t('kpi.margin_hint')}
+              {...(accountingLink ? { to: accountingLink } : {})}
             />
             <KpiCard
               title={t('kpi.orders')}
-              value={formatNumber(data.invoice_count)}
+              value={formatCompactNumber(invoiceCount)}
+              footnote={t('kpi.value_exact_count', { value: formatNumber(invoiceCount) })}
               description={t('kpi.orders_hint')}
+              {...(canViewInvoices ? { to: '/pos/invoices' } : {})}
             />
             <KpiCard
               title={t('kpi.avg_ticket')}
-              value={formatCurrency(num(data.avg_ticket), DISPLAY_CURRENCY)}
+              value={formatCompactCurrency(avgTicket, DISPLAY_CURRENCY)}
+              footnote={t('kpi.value_exact_currency', {
+                value: formatCurrency(avgTicket, DISPLAY_CURRENCY),
+              })}
               description={t('kpi.avg_ticket_hint')}
+              {...(canViewInvoices ? { to: '/pos/invoices' } : {})}
             />
             <KpiCard
               title={t('kpi.loyalty')}
-              value={formatCompactNumber(data.loyalty_points_accrued)}
+              value={formatCompactNumber(loyaltyPts)}
+              footnote={t('kpi.value_exact_points', { value: formatNumber(loyaltyPts) })}
               description={t('kpi.loyalty_hint')}
+              {...(canViewLoyalty ? { to: '/crm/loyalty' } : {})}
             />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-2">
-            <Card>
+            <Card className="flex min-h-[380px] flex-col">
               <CardHeader>
                 <CardTitle className="text-base">{t('charts.revenue_trend')}</CardTitle>
+                <CardDescription>{t('charts.revenue_trend_hint')}</CardDescription>
               </CardHeader>
-              <CardContent className="h-[300px]">
+              <CardContent className="min-h-[300px] flex-1">
                 {trendData.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t('empty.trend')}</p>
                 ) : isFetching ? (
                   <ChartSkeleton />
                 ) : (
-                  <AreaChart data={trendData} xKey="bucket_date" yKey="gross_sales" height={280} />
+                  <AreaChart
+                    data={trendData}
+                    xKey="bucket_date"
+                    yKey="gross_sales"
+                    height={280}
+                    xAxisLabel={t('charts.axis_day')}
+                    yAxisLabel={t('charts.axis_revenue')}
+                  />
                 )}
               </CardContent>
+              {canViewInvoices ? (
+                <CardFooter className="pt-0">
+                  <Button variant="link" className="h-auto p-0 text-sm" asChild>
+                    <Link to="/pos/invoices">{t('charts.trend_view_invoices')}</Link>
+                  </Button>
+                </CardFooter>
+              ) : null}
             </Card>
-            <Card>
+            <Card className="flex min-h-[380px] flex-col">
               <CardHeader>
                 <CardTitle className="text-base">{t('charts.category_mix')}</CardTitle>
+                <CardDescription>{t('charts.category_mix_hint')}</CardDescription>
               </CardHeader>
-              <CardContent className="h-[300px]">
+              <CardContent className="min-h-[300px] flex-1">
                 {mixData.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t('empty.mix')}</p>
                 ) : (
-                  <PieChart data={mixData} nameKey="category_name" valueKey="gross_sales" height={280} />
+                  <PieChart data={mixData} nameKey="category_name" valueKey="gross_sales" height={300} />
                 )}
               </CardContent>
+              {canViewCatalog ? (
+                <CardFooter className="pt-0">
+                  <Button variant="link" className="h-auto p-0 text-sm" asChild>
+                    <Link to="/catalog/products">{t('charts.mix_view_catalog')}</Link>
+                  </Button>
+                </CardFooter>
+              ) : null}
             </Card>
           </section>
 
@@ -253,6 +320,7 @@ export default function ExecutiveBiDashboardContent() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t('tables.top_products_title')}</CardTitle>
+                <CardDescription>{t('tables.top_products_hint')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <DataTable
@@ -267,6 +335,7 @@ export default function ExecutiveBiDashboardContent() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t('tables.recent_pos_title')}</CardTitle>
+                <CardDescription>{t('tables.recent_po_hint')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <DataTable

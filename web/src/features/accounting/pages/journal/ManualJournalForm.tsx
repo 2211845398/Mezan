@@ -1,3 +1,4 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -6,7 +7,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
@@ -19,14 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { usePermission } from '@/hooks/usePermission';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { usePermission } from '@/hooks/usePermission';
+import { now, utcCalendarDayKey } from '@/lib/date';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
 import { createManualJournal, type ManualJournalCreate } from '../../api';
-import { accountingKeys } from '../../queries';
 import AccountPicker from '../../components/AccountPicker';
+import { accountingKeys } from '../../queries';
 
 const lineSchema = z.object({
   account_id: z.number().int().positive(),
@@ -65,7 +66,7 @@ export default function ManualJournalForm() {
   const form = useForm<FormV>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      entry_date: new Date().toISOString().slice(0, 10),
+      entry_date: utcCalendarDayKey(now()),
       description: '',
       lines: [emptyLine(), emptyLine()],
     },

@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { fromISO, now, toISOStringUtc } from '@/lib/date';
 
 import { createDiscountRule, updateDiscountRule } from '../../api';
 import { crmKeys, discountDetailQueryOptions } from '../../queries';
@@ -38,7 +39,7 @@ export default function DiscountForm() {
   const [value, setValue] = useState('10');
   const [buyQty, setBuyQty] = useState('2');
   const [getQty, setGetQty] = useState('1');
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 16));
+  const [startDate, setStartDate] = useState(() => toISOStringUtc(now()).slice(0, 16));
   const [endDate, setEndDate] = useState('');
   const [targetProducts, setTargetProducts] = useState('');
 
@@ -73,8 +74,8 @@ export default function DiscountForm() {
         code,
         discount_type: discountType,
         value,
-        start_date: new Date(startDate).toISOString(),
-        end_date: endDate ? new Date(endDate).toISOString() : null,
+        start_date: toISOStringUtc(fromISO(startDate)),
+        end_date: endDate ? toISOStringUtc(fromISO(endDate)) : null,
         target_product_ids: parseProducts(),
         stackable: false,
         status: 'draft' as const,
@@ -106,8 +107,8 @@ export default function DiscountForm() {
         code,
         discount_type: discountType,
         value,
-        start_date: new Date(startDate).toISOString(),
-        end_date: endDate ? new Date(endDate).toISOString() : null,
+        start_date: toISOStringUtc(fromISO(startDate)),
+        end_date: endDate ? toISOStringUtc(fromISO(endDate)) : null,
         target_product_ids: parseProducts(),
         buy_qty: discountType === 'bogo' ? Number.parseInt(buyQty, 10) || null : null,
         get_qty: discountType === 'bogo' ? Number.parseInt(getQty, 10) || null : null,

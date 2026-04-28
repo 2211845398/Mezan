@@ -1,35 +1,21 @@
-# POS cart state machine (implementation reference)
+# POS Cart State Machine — Stub
 
-Source of truth: `app/services/cart_service.py` (repo root) — `_assert_transition`, `change_state`, `upsert_line`, `apply_discount`.
+**Status:** Consolidated into [PROJECT_STATE.md](PROJECT_STATE.md).
 
-## Allowed transitions
+This document previously contained the cart state machine reference for POS. The state transitions and rules remain valid but are now documented in the consolidated plan:
 
-| Current status      | Action   | Next status        |
-|---------------------|----------|--------------------|
-| `active`            | `park`   | `parked`           |
-| `parked`            | `resume` | `active`           |
-| `active`            | `lock`   | `checkout_locked` |
-| `checkout_locked`   | `cancel` | `cancelled`        |
+- Cart state transitions: See [PROJECT_STATE.md §3](PROJECT_STATE.md#3-completed-work) (Epic 3 — Point of Sale)
+- Offline POS sync: See [PROJECT_STATE.md §5.1 Epic 12](PROJECT_STATE.md#51-backend-plan)
+- Web POS implementation: See [PROJECT_STATE.md §5.2 Epic W-5.2](PROJECT_STATE.md#52-web-frontend-plan)
 
-Any other `(status, action)` pair raises `StateTransitionError` with message `Invalid cart transition` and `details: { status, action }`.
+**Allowed transitions (unchanged):**
+| Current | Action | Next |
+|---------|--------|------|
+| `active` | `park` | `parked` |
+| `parked` | `resume` | `active` |
+| `active` | `lock` | `checkout_locked` |
+| `checkout_locked` | `cancel` | `cancelled` |
 
-## Side effects on transition
+---
 
-- On transition to `checkout_locked`, `locked_at` is set to current UTC time (`change_state`).
-
-## Line and discount rules
-
-- `upsert_line` and `apply_discount` require `cart.status == "active"`.
-- Otherwise: `StateTransitionError` with message `Cart is not active`.
-
-## Payment and finalize (downstream)
-
-- `create_payment_intent` (`payment_service`) requires `cart.status == "checkout_locked"`.
-- `finalize_paid_cart` (`invoice_service`) requires `cart.status == "checkout_locked"`, matching succeeded `PaymentIntent`, and non-empty lines.
-
-## UI mapping
-
-- **Park**: `POST /api/v1/pos/carts/{id}/state` body `{ "action": "park" }`
-- **Resume**: `{ "action": "resume" }`
-- **Tender (start)**: `{ "action": "lock" }` before creating payment intent
-- **Cancel checkout**: `{ "action": "cancel" }` from `checkout_locked` only
+*This stub exists to preserve file path references. Implementation source of truth remains `app/services/cart_service.py` in the backend.*

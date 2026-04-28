@@ -4,6 +4,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AdminLayoutOutlet from '@/components/layout/AdminLayoutOutlet';
 import AuthLayoutOutlet from '@/components/layout/AuthLayoutOutlet';
 import PosLayout from '@/components/layout/PosLayout';
+
 import { RequireAuth, RequireBranchContext, RequirePermission } from './guards';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import RouteLoader from './RouteLoader';
@@ -21,6 +22,7 @@ const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPassword
 const OnboardingCompletePage = lazy(
   () => import('@/features/auth/pages/OnboardingCompletePage'),
 );
+const ProfilePage = lazy(() => import('@/features/auth/pages/ProfilePage'));
 
 const DashboardPage = lazy(() => import('@/features/bi/pages/DashboardPage'));
 const HomePage = lazy(() => import('@/features/bi/pages/HomePage'));
@@ -226,6 +228,10 @@ export const router = createBrowserRouter([
         element: <AdminLayoutOutlet />,
         children: [
           { index: true, element: withSuspense(HomePage) },
+          {
+            path: '/profile',
+            element: withSuspense(ProfilePage),
+          },
           {
             path: '/dashboard',
             element: (

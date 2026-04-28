@@ -5,9 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
 import {
   Select,
   SelectContent,
@@ -15,6 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { listBranches } from '@/features/admin/api';
+import { adminKeys } from '@/features/admin/queries';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import { balanceSheetQueryOptions } from '../../queries';
 
@@ -47,7 +48,7 @@ function LinesTable({ title, rows }: { title: string; rows: { account_id: number
 
 export default function BalanceSheet() {
   const { t } = useTranslation('accounting');
-  const d0 = new Date().toISOString().slice(0, 10);
+  const d0 = utcCalendarDayKey(now());
   const [asOf, setAsOf] = useState(d0);
   const [branch, setBranch] = useState('__all');
   const [applied, setApplied] = useState<{ as_of: string; branch_id?: number }>({ as_of: d0 });

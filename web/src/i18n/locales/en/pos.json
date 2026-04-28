@@ -19,11 +19,20 @@
     "opening_float": "Opening float",
     "shift_open": "Shift is open",
     "go_register": "Go to register",
-    "opened_at": "Opened at {{at}}"
+    "opened_at": "Opened at {{at}}",
+    "start_hint": "Select a terminal and open the shift, then move to the register to manage the cart and tender.",
+    "branch_hint": "Terminals and invoices follow the active branch on your account."
   },
   "register": {
     "need_shift": "Open a shift from the shift screen first.",
     "cart": "Cart",
+    "cart_hint": "Items selected for the current sale",
+    "cart_empty": "The cart is empty",
+    "loading_cart": "Preparing cart…",
+    "loading_shift": "Checking the active shift…",
+    "cart_error_title": "Could not prepare the cart",
+    "shift_error_title": "Could not load the active shift",
+    "retry_cart": "Retry",
     "new_cart": "New cart",
     "status": "Status",
     "subtotal": "Subtotal",
@@ -41,7 +50,18 @@
     "cannot_edit": "Editing allowed only while active",
     "discount_apply": "Apply discount",
     "discount_code": "Discount code",
-    "discount_amount": "Discount amount"
+    "discount_amount": "Discount amount",
+    "sale_items": "Add products",
+    "sale_items_hint": "Search by name or SKU, then add the required quantity",
+    "products_empty": "Search for a product to add it to the cart",
+    "products_empty_hint": "Use the search field above to find products by name, SKU, or barcode.",
+    "total_panel": "Total and payment",
+    "total_panel_hint": "Review the cart, then lock it before tender"
+  },
+  "pending": {
+    "title": "Pending invoices",
+    "description": "Parked or pending carts appear here when available.",
+    "empty": "No pending invoices."
   },
   "tender": {
     "title": "Tender",
@@ -108,7 +128,9 @@
     "checkout": "Checkout — keyboard shortcuts may be added later"
   },
   "customer": {
-    "walk_in": "Walk-in customer"
+    "walk_in": "Walk-in customer",
+    "add": "Add customer",
+    "unsupported": "Adding and attaching a customer to the current cart needs a dedicated API endpoint. This sale will remain walk-in for now."
   },
   "errors": {
     "payment": {

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePermission } from '@/hooks/usePermission';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import { reverseJournalEntry } from '../../api';
 import { accountingKeys, journalDetailQueryOptions } from '../../queries';
@@ -26,7 +27,7 @@ export default function ReversalForm() {
     enabled: !Number.isNaN(jid),
   });
   const [reason, setReason] = useState('');
-  const [revDate, setRevDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [revDate, setRevDate] = useState(() => utcCalendarDayKey(now()));
 
   const m = useMutation({
     mutationFn: () =>

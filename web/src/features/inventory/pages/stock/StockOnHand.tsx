@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { useCategoryTreeQuery } from '@/features/catalog/queries';
@@ -54,8 +56,8 @@ export default function StockOnHand() {
   );
 
   return (
-    <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-semibold tracking-tight">{t('stock.title')}</h1>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader title={t('stock.title')} />
       <p className="text-xs text-muted-foreground">{t('stock.wavg_note')}</p>
       <BranchStockFilterBar
         branches={branches}

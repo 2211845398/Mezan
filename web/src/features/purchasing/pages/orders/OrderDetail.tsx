@@ -26,8 +26,8 @@ import {
   sendPurchaseOrder,
   trackPurchaseOrder,
 } from '../../api';
-import GoodsReceiptForm, { aggregateReceivedQtyByPoLine } from '../receipts/GoodsReceiptForm';
 import { goodsReceiptsQueryOptions, purchaseOrderQueryOptions, purchasingKeys } from '../../queries';
+import GoodsReceiptForm, { aggregateReceivedQtyByPoLine } from '../receipts/GoodsReceiptForm';
 
 function lineTotal(unit: string, qty: number): string {
   return new Decimal(unit || 0).mul(qty).toFixed(2);

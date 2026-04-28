@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { startOfMonth } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -16,21 +18,18 @@ import {
 } from '@/components/ui/select';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import type { GeneralLedgerLineRead } from '../../api';
+import AccountPicker from '../../components/AccountPicker';
 import { runningBalancesForGlLines } from '../../lib/glRunningBalance';
 import { generalLedgerQueryOptions } from '../../queries';
-import AccountPicker from '../../components/AccountPicker';
 
 export default function GeneralLedger() {
   const { t } = useTranslation('accounting');
   const [accountId, setAccountId] = useState<number | null>(null);
-  const [df, setDf] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d.toISOString().slice(0, 10);
-  });
-  const [dt, setDt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [df, setDf] = useState(() => utcCalendarDayKey(startOfMonth(now())));
+  const [dt, setDt] = useState(() => utcCalendarDayKey(now()));
   const [branch, setBranch] = useState('__all');
   const [applied, setApplied] = useState<{
     account_id: number;

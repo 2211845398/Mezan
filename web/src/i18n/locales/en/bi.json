@@ -20,24 +20,35 @@
   },
   "kpi": {
     "revenue": "Revenue",
-    "revenue_hint": "Gross sales (posted invoices)",
+    "revenue_hint": "Total posted sales in the selected period. Sparkline: last days in the range. Click the card to open invoices (if you have access).",
     "margin": "Gross margin",
-    "margin_hint": "Estimated from standard product cost",
+    "margin_hint": "Gross margin ratio (sales minus standard product cost, as a % of sales). Not a cash profit figure—use income statement for full P&L.",
     "orders": "Orders",
-    "orders_hint": "Posted invoice count",
+    "orders_hint": "Count of posted sales invoices in the period (one invoice = one order).",
     "avg_ticket": "Avg ticket",
-    "avg_ticket_hint": "Revenue ÷ orders",
+    "avg_ticket_hint": "Revenue ÷ posted invoice count for the period (average sale size).",
     "loyalty": "Loyalty accruals",
-    "loyalty_hint": "Purchase points credited (global)"
+    "loyalty_hint": "Loyalty points earned from purchases in the period (system-wide; not limited to the branch filter).",
+    "value_exact_currency": "Exact: {{value}}",
+    "value_exact_count": "Exact: {{value}}",
+    "value_exact_points": "Exact: {{value}} pts"
   },
   "charts": {
     "revenue_trend": "Revenue trend",
-    "category_mix": "Revenue by category"
+    "revenue_trend_hint": "Daily gross sales from posted POS invoices. Y-axis is currency (compact). X-axis is the day bucket. Use to spot pace vs. prior days in the same range.",
+    "axis_day": "Day",
+    "axis_revenue": "Revenue",
+    "category_mix": "Revenue by category",
+    "category_mix_hint": "Share of revenue by product category in the period. Use it to see concentration risk and where to focus merchandising or promos.",
+    "trend_view_invoices": "View posted invoices",
+    "mix_view_catalog": "Review catalog"
   },
   "empty": { "trend": "No sales in this period.", "mix": "No category data." },
   "tables": {
     "top_products_title": "Top products",
+    "top_products_hint": "By revenue in the period. No deep link—use as a shortlist to restock or promote.",
     "recent_pos_title": "Recent purchase orders",
+    "recent_po_hint": "Latest POs for supplier follow-up (not the same as POS sales).",
     "product": "Product",
     "qty": "Qty",
     "revenue": "Revenue",

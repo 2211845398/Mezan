@@ -3,10 +3,11 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePermission } from '@/hooks/usePermission';
 
 import type { CustomerSalesInvoiceListResponse, LedgerEntryRead } from '../../api';
@@ -51,7 +52,7 @@ export default function CustomerDetail() {
         { id: 'tot', accessorKey: 'total', header: t('customers.invoice_total') },
         { id: 'dt', accessorKey: 'created_at', header: t('customers.invoice_date') },
       ]),
-    [invRows, t],
+    [t],
   );
 
   const ledColumns = useMemo(

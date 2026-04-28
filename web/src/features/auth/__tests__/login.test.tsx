@@ -3,7 +3,8 @@ import { Route, Routes } from 'react-router-dom';
 import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import LoginPage, { classifyLoginError } from '@/features/auth/pages/LoginPage';
+import { classifyLoginError } from '@/features/auth/pages/loginErrors';
+import LoginPage from '@/features/auth/pages/LoginPage';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { server } from '@/test/msw/server';
 import { renderWithProviders, screen, userEvent, waitFor } from '@/test/utils';

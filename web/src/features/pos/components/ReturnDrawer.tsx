@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 
@@ -104,12 +104,12 @@ export function ReturnDrawer({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{t('return.title')}</SheetTitle>
-        </SheetHeader>
-        <div className="grid gap-3 py-4">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b px-6 pt-6 pb-4">
+          <DialogTitle>{t('return.title')}</DialogTitle>
+        </DialogHeader>
+        <div className="grid max-h-[calc(100dvh-14rem)] gap-3 overflow-y-auto px-6 py-4">
           <div className="space-y-1">
             <Label>{t('return.lookup')}</Label>
             <div className="flex gap-2">
@@ -169,15 +169,15 @@ export function ReturnDrawer({
             </>
           ) : null}
         </div>
-        <SheetFooter>
+        <DialogFooter className="gap-2 border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>
           <Button type="button" onClick={() => void doSubmit()} disabled={!lookup || submit.isPending}>
             {t('return.submit')}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

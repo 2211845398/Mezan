@@ -30,8 +30,8 @@ import {
   type PaymentIntentBody,
   type ReturnBody,
   submitReturn,
-  type VoidSaleBody,
   voidSale,
+  type VoidSaleBody,
 } from './api';
 
 export const shiftKeys = {

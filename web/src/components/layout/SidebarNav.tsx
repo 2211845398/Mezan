@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 
 import {
   DropdownMenu,
@@ -54,18 +54,29 @@ function NavLeafLink({
   );
 }
 
+function isItemActive(item: NavItem, pathname: string): boolean {
+  if (pathname === item.href || pathname.startsWith(`${item.href}/`)) return true;
+  return item.children?.some((child) => isItemActive(child, pathname)) ?? false;
+}
+
 function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigate?: () => void }) {
   const { t } = useTranslation();
+  const location = useLocation();
   const Icon = item.icon;
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
   const label = t(item.labelKey);
+  const active = isItemActive(item, location.pathname);
+
+  React.useEffect(() => {
+    if (item.children?.length) setOpen(active);
+  }, [active, item.children?.length]);
 
   if (!item.children?.length) {
     return (
       <NavLeafLink
         to={item.href}
         {...(onItemNavigate ? { onNavigate: onItemNavigate } : {})}
-        className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+        className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
         activeClassName="bg-sidebar-primary text-sidebar-primary-foreground"
       >
         <Icon className="size-4 shrink-0" />
@@ -79,7 +90,10 @@ function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigat
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent"
+        className={cn(
+          'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-muted',
+          active && 'bg-muted text-sidebar-foreground',
+        )}
       >
         <span className="flex min-w-0 items-center gap-3">
           <Icon className="size-4 shrink-0" />
@@ -89,18 +103,22 @@ function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigat
       </button>
       {open && (
         <ul className="ms-6 space-y-1 border-s border-sidebar-border ps-2">
-          {item.children.map((child) => (
-            <li key={child.key}>
-              <NavLeafLink
-                to={child.href}
-                {...(onItemNavigate ? { onNavigate: onItemNavigate } : {})}
-                className="block rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-                activeClassName="bg-sidebar-primary text-sidebar-primary-foreground"
-              >
-                {t(child.labelKey)}
-              </NavLeafLink>
-            </li>
-          ))}
+          {item.children.map((child) => {
+            const ChildIcon = child.icon;
+            return (
+              <li key={child.key}>
+                <NavLeafLink
+                  to={child.href}
+                  {...(onItemNavigate ? { onNavigate: onItemNavigate } : {})}
+                  className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
+                  activeClassName="bg-sidebar-primary text-sidebar-primary-foreground"
+                >
+                  <ChildIcon className="size-3.5 shrink-0" />
+                  {t(child.labelKey)}
+                </NavLeafLink>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -109,8 +127,10 @@ function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigat
 
 function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNavigate?: () => void }) {
   const { t } = useTranslation();
+  const location = useLocation();
   const Icon = item.icon;
   const label = t(item.labelKey);
+  const active = isItemActive(item, location.pathname);
 
   if (!item.children?.length) {
     return (
@@ -119,7 +139,7 @@ function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNaviga
           <NavLeafLink
             to={item.href}
             {...(onItemNavigate ? { onNavigate: onItemNavigate } : {})}
-            className="flex items-center justify-center rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+            className="flex items-center justify-center rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-muted"
             activeClassName="bg-sidebar-primary text-sidebar-primary-foreground"
           >
             <Icon className="size-5 shrink-0" />
@@ -137,7 +157,10 @@ function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNaviga
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex w-full items-center justify-center rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+          className={cn(
+            'flex w-full items-center justify-center rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-muted',
+            active && 'bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary',
+          )}
           aria-label={label}
           title={label}
         >
@@ -150,7 +173,12 @@ function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNaviga
             <NavLink
               to={child.href}
               onClick={() => onItemNavigate?.()}
-              className="cursor-pointer"
+              className={({ isActive }) =>
+                cn(
+                  'cursor-pointer',
+                  isActive && 'bg-sidebar-primary text-sidebar-primary-foreground',
+                )
+              }
             >
               {t(child.labelKey)}
             </NavLink>

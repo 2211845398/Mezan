@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -18,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 
 import {
@@ -178,11 +178,12 @@ export function ProductFormSheet({ productId, onClose }: ProductFormSheetProps) 
   });
 
   return (
-    <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{isNew ? t('products.create') : t('products.edit')}</SheetTitle>
-        </SheetHeader>
+    <FloatingFormDialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={isNew ? t('products.create') : t('products.edit')}
+      maxWidth="lg"
+    >
         {isNew || product ? (
           <FormProvider {...form}>
             <form
@@ -306,7 +307,6 @@ export function ProductFormSheet({ productId, onClose }: ProductFormSheetProps) 
           </FormProvider>
         ) : null}
         {!isNew && !product && !loadingProduct ? <p className="text-sm text-destructive">{t('errors.not_found')}</p> : null}
-      </SheetContent>
-    </Sheet>
+    </FloatingFormDialog>
   );
 }

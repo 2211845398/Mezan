@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { subDays } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -16,18 +18,15 @@ import {
 } from '@/components/ui/select';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import type { AttendanceLogRead } from '../../api';
-import { employeesQueryOptions, attendanceListQueryOptions } from '../../queries';
+import { attendanceListQueryOptions,employeesQueryOptions } from '../../queries';
 
 export default function AttendanceList() {
   const { t } = useTranslation('hr');
-  const [dateFrom, setDateFrom] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().slice(0, 10);
-  });
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dateFrom, setDateFrom] = useState(() => utcCalendarDayKey(subDays(now(), 7)));
+  const [dateTo, setDateTo] = useState(() => utcCalendarDayKey(now()));
   const [branchId, setBranchId] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
 

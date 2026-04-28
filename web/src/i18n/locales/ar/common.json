@@ -65,6 +65,8 @@
     "close_sidebar": "إغلاق القائمة الجانبية",
     "collapse_sidebar": "طي القائمة الجانبية",
     "expand_sidebar": "توسيع القائمة الجانبية",
+    "profile": "الملف الشخصي",
+    "open_profile": "فتح الملف الشخصي",
     "branch_context": "فرع رقم {{id}}",
     "search": "بحث",
     "nav_section_ops": "التشغيل",

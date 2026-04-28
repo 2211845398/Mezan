@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { subDays } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -6,6 +7,7 @@ import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import {
   inventoryAlertsQueryOptions,
@@ -16,12 +18,8 @@ import {
 
 export default function Analytics() {
   const { t } = useTranslation('marketing');
-  const [ps, setPs] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().slice(0, 10);
-  });
-  const [pe, setPe] = useState(() => new Date().toISOString().slice(0, 10));
+  const [ps, setPs] = useState(() => utcCalendarDayKey(subDays(now(), 30)));
+  const [pe, setPe] = useState(() => utcCalendarDayKey(now()));
   const [applied, setApplied] = useState({ ps, pe });
 
   const top = useQuery(

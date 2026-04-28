@@ -11,8 +11,8 @@ import {
 
 import { formatCompactNumber } from '@/lib/format';
 
-import { mirrorCategoriesForRtl } from './mirrorCategoriesForRtl';
 import { chartColor } from './chartTokens';
+import { mirrorCategoriesForRtl } from './mirrorCategoriesForRtl';
 import { useChartRtl } from './useChartRtl';
 
 export type ChartRow = Record<string, string | number | null | undefined>;
@@ -35,20 +35,22 @@ export function LineChart({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <RLineChart data={ordered} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <RLineChart data={ordered} margin={{ top: 10, right: 14, left: 10, bottom: 6 }}>
         <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
         <XAxis
           dataKey={xKey}
           tick={{ fontSize: 11 }}
           tickLine={false}
           axisLine={false}
+          tickMargin={6}
           reversed={rtl}
         />
         <YAxis
-          width={48}
+          width={54}
           tick={{ fontSize: 11 }}
           tickLine={false}
           axisLine={false}
+          tickMargin={6}
           tickFormatter={(v) => yTickFormatter(Number(v))}
         />
         <Tooltip

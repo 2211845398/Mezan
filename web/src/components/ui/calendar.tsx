@@ -9,7 +9,8 @@ import * as React from "react"
 import type { DayButton} from "react-day-picker";
 import { DayPicker, getDefaultClassNames } from "react-day-picker"
 
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { formatCalendarMonthShort, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 

@@ -65,6 +65,8 @@
     "close_sidebar": "Close sidebar",
     "collapse_sidebar": "Collapse sidebar",
     "expand_sidebar": "Expand sidebar",
+    "profile": "Profile",
+    "open_profile": "Open profile",
     "branch_context": "Branch #{{id}}",
     "search": "Search",
     "nav_section_ops": "Operations",

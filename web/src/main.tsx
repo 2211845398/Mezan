@@ -17,8 +17,17 @@ import { router } from '@/routes/router';
 
 async function bootstrap() {
   if (env.VITE_ENABLE_MOCK_API) {
-    const { registerMockApi } = await import('@/dev/mockApi');
-    await registerMockApi();
+    try {
+      const { registerMockApi } = await import('@/dev/mockApi');
+      await registerMockApi();
+    } catch (err) {
+      // MSW needs `public/mockServiceWorker.js` (run `pnpm exec msw init public` in `web/`).
+      // Never block the app if the worker fails (private mode, bad install, etc.).
+      console.error(
+        '[mezan] Mock API (MSW) failed to start — continuing with the Vite dev proxy. See web/public/mockServiceWorker.js.',
+        err,
+      );
+    }
   }
 
   const rootEl = document.getElementById('root');
@@ -42,4 +51,11 @@ async function bootstrap() {
   );
 }
 
-void bootstrap();
+void bootstrap().catch((err) => {
+  console.error('[mezan] Bootstrap failed:', err);
+  const root = document.getElementById('root');
+  if (root) {
+    root.textContent = 'Failed to load the app. Open the browser console for details.';
+    root.setAttribute('role', 'alert');
+  }
+});

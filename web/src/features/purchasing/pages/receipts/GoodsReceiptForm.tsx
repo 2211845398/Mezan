@@ -23,7 +23,7 @@ import {
 import type { BranchRead } from '@/features/admin/types';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
-import { receiveGoodsForPurchaseOrder, type GoodsReceiptRead, type PurchaseOrderRead } from '../../api';
+import { type GoodsReceiptRead, type PurchaseOrderRead,receiveGoodsForPurchaseOrder } from '../../api';
 import { purchasingKeys } from '../../queries';
 
 export function aggregateReceivedQtyByPoLine(receipts: GoodsReceiptRead[]): Record<number, number> {

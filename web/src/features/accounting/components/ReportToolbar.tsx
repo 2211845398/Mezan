@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -11,7 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+import { listBranches } from '@/features/admin/api';
+import { adminKeys } from '@/features/admin/queries';
 
 type Props = {
   branchId: string;

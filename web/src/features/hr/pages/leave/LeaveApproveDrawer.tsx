@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
-import { reviewLeaveRequest, type LeaveRequestRead } from '../../api';
+import { type LeaveRequestRead,reviewLeaveRequest } from '../../api';
 import { hrKeys } from '../../queries';
 
 type Props = {

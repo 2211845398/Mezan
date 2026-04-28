@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-import { DENSITY_CELL_CLASS, DENSITY_ROW_CLASS } from './density';
+import { DENSITY_CELL_CLASS, DENSITY_ROW_CLASS } from './densityClasses';
 import { Pagination } from './pagination';
 import { TableEmpty, TableError, TableSkeleton } from './states';
 import { Toolbar } from './toolbar';
@@ -312,5 +312,4 @@ export function DataTable<TData>({
   );
 }
 
-export { defineColumns } from './columns';
 export type { DataTableColumn } from './types';

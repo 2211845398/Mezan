@@ -14,10 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
 import { newIdempotencyKey } from '@/lib/idempotency';
 
-import { postHrAnomalies, type HrAnomalyResponse } from '../../api';
+import { type HrAnomalyResponse,postHrAnomalies } from '../../api';
 
 export default function AnomaliesDashboard() {
   const { t } = useTranslation('hr');

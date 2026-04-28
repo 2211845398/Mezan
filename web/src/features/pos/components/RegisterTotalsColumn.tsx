@@ -50,22 +50,25 @@ export function RegisterTotalsColumn({
   const online = useOnline();
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:max-h-full">
+    <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto rounded-xl border bg-card p-3 shadow-sm lg:max-h-full">
+      <div className="rounded-xl border bg-muted/20 px-3 py-3 text-center">
+        <h2 className="text-xs font-medium text-muted-foreground">{t('register.total_panel')}</h2>
+        <p className="text-xs text-muted-foreground">{t('register.total_panel_hint')}</p>
+      </div>
       <CartTotals cart={cart} currency={currency} />
 
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           {canDiscount ? (
             <DiscountPicker
               disabled={!editable}
               onApply={onApplyDiscount}
-              triggerClassName="min-h-11"
+              triggerClassName="min-h-11 w-full bg-[#82a2f7] text-white shadow-md shadow-blue-500/15 hover:bg-[#728fe0] hover:text-white"
             />
           ) : null}
           <Button
             type="button"
-            variant="outline"
-            className="min-h-11"
+            className="min-h-11 w-full bg-[#8d83df] text-white shadow-md shadow-violet-500/15 hover:bg-[#7a70cf]"
             disabled={!editable}
             onClick={() => void onPark()}
           >
@@ -74,7 +77,7 @@ export function RegisterTotalsColumn({
           <Button
             type="button"
             variant="outline"
-            className="min-h-11"
+            className="min-h-11 w-full"
             disabled={cart.status !== 'parked'}
             onClick={() => void onResume()}
           >
@@ -82,8 +85,7 @@ export function RegisterTotalsColumn({
           </Button>
           <Button
             type="button"
-            variant="secondary"
-            className="min-h-11"
+            className="min-h-11 w-full bg-[#71c4aa] text-white shadow-md shadow-emerald-500/15 hover:bg-[#5fb397]"
             disabled={!editable || !canUpdateCart}
             onClick={() => void onLock()}
           >
@@ -91,13 +93,13 @@ export function RegisterTotalsColumn({
           </Button>
           <Button
             type="button"
-            className="min-h-12 min-w-[8rem] text-base font-semibold"
+            className="min-h-12 w-full bg-[#82a2f7] text-base font-semibold text-white shadow-md shadow-blue-500/15 hover:bg-[#728fe0]"
             disabled={!isLocked || !canPay || !canInvoice || !online}
             onClick={onCheckout}
           >
             {t('register.checkout')}
           </Button>
-          <Button type="button" variant="ghost" className="min-h-11" onClick={onNewSale}>
+          <Button type="button" variant="ghost" className="min-h-11 w-full" onClick={onNewSale}>
             {t('register.new_cart')}
           </Button>
         </div>
@@ -108,6 +110,6 @@ export function RegisterTotalsColumn({
           shift #{shift.id} · terminal #{terminalId} · cart #{cartId}
         </p>
       </div>
-    </div>
+    </aside>
   );
 }

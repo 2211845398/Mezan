@@ -3,11 +3,8 @@ import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { z } from 'zod';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { isAxiosError } from '@/api/client';
-import { ApiError } from '@/api/errors';
 import { getMe, getMyPermissions, login as loginApi } from '@/features/auth/api';
 import {
   type AuthUser,
@@ -16,66 +13,8 @@ import {
 import { sanitizeNextPath } from '@/lib/nextPath';
 import { notify } from '@/lib/toast';
 
-const loginSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(1),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
-
-/**
- * Classify an error raised by `/auth/login` into a localised i18n key.
- *
- * Accepts either a raw AxiosError (e.g. when the 401 refresh skip-list
- * bypasses `mapErrorEnvelope`) or one of the typed `ApiError` subclasses
- * that `mapErrorEnvelope` throws.
- *
- * Contract (PROJECT_STATE §5 / W-2 bug 1):
- *  - 401              → errors.invalid_credentials
- *  - 403 w/ "inactive"→ errors.account_inactive
- *  - 429              → errors.rate_limited
- *  - anything else    → errors.unexpected
- */
-export function classifyLoginError(err: unknown): string {
-  // `ApiError` subclass → read status off the typed error directly.
-  if (err instanceof ApiError) {
-    if (err.status === 401) return 'auth:errors.invalid_credentials';
-    if (err.status === 429) return 'auth:errors.rate_limited';
-    if (err.status === 403) {
-      const detail = err.details;
-      const nestedDetail =
-        detail && typeof detail === 'object' && 'detail' in (detail as Record<string, unknown>)
-          ? String((detail as { detail?: unknown }).detail ?? '')
-          : '';
-      const haystack = `${err.message} ${nestedDetail}`.toLowerCase();
-      if (haystack.includes('inactive')) return 'auth:errors.account_inactive';
-      return 'auth:errors.unexpected';
-    }
-    return 'auth:errors.unexpected';
-  }
-
-  if (isAxiosError(err) && err.response) {
-    const { status, data } = err.response;
-    if (status === 401) return 'auth:errors.invalid_credentials';
-    if (status === 429) return 'auth:errors.rate_limited';
-    if (status === 403) {
-      const envelope = data as
-        | { error?: { message?: string; details?: { detail?: unknown } } }
-        | undefined;
-      const message =
-        (typeof envelope?.error?.message === 'string' ? envelope.error.message : '') || '';
-      const innerDetail =
-        typeof envelope?.error?.details?.detail === 'string'
-          ? (envelope.error.details.detail as string)
-          : '';
-      const haystack = `${message} ${innerDetail}`.toLowerCase();
-      if (haystack.includes('inactive')) return 'auth:errors.account_inactive';
-      return 'auth:errors.unexpected';
-    }
-  }
-
-  return 'auth:errors.unexpected';
-}
+import { classifyLoginError } from './loginErrors';
+import { type LoginFormValues,loginSchema } from './loginSchema';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -116,8 +55,6 @@ export default function LoginPage() {
 
       navigate(sanitizeNextPath(nextRaw), { replace: true });
     } catch (err) {
-      // `mapErrorEnvelope` interceptor already surfaces 5xx toasts; here we
-      // map auth-specific codes to localised keys (W-2 bug 1).
       const key = classifyLoginError(err);
       notify.error(t(key));
     }
@@ -126,7 +63,7 @@ export default function LoginPage() {
   const submitting = form.formState.isSubmitting;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="auto">
       <div className="space-y-1 text-center">
         <h1 className="text-2xl font-bold tracking-tight">{t('auth:login.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('auth:login.subtitle')}</p>
@@ -189,12 +126,12 @@ export default function LoginPage() {
       </form>
 
       <div className="flex items-center justify-center text-sm">
-        <a
-          href="/forgot-password"
+        <Link
+          to="/forgot-password"
           className="text-primary underline-offset-4 hover:underline"
         >
           {t('auth:login.forgot_password')}
-        </a>
+        </Link>
       </div>
     </div>
   );

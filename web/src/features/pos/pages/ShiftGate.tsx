@@ -60,8 +60,19 @@ export default function ShiftGate() {
   }
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4 p-6">
-      <Card>
+    <div className="mx-auto flex h-full max-w-5xl items-center justify-center p-6">
+      <div className="grid w-full gap-6 lg:grid-cols-[1fr_1.2fr]">
+        <Card className="border-primary/10 bg-primary text-primary-foreground shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl">{t('shell.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-primary-foreground/80">
+            <p>{t('gate.start_hint')}</p>
+            <p>{t('gate.branch_hint')}</p>
+          </CardContent>
+        </Card>
+        <div className="space-y-4">
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>{t('gate.select_terminal')}</CardTitle>
         </CardHeader>
@@ -84,7 +95,7 @@ export default function ShiftGate() {
       {loadingShift ? <p className="text-sm text-muted-foreground">…</p> : null}
 
       {shift ? (
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>{t('gate.shift_open')}</CardTitle>
           </CardHeader>
@@ -98,7 +109,7 @@ export default function ShiftGate() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>{t('gate.open_shift')}</CardTitle>
           </CardHeader>
@@ -113,6 +124,8 @@ export default function ShiftGate() {
           </CardContent>
         </Card>
       )}
+        </div>
+      </div>
     </div>
   );
 }

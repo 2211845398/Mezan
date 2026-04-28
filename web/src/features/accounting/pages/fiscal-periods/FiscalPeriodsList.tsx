@@ -3,14 +3,15 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
-import { DangerConfirmDialog } from '@/features/admin/components/DangerConfirmDialog';
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
+import { DangerConfirmDialog } from '@/features/admin/components/DangerConfirmDialog';
 import { usePermission } from '@/hooks/usePermission';
 
 import type { FiscalPeriodRead } from '../../api';
 import { updateFiscalPeriod } from '../../api';
-import { fiscalPeriodsQueryOptions, accountingKeys } from '../../queries';
+import { accountingKeys,fiscalPeriodsQueryOptions } from '../../queries';
 
 export default function FiscalPeriodsList() {
   const { t } = useTranslation('accounting');

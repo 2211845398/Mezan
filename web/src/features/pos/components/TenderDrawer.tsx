@@ -4,14 +4,14 @@ import { useTranslation } from 'react-i18next';
 
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useOnline } from '@/hooks/useOnline';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { notify } from '@/lib/toast';
@@ -174,12 +174,12 @@ export function TenderDrawer({
   const total = Number.parseFloat(cart.total);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{t('tender.title')}</SheetTitle>
-        </SheetHeader>
-        <div className="grid gap-4 py-4">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="border-b px-6 pt-6 pb-4">
+          <DialogTitle>{t('tender.title')}</DialogTitle>
+        </DialogHeader>
+        <div className="grid max-h-[calc(100dvh-14rem)] gap-4 overflow-y-auto px-6 py-4">
           <div className="flex flex-wrap gap-2">
             {(['cash', 'card', 'other'] as const).map((m) => (
               <Button
@@ -229,7 +229,7 @@ export function TenderDrawer({
             </div>
           ) : null}
         </div>
-        <SheetFooter className="gap-2 sm:justify-between">
+        <DialogFooter className="gap-2 border-t px-6 py-4 sm:justify-between">
           <Button
             type="button"
             variant="outline"
@@ -250,8 +250,8 @@ export function TenderDrawer({
           >
             {t('tender.pay')}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

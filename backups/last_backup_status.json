@@ -1,8 +1,0 @@
-{
-  "success": false,
-  "started_at": "2026-04-25T15:04:23.970662+00:00",
-  "finished_at": null,
-  "output_file": null,
-  "message": "Backup started",
-  "s3_uploaded": false
-}

@@ -1,13 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import { startOfMonth } from 'date-fns';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
 import {
   Select,
   SelectContent,
@@ -15,13 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { listBranches } from '@/features/admin/api';
+import { adminKeys } from '@/features/admin/queries';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import { incomeStatementQueryOptions } from '../../queries';
 
 function defaultIsPeriod() {
-  const d = new Date();
-  d.setDate(1);
-  return { ps: d.toISOString().slice(0, 10), pe: new Date().toISOString().slice(0, 10) };
+  return {
+    ps: utcCalendarDayKey(startOfMonth(now())),
+    pe: utcCalendarDayKey(now()),
+  };
 }
 
 export default function IncomeStatement() {

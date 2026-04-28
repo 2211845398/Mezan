@@ -5,9 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
+import { fromISO } from '@/lib/date';
 
 import type { DiscountRuleRead } from '../../api';
 import { updateDiscountRule } from '../../api';
@@ -15,8 +17,8 @@ import { crmKeys, discountsListQueryOptions } from '../../queries';
 
 function sortDiscounts(rows: DiscountRuleRead[]): DiscountRuleRead[] {
   return [...rows].sort((a, b) => {
-    const ta = new Date(a.start_date).getTime();
-    const tb = new Date(b.start_date).getTime();
+    const ta = fromISO(a.start_date).getTime();
+    const tb = fromISO(b.start_date).getTime();
     if (tb !== ta) return tb - ta;
     return a.code.localeCompare(b.code);
   });
@@ -93,7 +95,7 @@ export default function DiscountsList() {
             ) : null,
         },
       ]),
-    [canUpdate, mToggle.isPending, mToggle, t],
+    [canUpdate, mToggle, t],
   );
 
   return (

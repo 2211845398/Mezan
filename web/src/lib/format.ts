@@ -8,6 +8,26 @@ function numberFormatOptions(base: Intl.NumberFormatOptions): Intl.NumberFormatO
   return { ...base, numberingSystem: 'latn' };
 }
 
+export function formatCompactCurrency(
+  value: number | string,
+  currency: string,
+  { locale, fractionDigits = 1 }: { locale?: NumericLocale; fractionDigits?: number } = {},
+): string {
+  const n = typeof value === 'string' ? Number.parseFloat(value) : value;
+  if (!Number.isFinite(n)) return '';
+  const loc = locale ?? getNumericLocale();
+  return new Intl.NumberFormat(
+    loc,
+    numberFormatOptions({
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: 0,
+    }),
+  ).format(n);
+}
+
 export function formatNumber(
   value: number,
   options?: Intl.NumberFormatOptions,

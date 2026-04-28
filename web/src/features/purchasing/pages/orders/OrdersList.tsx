@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import Decimal from 'decimal.js';
-import { Eye, Plus } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
+import { CreateButton,PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -87,18 +89,17 @@ export default function OrdersList() {
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{t('orders.title')}</h1>
-        {canCreate ? (
-          <Button asChild>
-            <Link to="/purchasing/orders/new">
-              <Plus className="me-2 size-4" />
-              {t('orders.new')}
-            </Link>
-          </Button>
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        title={t('orders.title')}
+        actions={
+          <CreateButton
+            to="/purchasing/orders/new"
+            label={t('orders.new')}
+            visible={canCreate}
+          />
+        }
+      />
       <div className="flex flex-wrap items-center gap-2">
         <Label className="shrink-0">{t('orders.filter_status')}</Label>
         <Select value={status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
