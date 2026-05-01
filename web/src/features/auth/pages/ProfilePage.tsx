@@ -271,7 +271,14 @@ export default function ProfilePage() {
           {roleCodes.length > 0 ? (
             <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
               {roleCodes.map((code) => (
-                <Badge key={code} variant="secondary" className="font-mono text-[11px] num-latin">
+                <Badge
+                  key={code}
+                  variant="outline"
+                  className={cn(
+                    'border-2 border-secondary bg-background font-mono text-[11px] text-secondary shadow-none num-latin',
+                    'hover:bg-muted/50',
+                  )}
+                >
                   {code}
                 </Badge>
               ))}

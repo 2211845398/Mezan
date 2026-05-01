@@ -198,7 +198,12 @@ export function SidebarNav({ items, variant, onItemNavigate }: SidebarNavProps) 
   let lastSection: NavSection | undefined;
 
   return (
-    <nav className={cn('flex flex-1 flex-col gap-1 overflow-y-auto p-3', variant === 'collapsed' && 'px-2')}>
+    <nav
+      className={cn(
+        'mezan-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto p-3',
+        variant === 'collapsed' && 'px-2',
+      )}
+    >
       {items.map((item) => {
         const showSectionHeader = item.section != null && item.section !== lastSection;
         if (item.section != null) {

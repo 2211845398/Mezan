@@ -105,4 +105,31 @@
     font-family: var(--font-latin);
     font-feature-settings: 'tnum' 1;
   }
+
+  /**
+   * Gray themed scrollbar — used on sidebar nav only.
+   * Creates exactly two scroll areas: sidebar nav + main content.
+   */
+  .mezan-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.5) hsl(var(--muted));
+  }
+
+  .mezan-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .mezan-scrollbar::-webkit-scrollbar-track {
+    border-radius: 9999px;
+    background: hsl(var(--muted));
+  }
+
+  .mezan-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  .mezan-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.6);
+  }
 }

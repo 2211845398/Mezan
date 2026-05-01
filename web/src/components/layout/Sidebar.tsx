@@ -25,7 +25,7 @@ export function Sidebar() {
     <aside
       aria-label={t('layout.open_sidebar')}
       className={cn(
-        'hidden h-screen shrink-0 flex-col border-e border-sidebar-border bg-sidebar shadow-sm lg:flex',
+        'hidden h-full min-h-0 shrink-0 flex-col border-e border-sidebar-border bg-sidebar shadow-sm lg:flex',
         collapsed ? 'w-[4.5rem]' : 'w-64',
       )}
     >

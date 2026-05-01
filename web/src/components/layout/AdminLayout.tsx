@@ -15,11 +15,12 @@ export type AdminLayoutProps = {
 export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-full min-h-screen bg-background">
+      {/* h-[100dvh] + overflow-hidden: document/body must not scroll — only sidebar nav + main scroll */}
+      <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 w-full overflow-hidden bg-background">
         <Sidebar />
-        <div className="flex min-h-screen flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar />
-          <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+          <main className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
         </div>
       </div>
     </TooltipProvider>
