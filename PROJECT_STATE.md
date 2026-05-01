@@ -96,6 +96,7 @@
 - [x] **1.3** RBAC permission checks on routes (`app/api/deps.py`).
 - [x] **1.4** Audit logging service.
 - [x] **1.5** Global config, branches, POS terminal CRUD and authorization.
+- [x] **1.6** Self-service profile updates (`PATCH /auth/me`): email uniqueness, `avatar_url`, optional password change with current-password verification.
 
 #### Epic 2 — Master Catalog and Inventory Engine
 - [x] **2.1** Hierarchical categories and dynamic attributes.
@@ -326,6 +327,7 @@ Pattern: offline queue with idempotent server reconciliation.
 - [x] **W-5.1.3** Reset password with token validation, password + confirm fields, mismatch validation, success redirect to login.
 - [x] **W-5.1.4** Customer onboarding completion with token-based profile setup.
 - [x] **W-5.1.5** Visual polish: All auth screens use consistent centered card style matching UI reference, SPA `Link` navigation, RTL support, focus rings.
+- [x] **W-5.1.6** Staff `/profile`: editable email, display name, phone, preferred language, avatar picture URL, optional password change (`PATCH /auth/me`), sidebar avatar preview.
 
 #### Epic W-6 — Code Quality and DX
 - [ ] **W-6.1** ESLint 9 flat with `typescript-eslint`, `jsx-a11y`, `simple-import-sort`.

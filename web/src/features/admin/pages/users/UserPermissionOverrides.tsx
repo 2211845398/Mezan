@@ -38,6 +38,9 @@ import type { BranchRead, PermissionRead, PermKey, UserPermissionOverrideRead } 
 
 type OverrideMode = 'none' | 'allow' | 'deny';
 
+/** Stable empty array so `permissions = data ?? EMPTY` does not change identity every render (fixes sync effect loops). */
+const EMPTY_PERMISSIONS: PermissionRead[] = [];
+
 /** Row order for known actions; any other catalog action is appended alphabetically. */
 const ACTION_ORDER = [
   'read',
@@ -109,9 +112,10 @@ export default function UserPermissionOverrides() {
   const { data: user, isLoading: userLoading, isError: userError } = useUser(userId, {
     enabled: Number.isFinite(userId),
   });
-  const { data: permissions = [], isLoading: permLoading } = usePermissions({
+  const { data: permissionsData, isLoading: permLoading } = usePermissions({
     enabled: Number.isFinite(userId),
   });
+  const permissions = permissionsData ?? EMPTY_PERMISSIONS;
   const { data: roles = [] } = useRoles({ enabled: Number.isFinite(userId) });
   const { data: userRoles = [], refetch: refetchUserRoles } = useUserRoles(userId, {
     enabled: Number.isFinite(userId),
@@ -156,7 +160,14 @@ export default function UserPermissionOverrides() {
       const g = globalOverrides.find((o) => o.permission_id === p.id);
       next[p.id] = g ? g.effect : 'none';
     }
-    setRowState(next);
+    setRowState((prev) => {
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      if (prevKeys.length === nextKeys.length && nextKeys.every((k) => prev[Number(k)] === next[Number(k)])) {
+        return prev;
+      }
+      return next;
+    });
   }, [permissions, globalOverrides]);
 
   const mergedPreviewOverrides = useMemo(

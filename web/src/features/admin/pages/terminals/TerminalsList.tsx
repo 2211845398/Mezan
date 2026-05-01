@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
-import { floatingFormCloseButtonSmClassName } from '@/components/shared/FloatingFormDialog';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { floatingFormCloseButtonSmClassName } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 

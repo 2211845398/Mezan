@@ -1,11 +1,13 @@
 """notifications RBAC permissions
 
-Revision ID: a1b2c3d4e5f6
-Revises: f9a8b7c6d5e4
+Revision ID: d7e8f9a0b1c2
+Revises: b1c2d3e4f5a7
 Create Date: 2026-05-01
 
 Adds ``notifications:read`` / ``notifications:update`` and grants read to every
 role, update to OWNER / ADMIN / IT_ADMIN (aligned with seed defaults).
+
+Runs after ``users.avatar_url`` so the graph stays linear from ``f9a8b7c6d5e4``.
 """
 
 from collections.abc import Sequence
@@ -14,8 +16,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "a1b2c3d4e5f6"
-down_revision: str | None = "f9a8b7c6d5e4"
+revision: str = "d7e8f9a0b1c2"
+down_revision: str | None = "b1c2d3e4f5a7"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -106,6 +106,16 @@ class Settings(BaseSettings):
         default=None, description="Inline FCM service-account JSON string"
     )
 
+    # Profile avatars (stored on disk; served via /api/v1/static/avatars)
+    AVATAR_UPLOAD_DIR: str = Field(
+        default="data/uploads/avatars",
+        description="Directory for uploaded user avatar images",
+    )
+    AVATAR_MAX_BYTES: int = Field(
+        default=2_097_152,
+        description="Maximum avatar file size in bytes (default 2 MiB)",
+    )
+
     # Database
     DATABASE_URL: str = Field(
         ...,

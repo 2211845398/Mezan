@@ -387,6 +387,22 @@ export interface paths {
         patch: operations["update_me_api_v1_auth_me_patch"];
         trace?: never;
     };
+    "/api/v1/auth/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload_my_avatar_api_v1_auth_me_avatar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/me/permissions": {
         parameters: {
             query?: never;
@@ -5256,15 +5272,28 @@ export interface components {
         };
         /**
          * ProfileUpdate
-         * @description Update current user profile (contact, language).
+         * @description Update current user profile (identity, contact, language, avatar URL, optional password).
          */
         ProfileUpdate: {
+            /**
+             * Email
+             * Format: email
+             */
+            email?: string | null;
             /** Full Name */
             full_name?: string | null;
             /** Phone */
             phone?: string | null;
+            /** City */
+            city?: string | null;
             /** Preferred Language */
             preferred_language?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            /** Current Password */
+            current_password?: string | null;
+            /** New Password */
+            new_password?: string | null;
         };
         /** PromotionPerformanceItem */
         PromotionPerformanceItem: {
@@ -6243,8 +6272,12 @@ export interface components {
             branch_id?: number | null;
             /** Phone */
             phone?: string | null;
+            /** City */
+            city?: string | null;
             /** Preferred Language */
             preferred_language?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
             /** Last Login At */
             last_login_at?: string | null;
         };
@@ -7087,6 +7120,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+        };
+    };
+    upload_my_avatar_api_v1_auth_me_avatar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @format binary */
+                    file: string;
+                };
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

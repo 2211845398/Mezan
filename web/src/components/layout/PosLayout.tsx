@@ -1,7 +1,7 @@
+import { Clock3, Menu, ReceiptText } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Clock3, Menu, ReceiptText } from 'lucide-react';
 
 import { OfflineBadge } from '@/components/shared/OfflineBadge';
 import { usePendingOps } from '@/features/pos/hooks/usePendingOps';

@@ -4,11 +4,13 @@ import asyncio
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -78,6 +80,7 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", "/api/v1/auth/me/permissions"),
     ("GET", "/api/v1/auth/me/roles"),
     ("PATCH", "/api/v1/auth/me"),
+    ("POST", "/api/v1/auth/me/avatar"),
     ("POST", "/api/v1/customers/onboarding/complete"),
 }
 
@@ -207,6 +210,14 @@ app.add_middleware(
     allow_credentials=settings.cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+_avatar_dir = Path(settings.AVATAR_UPLOAD_DIR)
+_avatar_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/v1/static/avatars",
+    StaticFiles(directory=str(_avatar_dir.resolve())),
+    name="static_avatars",
 )
 
 # Include v1 routers

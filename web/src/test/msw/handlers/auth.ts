@@ -18,7 +18,9 @@ export const DEFAULT_USER = {
   status: 'active',
   branch_id: 1,
   phone: null,
+  city: null,
   preferred_language: 'ar',
+  avatar_url: null,
   last_login_at: '2026-04-22T08:00:00Z',
 };
 
@@ -77,6 +79,13 @@ export const authHandlers = [
   http.post(`${BASE}/auth/logout`, () => HttpResponse.json({ message: 'Logged out' })),
 
   http.get(`${BASE}/auth/me`, () => HttpResponse.json(DEFAULT_USER)),
+
+  http.post(`${BASE}/auth/me/avatar`, () =>
+    HttpResponse.json({
+      ...DEFAULT_USER,
+      avatar_url: '/api/v1/static/avatars/1.png',
+    }),
+  ),
 
   http.get(`${BASE}/auth/me/permissions`, () => HttpResponse.json(DEFAULT_ADMIN_PERMISSIONS)),
 

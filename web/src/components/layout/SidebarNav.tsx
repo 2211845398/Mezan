@@ -30,21 +30,21 @@ export type SidebarNavProps = {
   onItemNavigate?: () => void;
 };
 
-function NavLeafLink({
-  to,
-  className,
-  activeClassName,
-  children,
-  onNavigate,
-}: {
+type NavLeafLinkProps = {
   to: string;
   className?: string;
   activeClassName?: string;
   children: React.ReactNode;
   onNavigate?: () => void;
-}) {
+};
+
+const NavLeafLink = React.forwardRef<HTMLAnchorElement, NavLeafLinkProps>(function NavLeafLink(
+  { to, className, activeClassName, children, onNavigate },
+  ref,
+) {
   return (
     <NavLink
+      ref={ref}
       to={to}
       onClick={() => onNavigate?.()}
       className={({ isActive }) => cn(className, isActive && activeClassName)}
@@ -52,7 +52,8 @@ function NavLeafLink({
       {children}
     </NavLink>
   );
-}
+});
+NavLeafLink.displayName = 'NavLeafLink';
 
 function isItemActive(item: NavItem, pathname: string): boolean {
   if (pathname === item.href || pathname.startsWith(`${item.href}/`)) return true;

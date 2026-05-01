@@ -1,6 +1,7 @@
 """Authentication service: email/password, JWT, refresh, password reset, SSO."""
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from secrets import token_urlsafe
 from typing import Any
 
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.refresh_token import RefreshToken
 from app.models.users import User
+from app.schemas.auth import ProfileUpdate
 from app.utils.security import (
     create_access_token,
     create_refresh_token,
@@ -201,6 +203,87 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     """Load user by id."""
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
+
+
+async def update_own_profile(db: AsyncSession, user: User, body: ProfileUpdate) -> User:
+    """Apply profile fields and optional password change. Raises ValueError with stable codes."""
+    data = body.model_dump(exclude_unset=True)
+
+    if "email" in data:
+        if body.email is None:
+            raise ValueError("email_required")
+        new_email = str(body.email)
+        if new_email != user.email:
+            dup = await db.execute(
+                select(User.id).where(User.email == new_email).where(User.id != user.id)
+            )
+            if dup.scalar_one_or_none() is not None:
+                raise ValueError("email_already_in_use")
+            user.email = new_email
+
+    if "full_name" in data:
+        user.full_name = body.full_name
+
+    if "phone" in data:
+        user.phone = body.phone
+
+    if "city" in data:
+        user.city = body.city
+
+    if "preferred_language" in data:
+        user.preferred_language = body.preferred_language
+
+    if "avatar_url" in data:
+        v = body.avatar_url
+        user.avatar_url = v.strip() if v and v.strip() else None
+
+    wants_pw_change = "new_password" in data and body.new_password is not None
+    if wants_pw_change:
+        if not user.password_hash:
+            raise ValueError("password_change_unavailable")
+        assert body.current_password is not None
+        if not verify_password(body.current_password, user.password_hash):
+            raise ValueError("invalid_current_password")
+        user.password_hash = hash_password(body.new_password)
+
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+def _detect_avatar_extension(header: bytes) -> str | None:
+    """Return file extension for JPEG / PNG / WebP from magic bytes."""
+    if len(header) >= 3 and header[:3] == b"\xff\xd8\xff":
+        return "jpg"
+    if len(header) >= 8 and header[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+async def save_user_avatar_image(db: AsyncSession, user: User, file_body: bytes) -> User:
+    """Persist avatar bytes to disk and set ``user.avatar_url`` to a stable URL path."""
+    if len(file_body) > settings.AVATAR_MAX_BYTES:
+        raise ValueError("avatar_too_large")
+    ext = _detect_avatar_extension(file_body[:64])
+    if ext is None:
+        raise ValueError("avatar_invalid_image")
+
+    root = Path(settings.AVATAR_UPLOAD_DIR)
+    root.mkdir(parents=True, exist_ok=True)
+    for old in root.glob(f"{user.id}.*"):
+        try:
+            old.unlink()
+        except OSError:
+            pass
+
+    dest = root / f"{user.id}.{ext}"
+    dest.write_bytes(file_body)
+    user.avatar_url = f"/api/v1/static/avatars/{user.id}.{ext}"
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 def get_google_authorization_url(state: str | None = None) -> str:

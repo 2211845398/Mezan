@@ -1,10 +1,11 @@
 """Authentication API: login, refresh, logout, password reset, SSO, profile."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_current_user_permissions, get_user_role_codes
+from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.models.users import User
@@ -30,6 +31,7 @@ LOGOUT_RATE_LIMIT = "20/minute"
 SSO_RATE_LIMIT = "10/minute"
 PASSWORD_RESET_REQUEST_RATE_LIMIT = "5/hour"
 PASSWORD_RESET_CONFIRM_RATE_LIMIT = "10/hour"
+AVATAR_UPLOAD_RATE_LIMIT = "20/minute"
 
 
 @router.post("/auth/login", response_model=LoginResponse)
@@ -172,19 +174,69 @@ async def me_permissions(
     return [PermissionRead(resource=r, action=a) for r, a in sorted(permissions)]
 
 
+@router.post("/auth/me/avatar", response_model=UserRead)
+@limiter.limit(AVATAR_UPLOAD_RATE_LIMIT)
+async def upload_my_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> UserRead:
+    """Upload a profile photo (JPEG, PNG, or WebP)."""
+    raw = await file.read(settings.AVATAR_MAX_BYTES + 1)
+    if len(raw) > settings.AVATAR_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Avatar file too large",
+        )
+    try:
+        user = await auth_service.save_user_avatar_image(db, user, raw)
+    except ValueError as exc:
+        code = str(exc)
+        if code == "avatar_too_large":
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Avatar file too large",
+            )
+        if code == "avatar_invalid_image":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Avatar must be JPEG, PNG, or WebP",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=code)
+    return UserRead.model_validate(user)
+
+
 @router.patch("/auth/me", response_model=UserRead)
 async def update_me(
     body: ProfileUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> UserRead:
-    """Update current user profile (full_name, phone, preferred_language)."""
-    if body.full_name is not None:
-        user.full_name = body.full_name
-    if body.phone is not None:
-        user.phone = body.phone
-    if body.preferred_language is not None:
-        user.preferred_language = body.preferred_language
-    await db.commit()
-    await db.refresh(user)
+    """Update current user profile (email, contact, language, avatar URL, optional password)."""
+    try:
+        user = await auth_service.update_own_profile(db, user, body)
+    except ValueError as exc:
+        code = str(exc)
+        if code == "email_already_in_use":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already in use",
+            )
+        if code == "email_required":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required",
+            )
+        if code == "invalid_current_password":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+        if code == "password_change_unavailable":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password change is not available for this account",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=code)
     return UserRead.model_validate(user)

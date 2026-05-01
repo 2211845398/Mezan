@@ -7,9 +7,9 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import {
-  FloatingFormDialog,
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
+  FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';

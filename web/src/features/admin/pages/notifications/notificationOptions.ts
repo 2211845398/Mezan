@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next';
+
 export const routineKindOptions = [
   { kind: 'manual_broadcast', labelKey: 'notifications.kind.manual_broadcast' },
   { kind: 'low_stock', labelKey: 'notifications.kind.low_stock' },
@@ -14,12 +16,12 @@ export const frequencyOptions = [
   { minutes: 7 * 24 * 60, labelKey: 'notifications.frequency.weekly' },
 ] as const;
 
-export function kindLabel(t: any, kind: string) {
+export function kindLabel(t: TFunction, kind: string): string {
   const option = routineKindOptions.find((item) => item.kind === kind);
   return option ? t(option.labelKey) : kind;
 }
 
-export function frequencyLabel(t: any, minutes: number) {
+export function frequencyLabel(t: TFunction, minutes: number): string {
   const option = frequencyOptions.find((item) => item.minutes === minutes);
   return option ? t(option.labelKey) : t('notifications.frequency.custom_minutes', { count: minutes });
 }

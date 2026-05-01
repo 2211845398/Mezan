@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -23,12 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { usePermission } from '@/hooks/usePermission';
 import RouteLoader from '@/routes/RouteLoader';
 
 import { BranchPicker } from '../../components/BranchPicker';
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog';
 import { RoleIdCombobox } from '../../components/RoleCodeCombobox';
+import { roleCodeLabel } from '../../lib/roleLabels';
 import {
   useAddUserRole,
   useRemoveUserRole,
@@ -37,7 +38,6 @@ import {
   useUser,
   useUserRoles,
 } from '../../queries';
-import { roleCodeLabel } from '../../lib/roleLabels';
 import type { UserRoleAssign } from '../../types';
 
 const schema = z.object({

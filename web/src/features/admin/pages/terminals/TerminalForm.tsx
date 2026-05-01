@@ -5,11 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import {
-  FloatingFormDialog,
   floatingFormApproveButtonClassName,
   floatingFormApproveButtonSmClassName,
   floatingFormCloseButtonClassName,
   floatingFormDangerButtonSmClassName,
+  FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';

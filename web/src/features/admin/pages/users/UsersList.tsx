@@ -6,15 +6,16 @@ import { useNavigate } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { PageHeader } from '@/components/shared/PageHeader';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
 } from '@/components/shared/FloatingFormDialog';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -221,6 +222,9 @@ export default function UsersList() {
         <DialogContent motionless className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('users.create_title')}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {t('users.create_dialog_a11y')}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1">

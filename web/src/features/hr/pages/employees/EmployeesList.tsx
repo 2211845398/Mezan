@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import {
-  FloatingFormDialog,
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
+  FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';

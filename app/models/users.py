@@ -26,6 +26,7 @@ class User(Base):
         String(32), default="active", nullable=False
     )  # pending_onboarding, active, deactivated, suspended, banned
     phone: Mapped[str] = mapped_column(String(64), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     preferred_language: Mapped[str] = mapped_column(String(16), default="en", nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -39,6 +40,7 @@ class User(Base):
         nullable=False,
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
 
     branch = relationship("Branch", back_populates="users")
     user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")

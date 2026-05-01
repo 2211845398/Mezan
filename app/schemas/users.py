@@ -39,7 +39,9 @@ class UserRead(BaseModel):
     status: str
     branch_id: int | None = None
     phone: str | None = None
+    city: str | None = None
     preferred_language: str | None = None
+    avatar_url: str | None = None
     last_login_at: datetime | None = None
 
 

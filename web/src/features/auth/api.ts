@@ -58,6 +58,13 @@ export async function updateMe(body: UpdateMeBody, idempotencyKey?: string): Pro
   return data;
 }
 
+export async function uploadMyAvatar(file: File): Promise<UserRead> {
+  const body = new FormData();
+  body.append('file', file);
+  const { data } = await apiClient.post<UserRead>('/auth/me/avatar', body);
+  return data;
+}
+
 export async function getMyPermissions(): Promise<PermissionRead[]> {
   const { data } = await apiClient.get<PermissionRead[]>('/auth/me/permissions');
   return data;

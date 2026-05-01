@@ -22,7 +22,9 @@ export type AuthUser = {
   status: string;
   branch_id: number | null;
   phone: string | null;
+  city: string | null;
   preferred_language: string | null;
+  avatar_url: string | null;
   last_login_at: string | null;
 };
 

@@ -21,6 +21,7 @@
     "title": "Users",
     "create": "New user",
     "create_title": "Create user",
+    "create_dialog_a11y": "Form to create a new user. Enter name, optional password, email, branch, and role.",
     "edit_title": "Edit user",
     "empty": "No users",
     "not_found": "User not found",

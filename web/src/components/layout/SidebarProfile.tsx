@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMe } from '@/features/auth/queries';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { cn } from '@/lib/utils';
 
 function initials(displayName: string | null | undefined, email: string): string {
@@ -47,6 +48,7 @@ export function SidebarProfile({ collapsed }: SidebarProfileProps) {
   const label = me.full_name?.trim() || me.email;
   const sub = me.full_name?.trim() ? me.email : null;
   const ini = initials(me.full_name, me.email);
+  const avatarSrc = resolveMediaUrl(me.avatar_url?.trim()) ?? null;
 
   if (collapsed) {
     return (
@@ -62,6 +64,7 @@ export function SidebarProfile({ collapsed }: SidebarProfileProps) {
               aria-label={t('layout.open_profile')}
             >
               <Avatar className="size-8 border border-secondary/40">
+                {avatarSrc ? <AvatarImage src={avatarSrc} alt="" referrerPolicy="no-referrer" /> : null}
                 <AvatarFallback className="bg-secondary/15 text-xs font-semibold text-secondary-foreground num-latin">
                   {ini}
                 </AvatarFallback>
@@ -84,6 +87,7 @@ export function SidebarProfile({ collapsed }: SidebarProfileProps) {
         )}
       >
         <Avatar className="size-10 shrink-0 border border-secondary/60">
+          {avatarSrc ? <AvatarImage src={avatarSrc} alt="" referrerPolicy="no-referrer" /> : null}
           <AvatarFallback className="bg-secondary/15 text-sm font-semibold text-secondary-foreground num-latin">
             {ini}
           </AvatarFallback>

@@ -1,6 +1,10 @@
 """Pydantic schemas for auth: login, refresh, password reset, profile."""
 
-from pydantic import BaseModel, EmailStr, Field
+from typing import Self
+
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+_PROFILE_STRING_MAX = 128
 
 
 class LoginRequest(BaseModel):
@@ -52,8 +56,27 @@ class PasswordResetConfirm(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    """Update current user profile (contact, language)."""
+    """Update current user profile (identity, contact, language, optional password)."""
 
+    email: EmailStr | None = None
     full_name: str | None = None
     phone: str | None = None
+    city: str | None = Field(default=None, max_length=_PROFILE_STRING_MAX)
     preferred_language: str | None = None
+    avatar_url: str | None = Field(default=None, max_length=2048)
+    current_password: str | None = Field(default=None, min_length=1)
+    new_password: str | None = Field(default=None, min_length=8)
+
+    @field_validator("current_password", "new_password", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v: object) -> object:
+        if v == "":
+            return None
+        return v
+
+    @model_validator(mode="after")
+    def password_change_requires_current(self) -> Self:
+        if self.new_password is not None:
+            if not self.current_password:
+                raise ValueError("current_password is required when new_password is set")
+        return self

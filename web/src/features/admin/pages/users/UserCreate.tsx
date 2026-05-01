@@ -19,8 +19,8 @@ import { getUserRoles, listPendingOnboarding } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';
 import { HrAssigneeCombobox } from '../../components/HrAssigneeCombobox';
 import { RoleCodeCombobox } from '../../components/RoleCodeCombobox';
-import { adminKeys, useCreateUser } from '../../queries';
 import { roleCodeLabel } from '../../lib/roleLabels';
+import { adminKeys, useCreateUser } from '../../queries';
 
 const schema = z.object({
   email: z.string().email(),

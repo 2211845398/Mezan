@@ -14,6 +14,7 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     "python-dotenv>=1.0.0",
     "email-validator>=2.3.0",
+    "python-multipart>=0.0.9",
     "PyJWT>=2.8.0",
     "pwdlib[bcrypt]>=0.2.0",
     "httpx>=0.25.0",
