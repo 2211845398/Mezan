@@ -80,5 +80,7 @@ export const authHandlers = [
 
   http.get(`${BASE}/auth/me/permissions`, () => HttpResponse.json(DEFAULT_ADMIN_PERMISSIONS)),
 
+  http.get(`${BASE}/auth/me/roles`, () => HttpResponse.json({ codes: ['ADMIN'] })),
+
   http.get(`${BASE}/health`, () => HttpResponse.json({ status: 'healthy' })),
 ];

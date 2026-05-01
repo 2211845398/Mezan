@@ -4,13 +4,18 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
+import {
+  FloatingFormDialog,
+  floatingFormApproveButtonClassName,
+  floatingFormCloseButtonClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { usePermission } from '@/hooks/usePermission';
+import { notify } from '@/lib/toast';
 
 import { useNotificationTemplates, useUpsertTemplate } from '../../queries';
 
@@ -24,6 +29,8 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+const FORM_ID = 'admin-notification-template-form';
+
 type Props = {
   kind: string | null;
   open: boolean;
@@ -35,7 +42,7 @@ export function TemplateEdit({ kind, open, onOpenChange }: Props) {
   const { data: items = [] } = useNotificationTemplates();
   const row = kind ? items.find((x) => x.kind === kind) : undefined;
   const upsert = useUpsertTemplate();
-  const can = usePermission('config', 'update');
+  const can = usePermission('notifications', 'update');
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -67,106 +74,128 @@ export function TemplateEdit({ kind, open, onOpenChange }: Props) {
     }
   }, [row, open, form, kind]);
 
+  const title = kind ? t('notifications.edit_template') : t('notifications.create_template');
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>
-            {kind ? t('notifications.edit_template') : t('notifications.create_template')}
-          </SheetTitle>
-        </SheetHeader>
-        {can ? (
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(async (v) => {
-                let default_data: Record<string, unknown> = {};
-                try {
-                  default_data = JSON.parse(v.default_data_json || '{}') as Record<string, unknown>;
-                } catch {
-                  return;
-                }
-                await upsert.mutateAsync({
-                  kind: v.kind,
-                  title_template: v.title_template,
-                  body_template: v.body_template,
-                  default_data,
-                  is_active: v.is_active,
-                });
-                onOpenChange(false);
-              })}
-              className="mt-4 space-y-3"
+    <FloatingFormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      maxWidth="lg"
+      footer={
+        <div className="flex w-full flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className={floatingFormCloseButtonClassName}
+            onClick={() => onOpenChange(false)}
+            disabled={upsert.isPending}
+          >
+            {t('actions.cancel')}
+          </Button>
+          {can ? (
+            <Button
+              type="submit"
+              form={FORM_ID}
+              className={floatingFormApproveButtonClassName}
+              disabled={upsert.isPending}
             >
-              <FormField
-                name="kind"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>kind</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={!!row} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="title_template"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('notifications.col.title_tpl')}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="body_template"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>body</FormLabel>
-                    <FormControl>
-                      <Textarea className="min-h-[100px] font-mono text-xs" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="default_data_json"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>default_data (JSON)</FormLabel>
-                    <FormControl>
-                      <Textarea className="min-h-[80px] font-mono text-xs" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                name="is_active"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} id="tactive" />
-                    </FormControl>
-                    <FormLabel htmlFor="tactive">{t('notifications.col.active')}</FormLabel>
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" disabled={upsert.isPending}>
-                {t('actions.save')}
-              </Button>
-            </form>
-          </Form>
-        ) : null}
-      </SheetContent>
-    </Sheet>
+              {t('actions.save')}
+            </Button>
+          ) : null}
+        </div>
+      }
+    >
+      {can ? (
+        <Form {...form}>
+          <form
+            id={FORM_ID}
+            onSubmit={form.handleSubmit(async (v) => {
+              let default_data: Record<string, unknown> = {};
+              try {
+                default_data = JSON.parse(v.default_data_json || '{}') as Record<string, unknown>;
+              } catch {
+                return;
+              }
+              await upsert.mutateAsync({
+                kind: v.kind,
+                title_template: v.title_template,
+                body_template: v.body_template,
+                default_data,
+                is_active: v.is_active,
+              });
+              notify.success(t('notifications.template_saved'));
+              onOpenChange(false);
+            })}
+            className="space-y-3"
+          >
+            <FormField
+              name="kind"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>kind</FormLabel>
+                  <FormControl>
+                    <Input {...field} disabled={!!row} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="title_template"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('notifications.col.title_tpl')}</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="body_template"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>body</FormLabel>
+                  <FormControl>
+                    <Textarea className="min-h-[100px] font-mono text-xs" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="default_data_json"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>default_data (JSON)</FormLabel>
+                  <FormControl>
+                    <Textarea className="min-h-[80px] font-mono text-xs" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="is_active"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} id="tactive" />
+                  </FormControl>
+                  <FormLabel htmlFor="tactive">{t('notifications.col.active')}</FormLabel>
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
+      ) : null}
+    </FloatingFormDialog>
   );
 }

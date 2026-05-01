@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
+import { floatingFormCloseButtonSmClassName } from '@/components/shared/FloatingFormDialog';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
@@ -18,6 +19,12 @@ export default function TerminalsList() {
   const canCreate = usePermission('terminals', 'create');
   const [formOpen, setFormOpen] = useState(false);
   const [edit, setEdit] = useState<TerminalRead | null>(null);
+
+  /** Keep dialog in sync after authorize/deauthorize (list refetch updates `terms`). */
+  const editTerminal = useMemo(() => {
+    if (!edit) return null;
+    return terms.find((t) => t.id === edit.id) ?? edit;
+  }, [edit, terms]);
 
   const columns = useMemo(
     () =>
@@ -40,7 +47,15 @@ export default function TerminalsList() {
         {
           id: 'row',
           cell: ({ row }) => (
-            <Button type="button" size="sm" variant="secondary" onClick={() => { setEdit(row.original); setFormOpen(true); }}>
+            <Button
+              type="button"
+              size="sm"
+              className={floatingFormCloseButtonSmClassName}
+              onClick={() => {
+                setEdit(row.original);
+                setFormOpen(true);
+              }}
+            >
               {t('actions.edit')}
             </Button>
           ),
@@ -66,6 +81,7 @@ export default function TerminalsList() {
       </div>
       <DataTable
         mode="client"
+        showSearch={false}
         columns={columns}
         data={terms}
         isLoading={isLoading}
@@ -73,7 +89,7 @@ export default function TerminalsList() {
         onRetry={() => void refetch()}
         emptyState={<p className="text-muted-foreground text-sm">{t('terminals.empty')}</p>}
       />
-      <TerminalForm open={formOpen} onOpenChange={setFormOpen} terminal={edit} />
+      <TerminalForm open={formOpen} onOpenChange={setFormOpen} terminal={editTerminal} />
     </div>
   );
 }

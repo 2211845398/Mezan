@@ -13,9 +13,18 @@ type Props = {
   onChange: (ids: number[]) => void;
   disabled?: boolean;
   readOnly?: boolean;
+  /** When true, outer scroll is handled by parent (e.g. floating dialog body). */
+  embedInScrollContainer?: boolean;
 };
 
-export function PermissionGrid({ permissions, selectedIds, onChange, disabled, readOnly }: Props) {
+export function PermissionGrid({
+  permissions,
+  selectedIds,
+  onChange,
+  disabled,
+  readOnly,
+  embedInScrollContainer,
+}: Props) {
   const { t } = useTranslation('admin');
   const set = new Set(selectedIds);
 
@@ -37,10 +46,17 @@ export function PermissionGrid({ permissions, selectedIds, onChange, disabled, r
   }
 
   return (
-    <div className="max-h-[min(70vh,520px)] space-y-6 overflow-y-auto pe-1">
+    <div
+      className={cn(
+        'space-y-6 pe-1',
+        embedInScrollContainer ? 'overflow-visible' : 'max-h-[min(70vh,520px)] overflow-y-auto',
+      )}
+    >
       {byResource.map(([resource, perms]) => (
-        <div key={resource}>
-          <p className="text-muted-foreground mb-2 text-sm font-medium">{resource}</p>
+        <div key={resource} className="space-y-3">
+          <div className="border-b border-border pb-3">
+            <p className="text-muted-foreground text-sm font-medium">{resource}</p>
+          </div>
           <ul className={cn('grid gap-2 sm:grid-cols-2')}>
             {perms.map((p) => (
               <li

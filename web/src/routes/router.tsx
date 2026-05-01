@@ -5,7 +5,7 @@ import AdminLayoutOutlet from '@/components/layout/AdminLayoutOutlet';
 import AuthLayoutOutlet from '@/components/layout/AuthLayoutOutlet';
 import PosLayout from '@/components/layout/PosLayout';
 
-import { RequireAuth, RequireBranchContext, RequirePermission } from './guards';
+import { RequireAuth, RequireBranchContext, RequireOrgNotificationManager, RequirePermission } from './guards';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import RouteLoader from './RouteLoader';
 
@@ -23,6 +23,7 @@ const OnboardingCompletePage = lazy(
   () => import('@/features/auth/pages/OnboardingCompletePage'),
 );
 const ProfilePage = lazy(() => import('@/features/auth/pages/ProfilePage'));
+const NotificationsInboxPage = lazy(() => import('@/features/notifications/pages/NotificationsInboxPage'));
 
 const DashboardPage = lazy(() => import('@/features/bi/pages/DashboardPage'));
 const HomePage = lazy(() => import('@/features/bi/pages/HomePage'));
@@ -40,24 +41,29 @@ const InvoiceLookupPage = lazy(() => import('@/features/pos/pages/InvoiceLookup'
 const AdminUsersList = lazy(() => import('@/features/admin/pages/users/UsersList'));
 const AdminUserCreate = lazy(() => import('@/features/admin/pages/users/UserCreate'));
 const AdminUserEdit = lazy(() => import('@/features/admin/pages/users/UserEdit'));
+const AdminUserPermissionOverrides = lazy(
+  () => import('@/features/admin/pages/users/UserPermissionOverrides'),
+);
 const AdminRolesList = lazy(() => import('@/features/admin/pages/roles/RolesList'));
 const AdminRoleEdit = lazy(() => import('@/features/admin/pages/roles/RoleEdit'));
 const AdminBranchesList = lazy(() => import('@/features/admin/pages/branches/BranchesList'));
 const AdminTerminalsList = lazy(() => import('@/features/admin/pages/terminals/TerminalsList'));
 const AdminBackupsList = lazy(() => import('@/features/admin/pages/backups/BackupsList'));
+const AdminNotificationsIndexRedirect = lazy(
+  () => import('@/features/admin/pages/notifications/AdminNotificationsIndexRedirect'),
+);
+const AdminSendNow = lazy(
+  () => import('@/features/admin/pages/notifications/SendNow'),
+);
+const AdminRoutineSchedules = lazy(
+  () => import('@/features/admin/pages/notifications/RoutineSchedules'),
+);
+const AdminNotificationHistory = lazy(
+  () => import('@/features/admin/pages/notifications/NotificationHistory'),
+);
 const AdminNotificationsLayout = lazy(
   () => import('@/features/admin/pages/notifications/NotificationsLayout'),
 );
-const AdminTemplatesList = lazy(
-  () => import('@/features/admin/pages/notifications/TemplatesList'),
-);
-const AdminTemplateEditPage = lazy(
-  () => import('@/features/admin/pages/notifications/TemplateEditPage'),
-);
-const AdminSchedulesList = lazy(
-  () => import('@/features/admin/pages/notifications/SchedulesList'),
-);
-const AdminRunsList = lazy(() => import('@/features/admin/pages/notifications/RunsList'));
 
 const CatalogProductsList = lazy(() => import('@/features/catalog/pages/products/ProductsList'));
 const CatalogCategoriesTree = lazy(() => import('@/features/catalog/pages/categories/CategoriesTree'));
@@ -231,6 +237,14 @@ export const router = createBrowserRouter([
           {
             path: '/profile',
             element: withSuspense(ProfilePage),
+          },
+          {
+            path: '/notifications',
+            element: (
+              <RequirePermission resource="notifications" action="read">
+                {withSuspense(NotificationsInboxPage)}
+              </RequirePermission>
+            ),
           },
           {
             path: '/dashboard',
@@ -894,6 +908,14 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: 'users/:id/permissions',
+                element: (
+                  <RequirePermission resource="users" action="read">
+                    {withSuspense(AdminUserPermissionOverrides)}
+                  </RequirePermission>
+                ),
+              },
+              {
                 path: 'users/:id',
                 element: (
                   <RequirePermission resource="users" action="read">
@@ -944,42 +966,30 @@ export const router = createBrowserRouter([
               {
                 path: 'notifications',
                 element: (
-                  <RequirePermission resource="config" action="read">
+                  <RequirePermission resource="notifications" action="read">
                     {withSuspense(AdminNotificationsLayout)}
                   </RequirePermission>
                 ),
                 children: [
-                  { index: true, element: <Navigate to="templates" replace /> },
+                  { index: true, element: withSuspense(AdminNotificationsIndexRedirect) },
                   {
-                    path: 'templates',
+                    path: 'send-now',
                     element: (
-                      <RequirePermission resource="config" action="read">
-                        {withSuspense(AdminTemplatesList)}
-                      </RequirePermission>
+                      <RequireOrgNotificationManager>
+                        {withSuspense(AdminSendNow)}
+                      </RequireOrgNotificationManager>
                     ),
                   },
                   {
-                    path: 'templates/:kind',
-                    element: (
-                      <RequirePermission resource="config" action="read">
-                        {withSuspense(AdminTemplateEditPage)}
-                      </RequirePermission>
-                    ),
+                    path: 'routine',
+                    element: withSuspense(AdminRoutineSchedules),
                   },
                   {
-                    path: 'schedules',
+                    path: 'history',
                     element: (
-                      <RequirePermission resource="config" action="read">
-                        {withSuspense(AdminSchedulesList)}
-                      </RequirePermission>
-                    ),
-                  },
-                  {
-                    path: 'runs',
-                    element: (
-                      <RequirePermission resource="config" action="read">
-                        {withSuspense(AdminRunsList)}
-                      </RequirePermission>
+                      <RequireOrgNotificationManager>
+                        {withSuspense(AdminNotificationHistory)}
+                      </RequireOrgNotificationManager>
                     ),
                   },
                 ],

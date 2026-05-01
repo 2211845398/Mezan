@@ -72,6 +72,14 @@ export const navigation: NavItem[] = [
     permission: { resource: 'analytics', action: 'read' },
   },
   {
+    key: 'notifications-inbox',
+    labelKey: 'nav.notifications_inbox',
+    icon: Bell,
+    href: '/notifications',
+    section: 'ops',
+    permission: { resource: 'notifications', action: 'read' },
+  },
+  {
     key: 'pos',
     labelKey: 'nav.pos',
     icon: ShoppingCart,
@@ -438,7 +446,7 @@ export const navigation: NavItem[] = [
         labelKey: 'nav.admin_notifications',
         icon: Bell,
         href: '/admin/notifications',
-        permission: { resource: 'config', action: 'read' },
+        permission: { resource: 'notifications', action: 'read' },
       },
     ],
   },

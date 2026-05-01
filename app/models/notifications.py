@@ -31,6 +31,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -203,6 +204,7 @@ class NotificationDelivery(Base):
             "idempotency_key",
             name="uq_notification_deliveries_schedule_idem",
         ),
+        Index("ix_notification_deliveries_user_read", "user_id", "read_at"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -243,3 +245,4 @@ class NotificationDelivery(Base):
         nullable=False,
     )
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

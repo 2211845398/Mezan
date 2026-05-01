@@ -6,7 +6,11 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  floatingFormApproveButtonClassName,
+  floatingFormCloseButtonClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -296,10 +300,19 @@ export function ProductFormSheet({ productId, onClose }: ProductFormSheetProps) 
                 <AttributeFieldset defs={defs} categoryId={categoryForAttrs} />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={onClose}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={floatingFormCloseButtonClassName}
+                  onClick={onClose}
+                >
                   {t('actions.cancel')}
                 </Button>
-                <Button type="submit" disabled={saveM.isPending || loadingProduct || (!isNew && !product)}>
+                <Button
+                  type="submit"
+                  className={floatingFormApproveButtonClassName}
+                  disabled={saveM.isPending || loadingProduct || (!isNew && !product)}
+                >
                   {t('actions.save')}
                 </Button>
               </div>

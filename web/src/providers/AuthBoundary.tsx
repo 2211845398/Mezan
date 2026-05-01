@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { setRefreshFn } from '@/api/interceptors/handle401Refresh';
-import { getMe, getMyPermissions, refresh as refreshTokenApi } from '@/features/auth/api';
+import { getMe, getMyPermissions, getMyRoles, refresh as refreshTokenApi } from '@/features/auth/api';
 import {
   type AuthUser,
   getRefreshTokenSync,
@@ -33,6 +33,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const setUser = useAuthStore((s) => s.setUser);
   const setPermissions = useAuthStore((s) => s.setPermissions);
+  const setRoleCodes = useAuthStore((s) => s.setRoleCodes);
   const clear = useAuthStore((s) => s.clear);
 
   const bootedRef = useRef(false);
@@ -81,10 +82,11 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         setAccessToken(tokens.access_token);
 
-        const [me, perms] = await Promise.all([getMe(), getMyPermissions()]);
+        const [me, perms, roles] = await Promise.all([getMe(), getMyPermissions(), getMyRoles()]);
         if (cancelled) return;
         setUser(me as AuthUser);
         setPermissions(perms);
+        setRoleCodes(roles.codes);
         setStatus('authenticated');
       } catch {
         if (cancelled) return;
@@ -97,7 +99,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [clear, setAccessToken, setPermissions, setStatus, setUser]);
+  }, [clear, setAccessToken, setPermissions, setRoleCodes, setStatus, setUser]);
 
   if (status === 'idle' || status === 'booting') {
     return (

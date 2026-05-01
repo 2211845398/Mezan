@@ -1,6 +1,10 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+  floatingFormCloseButtonClassName,
+  floatingFormDangerButtonClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -45,7 +49,7 @@ export function DangerConfirmDialog({
         if (!o) setValue('');
       }}
     >
-      <DialogContent>
+      <DialogContent motionless>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -61,13 +65,19 @@ export function DangerConfirmDialog({
             autoComplete="off"
           />
         </div>
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="gap-2 sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className={floatingFormCloseButtonClassName}
+            onClick={() => onOpenChange(false)}
+          >
             {t('actions.cancel')}
           </Button>
           <Button
             type="button"
             variant="destructive"
+            className={floatingFormDangerButtonClassName}
             disabled={!canSubmit || isLoading}
             onClick={() => onConfirm()}
           >

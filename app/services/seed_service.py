@@ -103,6 +103,8 @@ DEFAULT_PERMISSIONS = [
     ("marketing_advisory", "run"),
     ("backups", "read"),
     ("backups", "run"),
+    ("notifications", "read"),
+    ("notifications", "update"),
     # Epic 14: AI advisory expansion
     ("ai_advisory", "run"),
 ]
@@ -126,6 +128,8 @@ SYSTEM_ROLE_SPECS = [
             ("roles", "*"),
             ("audit_log", "read"),
             ("config", "*"),
+            ("notifications", "read"),
+            ("notifications", "update"),
             ("branches", "*"),
             ("terminals", "*"),
             ("onboarding", "read"),
@@ -140,6 +144,8 @@ SYSTEM_ROLE_SPECS = [
             ("employees", "*"),
             ("payroll", "*"),
             ("onboarding", "*"),
+            ("notifications", "read"),
+            ("notifications", "update"),
         ],
     },
     {
@@ -150,6 +156,7 @@ SYSTEM_ROLE_SPECS = [
             ("accounting", "*"),
             ("suppliers", "*"),
             ("sales_invoices", "void"),
+            ("notifications", "read"),
         ],
     },
     {
@@ -166,6 +173,7 @@ SYSTEM_ROLE_SPECS = [
             ("returns", "create"),
             ("customers", "create"),
             ("customers", "read"),
+            ("notifications", "read"),
         ],
     },
     {
@@ -179,6 +187,7 @@ SYSTEM_ROLE_SPECS = [
             ("invoice_scans", "*"),
             ("stock_adjustments", "*"),
             ("ai_advisory", "run"),
+            ("notifications", "read"),
         ],
     },
     {
@@ -197,6 +206,7 @@ SYSTEM_ROLE_SPECS = [
             ("ai_advisory", "run"),
             ("invoice_scans", "read"),
             ("invoice_scans", "validate"),
+            ("notifications", "read"),
         ],
     },
     {
@@ -207,6 +217,7 @@ SYSTEM_ROLE_SPECS = [
             ("catalog", "read"),
             ("inventory", "read"),
             ("customers", "create"),
+            ("notifications", "read"),
         ],
     },
 ]

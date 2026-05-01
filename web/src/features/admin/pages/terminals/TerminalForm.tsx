@@ -4,10 +4,16 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
+import {
+  FloatingFormDialog,
+  floatingFormApproveButtonClassName,
+  floatingFormApproveButtonSmClassName,
+  floatingFormCloseButtonClassName,
+  floatingFormDangerButtonSmClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
 
@@ -28,6 +34,9 @@ const editSchema = z.object({
 
 type CreateValues = z.infer<typeof createSchema>;
 type EditValues = z.infer<typeof editSchema>;
+
+const CREATE_FORM_ID = 'admin-terminal-create-form';
+const EDIT_FORM_ID = 'admin-terminal-edit-form';
 
 type Props = {
   open: boolean;
@@ -63,104 +72,64 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
   }, [terminal, open, cForm, eForm]);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>
-            {isEdit ? t('terminals.edit_title') : t('terminals.create_title')}
-          </SheetTitle>
-        </SheetHeader>
-        {isEdit && terminal ? (
-          <div className="mt-4 space-y-3">
-            <p className="text-muted-foreground text-sm">
-              {t('terminals.col.code')}: {terminal.terminal_code}
+    <FloatingFormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? t('terminals.edit_title') : t('terminals.create_title')}
+      maxWidth="md"
+      footer={
+        <div className="flex w-full flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className={floatingFormCloseButtonClassName}
+            onClick={() => onOpenChange(false)}
+            disabled={create.isPending || update.isPending}
+          >
+            {t('actions.cancel')}
+          </Button>
+          {isEdit && canUpdate ? (
+            <Button
+              type="submit"
+              form={EDIT_FORM_ID}
+              className={floatingFormApproveButtonClassName}
+              disabled={update.isPending}
+            >
+              {t('actions.save')}
+            </Button>
+          ) : null}
+          {!isEdit ? (
+            <Button
+              type="submit"
+              form={CREATE_FORM_ID}
+              className={floatingFormApproveButtonClassName}
+              disabled={create.isPending}
+            >
+              {t('actions.create')}
+            </Button>
+          ) : null}
+        </div>
+      }
+    >
+      {isEdit && terminal ? (
+        <div className="space-y-4">
+          <p className="text-muted-foreground text-sm">
+            {t('terminals.col.code')}: {terminal.terminal_code}
+          </p>
+          {terminal.last_seen_at ? (
+            <p className="text-xs text-muted-foreground">
+              {t('terminals.last_seen')}: {formatIso(terminal.last_seen_at, 'yyyy-MM-dd HH:mm')}
             </p>
-            {terminal.last_seen_at ? (
-              <p className="text-xs text-muted-foreground">
-                {t('terminals.last_seen')}:{' '}
-                {formatIso(terminal.last_seen_at, 'yyyy-MM-dd HH:mm')}
-              </p>
-            ) : null}
-            <Form {...eForm}>
-              <form
-                onSubmit={eForm.handleSubmit((v) => update.mutateAsync(v))}
-                className="space-y-3"
-              >
-                <FormField
-                  name="name"
-                  control={eForm.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('terminals.col.name')}</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  name="branch_id"
-                  control={eForm.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <BranchPicker
-                        label={t('terminals.col.branch')}
-                        value={field.value}
-                        onChange={(b) => field.onChange(b ?? 0)}
-                      />
-                    </FormItem>
-                  )}
-                />
-                {canUpdate ? (
-                  <Button type="submit" disabled={update.isPending}>
-                    {t('actions.save')}
-                  </Button>
-                ) : null}
-              </form>
-            </Form>
-            <div className="flex gap-2 border-t pt-2">
-              {canAuthz && !terminal.is_authorized ? (
-                <Button type="button" onClick={() => void authz.mutateAsync()}>
-                  {t('terminals.authorize')}
-                </Button>
-              ) : null}
-              {canUpdate && terminal.is_authorized ? (
-                <Button type="button" variant="secondary" onClick={() => void deauthz.mutateAsync()}>
-                  {t('terminals.deauthorize')}
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <Form {...cForm}>
+          ) : null}
+          <Form {...eForm}>
             <form
-              onSubmit={cForm.handleSubmit(async (v) => {
-                const res = await create.mutateAsync(v);
-                 
-                window.alert(
-                  t('terminals.api_key_once', { key: (res as { api_key?: string }).api_key ?? '' }),
-                );
-                onOpenChange(false);
-              })}
-              className="mt-4 space-y-3"
+              id={EDIT_FORM_ID}
+              onSubmit={eForm.handleSubmit((v) => update.mutateAsync(v))}
+              className="space-y-3"
             >
               <FormField
-                name="terminal_code"
-                control={cForm.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('terminals.col.code')}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
                 name="name"
-                control={cForm.control}
+                control={eForm.control}
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t('terminals.col.name')}</FormLabel>
@@ -173,24 +142,97 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
               />
               <FormField
                 name="branch_id"
-                control={cForm.control}
+                control={eForm.control}
                 render={({ field }) => (
                   <FormItem>
                     <BranchPicker
                       label={t('terminals.col.branch')}
-                      value={field.value || null}
+                      value={field.value}
                       onChange={(b) => field.onChange(b ?? 0)}
                     />
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={create.isPending}>
-                {t('actions.create')}
-              </Button>
             </form>
           </Form>
-        )}
-      </SheetContent>
-    </Sheet>
+          <div className="flex flex-wrap gap-2 border-t pt-4">
+            {canAuthz && !terminal.is_authorized ? (
+              <Button
+                type="button"
+                className={floatingFormApproveButtonSmClassName}
+                disabled={authz.isPending}
+                onClick={() => void authz.mutateAsync()}
+              >
+                {t('terminals.authorize')}
+              </Button>
+            ) : null}
+            {canUpdate && terminal.is_authorized ? (
+              <Button
+                type="button"
+                className={floatingFormDangerButtonSmClassName}
+                disabled={deauthz.isPending}
+                onClick={() => void deauthz.mutateAsync()}
+              >
+                {t('terminals.deauthorize')}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <Form {...cForm}>
+          <form
+            id={CREATE_FORM_ID}
+            onSubmit={cForm.handleSubmit(async (v) => {
+              const res = await create.mutateAsync(v);
+              window.alert(
+                t('terminals.api_key_once', { key: (res as { api_key?: string }).api_key ?? '' }),
+              );
+              onOpenChange(false);
+            })}
+            className="space-y-3"
+          >
+            <FormField
+              name="terminal_code"
+              control={cForm.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('terminals.col.code')}</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="name"
+              control={cForm.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('terminals.col.name')}</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="branch_id"
+              control={cForm.control}
+              render={({ field }) => (
+                <FormItem>
+                  <BranchPicker
+                    label={t('terminals.col.branch')}
+                    value={field.value || null}
+                    onChange={(b) => field.onChange(b ?? 0)}
+                  />
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
+      )}
+    </FloatingFormDialog>
   );
 }

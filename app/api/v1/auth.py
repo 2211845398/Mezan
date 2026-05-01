@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_current_user_permissions
+from app.api.deps import get_current_user, get_current_user_permissions, get_user_role_codes
 from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.models.users import User
@@ -140,6 +140,22 @@ class PermissionRead(BaseModel):
 
     resource: str
     action: str
+
+
+class UserRolesResponse(BaseModel):
+    """Assigned role codes for the current user (strings match ``roles.code``)."""
+
+    codes: list[str]
+
+
+@router.get("/auth/me/roles", response_model=UserRolesResponse)
+async def me_roles(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> UserRolesResponse:
+    """Return distinct role codes for UI gates (e.g. org-wide notification admin)."""
+    codes = await get_user_role_codes(db, user.id)
+    return UserRolesResponse(codes=sorted(codes))
 
 
 @router.get("/auth/me/permissions", response_model=list[PermissionRead])

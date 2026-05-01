@@ -4,16 +4,19 @@ import {
   addUserRole,
   archiveBranch,
   authorizeTerminal,
+  broadcastNotification,
   createBranch,
   createTerminal,
   createUser,
   deauthorizeTerminal,
+  deleteNotificationSchedule,
   deletePermissionOverride,
   getBackupStatus,
   getBranch,
   getUser,
   getUserRoles,
   listBranches,
+  listNotificationDeliveries,
   listNotificationRuns,
   listNotificationSchedules,
   listNotificationTemplates,
@@ -33,7 +36,14 @@ import {
   upsertNotificationTemplate,
   upsertPermissionOverride,
 } from './api';
-import type { NotificationScheduleRead, UserPermissionOverrideWrite, UserRead, UserRoleAssign } from './types';
+import { notificationKeys } from '@/features/notifications/queries';
+import type {
+  NotificationBroadcastRequest,
+  NotificationScheduleRead,
+  UserPermissionOverrideWrite,
+  UserRead,
+  UserRoleAssign,
+} from './types';
 
 export const adminKeys = {
   all: ['admin'] as const,
@@ -53,6 +63,7 @@ export const adminKeys = {
   notificationTemplates: () => [...adminKeys.all, 'notificationTemplates'] as const,
   notificationSchedules: () => [...adminKeys.all, 'notificationSchedules'] as const,
   notificationRuns: () => [...adminKeys.all, 'notificationRuns'] as const,
+  notificationDeliveries: () => [...adminKeys.all, 'notificationDeliveries'] as const,
   userRoleSummary: (userIds: number[]) => [...adminKeys.userList(), 'roleSummary', { userIds }] as const,
   onboardingList: (afterUserId: number | null) =>
     [...adminKeys.all, 'onboarding', 'pending', { after: afterUserId }] as const,
@@ -351,6 +362,17 @@ export function useUpsertTemplate() {
   });
 }
 
+export function useBroadcastNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: NotificationBroadcastRequest) => broadcastNotification(body),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: adminKeys.notificationDeliveries() });
+      await qc.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+  });
+}
+
 export function useUpsertSchedule() {
   const qc = useQueryClient();
   return useMutation({
@@ -358,6 +380,24 @@ export function useUpsertSchedule() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: adminKeys.notificationSchedules() });
     },
+  });
+}
+
+export function useDeleteSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deleteNotificationSchedule,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: adminKeys.notificationSchedules() });
+      await qc.invalidateQueries({ queryKey: adminKeys.notificationRuns() });
+    },
+  });
+}
+
+export function useNotificationDeliveries() {
+  return useQuery({
+    queryKey: adminKeys.notificationDeliveries(),
+    queryFn: async () => (await listNotificationDeliveries()).items,
   });
 }
 

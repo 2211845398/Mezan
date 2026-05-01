@@ -14,6 +14,7 @@ import { useFilteredNavigation } from '@/config/navigationFilter';
 import { getTitleKeyForPath } from '@/config/routeTitle';
 import { logout as logoutApi } from '@/features/auth/api';
 import { getRefreshTokenSync, useAuthStore } from '@/features/auth/stores/authStore';
+import { NotificationCenter } from '@/features/notifications/NotificationCenter';
 import { useShellStore } from '@/stores/shellStore';
 
 import { SidebarNav } from './SidebarNav';
@@ -87,6 +88,7 @@ export function Topbar() {
             <Languages className="size-5" />
           </Button>
           <ThemeToggle />
+          {user ? <NotificationCenter /> : null}
           {user ? (
             <Button
               type="button"

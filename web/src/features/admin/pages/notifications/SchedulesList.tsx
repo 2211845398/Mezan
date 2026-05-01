@@ -2,6 +2,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+  floatingFormApproveButtonSmClassName,
+  floatingFormCloseButtonSmClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -13,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePermission } from '@/hooks/usePermission';
+import { notify } from '@/lib/toast';
 
 import { triggerNotificationSchedule } from '../../api';
 import { adminKeys, useNotificationSchedules, useToggleScheduleActive } from '../../queries';
@@ -22,7 +27,7 @@ import { ScheduleEdit } from './ScheduleEdit';
 export default function SchedulesList() {
   const { t } = useTranslation('admin');
   const { data: rows = [], isLoading, refetch } = useNotificationSchedules();
-  const canUpdate = usePermission('config', 'update');
+  const canUpdate = usePermission('notifications', 'update');
   const [editing, setEditing] = useState<NotificationScheduleRead | null | 'new'>(null);
   const toggle = useToggleScheduleActive();
   const qc = useQueryClient();
@@ -73,7 +78,16 @@ export default function SchedulesList() {
                   {canUpdate ? (
                     <Switch
                       checked={r.is_active}
-                      onCheckedChange={() => void toggle.mutateAsync(r)}
+                      onCheckedChange={() => {
+                        void (async () => {
+                          try {
+                            await toggle.mutateAsync(r);
+                            notify.success(t('notifications.toggle_saved'));
+                          } catch {
+                            /* toast from API layer */
+                          }
+                        })();
+                      }}
                     />
                   ) : r.is_active ? (
                     t('yes')
@@ -84,7 +98,12 @@ export default function SchedulesList() {
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {canUpdate ? (
-                      <Button type="button" size="sm" variant="secondary" onClick={() => setEditing(r)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className={floatingFormCloseButtonSmClassName}
+                        onClick={() => setEditing(r)}
+                      >
                         {t('actions.edit')}
                       </Button>
                     ) : null}
@@ -92,7 +111,17 @@ export default function SchedulesList() {
                       <Button
                         type="button"
                         size="sm"
-                        onClick={() => void runOnce.mutateAsync(r.id)}
+                        className={floatingFormApproveButtonSmClassName}
+                        onClick={() => {
+                          void (async () => {
+                            try {
+                              await runOnce.mutateAsync(r.id);
+                              notify.success(t('notifications.run_started'));
+                            } catch {
+                              /* toast from API layer */
+                            }
+                          })();
+                        }}
                         disabled={runOnce.isPending}
                       >
                         {t('notifications.run_once')}

@@ -76,15 +76,9 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("POST", "/api/v1/auth/password-reset/confirm"),
     ("GET", "/api/v1/auth/me"),
     ("GET", "/api/v1/auth/me/permissions"),
+    ("GET", "/api/v1/auth/me/roles"),
     ("PATCH", "/api/v1/auth/me"),
     ("POST", "/api/v1/customers/onboarding/complete"),
-    # Notification self-service: auth-only; a user manages their own device
-    # tokens and reads their own delivery history. No resource permission is
-    # meaningful here because the subject is always the caller (user_id=me).
-    ("POST", "/api/v1/notifications/device-tokens"),
-    ("GET", "/api/v1/notifications/device-tokens"),
-    ("DELETE", "/api/v1/notifications/device-tokens/{token_id}"),
-    ("GET", "/api/v1/notifications/deliveries/me"),
 }
 
 

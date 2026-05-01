@@ -36,6 +36,8 @@ services:
       DEBUG: "true"
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-["*"]}
       SEED_ON_STARTUP: "true"
+      # Background tick for due notification routines (admin "Run now" works without this).
+      NOTIFICATIONS_ENABLED: "true"
       API_HOST: 0.0.0.0
       API_PORT: 8000
     ports:

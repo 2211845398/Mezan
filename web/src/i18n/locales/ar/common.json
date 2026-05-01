@@ -52,7 +52,8 @@
     "admin_branches": "الفروع",
     "admin_terminals": "أجهزة البيع",
     "admin_backups": "النسخ الاحتياطية",
-    "admin_notifications": "الإشعارات"
+    "admin_notifications": "الإشعارات",
+    "notifications_inbox": "إشعاراتي"
   },
   "layout": {
     "app_name": "ميزان",
@@ -74,6 +75,24 @@
     "nav_section_people": "الموارد البشرية",
     "nav_section_growth": "النمو والذكاء",
     "nav_section_system": "النظام"
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "open": "فتح الإشعارات",
+    "unread_count": "{{count}} غير مقروء",
+    "mark_all_read": "تعليم الكل كمقروء",
+    "mark_read": "تمت القراءة",
+    "empty": "لا توجد إشعارات جديدة.",
+    "inbox_title": "صندوق الإشعارات",
+    "inbox_lead": "جميع الرسائل المرسلة إلى حسابك.",
+    "tab_all": "الكل",
+    "tab_unread": "غير المقروء",
+    "read_badge": "مقروء",
+    "inbox_empty": "لا توجد إشعارات بعد.",
+    "view_inbox_page": "فتح صندوق الإشعارات",
+    "branches_hint": "اتركه فارغًا ليشمل كل الفروع. عند اختيار فرع أو أكثر يقتصر المستلمون على تلك الفروع.",
+    "roles_hint": "يستلم المستخدمون الذين لديهم أي من الأدوار المحددة (اتحاد).",
+    "sending_short": "جاري الإرسال…"
   },
   "theme": {
     "light": "فاتح",

@@ -6,6 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
 
+import {
+  floatingFormApproveButtonClassName,
+  floatingFormCloseButtonClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -13,7 +17,10 @@ import { Switch } from '@/components/ui/switch';
 
 import { getUserRoles, listPendingOnboarding } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';
+import { HrAssigneeCombobox } from '../../components/HrAssigneeCombobox';
+import { RoleCodeCombobox } from '../../components/RoleCodeCombobox';
 import { adminKeys, useCreateUser } from '../../queries';
+import { roleCodeLabel } from '../../lib/roleLabels';
 
 const schema = z.object({
   email: z.string().email(),
@@ -57,7 +64,7 @@ export default function UserCreate() {
   const onboardingForUser = pending.find((p) => p.user_id === createdId);
 
   return (
-    <div className="mx-auto max-w-lg p-4">
+    <div className="mx-auto max-w-2xl space-y-4 p-4 md:p-6">
       <h1 className="mb-4 text-2xl font-semibold">{t('users.create_title')}</h1>
       {createdId == null ? (
         <Form {...form}>
@@ -137,10 +144,9 @@ export default function UserCreate() {
                 <FormItem>
                   <FormLabel>{t('users.role_code')}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="IT_ADMIN, CASHIER, …"
-                      {...field}
+                    <RoleCodeCombobox
                       value={field.value ?? ''}
+                      onChange={(code) => field.onChange(code === '' ? null : code)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -174,14 +180,9 @@ export default function UserCreate() {
                     <FormItem>
                       <FormLabel>{t('users.assigned_hr_id')}</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          value={field.value ?? ''}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            field.onChange(v === '' ? null : Number(v));
-                          }}
+                        <HrAssigneeCombobox
+                          value={field.value != null ? String(field.value) : ''}
+                          onChange={(id) => field.onChange(id === '' ? null : Number(id))}
                         />
                       </FormControl>
                     </FormItem>
@@ -191,10 +192,10 @@ export default function UserCreate() {
               </div>
             ) : null}
             <div className="flex gap-2">
-              <Button type="submit" disabled={create.isPending}>
+              <Button type="submit" className={floatingFormApproveButtonClassName} disabled={create.isPending}>
                 {t('actions.save')}
               </Button>
-              <Button type="button" variant="secondary" asChild>
+              <Button type="button" variant="outline" className={floatingFormCloseButtonClassName} asChild>
                 <Link to="/admin/users">{t('actions.back')}</Link>
               </Button>
             </div>
@@ -205,7 +206,7 @@ export default function UserCreate() {
           <p>{t('users.created_ok', { id: createdId })}</p>
           {userRoles.length > 0 ? (
             <p>
-              {t('users.roles')}: {userRoles.map((r) => r.role_code).join(', ')}
+              {t('users.roles')}: {userRoles.map((r) => roleCodeLabel(t, r.role_code, r.role_name)).join(', ')}
             </p>
           ) : null}
           {onboardingForUser ? (

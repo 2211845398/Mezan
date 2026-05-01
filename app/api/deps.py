@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings, settings as app_settings
 from app.db.database import get_db
 from app.models.permission import Permission
 from app.models.role import Role
@@ -19,6 +20,11 @@ from app.utils.security import decode_token
 
 security = HTTPBearer(auto_error=False)
 PERMISSION_DEPENDENCY_MARKER = "__mezan_required_permission__"
+
+
+def get_settings() -> Settings:
+    """Inject the application settings singleton (env-backed)."""
+    return app_settings
 
 
 async def get_current_user_optional(
@@ -123,4 +129,43 @@ def require_any_permission(*pairs: tuple[str, str]) -> Callable:
             )
 
     setattr(_check, PERMISSION_DEPENDENCY_MARKER, pairs[0])
+    return Depends(_check)
+
+
+async def get_user_role_codes(db: AsyncSession, user_id: int) -> frozenset[str]:
+    """Distinct role codes assigned to the user (all branches)."""
+    result = await db.execute(
+        select(Role.code)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == user_id)
+        .distinct()
+    )
+    return frozenset(row[0] for row in result.all())
+
+
+async def get_current_user_role_codes(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> frozenset[str]:
+    """Role codes for the authenticated user (for scoped UI / admin gates)."""
+    return await get_user_role_codes(db, user.id)
+
+
+def require_any_role(*allowed_codes: str):
+    """Require the user to hold at least one of the given role codes."""
+
+    allowed = frozenset(allowed_codes)
+
+    async def _check(
+        db: AsyncSession = Depends(get_db),
+        user: User = Depends(get_current_user),
+    ) -> None:
+        have = await get_user_role_codes(db, user.id)
+        if not (have & allowed):
+            need = ", ".join(sorted(allowed))
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"One of these roles required: {need}",
+            )
+
     return Depends(_check)

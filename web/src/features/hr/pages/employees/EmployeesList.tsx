@@ -5,7 +5,11 @@ import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  floatingFormApproveButtonClassName,
+  floatingFormCloseButtonClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -134,10 +138,20 @@ function EmployeeFloatingForm({
         </div>
         {save.isError ? <p className="text-sm text-destructive">{String(save.error.message)}</p> : null}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={save.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            className={floatingFormCloseButtonClassName}
+            onClick={() => onOpenChange(false)}
+            disabled={save.isPending}
+          >
             {t('actions.cancel', { ns: 'common' })}
           </Button>
-          <Button type="submit" disabled={save.isPending || !hireDate || (!isEdit && !userId)}>
+          <Button
+            type="submit"
+            className={floatingFormApproveButtonClassName}
+            disabled={save.isPending || !hireDate || (!isEdit && !userId)}
+          >
             {t('employees.form.save')}
           </Button>
         </div>

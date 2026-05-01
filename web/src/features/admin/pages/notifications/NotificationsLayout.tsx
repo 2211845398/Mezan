@@ -1,16 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router-dom';
 
+import { useOrgNotificationManager } from '@/hooks/useOrgNotificationManager';
 import { cn } from '@/lib/utils';
 
-const tabs = [
-  { to: 'templates', labelKey: 'notifications.tab_templates' as const },
-  { to: 'schedules', labelKey: 'notifications.tab_schedules' as const },
-  { to: 'runs', labelKey: 'notifications.tab_runs' as const },
+const allTabs = [
+  { to: 'send-now', labelKey: 'notifications.tab_send_now' as const },
+  { to: 'routine', labelKey: 'notifications.tab_routine' as const },
+  { to: 'history', labelKey: 'notifications.tab_history' as const },
 ];
 
 export default function NotificationsLayout() {
   const { t } = useTranslation('admin');
+  const canOrgNotificationAdmin = useOrgNotificationManager();
+  const tabs = canOrgNotificationAdmin
+    ? allTabs
+    : allTabs.filter((tab) => tab.to === 'routine');
+
   return (
     <div className="p-4">
       <h1 className="mb-4 text-2xl font-semibold">{t('notifications.title')}</h1>

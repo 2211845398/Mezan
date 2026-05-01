@@ -63,6 +63,11 @@ export async function getMyPermissions(): Promise<PermissionRead[]> {
   return data;
 }
 
+export async function getMyRoles(): Promise<{ codes: string[] }> {
+  const { data } = await apiClient.get<{ codes: string[] }>('/auth/me/roles');
+  return data;
+}
+
 export async function requestPasswordReset(body: PasswordResetRequest): Promise<void> {
   await apiClient.post('/auth/password-reset/request', body);
 }

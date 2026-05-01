@@ -16,7 +16,7 @@ export default function NotFoundPage() {
         </div>
         <button
           type="button"
-          onClick={() => navigate('/dashboard', { replace: true })}
+          onClick={() => navigate('/', { replace: true })}
           className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           {t('auth:actions.go_home')}

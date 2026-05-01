@@ -5,6 +5,9 @@ import type {
   BranchCreateBody,
   BranchRead,
   BranchUpdateBody,
+  NotificationBroadcastRequest,
+  NotificationBroadcastResponse,
+  NotificationDeliveryRead,
   NotificationRunRead,
   NotificationScheduleRead,
   NotificationScheduleUpsert,
@@ -212,10 +215,34 @@ export async function upsertNotificationSchedule(
   return data;
 }
 
+export async function deleteNotificationSchedule(scheduleId: number): Promise<void> {
+  await apiClient.delete(`/admin/notifications/schedules/${scheduleId}`);
+}
+
 export async function listNotificationRuns(limit = 200): Promise<NotificationRunRead[]> {
   const { data } = await apiClient.get<NotificationRunRead[]>('/admin/notifications/runs', {
     params: { limit },
   });
+  return data;
+}
+
+export async function listNotificationDeliveries(
+  limit = 200,
+): Promise<{ items: NotificationDeliveryRead[] }> {
+  const { data } = await apiClient.get<{ items: NotificationDeliveryRead[] }>(
+    '/admin/notifications/deliveries',
+    { params: { limit } },
+  );
+  return data;
+}
+
+export async function broadcastNotification(
+  body: NotificationBroadcastRequest,
+): Promise<NotificationBroadcastResponse> {
+  const { data } = await apiClient.post<NotificationBroadcastResponse>(
+    '/admin/notifications/broadcast',
+    body,
+  );
   return data;
 }
 

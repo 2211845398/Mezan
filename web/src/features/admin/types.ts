@@ -37,6 +37,27 @@ export type NotificationTemplateUpsert = Schemas['NotificationTemplateUpsert'];
 export type NotificationScheduleRead = Schemas['NotificationScheduleRead'];
 export type NotificationScheduleUpsert = Schemas['NotificationScheduleUpsert'];
 export type NotificationRunRead = Schemas['NotificationRunRead'];
+export type NotificationDeliveryRead = Schemas['NotificationDeliveryRead'] & {
+  read_at?: string | null;
+};
+export type NotificationBroadcastRequest = {
+  title: string;
+  body: string;
+  target_type: 'all' | 'role';
+  /** @deprecated merged with ``role_codes`` on the server */
+  role_code?: string | null;
+  role_codes?: string[] | null;
+  /** @deprecated merged with ``branch_ids`` on the server */
+  branch_id?: number | null;
+  branch_ids?: number[] | null;
+  data?: Record<string, unknown>;
+};
+export type NotificationBroadcastResponse = {
+  deliveries_created: number;
+  deliveries_sent: number;
+  deliveries_failed: number;
+  deliveries_skipped: number;
+};
 
 export type UserOnboardingRead = Schemas['UserOnboardingRead'];
 

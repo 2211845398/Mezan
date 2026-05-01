@@ -4,6 +4,11 @@ import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import {
+  floatingFormApproveButtonSmClassName,
+  floatingFormCloseButtonSmClassName,
+  floatingFormDangerButtonSmClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -57,8 +62,8 @@ export default function BranchesList() {
                 {canUpdate ? (
                   <Button
                     type="button"
-                    size="sm"
-                    variant="secondary"
+                    variant="outline"
+                    className={floatingFormCloseButtonSmClassName}
                     onClick={() => {
                       setFormMode('edit');
                       setSelected(b);
@@ -71,8 +76,8 @@ export default function BranchesList() {
                 {canDelete && !b.archived_at ? (
                   <Button
                     type="button"
-                    size="sm"
                     variant="destructive"
+                    className={floatingFormDangerButtonSmClassName}
                     onClick={() => setArchiving(b)}
                   >
                     {t('branches.archive')}
@@ -81,7 +86,8 @@ export default function BranchesList() {
                 {canUpdate && b.archived_at ? (
                   <Button
                     type="button"
-                    size="sm"
+                    variant="default"
+                    className={floatingFormApproveButtonSmClassName}
                     onClick={() => void unarchive.mutateAsync(b.id)}
                     disabled={unarchive.isPending}
                   >
@@ -124,6 +130,7 @@ export default function BranchesList() {
       </div>
       <DataTable
         mode="client"
+        showSearch={false}
         columns={columns}
         data={rows}
         isLoading={isLoading}

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import BackupsList from '@/features/admin/pages/backups/BackupsList';
 import BranchesList from '@/features/admin/pages/branches/BranchesList';
+import SendNow from '@/features/admin/pages/notifications/SendNow';
 import RolesList from '@/features/admin/pages/roles/RolesList';
 import UserCreate from '@/features/admin/pages/users/UserCreate';
 import { useAuthStore } from '@/features/auth/stores/authStore';
@@ -32,7 +33,12 @@ describe('W-5.9 admin', () => {
       { resource: 'branches', action: 'delete' },
       { resource: 'backups', action: 'read' },
       { resource: 'backups', action: 'run' },
+      { resource: 'config', action: 'read' },
+      { resource: 'config', action: 'update' },
+      { resource: 'notifications', action: 'read' },
+      { resource: 'notifications', action: 'update' },
     ]);
+    useAuthStore.getState().setRoleCodes(['ADMIN']);
   });
 
   it('create user happy path (MSW)', async () => {
@@ -77,6 +83,30 @@ describe('W-5.9 admin', () => {
     resolveRun!(undefined);
     await waitFor(() => {
       expect(btn).not.toBeDisabled();
+    });
+  });
+
+  it('notifications: sends a simple broadcast', async () => {
+    let sentTitle = '';
+    server.use(
+      http.post(`${BASE}/admin/notifications/broadcast`, async ({ request }) => {
+        const body = (await request.json()) as { title: string };
+        sentTitle = body.title;
+        return HttpResponse.json({
+          deliveries_created: 1,
+          deliveries_sent: 0,
+          deliveries_failed: 0,
+          deliveries_skipped: 1,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<SendNow />, { initialEntries: ['/admin/notifications/send-now'] });
+    await user.type(await screen.findByLabelText(/العنوان|title/i), 'Hello team');
+    await user.type(await screen.findByLabelText(/الرسالة|message/i), 'Please check today tasks.');
+    await user.click(screen.getByRole('button', { name: /إرسال الآن|send now/i }));
+    await waitFor(() => {
+      expect(sentTitle).toBe('Hello team');
     });
   });
 });

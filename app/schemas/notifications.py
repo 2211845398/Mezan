@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -119,12 +120,40 @@ class NotificationDeliveryRead(BaseModel):
     error_message: str | None
     created_at: datetime
     sent_at: datetime | None
+    read_at: datetime | None
 
     model_config = {"from_attributes": True}
 
 
 class NotificationDeliveryListResponse(BaseModel):
     items: list[NotificationDeliveryRead]
+
+
+class NotificationUnreadCountResponse(BaseModel):
+    unread_count: int
+
+
+class NotificationMarkReadResponse(BaseModel):
+    updated: int
+
+
+class NotificationBroadcastRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    body: str = Field(..., min_length=1)
+    target_type: Literal["all", "role"] = "all"
+    # Singular fields kept for backward compatibility; merged with list fields in the API layer.
+    role_code: str | None = Field(default=None, max_length=64)
+    role_codes: list[str] | None = None
+    branch_id: int | None = None
+    branch_ids: list[int] | None = None
+    data: dict = Field(default_factory=dict)
+
+
+class NotificationBroadcastResponse(BaseModel):
+    deliveries_created: int
+    deliveries_sent: int
+    deliveries_failed: int
+    deliveries_skipped: int
 
 
 class ScheduleTriggerResponse(BaseModel):

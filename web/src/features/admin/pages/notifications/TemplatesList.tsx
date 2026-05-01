@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { floatingFormCloseButtonSmClassName } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -19,7 +20,7 @@ import { TemplateEdit } from './TemplateEdit';
 export default function TemplatesList() {
   const { t } = useTranslation('admin');
   const { data: rows = [], isLoading, refetch } = useNotificationTemplates();
-  const canUpdate = usePermission('config', 'update');
+  const canUpdate = usePermission('notifications', 'update');
   const [editing, setEditing] = useState<string | null>(null);
 
   return (
@@ -59,7 +60,12 @@ export default function TemplatesList() {
                 <TableCell>
                   {canUpdate ? (
                     <div className="flex gap-2">
-                      <Button type="button" size="sm" variant="secondary" onClick={() => setEditing(r.kind)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className={floatingFormCloseButtonSmClassName}
+                        onClick={() => setEditing(r.kind)}
+                      >
                         {t('actions.edit')}
                       </Button>
                       <Button type="button" size="sm" variant="link" asChild>

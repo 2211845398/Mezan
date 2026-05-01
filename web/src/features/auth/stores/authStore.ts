@@ -35,6 +35,11 @@ export type AuthState = {
   user: AuthUser | null;
   permissions: Set<string>;
   /**
+   * Distinct role codes from `/auth/me/roles` (e.g. `OWNER`, `HR_MANAGER`).
+   * Used for coarse UI gates alongside fine-grained `permissions`.
+   */
+  roleCodes: string[];
+  /**
    * Flips to `true` only after `/auth/me/permissions` has resolved (on boot
    * or login). Guards treat `permissionsLoaded === false` as "still loading"
    * and render the loader instead of `/403` — fixes W-2 bug 2.
@@ -47,6 +52,7 @@ export type AuthState = {
   setRefreshToken: (token: string | null) => void;
   setUser: (user: AuthUser | null) => void;
   setPermissions: (pairs: ReadonlyArray<{ resource: string; action: string }>) => void;
+  setRoleCodes: (codes: ReadonlyArray<string>) => void;
   setActiveBranchId: (id: number | null) => void;
   hasPermission: (resource: string, action: string) => boolean;
   clear: () => void;
@@ -82,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshToken: readRefreshFromStorage(),
   user: null,
   permissions: new Set<string>(),
+  roleCodes: [],
   permissionsLoaded: false,
   activeBranchId: null,
 
@@ -103,6 +110,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     set({ permissions: set_, permissionsLoaded: true });
   },
+  setRoleCodes: (codes) => set({ roleCodes: [...codes] }),
   setActiveBranchId: (id) => set({ activeBranchId: id }),
   hasPermission: (resource, action) => get().permissions.has(permissionKey(resource, action)),
   clear: () => {
@@ -113,6 +121,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       refreshToken: null,
       user: null,
       permissions: new Set<string>(),
+      roleCodes: [],
       permissionsLoaded: false,
       activeBranchId: null,
     });

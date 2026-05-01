@@ -67,6 +67,8 @@ export type DataTableProps<TData> = {
   /** Export button in the toolbar. The body is the consumer's responsibility. */
   onExport?: ((table: ReturnType<typeof useReactTable<TData>>) => void) | undefined;
   toolbarExtras?: ReactNode;
+  /** Hide the global search field (short static lists). */
+  showSearch?: boolean;
   /** Optional footer action bar slot (rendered when rows are selected). */
   renderActionBar?: ((selectedRows: TData[]) => ReactNode) | undefined;
   /** Defaults for URL state when no query is present. */
@@ -89,6 +91,7 @@ export function DataTable<TData>({
   onRowSelectionChange,
   onExport,
   toolbarExtras,
+  showSearch = true,
   renderActionBar,
   defaultUrlQuery,
   estimatedRowHeight = 40,
@@ -291,6 +294,7 @@ export function DataTable<TData>({
         onDensityChange={setDensity}
         onExport={onExport}
         toolbarExtras={toolbarExtras}
+        showSearch={showSearch}
       />
 
       <div className="rounded-md border">{body}</div>

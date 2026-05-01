@@ -355,7 +355,7 @@ Pattern: offline queue with idempotent server reconciliation.
 #### Epic W-10 — Notifications Client
 - [ ] **W-10.1** Firebase web SDK wiring (FCM only, no Firestore).
 - [ ] **W-10.2** Device token registration on login; revocation on logout.
-- [ ] **W-10.3** In-app notification center.
+- [x] **W-10.3** In-app notification center.
 
 ### Flutter/Mobile Plan (Epics M-1 to M-5)
 

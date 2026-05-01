@@ -16,7 +16,7 @@ export default function OfflinePage() {
     // navigation, send them back to the dashboard once the network clears.
     try {
       await getHealth();
-      navigate('/dashboard', { replace: true });
+      navigate('/', { replace: true });
     } catch {
       // stay on /offline; toast will already have been surfaced by the
       // Axios interceptor on the previous failure.

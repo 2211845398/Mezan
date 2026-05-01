@@ -35,7 +35,16 @@ export { defineColumns } from './DataTable/columns';
 export type { ContentSurfaceProps, FormContainerProps,SectionCardProps } from './ContentSurface';
 export { ContentSurface, FormContainer,SectionCard } from './ContentSurface';
 export type { FloatingFormActionsProps,FloatingFormDialogProps } from './FloatingFormDialog';
-export { FloatingFormActions,FloatingFormDialog } from './FloatingFormDialog';
+export {
+  FloatingFormActions,
+  FloatingFormDialog,
+  floatingFormApproveButtonClassName,
+  floatingFormApproveButtonSmClassName,
+  floatingFormCloseButtonClassName,
+  floatingFormCloseButtonSmClassName,
+  floatingFormDangerButtonClassName,
+  floatingFormDangerButtonSmClassName,
+} from './FloatingFormDialog';
 export type { BackButtonProps,CreateButtonProps, PageHeaderProps } from './PageHeader';
 export { BackButton,CreateButton, PageHeader } from './PageHeader';
 

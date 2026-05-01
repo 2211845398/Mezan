@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
+import {
+  floatingFormApproveButtonClassName,
+  floatingFormCloseButtonClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 import RouteLoader from '@/routes/RouteLoader';
@@ -33,7 +37,7 @@ export default function RoleEdit() {
     return (
       <div className="p-4">
         <p>{t('roles.cannot_edit_system')}</p>
-        <Button asChild variant="secondary">
+        <Button asChild variant="outline" className={floatingFormCloseButtonClassName}>
           <Link to="/admin/roles">{t('actions.back')}</Link>
         </Button>
       </div>
@@ -46,7 +50,7 @@ export default function RoleEdit() {
         <h1 className="text-2xl font-semibold">
           {t('roles.edit_title', { name: role.name })}
         </h1>
-        <Button variant="secondary" asChild>
+        <Button variant="outline" className={floatingFormCloseButtonClassName} asChild>
           <Link to="/admin/roles">{t('actions.back')}</Link>
         </Button>
       </div>
@@ -61,6 +65,7 @@ export default function RoleEdit() {
         <div className="mt-4">
           <Button
             type="button"
+            className={floatingFormApproveButtonClassName}
             onClick={async () => {
               await setPerms.mutateAsync({ permission_ids: ids });
             }}

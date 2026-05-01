@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { getMe, getMyPermissions, login as loginApi } from '@/features/auth/api';
+import { getMe, getMyPermissions, getMyRoles, login as loginApi } from '@/features/auth/api';
 import {
   type AuthUser,
   useAuthStore,
@@ -27,6 +27,7 @@ export default function LoginPage() {
   const setRefreshToken = useAuthStore((s) => s.setRefreshToken);
   const setUser = useAuthStore((s) => s.setUser);
   const setPermissions = useAuthStore((s) => s.setPermissions);
+  const setRoleCodes = useAuthStore((s) => s.setRoleCodes);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -48,9 +49,10 @@ export default function LoginPage() {
       // Fetch user + permissions BEFORE flipping status to 'authenticated' so
       // guards never see a half-resolved permission set on the first render
       // after login (W-2 bug 2).
-      const [me, perms] = await Promise.all([getMe(), getMyPermissions()]);
+      const [me, perms, roles] = await Promise.all([getMe(), getMyPermissions(), getMyRoles()]);
       setUser(me as AuthUser);
       setPermissions(perms);
+      setRoleCodes(roles.codes);
       setStatus('authenticated');
 
       navigate(sanitizeNextPath(nextRaw), { replace: true });

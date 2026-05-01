@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,41 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+
+/** Save / Approve — white label on primary (green) */
+export const floatingFormApproveButtonClassName = cn(
+  'h-11 min-h-11 rounded-xl px-7 font-medium shadow-sm',
+  'bg-primary text-primary-foreground hover:bg-primary/90',
+);
+
+/** Delete / risky confirm — white label on destructive red */
+export const floatingFormDangerButtonClassName = cn(
+  'h-11 min-h-11 rounded-xl px-7 font-medium shadow-sm',
+  'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+);
+
+/** Close / Cancel — primary-colored label, white surface, light gray border */
+export const floatingFormCloseButtonClassName = cn(
+  'h-11 min-h-11 rounded-xl px-7 font-medium shadow-none',
+  'border border-slate-300 bg-background text-primary hover:bg-muted/60 hover:text-primary',
+  'dark:border-border',
+);
+
+/** Compact row actions — same palette as footer buttons, `h-9` */
+export const floatingFormApproveButtonSmClassName = cn(
+  'h-9 min-h-9 rounded-lg px-3 text-sm font-medium shadow-sm',
+  'bg-primary text-primary-foreground hover:bg-primary/90',
+);
+
+export const floatingFormDangerButtonSmClassName = cn(
+  'h-9 min-h-9 rounded-lg px-3 text-sm font-medium shadow-sm',
+  'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+);
+
+export const floatingFormCloseButtonSmClassName = cn(
+  'h-9 min-h-9 rounded-lg border border-slate-300 bg-background px-3 text-sm font-medium text-primary shadow-none hover:bg-muted/60 hover:text-primary',
+  'dark:border-border',
+);
 
 export type FloatingFormDialogProps = {
   open: boolean;
@@ -33,7 +69,8 @@ const maxWidthClasses = {
  * - Dark overlay
  * - RTL-first text alignment
  * - Vertical field rhythm
- * - Primary action (dark) + outline cancel pattern
+ * - Primary action: green approve (`floatingFormApproveButtonClassName`)
+ * - Cancel/Close: outlined green label (`floatingFormCloseButtonClassName`)
  *
  * Use with the shared Form component and form primitives for consistent UX.
  */
@@ -48,13 +85,23 @@ export function FloatingFormDialog({
 }: FloatingFormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn('gap-6 overflow-hidden p-0', maxWidthClasses[maxWidth])}>
-        <DialogHeader className="space-y-2 px-6 pt-6">
+      <DialogContent
+        motionless
+        className={cn(
+          'flex max-h-[min(90dvh,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:rounded-lg',
+          maxWidthClasses[maxWidth],
+        )}
+      >
+        <DialogHeader className="shrink-0 space-y-2 px-6 pt-6">
           <DialogTitle className="text-xl font-bold tracking-tight">{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
-        <div className="max-h-[calc(100dvh-14rem)] space-y-4 overflow-y-auto px-6">{children}</div>
-        {footer ? <DialogFooter className="gap-2 border-t px-6 py-4 sm:justify-between">{footer}</DialogFooter> : null}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-4 [scrollbar-gutter:stable]">
+          {children}
+        </div>
+        {footer ? (
+          <DialogFooter className="shrink-0 gap-2 border-t px-6 py-4 sm:justify-between">{footer}</DialogFooter>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -82,21 +129,18 @@ export function FloatingFormActions({
 }: FloatingFormActionsProps) {
   return (
     <>
-      <button
-        type="submit"
-        disabled={isSubmitting || submitDisabled}
-        className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isSubmitting || submitDisabled} className={floatingFormApproveButtonClassName}>
         {submitLabel}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="outline"
         onClick={onCancel}
         disabled={isSubmitting}
-        className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        className={floatingFormCloseButtonClassName}
       >
         {cancelLabel}
-      </button>
+      </Button>
     </>
   );
 }

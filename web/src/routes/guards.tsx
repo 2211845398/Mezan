@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
+import { isOrgNotificationManager } from '@/config/notificationOrgRoles';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 
 /*
@@ -65,6 +66,20 @@ export function RequirePermission({
   if (!hasPermission) {
     // 403 is a render (no redirect) so the browser back button stays useful.
     return <Navigate to="/403" replace state={{ resource, action }} />;
+  }
+  return <>{children ?? <Outlet />}</>;
+}
+
+export function RequireOrgNotificationManager({ children }: { children?: ReactNode }) {
+  const permissionsLoaded = useAuthStore((s) => s.permissionsLoaded);
+  const roleCodes = useAuthStore((s) => s.roleCodes);
+
+  if (!permissionsLoaded) {
+    return <FullScreenSpinner />;
+  }
+
+  if (!isOrgNotificationManager(roleCodes)) {
+    return <Navigate to="/403" replace />;
   }
   return <>{children ?? <Outlet />}</>;
 }

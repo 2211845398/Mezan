@@ -52,7 +52,8 @@
     "admin_branches": "Branches",
     "admin_terminals": "Terminals",
     "admin_backups": "Backups",
-    "admin_notifications": "Notifications"
+    "admin_notifications": "Notifications",
+    "notifications_inbox": "My notifications"
   },
   "layout": {
     "app_name": "Mezan",
@@ -74,6 +75,24 @@
     "nav_section_people": "People",
     "nav_section_growth": "Growth & AI",
     "nav_section_system": "System"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "open": "Open notifications",
+    "unread_count": "{{count}} unread",
+    "mark_all_read": "Mark all read",
+    "mark_read": "Mark read",
+    "empty": "No new notifications.",
+    "inbox_title": "Notifications inbox",
+    "inbox_lead": "All messages sent to your account.",
+    "tab_all": "All",
+    "tab_unread": "Unread",
+    "read_badge": "Read",
+    "inbox_empty": "No notifications yet.",
+    "view_inbox_page": "Open full inbox",
+    "branches_hint": "Leave empty to include every branch. Selecting one or more limits recipients to those branches.",
+    "roles_hint": "Recipients are users who have any of the selected roles (union).",
+    "sending_short": "Sending…"
   },
   "theme": {
     "light": "Light",
