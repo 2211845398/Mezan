@@ -3815,6 +3815,20 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** User Email */
+            user_email?: string | null;
+            /** User Full Name */
+            user_full_name?: string | null;
+            /** User Status */
+            user_status?: string | null;
+            /** User Branch Id */
+            user_branch_id?: number | null;
+            /** User Branch Name */
+            user_branch_name?: string | null;
+            /** User Role Code */
+            user_role_code?: string | null;
+            /** User Role Name */
+            user_role_name?: string | null;
         };
         /** EmployeeProfileUpdate */
         EmployeeProfileUpdate: {
@@ -6151,11 +6165,6 @@ export interface components {
             branch_id?: number | null;
             /** Role Code */
             role_code?: string | null;
-            /**
-             * Require Onboarding
-             * @default true
-             */
-            require_onboarding: boolean;
             /** Assigned Hr User Id */
             assigned_hr_user_id?: number | null;
         };
@@ -6173,8 +6182,27 @@ export interface components {
             salary_amount?: number | string | null;
             /** Salary Currency */
             salary_currency?: string | null;
+            /** Hourly Rate */
+            hourly_rate?: number | string | null;
+            /** Bank Account */
+            bank_account?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Schedules */
+            schedules?:
+                | {
+                      /** Weekday */
+                      weekday: number;
+                      /** Start Time */
+                      start_time: string;
+                      /** End Time */
+                      end_time: string;
+                      /** Is Day Off */
+                      is_day_off?: boolean;
+                      /** Branch Id */
+                      branch_id: number;
+                  }[]
+                | null;
         };
         /** UserOnboardingRead */
         UserOnboardingRead: {
@@ -6212,6 +6240,22 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** User Email */
+            user_email?: string | null;
+            /** User Full Name */
+            user_full_name?: string | null;
+            /** User Branch Id */
+            user_branch_id?: number | null;
+            /** User Branch Name */
+            user_branch_name?: string | null;
+            /** User Role Code */
+            user_role_code?: string | null;
+            /** User Role Name */
+            user_role_name?: string | null;
+            /** Requested By Name */
+            requested_by_name?: string | null;
+            /** Assigned Hr Name */
+            assigned_hr_name?: string | null;
         };
         /** UserPermissionOverrideRead */
         UserPermissionOverrideRead: {

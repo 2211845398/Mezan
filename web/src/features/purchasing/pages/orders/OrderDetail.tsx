@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -63,7 +64,7 @@ export default function OrderDetail() {
       toast.success(t('orders.form.sent_toast'));
       void refetch();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const cancelM = useMutation({
@@ -72,7 +73,7 @@ export default function OrderDetail() {
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
       void refetch();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const trackM = useMutation({
@@ -81,7 +82,7 @@ export default function OrderDetail() {
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
       void refetch();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const closeM = useMutation({
@@ -91,7 +92,7 @@ export default function OrderDetail() {
       toast.success(t('orders.detail_page.closed_ok'));
       void refetch();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -258,8 +259,8 @@ export default function OrderDetail() {
               await trackPurchaseOrder(poId);
               await qc.invalidateQueries({ queryKey: purchasingKeys.root });
               void refetch();
-            } catch {
-              toast.error(t('errors.generic'));
+            } catch (error) {
+              notifyApiError(error, t('errors.generic'));
             }
           }
         }}

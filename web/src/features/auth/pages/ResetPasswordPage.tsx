@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
-import { isAxiosError } from '@/api/client';
+import { notifyApiError } from '@/api/errorMessages';
 import { confirmPasswordReset } from '@/features/auth/api';
 import { notify } from '@/lib/toast';
 
@@ -45,11 +45,7 @@ export default function ResetPasswordPage() {
       setDone(true);
       notify.success(t('auth:reset.success'));
     } catch (err) {
-      if (isAxiosError(err) && err.response?.status === 400) {
-        notify.error(t('auth:reset.invalid_token'));
-      } else {
-        notify.error(t('auth:errors.generic'));
-      }
+      notifyApiError(err, t('auth:reset.invalid_token'));
     }
   }
 

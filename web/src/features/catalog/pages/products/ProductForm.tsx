@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { notifyApiError } from '@/api/errorMessages';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -168,10 +169,7 @@ export function ProductFormSheet({ productId, onClose }: ProductFormSheetProps) 
       toast.success(t('products.save_ok'));
       onClose();
     },
-    onError: (e) => {
-      const msg = e instanceof Error ? e.message : t('errors.generic');
-      toast.error(msg);
-    },
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const genBar = useMutation({

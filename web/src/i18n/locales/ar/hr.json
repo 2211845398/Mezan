@@ -10,7 +10,8 @@
       "id": "المعرّف",
       "user_id": "المستخدم",
       "hire_date": "تاريخ التعيين",
-      "hourly_rate": "سعر الساعة"
+      "hourly_rate": "سعر الساعة",
+      "compensation": "الأجر"
     },
     "form": {
       "user": "رقم المستخدم",
@@ -26,8 +27,35 @@
       "schedule_hint": "علّم يوم عطلة أو أضف من القائمة.",
       "weekday": "يوم {{d}}",
       "day_off": "عطلة",
-      "add_day": "إضافة عطلة ({{d}})"
+      "workday": "يوم عمل",
+      "view": "عرض",
+      "add_day": "إضافة عطلة ({{d}})",
+      "job_title": "المسمى الوظيفي",
+      "contract_start": "بداية العقد",
+      "contract_end": "نهاية العقد (اختياري)"
     }
+  },
+  "pending": {
+    "title": "طلبات الموظفين المعلقة",
+    "subtitle": "راجع واعتمد إعداد المستخدمين الجدد لإنشاء سجلات موظفين",
+    "empty": "لا توجد طلبات معلقة",
+    "not_found": "طلب الضبط غير موجود",
+    "review": "مراجعة",
+    "detail_title": "إكمال ضبط الموظف",
+    "detail_subtitle": "أدخل تفاصيل التوظيف لـ {{name}}",
+    "user_info": "معلومات المستخدم",
+    "employment_details": "تفاصيل التوظيف",
+    "requested_by": "تم الطلب بواسطة",
+    "assigned_hr": "المراجع المعين",
+    "created": "تاريخ الإنشاء",
+    "complete": "إكمال الضبط",
+    "completed_success": "تم إكمال ضبط الموظف بنجاح",
+    "notes": "ملاحظات (اختياري)",
+    "schedule_hint": "قم بإعداد جدول العمل الأسبوعي لهذا الموظف",
+    "no_schedules": "لم يتم إعداد الجدول بعد. انقر أدناه لإضافة أيام.",
+    "add_schedule": "إضافة يوم للجدول",
+    "error_salary_or_hourly": "يرجى إدخال إما الراتب الأساسي أو سعر الساعة",
+    "error_contract_start": "تاريخ بداية العقد مطلوب"
   },
   "attendance": {
     "title": "الحضور",
@@ -42,8 +70,17 @@
       "employee": "الموظف",
       "branch": "الفرع",
       "in": "دخول",
-      "out": "خروج"
-    }
+      "out": "خروج",
+      "date": "التاريخ",
+      "duration": "المدة"
+    },
+    "open": "مفتوح",
+    "total_records": "إجمالي السجلات",
+    "completed": "مكتمل",
+    "total_hours": "إجمالي الساعات",
+    "last_7_days": "آخر 7 أيام",
+    "last_30_days": "آخر 30 يومًا",
+    "empty": "لا سجلات حضور"
   },
   "timesheet": {
     "title": "السجل الزمني",
@@ -61,13 +98,22 @@
     "approve": "قبول",
     "filter_status": "الحالة",
     "created": "تم إنشاء طلب الإجازة",
+    "empty": "لا توجد طلبات إجازة",
+    "stats": {
+      "total": "الإجمالي",
+      "approved": "المعتمد",
+      "rejected": "المرفوض"
+    },
     "col": {
       "id": "المعرّف",
       "employee": "الموظف",
       "type": "النوع",
       "status": "الحالة",
       "from": "من",
-      "to": "إلى"
+      "to": "إلى",
+      "days": "الأيام",
+      "reason": "السبب",
+      "reviewed_by": "تمت المراجعة بواسطة"
     },
     "st": {
       "pending": "معلّق",
@@ -97,5 +143,49 @@
       "severity": "الشدة",
       "rationale": "التعليل"
     }
+  },
+  "tracking": {
+    "title": "متابعة الموظف",
+    "performance": "الأداء",
+    "attendance": "الحضور",
+    "leave": "الإجازات",
+    "schedule": "الجدول"
+  },
+  "performance": {
+    "summary_30_days": "ملخص 30 يومًا",
+    "total_shifts": "إجمالي الورديات",
+    "completed": "مكتمل",
+    "total_hours": "إجمالي الساعات",
+    "avg_per_shift": "متوسط لكل وردية",
+    "overtime_days": "أيام العمل الإضافي",
+    "overtime_warning": "تتجاوز 10 ساعات",
+    "leave_requests": "طلبات الإجازة",
+    "pending": "معلّق",
+    "open_shifts_alert": "تم رصد ورديات مفتوحة",
+    "open_shifts_count": "{{count}} وردية بدون تسجيل خروج",
+    "recent_activity": "النشاط الأخير",
+    "no_activity": "لا نشاط حديث",
+    "hours": "الساعات",
+    "missing_clock_out": "تسجيل خروج مفقود",
+    "leave_summary": "ملخص الإجازات",
+    "no_leave": "لا طلبات إجازة"
+  },
+  "schedule": {
+    "current": "الجدول الحالي",
+    "add_new": "إضافة بند جدول",
+    "col": {
+      "day": "اليوم",
+      "branch": "الفرع",
+      "status": "الحالة",
+      "hours": "الساعات"
+    },
+    "start_time": "وقت البداية",
+    "end_time": "وقت النهاية",
+    "add": "إضافة",
+    "added": "تمت إضافة الجدول",
+    "updated": "تم تحديث الجدول",
+    "mark_workday": "تعليم كيوم عمل",
+    "mark_day_off": "تعليم كيوم عطلة",
+    "empty": "لم يتم إعداد الجدول بعد"
   }
 }

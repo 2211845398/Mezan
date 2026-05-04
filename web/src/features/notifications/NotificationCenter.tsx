@@ -100,7 +100,7 @@ export function NotificationCenter() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => void markRead.mutateAsync(item.id)}
+                    onClick={() => markRead.mutate(item.id)}
                     disabled={markRead.isPending}
                   >
                     {t('notifications.mark_read')}

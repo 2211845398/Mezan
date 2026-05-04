@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ export default function FiscalPeriodsList() {
       toast.success(t('fiscal.closed_ok'));
       setClosePk(null);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
   const mOpen = useMutation({
     mutationFn: (pk: string) => updateFiscalPeriod(pk, { status: 'open' }),
@@ -37,7 +38,7 @@ export default function FiscalPeriodsList() {
       toast.success(t('fiscal.reopened_ok'));
       setOpenPk(null);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const columns = useMemo(

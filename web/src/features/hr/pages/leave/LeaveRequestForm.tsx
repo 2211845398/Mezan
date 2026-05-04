@@ -1,11 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { getApiErrorMessage } from '@/api/errorMessages';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -38,6 +40,7 @@ export default function LeaveRequestForm() {
   const qc = useQueryClient();
   const canCreate = usePermission('employees', 'create');
   const { data: emps = [] } = useQuery(employeesQueryOptions());
+  const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -63,7 +66,6 @@ export default function LeaveRequestForm() {
       toast.success(t('leave.created'));
       navigate('/hr/leave');
     },
-    onError: () => toast.error(t('hr_errors.generic')),
   });
 
   if (!canCreate) {
@@ -76,7 +78,17 @@ export default function LeaveRequestForm() {
       <Button type="button" variant="outline" asChild>
         <Link to="/hr/leave">{t('leave.title')}</Link>
       </Button>
-      <form className="grid gap-3" onSubmit={form.handleSubmit((v) => save.mutate(v))}>
+      <form
+        className="grid gap-3"
+        onSubmit={form.handleSubmit(async (v) => {
+          setFormError(null);
+          try {
+            await save.mutateAsync(v);
+          } catch (error) {
+            setFormError(getApiErrorMessage(error, t('hr_errors.generic')));
+          }
+        })}
+      >
         <div className="grid gap-1">
           <Label>{t('leave.form.employee')}</Label>
           <Select
@@ -123,6 +135,11 @@ export default function LeaveRequestForm() {
           <Label>{t('leave.form.reason')}</Label>
           <Textarea rows={2} {...form.register('reason')} />
         </div>
+        {formError ? (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {formError}
+          </p>
+        ) : null}
         <Button type="submit" disabled={save.isPending}>
           {t('leave.form.submit')}
         </Button>

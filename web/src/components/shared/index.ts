@@ -10,6 +10,7 @@ export {
   AsyncSelect,
   DateField,
   Form,
+  handleFormApiError,
   MoneyInput,
   Select,
   UnsavedChangesPrompt,
@@ -54,5 +55,6 @@ export { Can } from './Can';
 // Other shared components
 export { default as FeatureStub } from './FeatureStub';
 export { FileDrop } from './FileDrop';
+export { toFormDataWithFile } from './fileDropHelpers';
 export { OfflineBadge } from './OfflineBadge';
 export { ThemeToggle } from './ThemeToggle';

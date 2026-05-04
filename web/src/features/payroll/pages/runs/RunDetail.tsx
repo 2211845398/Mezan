@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -42,7 +43,7 @@ export default function RunDetail() {
       toast.success(t('actions.approved_ok'));
       void refetch();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const recalc = useMutation({
@@ -52,7 +53,7 @@ export default function RunDetail() {
       toast.success(t('actions.recalc_ok'));
       void refetch();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const exportCsv = useMutation({
@@ -65,7 +66,7 @@ export default function RunDetail() {
       a.click();
       URL.revokeObjectURL(url);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   if (Number.isNaN(pid)) return null;

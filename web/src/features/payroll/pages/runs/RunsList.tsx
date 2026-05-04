@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
@@ -53,7 +54,7 @@ export default function RunsList() {
       await qc.invalidateQueries({ queryKey: payrollKeys.root });
       toast.success(t('actions.gen_ok'));
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const columns = useMemo(

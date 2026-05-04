@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
+import { applyApiErrorToForm, notifyApiError } from '@/api/errorMessages';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -12,7 +13,7 @@ import {
 } from '@/components/shared/FloatingFormDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -52,6 +53,7 @@ const statusOptions = ['active', 'deactivated', 'suspended', 'banned', 'pending_
 
 export default function UserEdit() {
   const { t, i18n } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const { id } = useParams();
   const userId = Number(id);
   const { data: user, isLoading, isError } = useUser(userId, { enabled: Number.isFinite(userId) });
@@ -65,6 +67,7 @@ export default function UserEdit() {
   const canUpdate = usePermission('users', 'update');
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [addRoleId, setAddRoleId] = useState<string>('');
+  const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -101,13 +104,18 @@ export default function UserEdit() {
         <Form {...form}>
           <form
             className="space-y-5"
-            onSubmit={form.handleSubmit((v) =>
-              update.mutateAsync({
-                full_name: v.full_name == null ? null : v.full_name,
-                status: v.status,
-                branch_id: v.branch_id == null ? null : v.branch_id,
-              }),
-            )}
+            onSubmit={form.handleSubmit(async (v) => {
+              setFormError(null);
+              try {
+                await update.mutateAsync({
+                  full_name: v.full_name == null ? null : v.full_name,
+                  status: v.status,
+                  branch_id: v.branch_id == null ? null : v.branch_id,
+                });
+              } catch (error) {
+                setFormError(applyApiErrorToForm(form, error) ?? tc('errors.validation'));
+              }
+            })}
           >
             <div className="grid gap-5 sm:grid-cols-2">
               {/* Email - Read only, dark gray, paste only */}
@@ -136,6 +144,7 @@ export default function UserEdit() {
                     <FormControl>
                       <Input {...field} value={field.value ?? ''} disabled={!canUpdate} />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -160,6 +169,7 @@ export default function UserEdit() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -176,10 +186,16 @@ export default function UserEdit() {
                       allowClear
                       disabled={!canUpdate}
                     />
+                    <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+            {formError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {formError}
+              </p>
+            ) : null}
 
             {/* Roles Section */}
             <div className="border-border space-y-3 border-t pt-5">
@@ -212,7 +228,10 @@ export default function UserEdit() {
                                 role_id: r.role_id,
                                 branch_id: r.branch_id,
                               };
-                              void removeRole.mutateAsync(body).then(() => refetchRoles());
+                              void removeRole
+                                .mutateAsync(body)
+                                .then(() => refetchRoles())
+                                .catch((error) => notifyApiError(error, tc('errors.generic')));
                             }}
                           >
                             {t('actions.remove')}
@@ -237,9 +256,13 @@ export default function UserEdit() {
                     className={floatingFormApproveButtonClassName}
                     onClick={async () => {
                       if (!addRoleId) return;
-                      await addRole.mutateAsync({ role_id: Number(addRoleId), branch_id: null });
-                      setAddRoleId('');
-                      await refetchRoles();
+                      try {
+                        await addRole.mutateAsync({ role_id: Number(addRoleId), branch_id: null });
+                        setAddRoleId('');
+                        await refetchRoles();
+                      } catch (error) {
+                        notifyApiError(error, tc('errors.generic'));
+                      }
                     }}
                   >
                     {t('actions.add')}
@@ -259,7 +282,9 @@ export default function UserEdit() {
                   type="button"
                   variant="outline"
                   className={floatingFormCloseButtonClassName}
-                  onClick={() => void requestReset.mutateAsync(userId)}
+                  onClick={() =>
+                    void requestReset.mutateAsync(userId).catch((error) => notifyApiError(error, tc('errors.generic')))
+                  }
                 >
                   {t('users.reset_password')}
                 </Button>
@@ -289,8 +314,12 @@ export default function UserEdit() {
         confirmKeyword="DELETE"
         isLoading={update.isPending}
         onConfirm={async () => {
-          await update.mutateAsync({ status: 'deactivated' });
-          setDeactivateOpen(false);
+          try {
+            await update.mutateAsync({ status: 'deactivated' });
+            setDeactivateOpen(false);
+          } catch (error) {
+            notifyApiError(error, tc('errors.generic'));
+          }
         }}
       />
     </div>

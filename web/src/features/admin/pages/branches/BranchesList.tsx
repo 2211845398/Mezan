@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import {
@@ -88,7 +89,9 @@ export default function BranchesList() {
                     type="button"
                     variant="default"
                     className={floatingFormApproveButtonSmClassName}
-                    onClick={() => void unarchive.mutateAsync(b.id)}
+                    onClick={() =>
+                      void unarchive.mutateAsync(b.id).catch((error) => notifyApiError(error, t('errors.generic', { ns: 'common' })))
+                    }
                     disabled={unarchive.isPending}
                   >
                     {t('branches.unarchive')}
@@ -145,21 +148,25 @@ export default function BranchesList() {
         branch={formMode === 'edit' ? selected : null}
         isSubmitting={createB.isPending || updateB.isPending}
         onSubmit={async (v) => {
-          if (formMode === 'create') {
-            await createB.mutateAsync({
-              name: v.name,
-              code: v.code,
-              timezone: v.timezone,
-              address: v.address == null ? null : v.address,
-            });
-            setFormOpen(false);
-          } else if (selected) {
-            await updateB.mutateAsync({
-              name: v.name,
-              address: v.address == null ? null : v.address,
-              timezone: v.timezone,
-            });
-            setFormOpen(false);
+          try {
+            if (formMode === 'create') {
+              await createB.mutateAsync({
+                name: v.name,
+                code: v.code,
+                timezone: v.timezone,
+                address: v.address == null ? null : v.address,
+              });
+              setFormOpen(false);
+            } else if (selected) {
+              await updateB.mutateAsync({
+                name: v.name,
+                address: v.address == null ? null : v.address,
+                timezone: v.timezone,
+              });
+              setFormOpen(false);
+            }
+          } catch (error) {
+            notifyApiError(error, t('errors.generic', { ns: 'common' }));
           }
         }}
       />
@@ -172,8 +179,12 @@ export default function BranchesList() {
         isLoading={archive.isPending}
         onConfirm={async () => {
           if (!archiving) return;
-          await archive.mutateAsync({ branchId: archiving.id });
-          setArchiving(null);
+          try {
+            await archive.mutateAsync({ branchId: archiving.id });
+            setArchiving(null);
+          } catch (error) {
+            notifyApiError(error, t('errors.generic', { ns: 'common' }));
+          }
         }}
       />
     </div>

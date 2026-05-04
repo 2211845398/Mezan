@@ -27,12 +27,12 @@
     "not_found": "المستخدم غير موجود",
     "password": "كلمة المرور الأولية (اختياري)",
     "role_code": "رمز الدور",
-    "require_onboarding": "يتطلب ضبط HR",
-    "assigned_hr_id": "مستخدم HR المعيّن",
-    "assigned_hr_help": "اختياري. تُعرض المستخدمون الذين لديهم دور المالك أو المدير أو مسؤول IT أو مدير الموارد البشرية أو أمين صندوق.",
+    "assigned_hr_id": "تمت مراجعته من قبل",
     "hr_user_pick": "اختر مستخدم HR",
     "hr_assignee_empty": "لا يوجد مستخدمون مؤهلون. عيّن أحد أدوار HR/الإدارة أولاً.",
     "created_ok": "تم إنشاء المستخدم رقم {{id}}.",
+    "email_invalid": "أدخل بريدًا إلكترونيًا صالحًا.",
+    "password_too_short": "يجب ألا تقل كلمة المرور عن 8 أحرف.",
     "onboarding_status": "الضبط",
     "open_user": "فتح بيانات المستخدم",
     "roles": "الأدوار",
@@ -195,8 +195,27 @@
     "history_lead": "راجع الرسائل المرسلة وتشغيلات الروتين وحالة التسليم.",
     "history_empty": "لم يتم إرسال أي إشعارات بعد.",
     "delivery_history": "الإشعارات المرسلة",
+    "clear_all": "مسح",
     "routine_runs": "تشغيلات الروتين",
     "recipient": "المستخدم",
+    "target_group": {
+      "joiner": " و ",
+      "all_active_users": "جميع المستخدمين النشطين",
+      "all_active_users_one_branch": "جميع المستخدمين النشطين · فرع #{{id}}",
+      "all_active_users_n_branches": "جميع المستخدمين النشطين · {{count}} فروع",
+      "all_active_one_branch": "جميع المستخدمين النشطين · فرع #{{id}}",
+      "role_at_branch": "{{role}} · فرع #{{id}}",
+      "roles_one_branch": "{{roles}} · فرع #{{id}}",
+      "roles_n_branches": "{{roles}} · {{count}} فروع",
+      "fallback": "المستلمون (راجع القالب)"
+    },
+    "target_group_kind": {
+      "warehouse_and_floor": "مدير المستودع وطاقم الأرضية",
+      "payroll_approvers": "مدير الموارد البشرية والمحاسب والمالك",
+      "it_and_admin": "مسؤول تقنية المعلومات ومسؤول النظام",
+      "shift_operator": "مسؤول الوردية"
+    },
+    "status_aggregate_sep": " · ",
     "status": "الحالة",
     "created_at": "تاريخ الإنشاء",
     "schedule": "الجدول",
@@ -238,7 +257,8 @@
       "title_tpl": "عنوان القالب",
       "started": "البداية",
       "finished": "النهاية",
-      "enqueued": "التوصيلات"
+      "enqueued": "التوصيلات",
+      "target_group": "المجموعة المستهدفة"
     }
   }
 }

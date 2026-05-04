@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
@@ -222,7 +223,7 @@ export default function OrderForm() {
       if (snap?.prev && !Number.isNaN(poId)) {
         qc.setQueryData(purchasingKeys.order(poId), snap.prev);
       }
-      toast.error(t('errors.generic'));
+      notifyApiError(_err, t('errors.generic'));
     },
     onSuccess: async (row) => {
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
@@ -259,7 +260,7 @@ export default function OrderForm() {
       toast.success(t('orders.form.sent_toast'));
       navigate(`/purchasing/orders/${poId}`);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   return (

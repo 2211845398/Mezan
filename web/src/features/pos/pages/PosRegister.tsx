@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 
+import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/features/auth/stores/authStore';
@@ -87,7 +88,7 @@ function RegisterSession({
       setProductPick(undefined);
       setLineQty(1);
     } catch (e) {
-      notify.error(e instanceof Error ? e.message : String(e));
+      notify.error(getApiErrorMessage(e));
     }
   }
 
@@ -110,7 +111,9 @@ function RegisterSession({
           editable={editable}
           isLocked={isLocked}
           onQtyChange={(productId, qty) => {
-            void updateQty.mutateAsync({ product_id: productId, qty });
+            void updateQty
+              .mutateAsync({ product_id: productId, qty })
+              .catch((error) => notifyApiError(error));
           }}
           currency={POS_CURRENCY}
         />
@@ -127,11 +130,15 @@ function RegisterSession({
           editable={editable}
           isLocked={isLocked}
           onApplyDiscount={async (code, amount) => {
-            await applyDisc.mutateAsync({ code, amount });
+            try {
+              await applyDisc.mutateAsync({ code, amount });
+            } catch (error) {
+              notifyApiError(error);
+            }
           }}
-          onPark={() => park.mutateAsync()}
-          onResume={() => resume.mutateAsync()}
-          onLock={() => lock.mutateAsync()}
+          onPark={() => park.mutateAsync().catch((error) => notifyApiError(error))}
+          onResume={() => resume.mutateAsync().catch((error) => notifyApiError(error))}
+          onLock={() => lock.mutateAsync().catch((error) => notifyApiError(error))}
           onCheckout={() => setTenderOpen(true)}
           onNewSale={onNewSale}
         />

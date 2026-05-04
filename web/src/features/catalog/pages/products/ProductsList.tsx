@@ -3,6 +3,7 @@ import { Archive, Pencil, RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -212,8 +213,12 @@ export default function ProductsList() {
         isLoading={archiveProduct.isPending}
         onConfirm={async () => {
           if (!archiveTarget) return;
-          await archiveProduct.mutateAsync(archiveTarget);
-          setArchiveTarget(null);
+          try {
+            await archiveProduct.mutateAsync(archiveTarget);
+            setArchiveTarget(null);
+          } catch (error) {
+            notifyApiError(error, t('errors.generic'));
+          }
         }}
       />
     </div>

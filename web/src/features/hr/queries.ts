@@ -68,3 +68,6 @@ export function leaveListQueryOptions(params: { status?: string; employee_profil
     queryFn: () => api.listLeaveRequestsGlobal({ ...params, limit: 200, offset: 0 }),
   });
 }
+
+// Re-export API functions for direct use
+export { createSchedule, updateSchedule } from './api';

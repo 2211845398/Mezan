@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -109,7 +110,7 @@ export default function GoodsReceiptForm({
       onOpenChange(false);
       await onPosted?.();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   return (

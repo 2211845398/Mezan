@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,9 +42,9 @@ export default function AnomaliesDashboard() {
       setRes(r);
       runKeyRef.current = null;
     },
-    onError: () => {
+    onError: (error) => {
       runKeyRef.current = null;
-      toast.error(t('hr_errors.generic'));
+      notifyApiError(error, t('hr_errors.generic'));
     },
   });
 

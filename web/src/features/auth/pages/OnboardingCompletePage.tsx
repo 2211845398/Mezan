@@ -6,9 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
-import { isAxiosError } from '@/api/client';
+import { notifyApiError } from '@/api/errorMessages';
 import { completeCustomerOnboarding } from '@/features/auth/api';
-import { notify } from '@/lib/toast';
 
 /**
  * Public onboarding page — no authentication required. Consumes the existing
@@ -43,11 +42,7 @@ export default function OnboardingCompletePage() {
       await completeCustomerOnboarding(body);
       setDone(true);
     } catch (err) {
-      if (isAxiosError(err) && err.response?.status === 400) {
-        notify.error(t('auth:onboarding.invalid_token'));
-      } else {
-        notify.error(t('auth:errors.generic'));
-      }
+      notifyApiError(err, t('auth:onboarding.invalid_token'));
     }
   }
 

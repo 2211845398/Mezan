@@ -27,12 +27,12 @@
     "not_found": "User not found",
     "password": "Initial password (optional)",
     "role_code": "Role code",
-    "require_onboarding": "Require HR onboarding",
-    "assigned_hr_id": "Assigned HR user",
-    "assigned_hr_help": "Optional. Listed users include those with Owner, Admin, IT Admin, HR Manager, or Cashier.",
+    "assigned_hr_id": "Reviewed by",
     "hr_user_pick": "Choose HR user",
     "hr_assignee_empty": "No eligible users. Assign an HR/Admin role first.",
     "created_ok": "User #{{id}} has been created.",
+    "email_invalid": "Enter a valid email address.",
+    "password_too_short": "Password must be at least 8 characters.",
     "onboarding_status": "Onboarding",
     "open_user": "Open user",
     "roles": "Roles",
@@ -213,8 +213,27 @@
     "history_lead": "Review sent messages, routine runs, and delivery status.",
     "history_empty": "No notifications have been sent yet.",
     "delivery_history": "Sent notifications",
+    "clear_all": "Clear",
     "routine_runs": "Routine runs",
     "recipient": "User",
+    "target_group": {
+      "joiner": " & ",
+      "all_active_users": "All active users",
+      "all_active_users_one_branch": "All active users · branch #{{id}}",
+      "all_active_users_n_branches": "All active users · {{count}} branches",
+      "all_active_one_branch": "All active users · branch #{{id}}",
+      "role_at_branch": "{{role}} · branch #{{id}}",
+      "roles_one_branch": "{{roles}} · branch #{{id}}",
+      "roles_n_branches": "{{roles}} · {{count}} branches",
+      "fallback": "Recipients (see template)"
+    },
+    "target_group_kind": {
+      "warehouse_and_floor": "Warehouse manager & floor staff",
+      "payroll_approvers": "HR manager, accountant & owner",
+      "it_and_admin": "IT administrator & system administrator",
+      "shift_operator": "Shift operator"
+    },
+    "status_aggregate_sep": " · ",
     "status": "Status",
     "created_at": "Created",
     "schedule": "Schedule",
@@ -256,7 +275,8 @@
       "title_tpl": "Title template",
       "started": "Started",
       "finished": "Finished",
-      "enqueued": "Deliveries enqueued"
+      "enqueued": "Deliveries enqueued",
+      "target_group": "Target group"
     }
   }
 }

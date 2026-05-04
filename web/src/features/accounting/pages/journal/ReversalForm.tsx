@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +41,7 @@ export default function ReversalForm() {
       toast.success(t('reversal.ok'));
       void nav(`/accounting/journal/${r.journal_entry_id}`);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   if (!can) {

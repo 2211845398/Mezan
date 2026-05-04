@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import {
@@ -80,7 +81,7 @@ export default function ApApplyPaymentDrawer({ open, onOpenChange, items }: Prop
       toast.success(t('ap.apply_ok'));
       onOpenChange(false);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   return (

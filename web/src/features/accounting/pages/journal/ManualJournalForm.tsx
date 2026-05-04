@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
@@ -83,7 +84,7 @@ export default function ManualJournalForm() {
       toast.success(t('manual.saved'));
       void nav(`/accounting/journal/${r.id}`);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   if (!can) {

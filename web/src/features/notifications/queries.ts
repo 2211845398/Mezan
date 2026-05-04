@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notifyApiError } from '@/api/errorMessages';
+
 import {
+  clearReadNotifications,
   getMyUnreadNotificationCount,
   listMyNotifications,
   markAllNotificationsRead,
@@ -39,6 +42,7 @@ export function useMarkNotificationRead() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: notificationKeys.all });
     },
+    onError: (error) => notifyApiError(error),
   });
 }
 
@@ -49,5 +53,17 @@ export function useMarkAllNotificationsRead() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: notificationKeys.all });
     },
+    onError: (error) => notifyApiError(error),
+  });
+}
+
+export function useClearReadNotifications() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: clearReadNotifications,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+    onError: (error) => notifyApiError(error),
   });
 }

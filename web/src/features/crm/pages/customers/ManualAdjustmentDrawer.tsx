@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -68,7 +69,7 @@ export default function ManualAdjustmentDrawer({ open, onOpenChange, customerId 
       toast.success(t('loyalty.adjust_ok'));
       onOpenChange(false);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   return (

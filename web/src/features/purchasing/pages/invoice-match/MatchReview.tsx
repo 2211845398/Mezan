@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -59,7 +60,7 @@ export default function MatchReview() {
       setLineConfirmed(initConf);
       applyIdempotencyRef.current = null;
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const approveAll = useMutation({
@@ -83,7 +84,7 @@ export default function MatchReview() {
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
       void refetchScan();
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const rows: LineMatch[] = suggestions?.line_matches ?? [];

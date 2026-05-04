@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { fieldErrorsFromApiError, getApiErrorMessage } from '@/api/errorMessages';
 import {
   AuthenticationError,
   ConflictError,
@@ -107,5 +108,82 @@ describe('mapResponseToApiError', () => {
       null,
     );
     expect(err).toBeInstanceOf(UnexpectedError);
+  });
+});
+
+describe('API error message extraction', () => {
+  it('prefers duplicate email detail over generic request failed message', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 400,
+        data: {
+          error: {
+            code: 'bad_request',
+            message: 'Request failed',
+            details: { detail: 'Email already exists' },
+          },
+        },
+      },
+      null,
+    );
+
+    expect(getApiErrorMessage(err)).toBe('Email already exists');
+  });
+
+  it('extracts FastAPI field validation messages and paths', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'Request failed',
+            details: {
+              errors: [
+                {
+                  loc: ['body', 'email'],
+                  msg: "value is not a valid email address: invalid ','",
+                  type: 'value_error',
+                },
+              ],
+            },
+          },
+        },
+      },
+      null,
+    );
+
+    expect(getApiErrorMessage(err)).toContain('value is not a valid email address');
+    expect(fieldErrorsFromApiError(err).email).toContain('value is not a valid email address');
+  });
+
+  it('falls back to a useful validation message for weak password errors', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'Request failed',
+            details: {
+              errors: [{ loc: ['body', 'password'], msg: 'Password is too weak', type: 'value_error' }],
+            },
+          },
+        },
+      },
+      null,
+    );
+
+    expect(getApiErrorMessage(err)).toBe('Password is too weak');
+    expect(fieldErrorsFromApiError(err).password).toBe('Password is too weak');
+  });
+
+  it('uses the fallback for server errors without actionable details', () => {
+    const err = mapResponseToApiError(
+      { status: 500, data: { error: { code: 'server_error', message: 'Internal Server Error' } } },
+      null,
+    );
+
+    expect(getApiErrorMessage(err, 'Please try again.')).toBe('Please try again.');
   });
 });

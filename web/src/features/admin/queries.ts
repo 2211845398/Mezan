@@ -7,6 +7,8 @@ import {
   archiveBranch,
   authorizeTerminal,
   broadcastNotification,
+  clearAllNotificationDeliveries,
+  completeOnboarding,
   createBranch,
   createTerminal,
   createUser,
@@ -22,6 +24,7 @@ import {
   listNotificationRuns,
   listNotificationSchedules,
   listNotificationTemplates,
+  listPendingOnboarding,
   listPermissionOverrides,
   listPermissions,
   listRoles,
@@ -402,6 +405,17 @@ export function useNotificationDeliveries() {
   });
 }
 
+export function useClearAllNotificationDeliveries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: clearAllNotificationDeliveries,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: adminKeys.notificationDeliveries() });
+      await qc.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+  });
+}
+
 export function useToggleScheduleActive() {
   const qc = useQueryClient();
   return useMutation({
@@ -417,6 +431,34 @@ export function useToggleScheduleActive() {
       }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: adminKeys.notificationSchedules() });
+    },
+  });
+}
+
+// Pending Onboarding queries and mutations
+export function usePendingOnboarding(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: adminKeys.onboardingList(null),
+    queryFn: listPendingOnboarding,
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useCompleteOnboarding() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      onboardingId,
+      body,
+    }: {
+      onboardingId: number;
+      body: Parameters<typeof completeOnboarding>[1];
+    }) => completeOnboarding(onboardingId, body),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: adminKeys.onboardingList(null) });
+      // Also invalidate employees list as a new employee was created
+      await qc.invalidateQueries({ queryKey: ['hr'] });
+      await qc.invalidateQueries({ queryKey: adminKeys.userList() });
     },
   });
 }

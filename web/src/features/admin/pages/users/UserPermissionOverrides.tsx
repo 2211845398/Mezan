@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
+import { notifyApiError } from '@/api/errorMessages';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -10,6 +11,7 @@ import {
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -104,6 +106,7 @@ function buildMergedOverridesForPreview(
 
 export default function UserPermissionOverrides() {
   const { t, i18n } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const { id } = useParams();
   const userId = Number(id);
   const qc = useQueryClient();
@@ -274,53 +277,35 @@ export default function UserPermissionOverrides() {
             const permByAction = new Map(perms.map((p) => [p.action, p]));
 
             return (
-              <div key={resource} className="space-y-2">
-                <p className="text-muted-foreground border-border border-b pb-2 ps-1 text-sm font-medium">{resource}</p>
-                <div className="overflow-x-auto rounded-md border">
-                  <Table dir={i18n.dir()}>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="bg-muted/40 min-w-[160px] whitespace-nowrap px-4 text-start">
-                          {t('users.perm_module')}
-                        </TableHead>
-                        {actions.map((action) => (
-                          <TableHead key={action} className="bg-muted/40 min-w-[84px] text-center font-mono text-xs">
-                            {action}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell className="px-4 align-middle font-medium text-start">{resource}</TableCell>
-                        {actions.map((action) => {
-                          const perm = permByAction.get(action);
-                          if (!perm) {
-                            return (
-                              <TableCell key={action} className="text-center text-muted-foreground">
-                                —
-                              </TableCell>
-                            );
-                          }
-                          const key = `${perm.resource}:${perm.action}` as PermKey;
-                          const checked = previewEffective.has(key);
-                          return (
-                            <TableCell key={action} className="text-center">
-                              <div className="flex justify-center">
-                                <Checkbox
-                                  checked={checked}
-                                  disabled={!canUpdate || busy}
-                                  onCheckedChange={() => handleToggle(perm)}
-                                  aria-label={`${resource}:${action}`}
-                                />
-                              </div>
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+              <div key={resource} className="space-y-3">
+                <div className="border-b border-border pb-3">
+                  <p className="text-muted-foreground text-sm font-medium">{resource}</p>
                 </div>
+                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {actions.map((action) => {
+                    const perm = permByAction.get(action);
+                    if (!perm) return null;
+                    const key = `${perm.resource}:${perm.action}` as PermKey;
+                    const checked = previewEffective.has(key);
+                    return (
+                      <li
+                        key={action}
+                        className="flex items-center gap-2 rounded-md border p-2 text-sm"
+                      >
+                        <Checkbox
+                          id={`perm-${perm.id}`}
+                          checked={checked}
+                          disabled={!canUpdate || busy}
+                          onCheckedChange={() => handleToggle(perm)}
+                          aria-label={`${resource}:${action}`}
+                        />
+                        <Label htmlFor={`perm-${perm.id}`} className="cursor-pointer font-normal">
+                          {action}
+                        </Label>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             );
           })}
@@ -362,9 +347,13 @@ export default function UserPermissionOverrides() {
                   canUpdate={canUpdate}
                   busy={busy}
                   onRemove={async () => {
-                    await del.mutateAsync(o.id);
-                    await refetchOverrides();
-                    await refetchUserRoles();
+                    try {
+                      await del.mutateAsync(o.id);
+                      await refetchOverrides();
+                      await refetchUserRoles();
+                    } catch (error) {
+                      notifyApiError(error, tc('errors.generic'));
+                    }
                   }}
                 />
               ))}

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { isAxiosError } from '@/api/client';
+import { applyApiErrorToForm, notifyApiError } from '@/api/errorMessages';
 import type { ProfileUpdate } from '@/api/types';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -90,14 +90,6 @@ function buildPasswordSchema(t: (k: string) => string) {
 
 type ProfileFormValues = z.infer<ReturnType<typeof buildProfileSchema>>;
 type PasswordFormValues = z.infer<ReturnType<typeof buildPasswordSchema>>;
-
-function apiErrorDetail(err: unknown): string | undefined {
-  if (isAxiosError(err)) {
-    const d = err.response?.data as { detail?: unknown } | undefined;
-    if (typeof d?.detail === 'string') return d.detail;
-  }
-  return undefined;
-}
 
 export default function ProfilePage() {
   const { t } = useTranslation('auth');
@@ -191,7 +183,8 @@ export default function ProfilePage() {
         toast.success(t('profile.saved'));
       },
       onError: (err) => {
-        toast.error(apiErrorDetail(err) ?? t('errors.generic'));
+        const message = applyApiErrorToForm(profileForm, err);
+        if (message) toast.error(message);
       },
     });
   }
@@ -218,7 +211,8 @@ export default function ProfilePage() {
           toast.success(t('profile.password_updated'));
         },
         onError: (err) => {
-          toast.error(apiErrorDetail(err) ?? t('errors.generic'));
+          const message = applyApiErrorToForm(passwordForm, err);
+          if (message) toast.error(message);
         },
       },
     );
@@ -243,7 +237,7 @@ export default function ProfilePage() {
       onError: (err) => {
         URL.revokeObjectURL(preview);
         setLocalPreview(null);
-        toast.error(apiErrorDetail(err) ?? t('errors.generic'));
+        notifyApiError(err, t('errors.generic'));
       },
     });
   }

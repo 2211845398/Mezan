@@ -3,8 +3,8 @@ import { Pencil } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
@@ -49,9 +49,9 @@ export default function DiscountsList() {
       );
       return { prev };
     },
-    onError: (_e, _r, ctx) => {
+    onError: (error, _r, ctx) => {
       if (ctx?.prev) qc.setQueryData(crmKeys.discounts({ limit: 100, offset: 0 }), ctx.prev);
-      toast.error(t('errors.generic'));
+      notifyApiError(error, t('errors.generic'));
     },
     onSettled: async () => {
       await qc.invalidateQueries({ queryKey: crmKeys.root });

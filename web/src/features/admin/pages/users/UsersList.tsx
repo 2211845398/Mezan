@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import {
@@ -68,13 +69,13 @@ export default function UsersList() {
   const qc = useQueryClient();
 
   // Create user form state
-  const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [branchId, setBranchId] = useState<number | null>(null);
   const [roleCode, setRoleCode] = useState('');
-  const [requireOnboarding, setRequireOnboarding] = useState(true);
   const [assignedHrUserId, setAssignedHrUserId] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const setUserStatus = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => apiUpdateUser(id, { status }),
@@ -87,25 +88,39 @@ export default function UsersList() {
   const requestReset = useRequestPasswordReset();
 
   const handleCreateSubmit = async () => {
-    await createUser.mutateAsync({
-      email: email.trim(),
-      full_name: fullName.trim(),
-      password: password.trim() || null,
-      branch_id: branchId,
-      role_code: roleCode.trim() || null,
-      require_onboarding: requireOnboarding,
-      assigned_hr_user_id: assignedHrUserId.trim() ? Number(assignedHrUserId) : null,
-      status: requireOnboarding ? 'pending_onboarding' : 'active',
-    });
-    setCreateOpen(false);
-    // Reset form
-    setEmail('');
-    setFullName('');
-    setPassword('');
-    setBranchId(null);
-    setRoleCode('');
-    setRequireOnboarding(true);
-    setAssignedHrUserId('');
+    setCreateError(null);
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setCreateError(t('users.email_invalid'));
+      return;
+    }
+    if (trimmedPassword && trimmedPassword.length < 8) {
+      setCreateError(t('users.password_too_short'));
+      return;
+    }
+
+    try {
+      await createUser.mutateAsync({
+        email: trimmedEmail,
+        full_name: fullName.trim(),
+        password: trimmedPassword || null,
+        branch_id: branchId,
+        role_code: roleCode.trim() || null,
+        assigned_hr_user_id: assignedHrUserId.trim() ? Number(assignedHrUserId) : null,
+        status: 'pending_onboarding',
+      });
+      setCreateOpen(false);
+      // Reset form
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setBranchId(null);
+      setRoleCode('');
+      setAssignedHrUserId('');
+    } catch (error) {
+      setCreateError(getApiErrorMessage(error, t('errors.generic', { ns: 'common' })));
+    }
   };
 
   const columns = useMemo(
@@ -178,7 +193,13 @@ export default function UsersList() {
                     </DropdownMenuItem>
                   ) : null}
                   {canUpdate ? (
-                    <DropdownMenuItem onClick={() => void requestReset.mutateAsync(u.id)}>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        void requestReset
+                          .mutateAsync(u.id)
+                          .catch((error) => notifyApiError(error, t('errors.generic', { ns: 'common' })))
+                      }
+                    >
                       {t('users.reset_password')}
                     </DropdownMenuItem>
                   ) : null}
@@ -218,7 +239,13 @@ export default function UsersList() {
       />
 
       {/* Create User Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) setCreateError(null);
+        }}
+      >
         <DialogContent motionless className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('users.create_title')}</DialogTitle>
@@ -235,21 +262,21 @@ export default function UsersList() {
               />
             </div>
             <div className="space-y-1">
-              <Label>{t('users.password')}</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t('users.password')}
-              />
-            </div>
-            <div className="space-y-1">
               <Label>{t('users.col.email')}</Label>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="user@example.com"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('users.password')}</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t('users.password')}
               />
             </div>
             <BranchPicker
@@ -271,8 +298,12 @@ export default function UsersList() {
                 value={assignedHrUserId}
                 onChange={setAssignedHrUserId}
               />
-              <p className="text-xs text-muted-foreground">{t('users.assigned_hr_help')}</p>
             </div>
+            {createError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {createError}
+              </p>
+            ) : null}
             <div className="flex justify-end gap-2 pt-4">
               <Button
                 type="button"
@@ -313,8 +344,12 @@ export default function UsersList() {
         isLoading={setUserStatus.isPending}
         onConfirm={async () => {
           if (!deactivateUser) return;
-          await setUserStatus.mutateAsync({ id: deactivateUser.id, status: 'deactivated' });
-          setDeactivateUser(null);
+          try {
+            await setUserStatus.mutateAsync({ id: deactivateUser.id, status: 'deactivated' });
+            setDeactivateUser(null);
+          } catch (error) {
+            notifyApiError(error, t('errors.generic', { ns: 'common' }));
+          }
         }}
       />
     </div>

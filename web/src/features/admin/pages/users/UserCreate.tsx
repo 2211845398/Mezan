@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
 
+import { applyApiErrorToForm } from '@/api/errorMessages';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -13,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 
 import { getUserRoles, listPendingOnboarding } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';
@@ -23,12 +23,11 @@ import { roleCodeLabel } from '../../lib/roleLabels';
 import { adminKeys, useCreateUser } from '../../queries';
 
 const schema = z.object({
-  email: z.string().email(),
   full_name: z.string().min(1),
+  email: z.string().email(),
   password: z.string().optional(),
   branch_id: z.coerce.number().nullable().optional(),
   role_code: z.string().optional().nullable(),
-  require_onboarding: z.boolean(),
   assigned_hr_user_id: z.coerce.number().nullable().optional(),
 });
 
@@ -36,21 +35,21 @@ type FormValues = z.infer<typeof schema>;
 
 export default function UserCreate() {
   const { t } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const [createdId, setCreatedId] = useState<number | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const create = useCreateUser();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      email: '',
       full_name: '',
+      email: '',
       password: '',
       branch_id: null,
       role_code: null,
-      require_onboarding: true,
       assigned_hr_user_id: null,
     },
   });
-  const requireOnb = form.watch('require_onboarding');
   const { data: userRoles = [] } = useQuery({
     queryKey: adminKeys.userRoles(createdId ?? 0),
     queryFn: () => getUserRoles(createdId!),
@@ -70,33 +69,24 @@ export default function UserCreate() {
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(async (v) => {
-              const u = await create.mutateAsync({
-                email: v.email,
-                full_name: v.full_name,
-                password: v.password != null && v.password !== '' ? v.password : null,
-                branch_id: v.branch_id == null ? null : v.branch_id,
-                role_code: v.role_code && v.role_code !== '' ? v.role_code : null,
-                require_onboarding: v.require_onboarding,
-                assigned_hr_user_id: v.assigned_hr_user_id == null ? null : v.assigned_hr_user_id,
-                status: v.require_onboarding ? 'pending_onboarding' : 'active',
-              });
-              setCreatedId(u.id);
+              setFormError(null);
+              try {
+                const u = await create.mutateAsync({
+                  full_name: v.full_name,
+                  email: v.email,
+                  password: v.password != null && v.password !== '' ? v.password : null,
+                  branch_id: v.branch_id == null ? null : v.branch_id,
+                  role_code: v.role_code && v.role_code !== '' ? v.role_code : null,
+                  assigned_hr_user_id: v.assigned_hr_user_id == null ? null : v.assigned_hr_user_id,
+                  status: 'pending_onboarding',
+                });
+                setCreatedId(u.id);
+              } catch (error) {
+                setFormError(applyApiErrorToForm(form, error) ?? tc('errors.validation'));
+              }
             })}
             className="space-y-4"
           >
-            <FormField
-              name="email"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('users.col.email')}</FormLabel>
-                  <FormControl>
-                    <Input type="email" autoComplete="off" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               name="full_name"
               control={form.control}
@@ -105,6 +95,19 @@ export default function UserCreate() {
                   <FormLabel>{t('users.col.full_name')}</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="email"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('users.col.email')}</FormLabel>
+                  <FormControl>
+                    <Input type="email" autoComplete="off" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -153,43 +156,25 @@ export default function UserCreate() {
                 </FormItem>
               )}
             />
-            <div className="flex items-center gap-2">
-              <FormField
-                name="require_onboarding"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        id="onb"
-                      />
-                    </FormControl>
-                    <FormLabel htmlFor="onb">{t('users.require_onboarding')}</FormLabel>
-                  </FormItem>
-                )}
-              />
-            </div>
-            {requireOnb ? (
-              <div>
-                <FormField
-                  name="assigned_hr_user_id"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('users.assigned_hr_id')}</FormLabel>
-                      <FormControl>
-                        <HrAssigneeCombobox
-                          value={field.value != null ? String(field.value) : ''}
-                          onChange={(id) => field.onChange(id === '' ? null : Number(id))}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <p className="text-muted-foreground text-xs">{t('users.assigned_hr_help')}</p>
-              </div>
+            <FormField
+              name="assigned_hr_user_id"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('users.assigned_hr_id')}</FormLabel>
+                  <FormControl>
+                    <HrAssigneeCombobox
+                      value={field.value != null ? String(field.value) : ''}
+                      onChange={(id) => field.onChange(id === '' ? null : Number(id))}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            {formError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {formError}
+              </p>
             ) : null}
             <div className="flex gap-2">
               <Button type="submit" className={floatingFormApproveButtonClassName} disabled={create.isPending}>

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus } from 'lucide-react';
+import { ArrowRight, ExternalLink, Pencil, UserCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -162,44 +163,90 @@ function EmployeeFloatingForm({
 
 export default function EmployeesList() {
   const { t } = useTranslation('hr');
-  const canCreate = usePermission('employees', 'create');
   const canUpdate = usePermission('employees', 'update');
   const { data: rows = [], isLoading, isError, refetch } = useQuery(employeesQueryOptions());
   const [formOpen, setFormOpen] = useState(false);
   const [formEmployee, setFormEmployee] = useState<EmployeeProfileRead | null>(null);
 
+  const { t: tAdmin } = useTranslation('admin');
+
   const columns = useMemo(
     () =>
       defineColumns<EmployeeProfileRead>()([
-        { id: 'id', accessorKey: 'id', header: t('employees.col.id') },
-        { id: 'user_id', accessorKey: 'user_id', header: t('employees.col.user_id') },
+        {
+          id: 'name',
+          header: tAdmin('users.col.full_name'),
+          cell: ({ row }) => row.original.user_full_name ?? row.original.user_email ?? `User #${row.original.user_id}`,
+        },
+        {
+          id: 'email',
+          header: tAdmin('users.col.email'),
+          cell: ({ row }) => row.original.user_email ?? '—',
+        },
+        {
+          id: 'status',
+          header: tAdmin('users.col.status'),
+          cell: ({ row }) => row.original.user_status ?? '—',
+        },
+        {
+          id: 'role',
+          header: tAdmin('users.col.role'),
+          cell: ({ row }) => row.original.user_role_name || row.original.user_role_code || '—',
+        },
+        {
+          id: 'branch',
+          header: tAdmin('users.col.branch'),
+          cell: ({ row }) => row.original.user_branch_name ?? '—',
+        },
         { id: 'hire_date', header: t('employees.col.hire_date'), cell: ({ row }) => row.original.hire_date },
         {
-          id: 'hourly_rate',
-          header: t('employees.col.hourly_rate'),
-          cell: ({ row }) => row.original.hourly_rate ?? '—',
+          id: 'compensation',
+          header: t('employees.col.compensation'),
+          cell: ({ row }) => {
+            if (row.original.base_salary) {
+              return `Salary: ${row.original.base_salary}`;
+            }
+            if (row.original.hourly_rate) {
+              return `Hourly: ${row.original.hourly_rate}`;
+            }
+            return '—';
+          },
         },
         {
           id: 'actions',
           header: '',
-          cell: ({ row }) =>
-            canUpdate ? (
+          cell: ({ row }) => (
+            <div className="flex items-center gap-1">
               <Button
                 type="button"
-                size="icon"
+                size="sm"
                 variant="ghost"
-                onClick={() => {
-                  setFormEmployee(row.original);
-                  setFormOpen(true);
-                }}
-                aria-label={t('employees.edit')}
+                asChild
               >
-                <Pencil className="size-4" />
+                <Link to={`/hr/employees/${row.original.id}`}>
+                  <ExternalLink className="me-1 size-4" />
+                  {t('employees.view')}
+                </Link>
               </Button>
-            ) : null,
+              {canUpdate ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    setFormEmployee(row.original);
+                    setFormOpen(true);
+                  }}
+                  aria-label={t('employees.edit')}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              ) : null}
+            </div>
+          ),
         },
       ]),
-    [canUpdate, t],
+    [canUpdate, t, tAdmin],
   );
 
   return (
@@ -207,18 +254,13 @@ export default function EmployeesList() {
       <PageHeader
         title={t('employees.title')}
         actions={
-          canCreate ? (
-            <Button
-              type="button"
-              onClick={() => {
-                setFormEmployee(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="me-2 size-4" />
-              {t('employees.new')}
-            </Button>
-          ) : null
+          <Button variant="outline" asChild>
+            <Link to="/hr/employees/pending">
+              <UserCheck className="me-2 size-4" />
+              {t('pending.title')}
+              <ArrowRight className="ms-2 size-4" />
+            </Link>
+          </Button>
         }
       />
       <DataTable

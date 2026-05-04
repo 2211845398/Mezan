@@ -1,13 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { FormContainer, SectionCard } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
@@ -56,6 +57,7 @@ export default function EmployeeForm() {
   const qc = useQueryClient();
   const isNew = id === 'new';
   const eid = id && !isNew ? Number(id) : NaN;
+  const [formError, setFormError] = useState<string | null>(null);
 
   const { data: users = [] } = useQuery({
     queryKey: adminKeys.userList(),
@@ -121,11 +123,11 @@ export default function EmployeeForm() {
     onSuccess: async (row) => {
       await qc.invalidateQueries({ queryKey: hrKeys.root });
       toast.success(t('employees.form.saved'));
+      setFormError(null);
       if (isNew) {
         navigate(`/hr/employees/${row.id}/edit`, { replace: true });
       }
     },
-    onError: () => toast.error(t('hr_errors.generic')),
   });
 
   const addDayOff = useMutation({
@@ -142,7 +144,7 @@ export default function EmployeeForm() {
       void refetchSched();
       void qc.invalidateQueries({ queryKey: hrKeys.schedules(eid) });
     },
-    onError: () => toast.error(t('hr_errors.generic')),
+    onError: (error) => notifyApiError(error, t('hr_errors.generic')),
   });
 
   return (
@@ -156,8 +158,16 @@ export default function EmployeeForm() {
         <SectionCard>
           <form
             className="flex flex-col gap-4"
-            onSubmit={form.handleSubmit((v) => save.mutate(v), () =>
-              toast.error(t('employees.form.base_or_hourly')),
+            onSubmit={form.handleSubmit(
+              async (v) => {
+                setFormError(null);
+                try {
+                  await save.mutateAsync(v);
+                } catch (error) {
+                  setFormError(getApiErrorMessage(error, t('hr_errors.generic')));
+                }
+              },
+              () => toast.error(t('employees.form.base_or_hourly')),
             )}
           >
             <div className="grid gap-2">
@@ -205,6 +215,11 @@ export default function EmployeeForm() {
               <Label htmlFor="bank">{t('employees.form.bank')}</Label>
               <Input id="bank" {...form.register('bank_account')} />
             </div>
+            {formError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {formError}
+              </p>
+            ) : null}
             <Button type="submit" disabled={save.isPending}>
               {t('employees.form.save')}
             </Button>

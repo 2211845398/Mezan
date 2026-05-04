@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,7 +62,7 @@ export default function TransferForm() {
       toast.success(t('transfers.created'));
       navigate(`/inventory/transfers/${b.id}`);
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const disp = useMutation({
@@ -69,12 +70,14 @@ export default function TransferForm() {
     onSuccess: () => {
       void refetch();
     },
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
   const recv = useMutation({
     mutationFn: () => postReceiveTransfer(batchId!),
     onSuccess: () => {
       void refetch();
     },
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   if (isNew) {

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { formatIso } from '@/lib/date';
 
 import {
+  useClearReadNotifications,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useMyNotifications,
@@ -19,9 +20,13 @@ export default function NotificationsInboxPage() {
   const [tab, setTab] = useState<Tab>('all');
   const unreadOnly = tab === 'unread';
   const { data: items = [], isLoading } = useMyNotifications({ unreadOnly });
+  const { data: allForClear = [] } = useMyNotifications({ unreadOnly: false });
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const clearRead = useClearReadNotifications();
+
+  const hasReadNotifications = allForClear.some((n) => n.read_at != null);
 
   const sorted = useMemo(
     () => [...items].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
@@ -67,16 +72,32 @@ export default function NotificationsInboxPage() {
             ) : null}
           </button>
         </div>
-        {unreadCount > 0 ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void markAllRead.mutateAsync()}
-            disabled={markAllRead.isPending}
-          >
-            {t('notifications.mark_all_read')}
-          </Button>
+        {unreadCount > 0 || hasReadNotifications ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {hasReadNotifications ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="gap-1"
+                onClick={() => void clearRead.mutateAsync()}
+                disabled={clearRead.isPending}
+              >
+                {t('notifications.clear_read')}
+              </Button>
+            ) : null}
+            {unreadCount > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void markAllRead.mutateAsync()}
+                disabled={markAllRead.isPending}
+              >
+                {t('notifications.mark_all_read')}
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -107,7 +128,7 @@ export default function NotificationsInboxPage() {
                         variant="outline"
                         size="sm"
                         className="shrink-0"
-                        onClick={() => void markRead.mutateAsync(item.id)}
+                        onClick={() => markRead.mutate(item.id)}
                         disabled={markRead.isPending}
                       >
                         {t('notifications.mark_read')}

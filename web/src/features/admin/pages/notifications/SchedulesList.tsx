@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { notifyApiError } from '@/api/errorMessages';
 import {
   floatingFormApproveButtonSmClassName,
   floatingFormCloseButtonSmClassName,
@@ -83,8 +84,8 @@ export default function SchedulesList() {
                           try {
                             await toggle.mutateAsync(r);
                             notify.success(t('notifications.toggle_saved'));
-                          } catch {
-                            /* toast from API layer */
+                          } catch (error) {
+                            notifyApiError(error, t('errors.generic', { ns: 'common' }));
                           }
                         })();
                       }}
@@ -117,8 +118,8 @@ export default function SchedulesList() {
                             try {
                               await runOnce.mutateAsync(r.id);
                               notify.success(t('notifications.run_started'));
-                            } catch {
-                              /* toast from API layer */
+                            } catch (error) {
+                              notifyApiError(error, t('errors.generic', { ns: 'common' }));
                             }
                           })();
                         }}

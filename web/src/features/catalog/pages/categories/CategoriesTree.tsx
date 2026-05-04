@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import {
   Collapsible,
@@ -117,7 +118,7 @@ export default function CategoriesTree() {
       await qc.invalidateQueries({ queryKey: catalogKeys.root });
       toast.success(t('categories.created'));
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   function startNew(parent: number | null) {
@@ -222,8 +223,8 @@ export default function CategoriesTree() {
                         await deleteCategoryAttribute(attrCategoryId, d.id);
                         void qc.invalidateQueries({ queryKey: catalogKeys.root });
                         toast.success(t('categories.attr_deleted'));
-                      } catch {
-                        toast.error(t('errors.generic'));
+                      } catch (error) {
+                        notifyApiError(error, t('errors.generic'));
                       }
                     }}
                   >
@@ -267,16 +268,20 @@ function AddAttrForm({ categoryId, onDone }: { categoryId: number; onDone: () =>
           if (!key.trim() || !label.trim()) {
             return;
           }
-          await createCategoryAttribute(categoryId, {
-            key: key.trim(),
-            label: label.trim(),
-            type: type.trim() || 'text',
-            required: false,
-            sort_order: 0,
-          });
-          setKey('');
-          setLabel('');
-          onDone();
+          try {
+            await createCategoryAttribute(categoryId, {
+              key: key.trim(),
+              label: label.trim(),
+              type: type.trim() || 'text',
+              required: false,
+              sort_order: 0,
+            });
+            setKey('');
+            setLabel('');
+            onDone();
+          } catch (error) {
+            notifyApiError(error, t('errors.generic'));
+          }
         }}
       >
         {t('actions.add')}

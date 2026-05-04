@@ -1,4 +1,4 @@
-import { format as dfFormat, parseISO as dfParseISO } from 'date-fns';
+import { differenceInCalendarDays, format as dfFormat, parseISO as dfParseISO } from 'date-fns';
 import type { Locale } from 'date-fns/locale';
 import { arSA as arSALocale, enUS as enUSLocale } from 'date-fns/locale';
 
@@ -47,4 +47,14 @@ export function formatDateTime(date: Date, pattern = 'yyyy-MM-dd HH:mm'): string
 /** Utility for cases where a caller holds an ISO string and wants a display. */
 export function formatIso(iso: string, pattern?: string): string {
   return format(fromISO(iso), pattern);
+}
+
+/** Elapsed hours between two ISO-8601 instants (for attendance duration math). */
+export function hoursBetween(isoStart: string, isoEnd: string): number {
+  return (fromISO(isoEnd).getTime() - fromISO(isoStart).getTime()) / (1000 * 60 * 60);
+}
+
+/** Inclusive calendar-day span for API `date` / `YYYY-MM-DD` strings. */
+export function inclusiveCalendarDaySpan(startIsoDate: string, endIsoDate: string): number {
+  return differenceInCalendarDays(fromISO(endIsoDate), fromISO(startIsoDate)) + 1;
 }

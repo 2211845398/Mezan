@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
+import { notifyApiError } from '@/api/errorMessages';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -16,6 +17,7 @@ import type { RoleWithPermissions } from '../../types';
 
 export default function RoleEdit() {
   const { t } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const { code } = useParams();
   const { data: roles = [], isLoading } = useRoles();
   const { data: perms = [] } = usePermissions();
@@ -67,7 +69,11 @@ export default function RoleEdit() {
             type="button"
             className={floatingFormApproveButtonClassName}
             onClick={async () => {
-              await setPerms.mutateAsync({ permission_ids: ids });
+              try {
+                await setPerms.mutateAsync({ permission_ids: ids });
+              } catch (error) {
+                notifyApiError(error, tc('errors.generic'));
+              }
             }}
             disabled={setPerms.isPending}
           >

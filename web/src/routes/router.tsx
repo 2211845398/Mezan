@@ -122,6 +122,13 @@ const MarketingCampaignAdvisor = lazy(() => import('@/features/marketing/pages/c
 
 const HrEmployeesList = lazy(() => import('@/features/hr/pages/employees/EmployeesList'));
 const HrEmployeeForm = lazy(() => import('@/features/hr/pages/employees/EmployeeForm'));
+const HrPendingOnboardingList = lazy(() => import('@/features/hr/pages/employees/PendingOnboardingList'));
+const HrPendingOnboardingDetail = lazy(() => import('@/features/hr/pages/employees/PendingOnboardingDetail'));
+const HrEmployeeDetailLayout = lazy(() => import('@/features/hr/pages/employees/EmployeeDetailLayout'));
+const HrEmployeePerformance = lazy(() => import('@/features/hr/pages/employees/EmployeePerformance'));
+const HrEmployeeAttendance = lazy(() => import('@/features/hr/pages/employees/EmployeeAttendance'));
+const HrEmployeeLeave = lazy(() => import('@/features/hr/pages/employees/EmployeeLeave'));
+const HrEmployeeSchedule = lazy(() => import('@/features/hr/pages/employees/EmployeeSchedule'));
 const HrAttendanceList = lazy(() => import('@/features/hr/pages/attendance/AttendanceList'));
 const HrTimesheetDetail = lazy(() => import('@/features/hr/pages/attendance/TimesheetDetail'));
 const HrLeaveList = lazy(() => import('@/features/hr/pages/leave/LeaveList'));
@@ -508,12 +515,25 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: 'new',
-                    element: (
-                      <RequirePermission resource="employees" action="create">
-                        {withSuspense(HrEmployeeForm)}
-                      </RequirePermission>
-                    ),
+                    path: 'pending',
+                    children: [
+                      {
+                        index: true,
+                        element: (
+                          <RequirePermission resource="onboarding" action="read">
+                            {withSuspense(HrPendingOnboardingList)}
+                          </RequirePermission>
+                        ),
+                      },
+                      {
+                        path: ':onboardingId',
+                        element: (
+                          <RequirePermission resource="onboarding" action="update">
+                            {withSuspense(HrPendingOnboardingDetail)}
+                          </RequirePermission>
+                        ),
+                      },
+                    ],
                   },
                   {
                     path: ':id/edit',
@@ -522,6 +542,52 @@ export const router = createBrowserRouter([
                         {withSuspense(HrEmployeeForm)}
                       </RequirePermission>
                     ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="employees" action="read">
+                        {withSuspense(HrEmployeeDetailLayout)}
+                      </RequirePermission>
+                    ),
+                    children: [
+                      {
+                        index: true,
+                        element: <Navigate to="performance" replace />,
+                      },
+                      {
+                        path: 'performance',
+                        element: (
+                          <RequirePermission resource="employees" action="read">
+                            {withSuspense(HrEmployeePerformance)}
+                          </RequirePermission>
+                        ),
+                      },
+                      {
+                        path: 'attendance',
+                        element: (
+                          <RequirePermission resource="employees" action="read">
+                            {withSuspense(HrEmployeeAttendance)}
+                          </RequirePermission>
+                        ),
+                      },
+                      {
+                        path: 'leave',
+                        element: (
+                          <RequirePermission resource="employees" action="read">
+                            {withSuspense(HrEmployeeLeave)}
+                          </RequirePermission>
+                        ),
+                      },
+                      {
+                        path: 'schedule',
+                        element: (
+                          <RequirePermission resource="employees" action="update">
+                            {withSuspense(HrEmployeeSchedule)}
+                          </RequirePermission>
+                        ),
+                      },
+                    ],
                   },
                 ],
               },

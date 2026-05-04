@@ -52,6 +52,63 @@ describe('W-5.9 admin', () => {
     });
   });
 
+  it('create user keeps backend duplicate-email reason visible', async () => {
+    server.use(
+      http.post(`${BASE}/users`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'bad_request',
+              message: 'Request failed',
+              details: { detail: 'Email already exists' },
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<UserCreate />, { initialEntries: ['/'] });
+    await user.type(await screen.findByLabelText(/البريد|email/i), 'x@x.com');
+    await user.type(await screen.findByLabelText(/الاسم|name/i), 'X');
+    await user.click(screen.getByRole('button', { name: /حفظ|save/i }));
+
+    expect(await screen.findByText('Email already exists')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /حفظ|save/i })).toBeInTheDocument();
+  });
+
+  it('create user maps backend email validation to the email field', async () => {
+    server.use(
+      http.post(`${BASE}/users`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation_error',
+              message: 'Request failed',
+              details: {
+                errors: [
+                  {
+                    loc: ['body', 'email'],
+                    msg: "value is not a valid email address: invalid ','",
+                    type: 'value_error',
+                  },
+                ],
+              },
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<UserCreate />, { initialEntries: ['/'] });
+    await user.type(await screen.findByLabelText(/البريد|email/i), 'x@x.com');
+    await user.type(await screen.findByLabelText(/الاسم|name/i), 'X');
+    await user.click(screen.getByRole('button', { name: /حفظ|save/i }));
+
+    expect(await screen.findByText(/value is not a valid email address/i)).toBeInTheDocument();
+  });
+
   it('role list shows system role', async () => {
     renderWithProviders(<RolesList />, { initialEntries: ['/'] });
     expect(await screen.findByText('ADMIN')).toBeInTheDocument();

@@ -43,3 +43,7 @@ export async function markAllNotificationsRead(): Promise<NotificationMarkReadRe
   );
   return data;
 }
+
+export async function clearReadNotifications(): Promise<void> {
+  await apiClient.delete('/notifications/deliveries/me/read');
+}

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -45,7 +46,7 @@ export default function LeaveApproveDrawer({ open, onOpenChange, leave }: Props)
       toast.success(t('leave.review_ok'));
       onOpenChange(false);
     },
-    onError: () => toast.error(t('hr_errors.generic')),
+    onError: (error) => notifyApiError(error, t('hr_errors.generic')),
   });
 
   return (
@@ -66,11 +67,11 @@ export default function LeaveApproveDrawer({ open, onOpenChange, leave }: Props)
             type="button"
             variant="destructive"
             disabled={approveM.isPending}
-            onClick={() => void approveM.mutateAsync('reject')}
+            onClick={() => approveM.mutate('reject')}
           >
             {t('leave.reject')}
           </Button>
-          <Button type="button" disabled={approveM.isPending} onClick={() => void approveM.mutateAsync('approve')}>
+          <Button type="button" disabled={approveM.isPending} onClick={() => approveM.mutate('approve')}>
             {t('leave.approve')}
           </Button>
         </DialogFooter>

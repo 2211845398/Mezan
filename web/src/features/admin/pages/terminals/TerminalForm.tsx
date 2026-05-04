@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
+import { applyApiErrorToForm, notifyApiError } from '@/api/errorMessages';
 import {
   floatingFormApproveButtonClassName,
   floatingFormApproveButtonSmClassName,
@@ -46,6 +47,7 @@ type Props = {
 
 export function TerminalForm({ open, onOpenChange, terminal }: Props) {
   const { t } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const isEdit = Boolean(terminal);
   const create = useCreateTerminal();
   const update = useUpdateTerminal(terminal?.id ?? 0);
@@ -124,7 +126,14 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
           <Form {...eForm}>
             <form
               id={EDIT_FORM_ID}
-              onSubmit={eForm.handleSubmit((v) => update.mutateAsync(v))}
+              onSubmit={eForm.handleSubmit(async (v) => {
+                try {
+                  await update.mutateAsync(v);
+                } catch (error) {
+                  const message = applyApiErrorToForm(eForm, error);
+                  if (message) notifyApiError(error, tc('errors.generic'));
+                }
+              })}
               className="space-y-3"
             >
               <FormField
@@ -161,7 +170,9 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                 type="button"
                 className={floatingFormApproveButtonSmClassName}
                 disabled={authz.isPending}
-                onClick={() => void authz.mutateAsync()}
+                onClick={() =>
+                  void authz.mutateAsync().catch((error) => notifyApiError(error, tc('errors.generic')))
+                }
               >
                 {t('terminals.authorize')}
               </Button>
@@ -171,7 +182,9 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                 type="button"
                 className={floatingFormDangerButtonSmClassName}
                 disabled={deauthz.isPending}
-                onClick={() => void deauthz.mutateAsync()}
+                onClick={() =>
+                  void deauthz.mutateAsync().catch((error) => notifyApiError(error, tc('errors.generic')))
+                }
               >
                 {t('terminals.deauthorize')}
               </Button>
@@ -183,11 +196,16 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
           <form
             id={CREATE_FORM_ID}
             onSubmit={cForm.handleSubmit(async (v) => {
-              const res = await create.mutateAsync(v);
-              window.alert(
-                t('terminals.api_key_once', { key: (res as { api_key?: string }).api_key ?? '' }),
-              );
-              onOpenChange(false);
+              try {
+                const res = await create.mutateAsync(v);
+                window.alert(
+                  t('terminals.api_key_once', { key: (res as { api_key?: string }).api_key ?? '' }),
+                );
+                onOpenChange(false);
+              } catch (error) {
+                const message = applyApiErrorToForm(cForm, error);
+                if (message) notifyApiError(error, tc('errors.generic'));
+              }
             })}
             className="space-y-3"
           >

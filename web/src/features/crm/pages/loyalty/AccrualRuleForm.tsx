@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,7 +53,7 @@ export default function AccrualRuleForm() {
       toast.success(t('loyalty.rule.saved'));
       void nav('/crm/loyalty');
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const mUpdate = useMutation({
@@ -68,7 +69,7 @@ export default function AccrualRuleForm() {
       toast.success(t('loyalty.rule.saved'));
       void nav('/crm/loyalty');
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const submit = () => {

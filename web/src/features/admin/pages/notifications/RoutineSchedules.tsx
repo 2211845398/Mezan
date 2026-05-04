@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { notifyApiError } from '@/api/errorMessages';
 import {
   floatingFormApproveButtonClassName,
   floatingFormApproveButtonSmClassName,
@@ -97,8 +98,8 @@ export default function RoutineSchedules() {
                         try {
                           await toggle.mutateAsync(row);
                           notify.success(t('notifications.toggle_saved'));
-                        } catch {
-                          /* toast from API layer */
+                        } catch (error) {
+                          notifyApiError(error, t('errors.generic', { ns: 'common' }));
                         }
                       })();
                     }}
@@ -141,8 +142,8 @@ export default function RoutineSchedules() {
                       void (async () => {
                         try {
                           await runOnce.mutateAsync(row.id);
-                        } catch {
-                          /* toast from API layer */
+                        } catch (error) {
+                          notifyApiError(error, t('errors.generic', { ns: 'common' }));
                         }
                       })();
                     }}
@@ -184,8 +185,8 @@ export default function RoutineSchedules() {
               await removeSchedule.mutateAsync(pendingDelete.id);
               notify.success(t('notifications.routine_deleted'));
               setPendingDelete(null);
-            } catch {
-              /* envelope */
+            } catch (error) {
+              notifyApiError(error, t('errors.generic', { ns: 'common' }));
             }
           })();
         }}

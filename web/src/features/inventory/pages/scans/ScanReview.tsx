@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { FileDrop } from '@/components/shared/FileDrop';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -73,7 +74,11 @@ export default function ScanReview() {
       toast.success(t('scans.override_ok'));
     },
     onError: (e) => {
-      toast.error(e instanceof Error && e.message === 'json' ? t('scans.json_invalid') : t('errors.generic'));
+      if (e instanceof Error && e.message === 'json') {
+        toast.error(t('scans.json_invalid'));
+      } else {
+        notifyApiError(e, t('errors.generic'));
+      }
     },
   });
 
@@ -88,7 +93,7 @@ export default function ScanReview() {
       void qc.invalidateQueries({ queryKey: inventoryKeys.root });
       toast.success(t('scans.validated'));
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const reupload = useMutation({
@@ -100,7 +105,7 @@ export default function ScanReview() {
       toast.success(t('scans.reuploaded'));
       window.location.href = `/inventory/scans/${s.id}`;
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   if (Number.isNaN(scanId)) {

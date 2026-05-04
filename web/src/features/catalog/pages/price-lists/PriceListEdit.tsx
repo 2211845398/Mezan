@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,7 +90,7 @@ export default function PriceListEdit() {
       await qc.invalidateQueries({ queryKey: catalogKeys.root });
       toast.success(t('priceLists.save_ok'));
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const addLine = useMutation({
@@ -105,7 +106,7 @@ export default function PriceListEdit() {
       setNewPid('');
       setNewPrice('');
     },
-    onError: () => toast.error(t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
   const lines = useMemo(() => pl?.lines ?? [], [pl]);
@@ -204,8 +205,12 @@ export default function PriceListEdit() {
                     size="sm"
                     variant="destructive"
                     onClick={async () => {
-                      await deletePriceListLine(listId, ln.id);
-                      await qc.invalidateQueries({ queryKey: catalogKeys.root });
+                      try {
+                        await deletePriceListLine(listId, ln.id);
+                        await qc.invalidateQueries({ queryKey: catalogKeys.root });
+                      } catch (error) {
+                        notifyApiError(error, t('errors.generic'));
+                      }
                     }}
                   >
                     {t('actions.delete')}

@@ -90,6 +90,7 @@
     "read_badge": "Read",
     "inbox_empty": "No notifications yet.",
     "view_inbox_page": "Open full inbox",
+    "clear_read": "Clear",
     "branches_hint": "Leave empty to include every branch. Selecting one or more limits recipients to those branches.",
     "roles_hint": "Recipients are users who have any of the selected roles (union).",
     "sending_short": "Sending…"
@@ -158,7 +159,9 @@
     "permission_denied": "You do not have permission to access this page.",
     "rate_limited": "Too many requests — please try again shortly.",
     "server": "Server error, retrying automatically.",
-    "validation": "Invalid input — check highlighted fields."
+    "validation": "Invalid input — check highlighted fields.",
+    "request_failed": "Request failed. Please review the details and try again.",
+    "try_again": "Please try again."
   },
   "actions": {
     "save": "Save",

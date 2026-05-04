@@ -103,6 +103,34 @@ export async function listPendingOnboarding(): Promise<UserOnboardingRead[]> {
   return data;
 }
 
+export async function completeOnboarding(
+  onboardingId: number,
+  body: {
+    assigned_hr_user_id?: number | null;
+    job_title?: string | null;
+    contract_start?: string | null;
+    contract_end?: string | null;
+    salary_amount?: string | null;
+    hourly_rate?: string | null;
+    salary_currency?: string | null;
+    bank_account?: string | null;
+    notes?: string | null;
+    schedules?: Array<{
+      weekday: number;
+      start_time: string;
+      end_time: string;
+      is_day_off: boolean;
+      branch_id: number;
+    }>;
+  },
+): Promise<UserOnboardingRead> {
+  const { data } = await apiClient.post<UserOnboardingRead>(
+    `/hr/onboarding/${onboardingId}/complete`,
+    body,
+  );
+  return data;
+}
+
 export async function listPermissions(): Promise<PermissionRead[]> {
   const { data } = await apiClient.get<PermissionRead[]>('/permissions');
   return data;
@@ -234,6 +262,10 @@ export async function listNotificationDeliveries(
     { params: { limit } },
   );
   return data;
+}
+
+export async function clearAllNotificationDeliveries(): Promise<void> {
+  await apiClient.delete('/admin/notifications/deliveries');
 }
 
 export async function broadcastNotification(

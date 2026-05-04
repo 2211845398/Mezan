@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 
+import { getApiErrorMessage } from '@/api/errorMessages';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +36,7 @@ export default function ShiftClose() {
       notify.success(t('close.done'));
       setDeclared('');
     } catch (e) {
-      notify.error(e instanceof Error ? e.message : String(e));
+      notify.error(getApiErrorMessage(e));
     }
   }
 

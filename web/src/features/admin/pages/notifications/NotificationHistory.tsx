@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -10,18 +12,40 @@ import {
 } from '@/components/ui/table';
 import { formatIso } from '@/lib/date';
 
-import { useNotificationDeliveries, useNotificationRuns } from '../../queries';
+import {
+  formatGroupedDeliveryStatus,
+  groupSentNotificationDeliveries,
+  sentNotificationBatchKey,
+} from '../../lib/groupSentNotificationDeliveries';
+import { formatNotificationDeliveryTargetGroup } from '../../lib/notificationDeliveryTargetGroup';
+import { useClearAllNotificationDeliveries, useNotificationDeliveries, useNotificationRuns } from '../../queries';
 
 export default function NotificationHistory() {
   const { t } = useTranslation('admin');
   const { data: deliveries = [], isLoading: deliveriesLoading } = useNotificationDeliveries();
   const { data: runs = [], isLoading: runsLoading } = useNotificationRuns();
+  const clearAll = useClearAllNotificationDeliveries();
+
+  const grouped = useMemo(() => groupSentNotificationDeliveries(deliveries), [deliveries]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">{t('notifications.history_title')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t('notifications.history_lead')}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">{t('notifications.history_title')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t('notifications.history_lead')}</p>
+        </div>
+        {deliveries.length > 0 ? (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={() => void clearAll.mutateAsync()}
+            disabled={clearAll.isPending}
+          >
+            {t('notifications.clear_all')}
+          </Button>
+        ) : null}
       </div>
 
       <section className="rounded-2xl border bg-card p-4 shadow-sm">
@@ -30,7 +54,7 @@ export default function NotificationHistory() {
           <TableHeader>
             <TableRow>
               <TableHead>{t('notifications.message_title')}</TableHead>
-              <TableHead>{t('notifications.recipient')}</TableHead>
+              <TableHead>{t('notifications.col.target_group')}</TableHead>
               <TableHead>{t('notifications.status')}</TableHead>
               <TableHead>{t('notifications.created_at')}</TableHead>
             </TableRow>
@@ -40,26 +64,33 @@ export default function NotificationHistory() {
               <TableRow>
                 <TableCell colSpan={4}>{t('loading')}</TableCell>
               </TableRow>
-            ) : deliveries.length === 0 ? (
+            ) : grouped.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-sm text-muted-foreground">
                   {t('notifications.history_empty')}
                 </TableCell>
               </TableRow>
             ) : (
-              deliveries.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <div className="max-w-md">
-                      <p className="truncate font-medium">{row.title}</p>
-                      <p className="truncate text-xs text-muted-foreground">{row.body}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>{row.user_id}</TableCell>
-                  <TableCell>{t(`notifications.delivery_status.${row.status}`)}</TableCell>
-                  <TableCell>{formatIso(row.created_at, 'yyyy-MM-dd HH:mm')}</TableCell>
-                </TableRow>
-              ))
+              grouped.map((g) => {
+                const row = g.representative;
+                return (
+                  <TableRow key={sentNotificationBatchKey(row)}>
+                    <TableCell>
+                      <div className="max-w-md">
+                        <p className="truncate font-medium">{row.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">{row.body}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-xs text-sm">
+                      {formatNotificationDeliveryTargetGroup(row, t)}
+                    </TableCell>
+                    <TableCell className="max-w-md text-sm">
+                      {formatGroupedDeliveryStatus(g.statusCounts, t)}
+                    </TableCell>
+                    <TableCell>{formatIso(g.createdAt, 'yyyy-MM-dd HH:mm')}</TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
