@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fieldErrorsFromApiError, getApiErrorMessage } from '@/api/errorMessages';
+import { fieldErrorsFromApiError, getApiErrorMessage, getLocalizedApiErrorMessage } from '@/api/errorMessages';
 import {
   AuthenticationError,
   ConflictError,
@@ -13,6 +13,7 @@ import {
   ValidationError,
 } from '@/api/errors';
 import { fieldErrorsFromValidationError, mapResponseToApiError } from '@/api/mapError';
+import i18n from '@/i18n';
 
 describe('mapResponseToApiError', () => {
   it('maps 401 with envelope to NotAuthenticatedError (alias AuthenticationError)', () => {
@@ -120,14 +121,14 @@ describe('API error message extraction', () => {
           error: {
             code: 'bad_request',
             message: 'Request failed',
-            details: { detail: 'Email already exists' },
+            details: { detail: 'email_already_exists' },
           },
         },
       },
       null,
     );
 
-    expect(getApiErrorMessage(err)).toBe('Email already exists');
+    expect(getApiErrorMessage(err)).toBe('email_already_exists');
   });
 
   it('extracts FastAPI field validation messages and paths', () => {
@@ -155,6 +156,50 @@ describe('API error message extraction', () => {
 
     expect(getApiErrorMessage(err)).toContain('value is not a valid email address');
     expect(fieldErrorsFromApiError(err).email).toContain('value is not a valid email address');
+  });
+
+  it('localized duplicate email maps machine code in Arabic', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 400,
+        data: {
+          error: {
+            code: 'bad_request',
+            message: 'Request failed',
+            details: { detail: 'email_already_exists' },
+          },
+        },
+      },
+      null,
+    );
+    const t = i18n.getFixedT('ar', 'common');
+    expect(getLocalizedApiErrorMessage(err, t)).toBe(t('apiErrors.email_already_exists'));
+  });
+
+  it('localized validation maps email field to Arabic copy', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'Request failed',
+            details: {
+              errors: [
+                {
+                  loc: ['body', 'email'],
+                  msg: "value is not a valid email address: invalid ','",
+                  type: 'value_error',
+                },
+              ],
+            },
+          },
+        },
+      },
+      null,
+    );
+    const t = i18n.getFixedT('ar', 'common');
+    expect(getLocalizedApiErrorMessage(err, t)).toBe(t('errors.validation_email'));
   });
 
   it('falls back to a useful validation message for weak password errors', () => {

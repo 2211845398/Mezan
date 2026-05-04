@@ -30,6 +30,7 @@ import {
   listRoles,
   listTerminals,
   listUsers,
+  listOnboardingAssignees,
   removeUserRole,
   requestUserPasswordReset,
   runBackup,
@@ -71,12 +72,21 @@ export const adminKeys = {
   userRoleSummary: (userIds: number[]) => [...adminKeys.userList(), 'roleSummary', { userIds }] as const,
   onboardingList: (afterUserId: number | null) =>
     [...adminKeys.all, 'onboarding', 'pending', { after: afterUserId }] as const,
+  onboardingAssignees: () => [...adminKeys.users(), 'onboardingAssignees'] as const,
 } as const;
 
 export function useUsersList(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: adminKeys.userList(),
     queryFn: listUsers,
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useOnboardingAssignees(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: adminKeys.onboardingAssignees(),
+    queryFn: listOnboardingAssignees,
     enabled: options?.enabled ?? true,
   });
 }
@@ -197,6 +207,7 @@ export function useCreateUser(
     ...options,
     onSuccess: async (...args) => {
       await qc.invalidateQueries({ queryKey: adminKeys.userList() });
+      await qc.invalidateQueries({ queryKey: adminKeys.onboardingAssignees() });
       await options?.onSuccess?.(...args);
     },
   });

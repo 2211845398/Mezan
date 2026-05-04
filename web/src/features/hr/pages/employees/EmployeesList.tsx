@@ -27,8 +27,9 @@ import {
 import { listUsers } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
+import { notify } from '@/lib/toast';
 
-import { createEmployee, type EmployeeProfileRead,updateEmployee } from '../../api';
+import { createEmployee, type EmployeeProfileRead, updateEmployee } from '../../api';
 import { employeesQueryOptions, hrKeys } from '../../queries';
 
 function EmployeeFloatingForm({
@@ -41,6 +42,7 @@ function EmployeeFloatingForm({
   employee: EmployeeProfileRead | null;
 }) {
   const { t } = useTranslation('hr');
+  const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const isEdit = employee != null;
   const { data: users = [] } = useQuery({
@@ -78,6 +80,7 @@ function EmployeeFloatingForm({
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: hrKeys.root });
+      notify.success(tc('toasts.saved'));
       onOpenChange(false);
     },
   });

@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { usePermission } from '@/hooks/usePermission';
+import { notify } from '@/lib/toast';
 
 import { updateBranch } from '../../api';
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog';
@@ -23,6 +24,7 @@ import { BranchForm } from './BranchForm';
 
 export default function BranchesList() {
   const { t } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const [includeArchived, setIncludeArchived] = useState(false);
   const { data: rows = [], isLoading, isError, refetch } = useBranches(includeArchived);
   const canCreate = usePermission('branches', 'create');
@@ -90,7 +92,10 @@ export default function BranchesList() {
                     variant="default"
                     className={floatingFormApproveButtonSmClassName}
                     onClick={() =>
-                      void unarchive.mutateAsync(b.id).catch((error) => notifyApiError(error, t('errors.generic', { ns: 'common' })))
+                      void unarchive
+                        .mutateAsync(b.id)
+                        .then(() => notify.success(tc('toasts.restored')))
+                        .catch((error) => notifyApiError(error, t('errors.generic', { ns: 'common' })))
                     }
                     disabled={unarchive.isPending}
                   >
@@ -102,7 +107,7 @@ export default function BranchesList() {
           },
         },
       ]),
-    [t, canUpdate, canDelete, unarchive],
+    [t, canUpdate, canDelete, unarchive, tc],
   );
 
   return (
@@ -156,6 +161,7 @@ export default function BranchesList() {
                 timezone: v.timezone,
                 address: v.address == null ? null : v.address,
               });
+              notify.success(tc('toasts.saved'));
               setFormOpen(false);
             } else if (selected) {
               await updateB.mutateAsync({
@@ -163,6 +169,7 @@ export default function BranchesList() {
                 address: v.address == null ? null : v.address,
                 timezone: v.timezone,
               });
+              notify.success(tc('toasts.saved'));
               setFormOpen(false);
             }
           } catch (error) {
@@ -181,6 +188,7 @@ export default function BranchesList() {
           if (!archiving) return;
           try {
             await archive.mutateAsync({ branchId: archiving.id });
+            notify.success(tc('toasts.archived'));
             setArchiving(null);
           } catch (error) {
             notifyApiError(error, t('errors.generic', { ns: 'common' }));

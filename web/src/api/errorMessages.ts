@@ -1,6 +1,8 @@
 import type { FieldValues, UseFormReturn } from 'react-hook-form';
+import type { TFunction } from 'i18next';
 
 import { ApiError, ServerError, ValidationError } from '@/api/errors';
+import i18n from '@/i18n';
 import { notify } from '@/lib/toast';
 
 type BackendFieldError = {
@@ -35,6 +37,42 @@ function validationItems(details: unknown): BackendFieldError[] {
   return Array.isArray(raw) ? raw.filter(isRecord) : [];
 }
 
+function detailsMachineCode(details: unknown): string | null {
+  if (!isRecord(details)) return null;
+  const code = details.code;
+  return typeof code === 'string' && code.trim() ? code.trim() : null;
+}
+
+/** Localized message for one FastAPI/Pydantic validation item. */
+export function localizedValidationItemMessage(
+  item: BackendFieldError,
+  t: TFunction<'common'>,
+): string {
+  const loc = item.loc;
+  const field = Array.isArray(loc) ? String(loc[loc.length - 1] ?? '') : '';
+  const typ = typeof item.type === 'string' ? item.type : '';
+  const rawMsg = typeof item.msg === 'string' ? item.msg : '';
+
+  const isEmailField = field === 'email';
+  const looksLikeEmailError =
+    typ === 'value_error.email' ||
+    (typeof typ === 'string' && typ.includes('email')) ||
+    (isEmailField && typ === 'value_error' && rawMsg.toLowerCase().includes('email'));
+
+  if (isEmailField && looksLikeEmailError) {
+    return t('errors.validation_email');
+  }
+  if (field === 'password' && typ === 'string_too_short') {
+    return t('errors.validation_password_short');
+  }
+  if (typ === 'missing' || typ === 'value_error.missing') {
+    return t('errors.validation_required');
+  }
+
+  if (rawMsg.trim()) return rawMsg.trim();
+  return t('errors.validation_generic');
+}
+
 function fieldPathFromLoc(loc: unknown): string | null {
   if (!Array.isArray(loc)) return null;
   const parts = loc.filter((part): part is string | number => {
@@ -53,6 +91,22 @@ export function fieldErrorsFromApiError(error: unknown): FieldErrorMap {
     const path = fieldPathFromLoc(item.loc);
     const message = typeof item.msg === 'string' ? item.msg : null;
     if (path && message) out[path] = message;
+  }
+  return out;
+}
+
+/** Same as `fieldErrorsFromApiError` but uses localized validation copy where possible. */
+export function fieldErrorsFromApiErrorLocalized(
+  error: unknown,
+  t: TFunction<'common'>,
+): FieldErrorMap {
+  if (!(error instanceof ValidationError)) return {};
+
+  const out: FieldErrorMap = {};
+  for (const item of validationItems(error.details)) {
+    const path = fieldPathFromLoc(item.loc);
+    if (!path) continue;
+    out[path] = localizedValidationItemMessage(item, t);
   }
   return out;
 }
@@ -85,11 +139,69 @@ export function getApiErrorMessage(
   return fallback;
 }
 
+const LEGACY_DETAIL_TO_API_KEY: Record<string, string> = {
+  'Email already exists': 'email_already_exists',
+  EmailAlreadyExists: 'email_already_exists',
+};
+
+/**
+ * User-facing API error text in the current UI language (stable backend codes,
+ * FastAPI validation metadata, then fallbacks).
+ */
+export function getLocalizedApiErrorMessage(
+  error: unknown,
+  t: TFunction<'common'>,
+  fallback?: string,
+): string {
+  const fb = fallback ?? t('errors.generic');
+
+  if (error instanceof ApiError) {
+    const machine = detailsMachineCode(error.details);
+    if (machine && machine !== 'validation_error') {
+      const key = `apiErrors.${machine}` as const;
+      const translated = t(key);
+      if (translated !== key) return translated;
+    }
+
+    const rawDetail = detailString(error.details);
+    if (rawDetail) {
+      const legacyKey = LEGACY_DETAIL_TO_API_KEY[rawDetail];
+      if (legacyKey) {
+        const key = `apiErrors.${legacyKey}` as const;
+        const translated = t(key);
+        if (translated !== key) return translated;
+      }
+      if (rawDetail.includes('_') && !rawDetail.includes(' ')) {
+        const key = `apiErrors.${rawDetail}` as const;
+        const translated = t(key);
+        if (translated !== key) return translated;
+      }
+    }
+
+    if (error instanceof ValidationError) {
+      const items = validationItems(error.details);
+      if (items.length > 0) {
+        return localizedValidationItemMessage(items[0]!, t);
+      }
+      const vm = firstValidationMessage(error);
+      if (vm) return vm;
+    }
+
+    if (error instanceof ServerError) return fb;
+    if (error.message && error.message !== 'Request failed') return error.message;
+    return fb;
+  }
+
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fb;
+}
+
 export function applyApiErrorToForm<TValues extends FieldValues>(
   form: UseFormReturn<TValues>,
   error: unknown,
 ): string | null {
-  const fields = fieldErrorsFromApiError(error);
+  const tc = i18n.getFixedT(i18n.language, 'common');
+  const fields = fieldErrorsFromApiErrorLocalized(error, tc);
   const entries = Object.entries(fields);
 
   for (const [path, message] of entries) {
@@ -101,9 +213,10 @@ export function applyApiErrorToForm<TValues extends FieldValues>(
   }
 
   if (entries.length > 0) return null;
-  return getApiErrorMessage(error);
+  return getLocalizedApiErrorMessage(error, tc);
 }
 
 export function notifyApiError(error: unknown, fallback?: string): void {
-  notify.error(getApiErrorMessage(error, fallback));
+  const tc = i18n.getFixedT(i18n.language, 'common');
+  notify.error(getLocalizedApiErrorMessage(error, tc, fallback ?? tc('errors.generic')));
 }

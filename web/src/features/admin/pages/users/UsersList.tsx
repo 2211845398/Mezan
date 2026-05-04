@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
+import { getLocalizedApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import {
@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
+import { notify } from '@/lib/toast';
 
 import { getUserRoles, updateUser as apiUpdateUser } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';
@@ -37,11 +38,18 @@ import { DangerConfirmDialog } from '../../components/DangerConfirmDialog';
 import { HrAssigneeCombobox } from '../../components/HrAssigneeCombobox';
 import { RoleCodeCombobox } from '../../components/RoleCodeCombobox';
 import { getBranchLabel } from '../../lib/branchLabels';
+import { roleCodeLabel } from '../../lib/roleLabels';
+import {
+  userRowBranchFilterValue,
+  userRowRoleFilterValue,
+  userRowStatusFilterValue,
+} from '../../lib/userListSearch';
 import { adminKeys, useBranches, useCreateUser, useRequestPasswordReset, useUsersList } from '../../queries';
 import type { UserRead, UserRoleRow } from '../../types';
 
 export default function UsersList() {
-  const { t } = useTranslation('admin');
+  const { t, i18n } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const { data: users = [], isLoading, isError, refetch } = useUsersList();
   const { data: branches = [] } = useBranches(false);
@@ -110,6 +118,7 @@ export default function UsersList() {
         assigned_hr_user_id: assignedHrUserId.trim() ? Number(assignedHrUserId) : null,
         status: 'pending_onboarding',
       });
+      notify.success(tc('toasts.saved'));
       setCreateOpen(false);
       // Reset form
       setFullName('');
@@ -119,13 +128,15 @@ export default function UsersList() {
       setRoleCode('');
       setAssignedHrUserId('');
     } catch (error) {
-      setCreateError(getApiErrorMessage(error, t('errors.generic', { ns: 'common' })));
+      setCreateError(getLocalizedApiErrorMessage(error, tc, tc('errors.generic')));
     }
   };
 
-  const columns = useMemo(
-    () =>
-      defineColumns<UserRead>()([
+  const columns = useMemo(() => {
+    const tAr = i18n.getFixedT('ar', 'admin');
+    const tEn = i18n.getFixedT('en', 'admin');
+
+    return defineColumns<UserRead>()([
         {
           id: 'email',
           accessorKey: 'email',
@@ -139,18 +150,29 @@ export default function UsersList() {
         },
         {
           id: 'status',
-          accessorKey: 'status',
+          accessorFn: (row) => userRowStatusFilterValue(row, tAr, tEn),
           header: t('users.col.status'),
+          cell: ({ row }) =>
+            t(`users.user_status.${row.original.status}`, { defaultValue: row.original.status }),
         },
         {
           id: 'branch',
+          accessorFn: (row) => userRowBranchFilterValue(row, branches),
           header: t('users.col.branch'),
           cell: ({ row }) => getBranchLabel(branches, row.original.branch_id ?? null),
         },
         {
           id: 'role',
+          accessorFn: (row) => userRowRoleFilterValue(row.id, roleMap, tAr, tEn),
           header: t('users.col.role'),
-          cell: ({ row }) => roleMap?.get(row.original.id) ?? '…',
+          cell: ({ row }) => {
+            const raw = roleMap?.get(row.original.id);
+            if (!raw || raw === '…') return raw ?? '…';
+            return raw
+              .split(', ')
+              .map((code) => roleCodeLabel(t, code.trim(), code.trim()))
+              .join(', ');
+          },
         },
         {
           id: 'last_login',
@@ -162,6 +184,7 @@ export default function UsersList() {
         {
           id: 'actions',
           header: '',
+          enableGlobalFilter: false,
           cell: ({ row }) => {
             const u = row.original;
             return (
@@ -197,6 +220,7 @@ export default function UsersList() {
                       onClick={() =>
                         void requestReset
                           .mutateAsync(u.id)
+                          .then(() => notify.success(tc('toasts.email_sent')))
                           .catch((error) => notifyApiError(error, t('errors.generic', { ns: 'common' })))
                       }
                     >
@@ -216,9 +240,8 @@ export default function UsersList() {
             );
           },
         },
-      ]),
-    [t, branches, roleMap, canUpdate, requestReset, navigate],
-  );
+      ]);
+  }, [t, i18n, branches, roleMap, canUpdate, requestReset, navigate, tc]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -346,6 +369,7 @@ export default function UsersList() {
           if (!deactivateUser) return;
           try {
             await setUserStatus.mutateAsync({ id: deactivateUser.id, status: 'deactivated' });
+            notify.success(tc('toasts.deactivated'));
             setDeactivateUser(null);
           } catch (error) {
             notifyApiError(error, t('errors.generic', { ns: 'common' }));

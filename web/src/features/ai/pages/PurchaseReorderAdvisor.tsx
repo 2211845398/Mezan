@@ -18,6 +18,7 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { notify } from '@/lib/toast';
 
 import { postPurchaseReorder, type PurchaseReorderResponse } from '../api';
 
@@ -30,6 +31,7 @@ export type ReorderLineState = {
 
 export default function PurchaseReorderAdvisor() {
   const { t } = useTranslation('ai');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const [branchId, setBranchId] = useState('');
   const [lookback, setLookback] = useState(30);
@@ -61,6 +63,7 @@ export default function PurchaseReorderAdvisor() {
     onSuccess: (r) => {
       setResult(r);
       runKeyRef.current = null;
+      notify.success(tc('toasts.analysis_complete'));
     },
     onError: () => {
       runKeyRef.current = null;

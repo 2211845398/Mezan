@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { z } from 'zod';
 
 import { applyApiErrorToForm } from '@/api/errorMessages';
+import { notify } from '@/lib/toast';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -81,6 +82,7 @@ export default function UserCreate() {
                   status: 'pending_onboarding',
                 });
                 setCreatedId(u.id);
+                notify.success(tc('toasts.saved'));
               } catch (error) {
                 setFormError(applyApiErrorToForm(form, error) ?? tc('errors.validation'));
               }

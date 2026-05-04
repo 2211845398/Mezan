@@ -19,6 +19,7 @@ const user2: UserRead = {
 
 export const adminHandlers = [
   http.get(`${BASE}/users`, () => HttpResponse.json([DEFAULT_USER, user2])),
+  http.get(`${BASE}/users/onboarding-assignees`, () => HttpResponse.json([DEFAULT_USER, user2])),
   http.get(`${BASE}/users/1`, () => HttpResponse.json(DEFAULT_USER)),
   http.get(`${BASE}/users/2`, () => HttpResponse.json(user2)),
   http.patch(`${BASE}/users/:id`, () => HttpResponse.json(user2)),

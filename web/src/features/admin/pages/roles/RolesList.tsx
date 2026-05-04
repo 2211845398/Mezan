@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
+import { notify } from '@/lib/toast';
 
 import { setRolePermissions } from '../../api';
 import { PermissionGrid } from '../../components/PermissionGrid';
@@ -22,6 +24,7 @@ import type { RoleWithPermissions } from '../../types';
 
 export default function RolesList() {
   const { t } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const { data: roles = [], isLoading, isError, refetch } = useRoles();
   const { data: perms = [] } = usePermissions();
@@ -40,6 +43,10 @@ export default function RolesList() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: adminKeys.roleList() });
       setPermDialogRole(null);
+      notify.success(tc('toasts.saved'));
+    },
+    onError: (error) => {
+      notifyApiError(error, tc('errors.generic'));
     },
   });
 

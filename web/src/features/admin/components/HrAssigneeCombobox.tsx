@@ -1,4 +1,3 @@
-import { useQueries } from '@tanstack/react-query';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,11 +12,9 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { HR_ASSIGNEE_ELIGIBLE_ROLE_CODES } from '@/config/hrAssigneeRoleCodes';
 import { cn } from '@/lib/utils';
 
-import { getUserRoles } from '../api';
-import { adminKeys, useUsersList } from '../queries';
+import { useOnboardingAssignees, useUser } from '../queries';
 import type { UserRead } from '../types';
 
 type Props = {
@@ -38,44 +35,37 @@ export function HrAssigneeCombobox({ value, onChange, disabled, className }: Pro
   const { t, i18n } = useTranslation('admin');
   const { t: tc } = useTranslation('common');
   const [open, setOpen] = useState(false);
-  const { data: users = [], isLoading } = useUsersList({ enabled: open || value !== '' });
+  const listEnabled = !disabled && (open || value !== '');
+  const { data: assignees = [], isLoading } = useOnboardingAssignees({ enabled: listEnabled });
+
+  const selectedId = useMemo(() => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [value]);
+
+  const { data: fallbackUser } = useUser(selectedId ?? 0, {
+    enabled: Boolean(
+      selectedId &&
+        !assignees.some((u) => u.id === selectedId) &&
+        listEnabled &&
+        !disabled,
+    ),
+  });
 
   const sorted = useMemo(
     () =>
-      [...users].sort((a, b) =>
+      [...assignees].sort((a, b) =>
         userPrimaryLabel(a).localeCompare(userPrimaryLabel(b), undefined, { sensitivity: 'base' }),
       ),
-    [users],
+    [assignees],
   );
 
-  const roleQueries = useQueries({
-    queries: users.map((u) => ({
-      queryKey: adminKeys.userRoles(u.id),
-      queryFn: () => getUserRoles(u.id),
-      enabled: !disabled && (open || value !== '') && users.length > 0,
-      staleTime: 60_000,
-    })),
-  });
-
-  const eligibleIds = useMemo(() => {
-    const ids = new Set<number>();
-    users.forEach((u, i) => {
-      const rows = roleQueries[i]?.data;
-      if (!rows) return;
-      if (rows.some((r) => HR_ASSIGNEE_ELIGIBLE_ROLE_CODES.has(r.role_code))) ids.add(u.id);
-    });
-    return ids;
-  }, [users, roleQueries]);
-
-  const rolesStillLoading =
-    users.length > 0 && roleQueries.some((q) => q.isLoading || q.isFetching);
-
-  const filteredSorted = useMemo(
-    () => sorted.filter((u) => eligibleIds.has(u.id)),
-    [sorted, eligibleIds],
-  );
-
-  const selected = useMemo(() => sorted.find((u) => String(u.id) === value), [sorted, value]);
+  const selected = useMemo(() => {
+    const fromList = sorted.find((u) => String(u.id) === value);
+    if (fromList) return fromList;
+    if (selectedId != null && fallbackUser?.id === selectedId) return fallbackUser;
+    return undefined;
+  }, [sorted, value, selectedId, fallbackUser]);
 
   const label = selected ? (
     <span className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1.5 gap-y-0 text-start">
@@ -117,9 +107,7 @@ export function HrAssigneeCombobox({ value, onChange, disabled, className }: Pro
         <Command dir={i18n.dir()}>
           <CommandInput placeholder={tc('layout.search')} />
           <CommandList>
-            <CommandEmpty>
-              {rolesStillLoading || isLoading ? '…' : t('users.hr_assignee_empty')}
-            </CommandEmpty>
+            <CommandEmpty>{isLoading ? '…' : t('users.hr_assignee_empty')}</CommandEmpty>
             <CommandGroup>
               <CommandItem
                 value="__none__"
@@ -131,7 +119,7 @@ export function HrAssigneeCombobox({ value, onChange, disabled, className }: Pro
                 <Check className={cn('me-2 size-4 shrink-0', value === '' ? 'opacity-100' : 'opacity-0')} />
                 {t('branches.picker_clear')}
               </CommandItem>
-              {filteredSorted.map((u) => {
+              {sorted.map((u) => {
                 const idStr = String(u.id);
                 const primary = userPrimaryLabel(u);
                 return (

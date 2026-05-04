@@ -76,7 +76,11 @@ export function NotificationCenter() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => void markAllRead.mutateAsync()}
+                onClick={() =>
+                  void markAllRead.mutateAsync(undefined, {
+                    onSuccess: () => notify.success(t('toasts.marked_read')),
+                  })
+                }
                 disabled={markAllRead.isPending}
               >
                 {t('notifications.mark_all_read')}
@@ -100,7 +104,11 @@ export function NotificationCenter() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => markRead.mutate(item.id)}
+                    onClick={() =>
+                      markRead.mutate(item.id, {
+                        onSuccess: () => notify.success(t('toasts.marked_read')),
+                      })
+                    }
                     disabled={markRead.isPending}
                   >
                     {t('notifications.mark_read')}

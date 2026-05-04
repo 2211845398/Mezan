@@ -15,11 +15,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { notify } from '@/lib/toast';
 
-import { type HrAnomalyResponse,postHrAnomalies } from '../../api';
+import { type HrAnomalyResponse, postHrAnomalies } from '../../api';
 
 export default function AnomaliesDashboard() {
   const { t } = useTranslation('hr');
+  const { t: tc } = useTranslation('common');
   const [lookback, setLookback] = useState(14);
   const [branchId, setBranchId] = useState('');
   const [res, setRes] = useState<HrAnomalyResponse | null>(null);
@@ -41,6 +43,7 @@ export default function AnomaliesDashboard() {
     onSuccess: (r) => {
       setRes(r);
       runKeyRef.current = null;
+      notify.success(tc('toasts.analysis_complete'));
     },
     onError: (error) => {
       runKeyRef.current = null;

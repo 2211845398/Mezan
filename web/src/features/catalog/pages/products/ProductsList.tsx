@@ -19,6 +19,7 @@ import {
 import { DangerConfirmDialog } from '@/features/admin/components/DangerConfirmDialog';
 import { usePermission } from '@/hooks/usePermission';
 import { formatNumber } from '@/lib/format';
+import { notify } from '@/lib/toast';
 
 import {
   getBarcodeCount,
@@ -45,6 +46,7 @@ function flattenCategoryTree(
 
 export default function ProductsList() {
   const { t } = useTranslation('catalog');
+  const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const canUpdate = usePermission('catalog', 'update');
   const canCreate = usePermission('catalog', 'create');
@@ -213,8 +215,10 @@ export default function ProductsList() {
         isLoading={archiveProduct.isPending}
         onConfirm={async () => {
           if (!archiveTarget) return;
+          const wasArchived = archiveTarget.status === 'archived';
           try {
             await archiveProduct.mutateAsync(archiveTarget);
+            notify.success(wasArchived ? tc('toasts.restored') : tc('toasts.archived'));
             setArchiveTarget(null);
           } catch (error) {
             notifyApiError(error, t('errors.generic'));

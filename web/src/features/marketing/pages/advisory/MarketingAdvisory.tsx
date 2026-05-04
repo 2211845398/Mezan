@@ -17,12 +17,14 @@ import {
 } from '@/components/ui/select';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { notify } from '@/lib/toast';
 
 import type { MarketingAdvisoryResponse } from '../../api';
 import { postMarketingAdvisory } from '../../api';
 
 export default function MarketingAdvisory() {
   const { t } = useTranslation('marketing');
+  const { t: tc } = useTranslation('common');
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
@@ -43,6 +45,7 @@ export default function MarketingAdvisory() {
     onSuccess: (r) => {
       setResult(r);
       setFriendlyError(null);
+      notify.success(tc('toasts.analysis_complete'));
     },
     onError: (e) => {
       setResult(null);

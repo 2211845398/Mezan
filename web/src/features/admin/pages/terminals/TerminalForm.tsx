@@ -17,6 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
+import { notify } from '@/lib/toast';
 
 import { BranchPicker } from '../../components/BranchPicker';
 import { useAuthorizeTerminal, useCreateTerminal, useDeauthorizeTerminal, useUpdateTerminal } from '../../queries';
@@ -129,6 +130,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
               onSubmit={eForm.handleSubmit(async (v) => {
                 try {
                   await update.mutateAsync(v);
+                  notify.success(tc('toasts.saved'));
                 } catch (error) {
                   const message = applyApiErrorToForm(eForm, error);
                   if (message) notifyApiError(error, tc('errors.generic'));
@@ -171,7 +173,10 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                 className={floatingFormApproveButtonSmClassName}
                 disabled={authz.isPending}
                 onClick={() =>
-                  void authz.mutateAsync().catch((error) => notifyApiError(error, tc('errors.generic')))
+                  void authz
+                    .mutateAsync()
+                    .then(() => notify.success(tc('toasts.saved')))
+                    .catch((error) => notifyApiError(error, tc('errors.generic')))
                 }
               >
                 {t('terminals.authorize')}
@@ -183,7 +188,10 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                 className={floatingFormDangerButtonSmClassName}
                 disabled={deauthz.isPending}
                 onClick={() =>
-                  void deauthz.mutateAsync().catch((error) => notifyApiError(error, tc('errors.generic')))
+                  void deauthz
+                    .mutateAsync()
+                    .then(() => notify.success(tc('toasts.saved')))
+                    .catch((error) => notifyApiError(error, tc('errors.generic')))
                 }
               >
                 {t('terminals.deauthorize')}
@@ -198,6 +206,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
             onSubmit={cForm.handleSubmit(async (v) => {
               try {
                 const res = await create.mutateAsync(v);
+                notify.success(tc('toasts.saved'));
                 window.alert(
                   t('terminals.api_key_once', { key: (res as { api_key?: string }).api_key ?? '' }),
                 );

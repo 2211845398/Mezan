@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { usePermission } from '@/hooks/usePermission';
+import { notify } from '@/lib/toast';
 import RouteLoader from '@/routes/RouteLoader';
 
 import { BranchPicker } from '../../components/BranchPicker';
@@ -112,6 +113,7 @@ export default function UserEdit() {
                   status: v.status,
                   branch_id: v.branch_id == null ? null : v.branch_id,
                 });
+                notify.success(tc('toasts.saved'));
               } catch (error) {
                 setFormError(applyApiErrorToForm(form, error) ?? tc('errors.validation'));
               }
@@ -231,6 +233,7 @@ export default function UserEdit() {
                               void removeRole
                                 .mutateAsync(body)
                                 .then(() => refetchRoles())
+                                .then(() => notify.success(tc('toasts.removed')))
                                 .catch((error) => notifyApiError(error, tc('errors.generic')));
                             }}
                           >
@@ -260,6 +263,7 @@ export default function UserEdit() {
                         await addRole.mutateAsync({ role_id: Number(addRoleId), branch_id: null });
                         setAddRoleId('');
                         await refetchRoles();
+                        notify.success(tc('toasts.saved'));
                       } catch (error) {
                         notifyApiError(error, tc('errors.generic'));
                       }
@@ -283,7 +287,10 @@ export default function UserEdit() {
                   variant="outline"
                   className={floatingFormCloseButtonClassName}
                   onClick={() =>
-                    void requestReset.mutateAsync(userId).catch((error) => notifyApiError(error, tc('errors.generic')))
+                    void requestReset
+                      .mutateAsync(userId)
+                      .then(() => notify.success(tc('toasts.email_sent')))
+                      .catch((error) => notifyApiError(error, tc('errors.generic')))
                   }
                 >
                   {t('users.reset_password')}
@@ -316,6 +323,7 @@ export default function UserEdit() {
         onConfirm={async () => {
           try {
             await update.mutateAsync({ status: 'deactivated' });
+            notify.success(tc('toasts.deactivated'));
             setDeactivateOpen(false);
           } catch (error) {
             notifyApiError(error, tc('errors.generic'));

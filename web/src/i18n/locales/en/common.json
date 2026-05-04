@@ -152,6 +152,19 @@
     "error_title": "The table failed to load",
     "error_body": "Something went wrong while fetching data."
   },
+  "toasts": {
+    "saved": "Saved successfully.",
+    "removed": "Removed successfully.",
+    "deleted": "Deleted successfully.",
+    "deactivated": "User deactivated.",
+    "archived": "Branch archived.",
+    "restored": "Branch restored.",
+    "cleared": "Cleared successfully.",
+    "email_sent": "Password reset email sent.",
+    "backup_started": "Backup started. Status will update shortly.",
+    "marked_read": "Marked as read.",
+    "analysis_complete": "Analysis completed."
+  },
   "errors": {
     "generic": "An unexpected error occurred.",
     "network": "Unable to reach the server.",
@@ -160,8 +173,16 @@
     "rate_limited": "Too many requests — please try again shortly.",
     "server": "Server error, retrying automatically.",
     "validation": "Invalid input — check highlighted fields.",
+    "validation_email": "Enter a valid email address.",
+    "validation_password_short": "Password must be at least 8 characters.",
+    "validation_required": "This field is required.",
+    "validation_generic": "Invalid input. Please check the value and try again.",
     "request_failed": "Request failed. Please review the details and try again.",
     "try_again": "Please try again."
+  },
+  "apiErrors": {
+    "email_already_exists": "This email is already registered.",
+    "onboarding_assignee_ineligible": "The selected reviewer must be an active user with permission to manage onboarding and employee records."
   },
   "actions": {
     "save": "Save",

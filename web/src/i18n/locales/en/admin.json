@@ -33,6 +33,13 @@
     "created_ok": "User #{{id}} has been created.",
     "email_invalid": "Enter a valid email address.",
     "password_too_short": "Password must be at least 8 characters.",
+    "user_status": {
+      "pending_onboarding": "Pending onboarding",
+      "active": "Active",
+      "deactivated": "Deactivated",
+      "suspended": "Suspended",
+      "banned": "Banned"
+    },
     "onboarding_status": "Onboarding",
     "open_user": "Open user",
     "roles": "Roles",

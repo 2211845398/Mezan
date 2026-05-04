@@ -9,6 +9,7 @@ import {
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
+import { notify } from '@/lib/toast';
 import RouteLoader from '@/routes/RouteLoader';
 
 import { PermissionGrid } from '../../components/PermissionGrid';
@@ -71,6 +72,7 @@ export default function RoleEdit() {
             onClick={async () => {
               try {
                 await setPerms.mutateAsync({ permission_ids: ids });
+                notify.success(tc('toasts.saved'));
               } catch (error) {
                 notifyApiError(error, tc('errors.generic'));
               }

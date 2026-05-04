@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { notify } from '@/lib/toast';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -217,6 +218,10 @@ export default function UserPermissionOverrides() {
       await qc.invalidateQueries({ queryKey: adminKeys.userRoles(userId) });
       await refetchOverrides();
       await refetchUserRoles();
+      notify.success(tc('toasts.saved'));
+    },
+    onError: (error) => {
+      notifyApiError(error, tc('errors.generic'));
     },
   });
 
@@ -351,6 +356,7 @@ export default function UserPermissionOverrides() {
                       await del.mutateAsync(o.id);
                       await refetchOverrides();
                       await refetchUserRoles();
+                      notify.success(tc('toasts.removed'));
                     } catch (error) {
                       notifyApiError(error, tc('errors.generic'));
                     }

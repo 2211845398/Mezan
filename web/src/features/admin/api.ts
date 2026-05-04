@@ -35,6 +35,11 @@ export async function listUsers(): Promise<UserRead[]> {
   return data;
 }
 
+export async function listOnboardingAssignees(): Promise<UserRead[]> {
+  const { data } = await apiClient.get<UserRead[]>('/users/onboarding-assignees');
+  return data;
+}
+
 export async function createUser(body: UserCreateBody): Promise<UserRead> {
   const { data } = await apiClient.post<UserRead>('/users', body);
   return data;

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { formatIso } from '@/lib/date';
+import { notify } from '@/lib/toast';
 
 import {
   useClearReadNotifications,
@@ -80,7 +81,11 @@ export default function NotificationsInboxPage() {
                 variant="destructive"
                 size="sm"
                 className="gap-1"
-                onClick={() => void clearRead.mutateAsync()}
+                onClick={() =>
+                  void clearRead.mutateAsync(undefined, {
+                    onSuccess: () => notify.success(t('toasts.cleared')),
+                  })
+                }
                 disabled={clearRead.isPending}
               >
                 {t('notifications.clear_read')}
@@ -91,7 +96,11 @@ export default function NotificationsInboxPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => void markAllRead.mutateAsync()}
+                onClick={() =>
+                  void markAllRead.mutateAsync(undefined, {
+                    onSuccess: () => notify.success(t('toasts.marked_read')),
+                  })
+                }
                 disabled={markAllRead.isPending}
               >
                 {t('notifications.mark_all_read')}
@@ -128,7 +137,11 @@ export default function NotificationsInboxPage() {
                         variant="outline"
                         size="sm"
                         className="shrink-0"
-                        onClick={() => markRead.mutate(item.id)}
+                        onClick={() =>
+                          markRead.mutate(item.id, {
+                            onSuccess: () => notify.success(t('toasts.marked_read')),
+                          })
+                        }
                         disabled={markRead.isPending}
                       >
                         {t('notifications.mark_read')}

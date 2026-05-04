@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { listBranches, listUsers } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { notify } from '@/lib/toast';
 
 import {
   createEmployee,
@@ -53,6 +54,7 @@ const weekdays = [0, 1, 2, 3, 4, 5, 6] as const;
 export default function EmployeeForm() {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation('hr');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isNew = id === 'new';
@@ -143,6 +145,7 @@ export default function EmployeeForm() {
     onSuccess: () => {
       void refetchSched();
       void qc.invalidateQueries({ queryKey: hrKeys.schedules(eid) });
+      notify.success(tc('toasts.saved'));
     },
     onError: (error) => notifyApiError(error, t('hr_errors.generic')),
   });

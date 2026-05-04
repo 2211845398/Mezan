@@ -8,7 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
-from app.models.branch import Branch
 from app.models.employee_profile import EmployeeProfile
 from app.models.permission import Permission
 from app.models.role import Role
@@ -72,10 +71,10 @@ async def list_onboarding_tasks_enriched(
     db: AsyncSession, *, status_filter: str | None = "pending"
 ) -> list[dict]:
     """Return onboarding tasks with enriched user, branch, and role details."""
-    from app.models.users import User as UserModel
-    from app.models.branches import Branch as BranchModel
+    from app.models.branch import Branch as BranchModel
     from app.models.role import Role as RoleModel
     from app.models.user_role import UserRole as UserRoleModel
+    from app.models.users import User as UserModel
 
     stmt = (
         select(
@@ -156,6 +155,17 @@ async def complete_onboarding_task(
     user = user_res.scalar_one_or_none()
     if not user:
         raise NotFoundError("User not found", details={"user_id": task.user_id})
+
+    if "assigned_hr_user_id" in data:
+        aid = data.get("assigned_hr_user_id")
+        if aid is not None:
+            from app.services.effective_permissions import user_can_act_as_onboarding_assignee
+
+            if not await user_can_act_as_onboarding_assignee(db, int(aid)):
+                raise ValidationError(
+                    "Invalid onboarding assignee",
+                    details={"code": "onboarding_assignee_ineligible"},
+                )
 
     # Update task fields from data
     for key, value in data.items():

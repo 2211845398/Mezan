@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -11,11 +12,13 @@ import {
 } from '@/components/ui/table';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
+import { notify } from '@/lib/toast';
 
 import { useBackupStatus, useRunBackup } from '../../queries';
 
 export default function BackupsList() {
   const { t } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const { data: status, isLoading } = useBackupStatus();
   const run = useRunBackup();
   const canRun = usePermission('backups', 'run');
@@ -45,7 +48,12 @@ export default function BackupsList() {
         <h1 className="text-2xl font-semibold">{t('backups.title')}</h1>
         {canRun ? (
           <Button
-            onClick={() => void run.mutateAsync()}
+            onClick={() => {
+              void run
+                .mutateAsync()
+                .then(() => notify.success(tc('toasts.backup_started')))
+                .catch((error) => notifyApiError(error, tc('errors.generic')));
+            }}
             disabled={run.isPending || inProgress}
           >
             {t('backups.trigger')}

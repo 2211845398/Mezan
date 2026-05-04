@@ -33,6 +33,13 @@
     "created_ok": "تم إنشاء المستخدم رقم {{id}}.",
     "email_invalid": "أدخل بريدًا إلكترونيًا صالحًا.",
     "password_too_short": "يجب ألا تقل كلمة المرور عن 8 أحرف.",
+    "user_status": {
+      "pending_onboarding": "بانتظار الضبط",
+      "active": "نشط",
+      "deactivated": "معطّل",
+      "suspended": "معلّق",
+      "banned": "محظور"
+    },
     "onboarding_status": "الضبط",
     "open_user": "فتح بيانات المستخدم",
     "roles": "الأدوار",

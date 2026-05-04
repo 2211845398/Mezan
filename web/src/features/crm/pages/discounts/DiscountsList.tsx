@@ -10,6 +10,7 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 import { fromISO } from '@/lib/date';
+import { notify } from '@/lib/toast';
 
 import type { DiscountRuleRead } from '../../api';
 import { updateDiscountRule } from '../../api';
@@ -26,6 +27,7 @@ function sortDiscounts(rows: DiscountRuleRead[]): DiscountRuleRead[] {
 
 export default function DiscountsList() {
   const { t } = useTranslation('crm');
+  const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const canCreate = usePermission('discounts', 'create');
   const canUpdate = usePermission('discounts', 'update');
@@ -52,6 +54,9 @@ export default function DiscountsList() {
     onError: (error, _r, ctx) => {
       if (ctx?.prev) qc.setQueryData(crmKeys.discounts({ limit: 100, offset: 0 }), ctx.prev);
       notifyApiError(error, t('errors.generic'));
+    },
+    onSuccess: () => {
+      notify.success(tc('toasts.saved'));
     },
     onSettled: async () => {
       await qc.invalidateQueries({ queryKey: crmKeys.root });

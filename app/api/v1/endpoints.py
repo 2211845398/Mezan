@@ -20,6 +20,10 @@ from app.schemas.users import (
     UserUpdate,
 )
 from app.services import audit_service, auth_service
+from app.services.effective_permissions import (
+    list_onboarding_assignee_users,
+    user_can_act_as_onboarding_assignee,
+)
 from app.services.user_lifecycle_service import (
     assign_role_by_code,
     complete_onboarding_task,
@@ -45,7 +49,14 @@ async def create_user(
     """Create a new user (staff). Requires users:create permission."""
     existing = await db.execute(select(User).where(User.email == str(user_in.email)))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="email_already_exists")
+
+    if user_in.assigned_hr_user_id is not None:
+        if not await user_can_act_as_onboarding_assignee(db, user_in.assigned_hr_user_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="onboarding_assignee_ineligible",
+            )
 
     user = User(
         email=str(user_in.email),
@@ -93,6 +104,17 @@ async def list_users(
     result = await db.execute(select(User))
     users = result.scalars().all()
     return users
+
+
+@router.get("/users/onboarding-assignees", response_model=list[UserRead])
+async def list_onboarding_assignees(
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("users", "read"),
+) -> list[UserRead]:
+    """Users eligible to be assigned as onboarding reviewer (active + effective HR permissions)."""
+    rows = await list_onboarding_assignee_users(db)
+    return rows
 
 
 @router.get("/users/{user_id}", response_model=UserRead)

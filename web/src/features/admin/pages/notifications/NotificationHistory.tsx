@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -11,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatIso } from '@/lib/date';
+import { notify } from '@/lib/toast';
 
 import {
   formatGroupedDeliveryStatus,
@@ -22,6 +24,7 @@ import { useClearAllNotificationDeliveries, useNotificationDeliveries, useNotifi
 
 export default function NotificationHistory() {
   const { t } = useTranslation('admin');
+  const { t: tc } = useTranslation('common');
   const { data: deliveries = [], isLoading: deliveriesLoading } = useNotificationDeliveries();
   const { data: runs = [], isLoading: runsLoading } = useNotificationRuns();
   const clearAll = useClearAllNotificationDeliveries();
@@ -40,7 +43,12 @@ export default function NotificationHistory() {
             type="button"
             variant="destructive"
             size="sm"
-            onClick={() => void clearAll.mutateAsync()}
+            onClick={() => {
+              void clearAll
+                .mutateAsync()
+                .then(() => notify.success(tc('toasts.cleared')))
+                .catch((error) => notifyApiError(error, tc('errors.generic')));
+            }}
             disabled={clearAll.isPending}
           >
             {t('notifications.clear_all')}
