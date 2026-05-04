@@ -25,7 +25,7 @@ from app.services.user_lifecycle_service import (
     complete_onboarding_task,
     delete_user_permission_override,
     ensure_onboarding_task,
-    list_onboarding_tasks,
+    list_onboarding_tasks_enriched,
     list_user_permission_overrides,
     upsert_user_permission_override,
 )
@@ -51,7 +51,7 @@ async def create_user(
         email=str(user_in.email),
         full_name=user_in.full_name,
         password_hash=hash_password(user_in.password) if user_in.password else None,
-        status=user_in.status or "pending_onboarding",
+        status="pending_onboarding",
         branch_id=user_in.branch_id,
     )
     db.add(user)
@@ -59,15 +59,14 @@ async def create_user(
 
     if user_in.role_code:
         await assign_role_by_code(db, user_id=user.id, role_code=user_in.role_code)
-    if user_in.require_onboarding:
-        await ensure_onboarding_task(
-            db,
-            user_id=user.id,
-            requested_by_user_id=current_user.id,
-            assigned_hr_user_id=user_in.assigned_hr_user_id,
-        )
-    else:
-        user.status = "active"
+
+    # Always create onboarding task for new users
+    await ensure_onboarding_task(
+        db,
+        user_id=user.id,
+        requested_by_user_id=current_user.id,
+        assigned_hr_user_id=user_in.assigned_hr_user_id,
+    )
 
     await db.commit()
     await db.refresh(user)
@@ -282,8 +281,52 @@ async def list_pending_onboarding(
     _: None = Depends(get_current_user),
     __: None = require_permission("onboarding", "read"),
 ) -> list[UserOnboardingRead]:
-    rows = await list_onboarding_tasks(db, status_filter="pending")
-    return [UserOnboardingRead.model_validate(r) for r in rows]
+    rows = await list_onboarding_tasks_enriched(db, status_filter="pending")
+    # Merge enriched data into the response model
+    result = []
+    for row in rows:
+        onboarding = row["onboarding"]
+        data = UserOnboardingRead.model_validate(onboarding).model_dump()
+        data.update({
+            "user_email": row["user_email"],
+            "user_full_name": row["user_full_name"],
+            "user_branch_id": row["user_branch_id"],
+            "user_branch_name": row["user_branch_name"],
+            "user_role_code": row["user_role_code"],
+            "user_role_name": row["user_role_name"],
+            "requested_by_name": row["requested_by_name"],
+            "assigned_hr_name": row["assigned_hr_name"],
+        })
+        result.append(UserOnboardingRead.model_validate(data))
+    return result
+
+
+# Role codes allowed to complete any onboarding (owner/admin/HR manager)
+_CAN_COMPLETE_ANY_ONBOARDING_ROLES = {"OWNER", "ADMIN", "HR_MANAGER"}
+
+
+async def _can_complete_onboarding(
+    db: AsyncSession, onboarding_task, current_user_id: int
+) -> bool:
+    """Check if current user can complete the onboarding task.
+
+    Allowed if:
+    - User is the assigned_hr_user_id
+    - User has OWNER, ADMIN, or HR_MANAGER role
+    """
+    if onboarding_task.assigned_hr_user_id == current_user_id:
+        return True
+
+    # Check if user has any of the privileged roles
+    result = await db.execute(
+        select(Role.code)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(
+            UserRole.user_id == current_user_id,
+            Role.code.in_(_CAN_COMPLETE_ANY_ONBOARDING_ROLES),
+        )
+    )
+    return result.scalar_one_or_none() is not None
 
 
 @router.post("/hr/onboarding/{onboarding_id}/complete", response_model=UserOnboardingRead)
@@ -295,6 +338,20 @@ async def complete_onboarding(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("onboarding", "update"),
 ) -> UserOnboardingRead:
+    # Fetch the onboarding task for authorization check
+    from app.models.user_onboarding import UserOnboarding
+
+    result = await db.execute(select(UserOnboarding).where(UserOnboarding.id == onboarding_id))
+    onboarding_task = result.scalar_one_or_none()
+    if not onboarding_task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Onboarding task not found")
+
+    if not await _can_complete_onboarding(db, onboarding_task, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the assigned reviewer or HR/Owner/Admin can complete this onboarding",
+        )
+
     row = await complete_onboarding_task(
         db,
         onboarding_id=onboarding_id,

@@ -51,6 +51,8 @@ from app.services import audit_service
 from app.services.notifications.service import (
     broadcast_notification,
     count_unread_deliveries,
+    delete_all_deliveries,
+    delete_read_deliveries,
     delete_schedule,
     get_schedule,
     list_device_tokens,
@@ -229,6 +231,30 @@ async def mark_all_deliveries_read_endpoint(
     return NotificationMarkReadResponse(updated=updated)
 
 
+@router.delete(
+    "/notifications/deliveries/me/read",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_read_deliveries_endpoint(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("notifications", "read"),
+) -> None:
+    """Delete all read deliveries for the current user."""
+    deleted = await delete_read_deliveries(db, user_id=current_user.id)
+    await audit_service.log(
+        session=db,
+        action="notifications.deliveries.clear_read",
+        resource_type="notification_delivery",
+        resource_id=None,
+        new_value={"deleted_count": deleted},
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+
+
 # ── Admin: templates ─────────────────────────────────────────────────────────
 
 
@@ -398,6 +424,31 @@ async def list_admin_deliveries_endpoint(
     return NotificationDeliveryListResponse(
         items=[NotificationDeliveryRead.model_validate(r) for r in rows]
     )
+
+
+@router.delete(
+    "/admin/notifications/deliveries",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_all_deliveries_endpoint(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("notifications", "update"),
+    __: None = require_any_role(*ORG_NOTIFICATION_MANAGER_ROLE_CODES),
+) -> None:
+    """Delete all notification deliveries (admin only)."""
+    deleted = await delete_all_deliveries(db, user_id=None)
+    await audit_service.log(
+        session=db,
+        action="notifications.deliveries.clear_all",
+        resource_type="notification_delivery",
+        resource_id=None,
+        new_value={"deleted_count": deleted},
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
 
 
 @router.post(

@@ -119,6 +119,9 @@
 - [x] **4.2** Clock in/out and leave request workflows.
 - [x] **4.3** Payroll calculation (hours, rates, deductions).
 - [x] **4.4** Bank-ready salary CSV export.
+- [x] **4.5** User onboarding workflow (pending → HR completion → active).
+- [x] **4.6** Pending employee requests page for HR approval.
+- [x] **4.7** Per-employee performance, attendance, leave, and schedule tracking pages.
 
 #### Epic 5 — Accounting and Executive BI
 - [x] **5.1** Chart of accounts, journal entries/lines with mandatory `branch_id`.
@@ -202,10 +205,15 @@
 - [x] **W-5.3** Inventory and catalog: products, categories, price lists, stock, adjustments, transfers.
 - [x] **W-5.4** Purchase orders + goods receipts + invoice scans.
 - [x] **W-5.5** HR (employees, attendance, leave) + Payroll.
+- [x] **W-5.5.1** Pending employee onboarding requests page.
+- [x] **W-5.5.2** Employee detail pages with performance, attendance, leave, and schedule tracking.
 - [x] **W-5.6** Accounting (journals, trial balance, financial reports) + Fiscal periods.
 - [x] **W-5.7** CRM (loyalty, discounts) + Marketing advisory.
 - [x] **W-5.8** Executive BI dashboard (`/dashboard` + Recharts KPIs + AI advisors).
 - [x] **W-5.9** Admin (users, roles, permissions, branches, terminals, backups, notifications).
+- [x] **W-5.9.1** User creation form: always create pending onboarding, simplified field order.
+- [x] **W-5.9.2** Enriched pending onboarding list with user details for HR review.
+- [x] **W-5.9.3** Frontend error visibility hardening: backend validation and business-rule failures surface as field messages or actionable toasts.
 
 #### Epic W-5 UI Reimplementation — Visual System Refresh
 - [x] **W-5.UI.1** Shared UI foundation: `PageHeader`, `CreateButton`, `BackButton`, `FloatingFormDialog`, `ContentSurface`, `SectionCard`, `FormContainer` components.

@@ -35,6 +35,7 @@ from app.services.employee_service import (
     list_attendance_logs,
     list_attendance_logs_filtered,
     list_employee_profiles,
+    list_employee_profiles_enriched,
     list_leave_requests,
     list_leave_requests_filtered,
     list_weekly_schedules,
@@ -82,8 +83,23 @@ async def list_employee_profiles_endpoint(
     _: None = Depends(get_current_user),
     __: None = require_permission("employees", "read"),
 ) -> list[EmployeeProfileRead]:
-    rows = await list_employee_profiles(db)
-    return [EmployeeProfileRead.model_validate(r) for r in rows]
+    rows = await list_employee_profiles_enriched(db)
+    # Merge enriched data into the response model
+    result = []
+    for row in rows:
+        employee = row["employee"]
+        data = EmployeeProfileRead.model_validate(employee).model_dump()
+        data.update({
+            "user_email": row["user_email"],
+            "user_full_name": row["user_full_name"],
+            "user_status": row["user_status"],
+            "user_branch_id": row["user_branch_id"],
+            "user_branch_name": row["user_branch_name"],
+            "user_role_code": row["user_role_code"],
+            "user_role_name": row["user_role_name"],
+        })
+        result.append(EmployeeProfileRead.model_validate(data))
+    return result
 
 
 @router.get("/employees/{employee_profile_id}", response_model=EmployeeProfileRead)

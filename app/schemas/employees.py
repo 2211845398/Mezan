@@ -35,6 +35,14 @@ class EmployeeProfileRead(BaseModel):
     bank_account: str | None = None
     created_at: datetime
     updated_at: datetime
+    # Enriched user details
+    user_email: str | None = None
+    user_full_name: str | None = None
+    user_status: str | None = None
+    user_branch_id: int | None = None
+    user_branch_name: str | None = None
+    user_role_code: str | None = None
+    user_role_name: str | None = None
 
 
 class WeeklyScheduleCreate(BaseModel):

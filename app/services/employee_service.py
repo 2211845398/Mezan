@@ -9,8 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
 from app.models.attendance_log import AttendanceLog
+from app.models.branch import Branch
 from app.models.employee_profile import EmployeeProfile
 from app.models.leave_request import LeaveRequest, LeaveStatus, LeaveType
+from app.models.role import Role
+from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
 
@@ -58,6 +61,47 @@ async def create_employee_profile(db: AsyncSession, *, data: dict) -> EmployeePr
 async def list_employee_profiles(db: AsyncSession) -> list[EmployeeProfile]:
     result = await db.execute(select(EmployeeProfile).order_by(EmployeeProfile.id.asc()))
     return list(result.scalars().all())
+
+
+async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
+    """Return employee profiles with enriched user, branch, and role details."""
+    stmt = (
+        select(
+            EmployeeProfile,
+            User.email.label("user_email"),
+            User.full_name.label("user_full_name"),
+            User.status.label("user_status"),
+            User.branch_id.label("user_branch_id"),
+            Branch.name.label("user_branch_name"),
+            Role.code.label("user_role_code"),
+            Role.name.label("user_role_name"),
+        )
+        .join(User, EmployeeProfile.user_id == User.id)
+        .outerjoin(Branch, User.branch_id == Branch.id)
+        .outerjoin(
+            UserRole,
+            (UserRole.user_id == User.id) & (UserRole.branch_id.is_(None)),
+        )
+        .outerjoin(Role, UserRole.role_id == Role.id)
+        .order_by(EmployeeProfile.id.asc())
+    )
+    result = await db.execute(stmt)
+
+    enriched = []
+    for row in result.all():
+        employee = row[0]
+        enriched.append({
+            "employee": employee,
+            "user_email": row.user_email,
+            "user_full_name": row.user_full_name,
+            "user_status": row.user_status,
+            "user_branch_id": row.user_branch_id,
+            "user_branch_name": row.user_branch_name,
+            "user_role_code": row.user_role_code,
+            "user_role_name": row.user_role_name,
+        })
+
+    return enriched
 
 
 async def get_employee_profile(db: AsyncSession, employee_profile_id: int) -> EmployeeProfile:

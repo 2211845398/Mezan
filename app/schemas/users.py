@@ -16,7 +16,6 @@ class UserCreate(BaseModel):
     status: str = "pending_onboarding"  # pending_onboarding, active, deactivated, suspended, banned
     branch_id: int | None = None
     role_code: str | None = Field(default=None, max_length=64)
-    require_onboarding: bool = True
     assigned_hr_user_id: int | None = None
 
 
@@ -62,6 +61,25 @@ class UserOnboardingRead(BaseModel):
     completed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    # Enriched user details for HR pending requests page
+    user_email: str | None = None
+    user_full_name: str | None = None
+    user_branch_id: int | None = None
+    user_branch_name: str | None = None
+    user_role_code: str | None = None
+    user_role_name: str | None = None
+    requested_by_name: str | None = None
+    assigned_hr_name: str | None = None
+
+
+class WeeklyScheduleItem(BaseModel):
+    """Schedule block to create during onboarding completion."""
+
+    weekday: int = Field(ge=0, le=6)
+    start_time: str  # HH:MM:SS format
+    end_time: str  # HH:MM:SS format
+    is_day_off: bool = False
+    branch_id: int
 
 
 class UserOnboardingComplete(BaseModel):
@@ -70,8 +88,11 @@ class UserOnboardingComplete(BaseModel):
     contract_start: date | None = None
     contract_end: date | None = None
     salary_amount: Decimal | None = None
+    hourly_rate: Decimal | None = None
     salary_currency: str | None = None
+    bank_account: str | None = None
     notes: str | None = None
+    schedules: list[WeeklyScheduleItem] | None = None
 
 
 class UserPermissionOverrideWrite(BaseModel):
@@ -82,6 +103,8 @@ class UserPermissionOverrideWrite(BaseModel):
 
 
 class UserPermissionOverrideRead(UserPermissionOverrideWrite):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     created_by_user_id: int | None = None

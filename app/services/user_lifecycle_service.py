@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
+from app.models.branch import Branch
 from app.models.employee_profile import EmployeeProfile
 from app.models.permission import Permission
 from app.models.role import Role
@@ -15,6 +16,7 @@ from app.models.user_onboarding import UserOnboarding
 from app.models.user_permission_override import UserPermissionOverride
 from app.models.user_role import UserRole
 from app.models.users import User
+from app.models.weekly_schedule import WeeklySchedule
 
 
 async def assign_role_by_code(db: AsyncSession, *, user_id: int, role_code: str) -> None:
@@ -66,6 +68,74 @@ async def list_onboarding_tasks(
     return list(result.scalars().all())
 
 
+async def list_onboarding_tasks_enriched(
+    db: AsyncSession, *, status_filter: str | None = "pending"
+) -> list[dict]:
+    """Return onboarding tasks with enriched user, branch, and role details."""
+    from app.models.users import User as UserModel
+    from app.models.branches import Branch as BranchModel
+    from app.models.role import Role as RoleModel
+    from app.models.user_role import UserRole as UserRoleModel
+
+    stmt = (
+        select(
+            UserOnboarding,
+            UserModel.email.label("user_email"),
+            UserModel.full_name.label("user_full_name"),
+            UserModel.branch_id.label("user_branch_id"),
+            BranchModel.name.label("user_branch_name"),
+            RoleModel.code.label("user_role_code"),
+            RoleModel.name.label("user_role_name"),
+        )
+        .join(UserModel, UserOnboarding.user_id == UserModel.id)
+        .outerjoin(BranchModel, UserModel.branch_id == BranchModel.id)
+        .outerjoin(
+            UserRoleModel,
+            (UserRoleModel.user_id == UserOnboarding.user_id) & (UserRoleModel.branch_id.is_(None)),
+        )
+        .outerjoin(RoleModel, UserRoleModel.role_id == RoleModel.id)
+        .order_by(UserOnboarding.created_at.asc())
+    )
+    if status_filter:
+        stmt = stmt.where(UserOnboarding.status == status_filter)
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    # Get requester and assignee names
+    user_ids = set()
+    for row in rows:
+        onboarding = row[0]
+        if onboarding.requested_by_user_id:
+            user_ids.add(onboarding.requested_by_user_id)
+        if onboarding.assigned_hr_user_id:
+            user_ids.add(onboarding.assigned_hr_user_id)
+
+    names_map: dict[int, str] = {}
+    if user_ids:
+        user_result = await db.execute(
+            select(UserModel.id, UserModel.full_name).where(UserModel.id.in_(list(user_ids)))
+        )
+        names_map = {uid: name for uid, name in user_result.all()}
+
+    enriched = []
+    for row in rows:
+        onboarding = row[0]
+        enriched.append({
+            "onboarding": onboarding,
+            "user_email": row.user_email,
+            "user_full_name": row.user_full_name,
+            "user_branch_id": row.user_branch_id,
+            "user_branch_name": row.user_branch_name,
+            "user_role_code": row.user_role_code,
+            "user_role_name": row.user_role_name,
+            "requested_by_name": names_map.get(onboarding.requested_by_user_id),
+            "assigned_hr_name": names_map.get(onboarding.assigned_hr_user_id),
+        })
+
+    return enriched
+
+
 async def complete_onboarding_task(
     db: AsyncSession,
     *,
@@ -73,6 +143,8 @@ async def complete_onboarding_task(
     actor_user_id: int,
     data: dict,
 ) -> UserOnboarding:
+    from datetime import time as dt_time
+
     result = await db.execute(select(UserOnboarding).where(UserOnboarding.id == onboarding_id))
     task = result.scalar_one_or_none()
     if not task:
@@ -85,14 +157,19 @@ async def complete_onboarding_task(
     if not user:
         raise NotFoundError("User not found", details={"user_id": task.user_id})
 
+    # Update task fields from data
     for key, value in data.items():
-        if value is not None:
+        if value is not None and key not in ("schedules", "hourly_rate", "bank_account"):
             setattr(task, key, value)
 
     if task.contract_start is None:
         raise ValidationError("contract_start is required to complete onboarding")
-    if task.salary_amount is None:
-        raise ValidationError("salary_amount is required to complete onboarding")
+
+    # Either salary_amount or hourly_rate must be provided
+    salary_amount = data.get("salary_amount") or task.salary_amount
+    hourly_rate = data.get("hourly_rate")
+    if salary_amount is None and hourly_rate is None:
+        raise ValidationError("Either salary_amount or hourly_rate is required to complete onboarding")
 
     emp_res = await db.execute(select(EmployeeProfile).where(EmployeeProfile.user_id == user.id))
     employee = emp_res.scalar_one_or_none()
@@ -100,19 +177,52 @@ async def complete_onboarding_task(
         employee = EmployeeProfile(
             user_id=user.id,
             hire_date=task.contract_start,
-            base_salary=task.salary_amount,
-            hourly_rate=None,
-            bank_account=None,
+            base_salary=salary_amount,
+            hourly_rate=hourly_rate,
+            bank_account=data.get("bank_account"),
         )
         db.add(employee)
     else:
         employee.hire_date = task.contract_start
-        employee.base_salary = task.salary_amount
+        employee.base_salary = salary_amount
+        if hourly_rate is not None:
+            employee.hourly_rate = hourly_rate
+        if data.get("bank_account") is not None:
+            employee.bank_account = data.get("bank_account")
+
+    await db.flush()
+
+    # Create schedules if provided
+    schedules = data.get("schedules")
+    if schedules and isinstance(schedules, list):
+        for sched in schedules:
+            weekday = sched.get("weekday")
+            start_time_str = sched.get("start_time", "09:00:00")
+            end_time_str = sched.get("end_time", "17:00:00")
+            is_day_off = sched.get("is_day_off", False)
+            branch_id = sched.get("branch_id")
+
+            # Parse time strings
+            start_parts = start_time_str.split(":")
+            end_parts = end_time_str.split(":")
+            start_time = dt_time(int(start_parts[0]), int(start_parts[1]) if len(start_parts) > 1 else 0)
+            end_time = dt_time(int(end_parts[0]), int(end_parts[1]) if len(end_parts) > 1 else 0)
+
+            schedule = WeeklySchedule(
+                employee_profile_id=employee.id,
+                branch_id=branch_id,
+                weekday=weekday,
+                start_time=start_time,
+                end_time=end_time,
+                is_day_off=is_day_off,
+            )
+            db.add(schedule)
 
     task.status = "completed"
     task.assigned_hr_user_id = (
         data.get("assigned_hr_user_id", task.assigned_hr_user_id) or actor_user_id
     )
+    task.salary_amount = salary_amount
     task.completed_at = datetime.now(UTC)
     user.status = "active"
     await db.flush()

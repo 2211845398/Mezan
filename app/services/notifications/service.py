@@ -352,6 +352,30 @@ async def mark_all_deliveries_read(db: AsyncSession, *, user_id: int) -> int:
     return int(result.rowcount or 0)
 
 
+async def delete_read_deliveries(db: AsyncSession, *, user_id: int) -> int:
+    """Delete all read deliveries for a user. Returns the number of rows deleted."""
+    from sqlalchemy import delete
+    result = await db.execute(
+        delete(NotificationDelivery)
+        .where(NotificationDelivery.user_id == user_id)
+        .where(NotificationDelivery.read_at.isnot(None))
+    )
+    await db.commit()
+    return int(result.rowcount or 0)
+
+
+async def delete_all_deliveries(db: AsyncSession, *, user_id: int | None = None) -> int:
+    """Delete all deliveries. If user_id is provided, only delete for that user.
+    Returns the number of rows deleted."""
+    from sqlalchemy import delete
+    stmt = delete(NotificationDelivery)
+    if user_id is not None:
+        stmt = stmt.where(NotificationDelivery.user_id == user_id)
+    result = await db.execute(stmt)
+    await db.commit()
+    return int(result.rowcount or 0)
+
+
 # ── Rendering ────────────────────────────────────────────────────────────────
 
 
