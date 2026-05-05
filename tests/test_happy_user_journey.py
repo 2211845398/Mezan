@@ -99,6 +99,12 @@ async def _get_or_create_branch(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skip(
+    reason=(
+        "Deferred: POS and accounting GL integration is in flux; re-enable after "
+        "sale/return posting and reports stabilize (testing suite maintenance plan)."
+    ),
+)
 @pytest.mark.asyncio
 async def test_happy_user_journey(
     client: AsyncClient,

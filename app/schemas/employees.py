@@ -15,6 +15,7 @@ class EmployeeProfileCreate(BaseModel):
     base_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
     bank_account: str | None = None
+    annual_leave_entitlement_days: Decimal | None = None
 
 
 class EmployeeProfileUpdate(BaseModel):
@@ -22,6 +23,7 @@ class EmployeeProfileUpdate(BaseModel):
     base_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
     bank_account: str | None = None
+    annual_leave_entitlement_days: Decimal | None = None
     # Linked user (via employees:update); email and status are not editable here.
     subject_full_name: str | None = None
     subject_branch_id: int | None = None
@@ -37,6 +39,7 @@ class EmployeeProfileRead(BaseModel):
     base_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
     bank_account: str | None = None
+    annual_leave_entitlement_days: Decimal | None = None
     created_at: datetime
     updated_at: datetime
     # Enriched user details
@@ -97,6 +100,24 @@ class AttendanceLogRead(BaseModel):
     clock_in_at: datetime
     clock_out_at: datetime | None = None
     created_at: datetime
+    attendance_category: str | None = None
+    classification_status: str | None = None
+    payroll_impact_amount: Decimal | None = None
+    scheduled_start_at: datetime | None = None
+    scheduled_end_at: datetime | None = None
+    late_minutes: int | None = None
+    early_close_minutes: int | None = None
+    overtime_minutes: int | None = None
+    policy_snapshot: dict | None = None
+
+
+class AttendanceSummaryRead(BaseModel):
+    """Aggregated HR attendance stats for a filtered window."""
+
+    by_status: dict[str, int]
+    overtime_minutes_total: float
+    record_count: int
+    absent_days: int
 
 
 class LeaveRequestCreate(BaseModel):
@@ -110,6 +131,15 @@ class LeaveRequestReview(BaseModel):
     action: Literal["approve", "reject"]
     review_notes: str | None = Field(default=None, max_length=1024)
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
+
+
+class VacationLeaveBalanceRead(BaseModel):
+    """Annual vacation balance for the calendar year (UTC date)."""
+
+    calendar_year: int
+    entitlement_days: Decimal | None = None
+    used_days: Decimal
+    remaining_days: Decimal | None = None
 
 
 class LeaveRequestRead(BaseModel):
@@ -127,3 +157,4 @@ class LeaveRequestRead(BaseModel):
     review_notes: str | None = None
     created_at: datetime
     updated_at: datetime
+    vacation_balance_remaining: Decimal | None = None

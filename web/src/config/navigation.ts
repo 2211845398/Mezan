@@ -229,18 +229,25 @@ export const navigation: NavItem[] = [
     section: 'people',
     children: [
       {
+        key: 'payroll-overview',
+        labelKey: 'nav.payroll_overview',
+        icon: BarChart3,
+        href: '/payroll/overview',
+        permission: { resource: 'payroll', action: 'read' },
+      },
+      {
+        key: 'payroll-policies',
+        labelKey: 'nav.payroll_policies',
+        icon: SlidersHorizontal,
+        href: '/payroll/deduction-policies',
+        permission: { resource: 'payroll', action: 'read' },
+      },
+      {
         key: 'payroll-runs',
         labelKey: 'nav.payroll_runs',
         icon: Banknote,
         href: '/payroll/runs',
         permission: { resource: 'payroll', action: 'read' },
-      },
-      {
-        key: 'payroll-approvals',
-        labelKey: 'nav.payroll_approvals',
-        icon: ShieldCheck,
-        href: '/payroll/approvals',
-        permission: { resource: 'payroll', action: 'approve' },
       },
     ],
   },

@@ -17,6 +17,7 @@ import {
 import { inclusiveCalendarDaySpan } from '@/lib/date';
 
 import type { LeaveRequestRead } from '../../api';
+import { formatVacationBalanceRemaining } from '../../lib/leaveBalanceDisplay';
 import { leaveListQueryOptions } from '../../queries';
 
 export default function EmployeeLeave() {
@@ -41,6 +42,7 @@ export default function EmployeeLeave() {
           id: 'type',
           accessorKey: 'leave_type',
           header: t('leave.col.type'),
+          cell: ({ row }) => t(`leave.type.${row.original.leave_type}`, { defaultValue: row.original.leave_type }),
         },
         {
           id: 'status',
@@ -56,25 +58,25 @@ export default function EmployeeLeave() {
                     : 'text-red-600'
               }
             >
-              {row.original.status}
+              {t(`leave.st.${row.original.status}`, { defaultValue: row.original.status })}
             </span>
           ),
         },
         {
-          id: 'from',
-          header: t('leave.col.from'),
-          cell: ({ row }) => row.original.start_date,
-        },
-        {
-          id: 'to',
-          header: t('leave.col.to'),
-          cell: ({ row }) => row.original.end_date,
+          id: 'period',
+          header: t('leave.col.period'),
+          cell: ({ row }) => `${row.original.start_date} – ${row.original.end_date}`,
         },
         {
           id: 'days',
           header: t('leave.col.days'),
           cell: ({ row }) =>
-            `${inclusiveCalendarDaySpan(row.original.start_date, row.original.end_date)}d`,
+            `${inclusiveCalendarDaySpan(row.original.start_date, row.original.end_date)}`,
+        },
+        {
+          id: 'balance',
+          header: t('leave.col.balance'),
+          cell: ({ row }) => formatVacationBalanceRemaining(row.original.vacation_balance_remaining),
         },
         {
           id: 'reason',

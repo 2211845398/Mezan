@@ -15,19 +15,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     get_current_user,
-    get_current_user_permissions,
     get_current_user_role_codes,
     get_settings,
     require_any_role,
     require_permission,
 )
+from app.core.config import Settings
 from app.core.notification_rbac import (
     ORG_NOTIFICATION_MANAGER_ROLE_CODES,
     is_company_wide_audience,
     is_company_wide_schedule,
 )
 from app.db.database import get_db
-from app.core.config import Settings
 from app.models.users import User
 from app.schemas.notifications import (
     DeviceTokenListResponse,

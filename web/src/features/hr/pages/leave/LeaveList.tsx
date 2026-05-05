@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
+import { Activity } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -15,11 +17,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { usePermission } from '@/hooks/usePermission';
-import { formatIso, inclusiveCalendarDaySpan } from '@/lib/date';
+import { inclusiveCalendarDaySpan } from '@/lib/date';
 
 import type { LeaveRequestRead } from '../../api';
 import { leaveRequestRowSearchValue } from '../../lib/hrTableSearch';
-import { employeesQueryOptions,leaveListQueryOptions } from '../../queries';
+import { formatVacationBalanceRemaining } from '../../lib/leaveBalanceDisplay';
+import { employeesQueryOptions, leaveListQueryOptions } from '../../queries';
 import LeaveApproveDrawer from './LeaveApproveDrawer';
 
 export default function LeaveList() {
@@ -41,18 +44,6 @@ export default function LeaveList() {
     const tHrEn = i18n.getFixedT('en', 'hr');
     return defineColumns<LeaveRequestRead>()([
       {
-        id: 'id',
-        header: t('leave.col.id'),
-        accessorFn: (row) => {
-          const ep = employeeById.get(row.employee_profile_id);
-          const employeeText = [ep?.user_full_name, ep?.user_email, String(row.employee_profile_id)]
-            .filter(Boolean)
-            .join(' ');
-          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
-        },
-        cell: ({ row }) => row.original.id,
-      },
-      {
         id: 'emp',
         header: t('leave.col.employee'),
         accessorFn: (row) => {
@@ -68,54 +59,14 @@ export default function LeaveList() {
         },
       },
       {
-        id: 'created',
-        header: t('leave.col.requested_at'),
+        id: 'period',
+        header: t('leave.col.period'),
         accessorFn: (row) => {
           const ep = employeeById.get(row.employee_profile_id);
           const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
           return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
         },
-        cell: ({ row }) => formatIso(row.original.created_at, 'yyyy-MM-dd HH:mm'),
-      },
-      {
-        id: 'type',
-        header: t('leave.col.type'),
-        accessorFn: (row) => {
-          const ep = employeeById.get(row.employee_profile_id);
-          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
-          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
-        },
-        cell: ({ row }) => t(`leave.type.${row.original.leave_type}`, { defaultValue: row.original.leave_type }),
-      },
-      {
-        id: 'status',
-        header: t('leave.col.status'),
-        accessorFn: (row) => {
-          const ep = employeeById.get(row.employee_profile_id);
-          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
-          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
-        },
-        cell: ({ row }) => t(`leave.st.${row.original.status}`, { defaultValue: row.original.status }),
-      },
-      {
-        id: 'from',
-        header: t('leave.col.from'),
-        accessorFn: (row) => {
-          const ep = employeeById.get(row.employee_profile_id);
-          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
-          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
-        },
-        cell: ({ row }) => row.original.start_date,
-      },
-      {
-        id: 'to',
-        header: t('leave.col.to'),
-        accessorFn: (row) => {
-          const ep = employeeById.get(row.employee_profile_id);
-          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
-          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
-        },
-        cell: ({ row }) => row.original.end_date,
+        cell: ({ row }) => `${row.original.start_date} – ${row.original.end_date}`,
       },
       {
         id: 'days',
@@ -125,7 +76,18 @@ export default function LeaveList() {
           const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
           return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
         },
-        cell: ({ row }) => String(inclusiveCalendarDaySpan(row.original.start_date, row.original.end_date)),
+        cell: ({ row }) =>
+          String(inclusiveCalendarDaySpan(row.original.start_date, row.original.end_date)),
+      },
+      {
+        id: 'balance',
+        header: t('leave.col.balance'),
+        accessorFn: (row) => {
+          const ep = employeeById.get(row.employee_profile_id);
+          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
+          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
+        },
+        cell: ({ row }) => formatVacationBalanceRemaining(row.original.vacation_balance_remaining),
       },
       {
         id: 'reason',
@@ -138,48 +100,34 @@ export default function LeaveList() {
         cell: ({ row }) => row.original.reason ?? '—',
       },
       {
-        id: 'reviewer',
-        header: t('leave.col.reviewed_by'),
-        accessorFn: (row) => {
-          const ep = employeeById.get(row.employee_profile_id);
-          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
-          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
-        },
-        cell: ({ row }) =>
-          row.original.reviewed_by_user_id != null ? `#${row.original.reviewed_by_user_id}` : '—',
-      },
-      {
-        id: 'reviewed_at',
-        header: t('leave.col.reviewed_at'),
-        accessorFn: (row) => {
-          const ep = employeeById.get(row.employee_profile_id);
-          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
-          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
-        },
-        cell: ({ row }) =>
-          row.original.reviewed_at ? formatIso(row.original.reviewed_at, 'yyyy-MM-dd HH:mm') : '—',
-      },
-      {
         id: 'act',
         header: t('leave.col.actions'),
         enableGlobalFilter: false,
-        cell: ({ row }) =>
-          canApprove && row.original.status === 'pending' ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setSel(row.original);
-                setOpen(true);
-              }}
-            >
-              {t('leave.review')}
+        cell: ({ row }) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="icon" asChild title={t('leave.col.performance')}>
+              <Link to={`/hr/employees/${row.original.employee_profile_id}/performance`}>
+                <Activity className="size-4" aria-hidden />
+              </Link>
             </Button>
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {t(`leave.st.${row.original.status}`, { defaultValue: row.original.status })}
-            </span>
-          ),
+            {canApprove && row.original.status === 'pending' ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setSel(row.original);
+                  setOpen(true);
+                }}
+              >
+                {t('leave.review')}
+              </Button>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {t(`leave.st.${row.original.status}`, { defaultValue: row.original.status })}
+              </span>
+            )}
+          </div>
+        ),
       },
     ]);
   }, [canApprove, employeeById, i18n, t]);

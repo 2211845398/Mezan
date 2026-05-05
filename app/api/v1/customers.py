@@ -153,7 +153,9 @@ async def create_customer_staff_endpoint(
     )
 
 
-@router.get("/customers/{customer_id}/sales-invoices", response_model=CustomerSalesInvoiceListResponse)
+@router.get(
+    "/customers/{customer_id}/sales-invoices", response_model=CustomerSalesInvoiceListResponse
+)
 async def list_customer_sales_invoices_endpoint(
     customer_id: int,
     limit: int = Query(50, ge=1, le=200),

@@ -202,9 +202,7 @@ async def apply_catalog_matches(
         raise ValidationError("Scan already validated", details={"scan_id": scan_id})
 
     base_src = (
-        scan.override_output
-        if isinstance(scan.override_output, dict)
-        else scan.parsed_output
+        scan.override_output if isinstance(scan.override_output, dict) else scan.parsed_output
     )
     if isinstance(base_src, dict):
         base: dict[str, Any] = copy.deepcopy(base_src)

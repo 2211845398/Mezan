@@ -23,6 +23,10 @@
       "bank": "حساب بنكي (IBAN)",
       "save": "حفظ",
       "saved": "تم حفظ الموظف",
+      "annual_leave_entitlement": "حصة الإجازة السنوية (بالأيام)",
+      "annual_leave_placeholder": "مثال: 21",
+      "annual_leave_hint": "تُستخدم لحساب رصيد الإجازة الاعتيادية للسنة الميلادية. اترك الحقل فارغًا إذا لا تتبع أرصدة الإجازة.",
+      "annual_leave_invalid": "أدخل عدد أيام صالحًا (≥ 0) أو اترك الحقل فارغًا.",
       "schedule": "الجدول الأسبوعي",
       "schedule_hint": "علّم يوم عطلة أو أضف من القائمة.",
       "weekday": "يوم {{d}}",
@@ -70,6 +74,8 @@
     "employee": "الموظف",
     "all": "الكل",
     "timesheet_link": "السجل الزمني",
+    "filter_category": "الفئة",
+    "filter_status": "الحالة",
     "col": {
       "id": "المعرّف",
       "employee": "الموظف",
@@ -78,7 +84,36 @@
       "out": "خروج",
       "date": "التاريخ",
       "duration": "المدة",
-      "timesheet": "السجل الزمني"
+      "timesheet": "السجل الزمني",
+      "category": "الفئة",
+      "status": "الحالة",
+      "ot_min": "عمل إضافي (د)",
+      "payroll_impact": "أثر الراتب"
+    },
+    "summary": {
+      "present": "حاضر",
+      "late": "متأخر",
+      "absent_days": "أيام الغياب (تقديري)",
+      "ot_minutes": "دقائق العمل الإضافي",
+      "records": "السجلات"
+    },
+    "category": {
+      "exempt": "معفى",
+      "office": "مكتب",
+      "operational": "تشغيلي"
+    },
+    "status": {
+      "present": "حاضر",
+      "late": "متأخر",
+      "absent": "غائب",
+      "open": "وردية مفتوحة",
+      "exempt_log": "معفى (سجل)",
+      "supplemental": "إضافي",
+      "operational_open": "تشغيلي (مفتوح)",
+      "operational_late_open": "تأخر فتح",
+      "operational_early_close": "إغلاق مبكر",
+      "operational_complete": "تشغيلي (مكتمل)",
+      "no_schedule": "لا جدول"
     },
     "open": "مفتوح",
     "total_records": "إجمالي السجلات",
@@ -95,6 +130,7 @@
   },
   "leave": {
     "title": "الإجازات",
+    "self_service_profile": "يتم تقديم الطلب لملف الموظف المرتبط بحسابك.",
     "new": "طلب جديد",
     "review": "مراجعة",
     "review_title": "مراجعة الإجازة",
@@ -105,6 +141,22 @@
     "filter_status": "الحالة",
     "created": "تم إنشاء طلب الإجازة",
     "empty": "لا توجد طلبات إجازة",
+    "dialog": {
+      "trigger": "طلب إجازة جديد",
+      "title": "طلب إجازة",
+      "description": "تقديم طلب إجازة لهذا الموظف.",
+      "duration": "المدة",
+      "duration_days": "{{count}} يومًا تقويميًا",
+      "duration_placeholder": "اختر تاريخ البداية والنهاية",
+      "date_order": "يجب أن يكون تاريخ النهاية بعد أو مساويًا لتاريخ البداية",
+      "balance_section": "رصيد الإجازة الاعتيادية السنوي",
+      "balance_year": "السنة الميلادية {{year}} (بالتوقيت UTC)",
+      "balance_remaining": "المتبقي (إجازة اعتيادية)",
+      "balance_entitlement": "الحصة السنوية",
+      "balance_used": "أيام الإجازة الاعتيادية المعتمدة المستخدمة",
+      "balance_not_tracked": "غير متتبع — عيّن الحصة السنوية في بيانات الموظف.",
+      "balance_loading": "جارٍ تحميل الرصيد…"
+    },
     "stats": {
       "total": "الإجمالي",
       "approved": "المعتمد",
@@ -122,7 +174,10 @@
       "reviewed_by": "تمت المراجعة بواسطة",
       "reviewed_at": "تاريخ المراجعة",
       "requested_at": "تاريخ الطلب",
-      "actions": "إجراءات"
+      "actions": "إجراءات",
+      "period": "فترة الإجازة",
+      "balance": "رصيد الإجازة المتبقي",
+      "performance": "فتح الأداء"
     },
     "type": {
       "vacation": "إجازة اعتيادية",

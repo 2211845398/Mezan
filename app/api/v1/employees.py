@@ -8,34 +8,41 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
+from app.core.config import settings
 from app.db.database import get_db
+from app.models.employee_profile import EmployeeProfile
+from app.models.leave_request import LeaveStatus
 from app.models.users import User
 from app.schemas.employees import (
     AttendanceClockInRequest,
     AttendanceClockOutRequest,
     AttendanceLogRead,
+    AttendanceSummaryRead,
     EmployeeProfileCreate,
     EmployeeProfileRead,
     EmployeeProfileUpdate,
     LeaveRequestCreate,
     LeaveRequestRead,
     LeaveRequestReview,
+    VacationLeaveBalanceRead,
     WeeklyScheduleCreate,
     WeeklyScheduleRead,
     WeeklyScheduleUpdate,
 )
 from app.services import audit_service
 from app.services.employee_service import (
+    attendance_period_summary,
     clock_in,
     clock_out,
     create_employee_profile,
     create_leave_request,
     create_weekly_schedule,
     delete_weekly_schedule,
+    enrich_leave_request_reads,
     get_employee_profile_enriched,
+    get_vacation_leave_balance,
     list_attendance_logs,
     list_attendance_logs_filtered,
-    list_employee_profiles,
     list_employee_profiles_enriched,
     list_leave_requests,
     list_leave_requests_filtered,
@@ -44,6 +51,10 @@ from app.services.employee_service import (
     soft_delete_leave_request,
     update_employee_profile,
     update_weekly_schedule,
+)
+from app.services.notifications.service import (
+    dispatch_delivery_after_commit,
+    enqueue_direct_notification,
 )
 
 router = APIRouter()
@@ -90,15 +101,17 @@ async def list_employee_profiles_endpoint(
     for row in rows:
         employee = row["employee"]
         data = EmployeeProfileRead.model_validate(employee).model_dump()
-        data.update({
-            "user_email": row["user_email"],
-            "user_full_name": row["user_full_name"],
-            "user_status": row["user_status"],
-            "user_branch_id": row["user_branch_id"],
-            "user_branch_name": row["user_branch_name"],
-            "user_role_code": row["user_role_code"],
-            "user_role_name": row["user_role_name"],
-        })
+        data.update(
+            {
+                "user_email": row["user_email"],
+                "user_full_name": row["user_full_name"],
+                "user_status": row["user_status"],
+                "user_branch_id": row["user_branch_id"],
+                "user_branch_name": row["user_branch_name"],
+                "user_role_code": row["user_role_code"],
+                "user_role_name": row["user_role_name"],
+            }
+        )
         result.append(EmployeeProfileRead.model_validate(data))
     return result
 
@@ -113,16 +126,31 @@ async def get_employee_profile_endpoint(
     row = await get_employee_profile_enriched(db, employee_profile_id)
     employee = row["employee"]
     data = EmployeeProfileRead.model_validate(employee).model_dump()
-    data.update({
-        "user_email": row["user_email"],
-        "user_full_name": row["user_full_name"],
-        "user_status": row["user_status"],
-        "user_branch_id": row["user_branch_id"],
-        "user_branch_name": row["user_branch_name"],
-        "user_role_code": row["user_role_code"],
-        "user_role_name": row["user_role_name"],
-    })
+    data.update(
+        {
+            "user_email": row["user_email"],
+            "user_full_name": row["user_full_name"],
+            "user_status": row["user_status"],
+            "user_branch_id": row["user_branch_id"],
+            "user_branch_name": row["user_branch_name"],
+            "user_role_code": row["user_role_code"],
+            "user_role_name": row["user_role_name"],
+        }
+    )
     return EmployeeProfileRead.model_validate(data)
+
+
+@router.get(
+    "/employees/{employee_profile_id}/leave-balance",
+    response_model=VacationLeaveBalanceRead,
+)
+async def get_employee_leave_balance_endpoint(
+    employee_profile_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("employees", "read"),
+) -> VacationLeaveBalanceRead:
+    return await get_vacation_leave_balance(db, employee_profile_id=employee_profile_id)
 
 
 @router.patch("/employees/{employee_profile_id}", response_model=EmployeeProfileRead)
@@ -152,15 +180,17 @@ async def update_employee_profile_endpoint(
     row = await get_employee_profile_enriched(db, employee_profile_id)
     employee = row["employee"]
     data = EmployeeProfileRead.model_validate(employee).model_dump()
-    data.update({
-        "user_email": row["user_email"],
-        "user_full_name": row["user_full_name"],
-        "user_status": row["user_status"],
-        "user_branch_id": row["user_branch_id"],
-        "user_branch_name": row["user_branch_name"],
-        "user_role_code": row["user_role_code"],
-        "user_role_name": row["user_role_name"],
-    })
+    data.update(
+        {
+            "user_email": row["user_email"],
+            "user_full_name": row["user_full_name"],
+            "user_status": row["user_status"],
+            "user_branch_id": row["user_branch_id"],
+            "user_branch_name": row["user_branch_name"],
+            "user_role_code": row["user_role_code"],
+            "user_role_name": row["user_role_name"],
+        }
+    )
     return EmployeeProfileRead.model_validate(data)
 
 
@@ -338,6 +368,8 @@ async def list_attendance_logs_global(
     employee_profile_id: int | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    classification_status: str | None = None,
+    attendance_category: str | None = None,
     limit: int = 200,
     offset: int = 0,
 ) -> list[AttendanceLogRead]:
@@ -347,10 +379,37 @@ async def list_attendance_logs_global(
         employee_profile_id=employee_profile_id,
         date_from=date_from,
         date_to=date_to,
+        classification_status=classification_status,
+        attendance_category=attendance_category,
         limit=limit,
         offset=offset,
     )
     return [AttendanceLogRead.model_validate(r) for r in rows]
+
+
+@router.get("/attendance/summary", response_model=AttendanceSummaryRead)
+async def attendance_summary_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("employees", "read"),
+    branch_id: int | None = None,
+    employee_profile_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> AttendanceSummaryRead:
+    data = await attendance_period_summary(
+        db,
+        branch_id=branch_id,
+        employee_profile_id=employee_profile_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    return AttendanceSummaryRead(
+        by_status=data["by_status"],
+        overtime_minutes_total=float(data["overtime_minutes_total"]),
+        record_count=int(data["record_count"]),
+        absent_days=int(data["absent_days"]),
+    )
 
 
 @router.post(
@@ -377,8 +436,9 @@ async def create_leave_request_endpoint(
         user_id=current_user.id,
         request=request,
     )
+    reads = await enrich_leave_request_reads(db, [row])
     await db.commit()
-    return LeaveRequestRead.model_validate(row)
+    return reads[0]
 
 
 @router.get(
@@ -391,7 +451,7 @@ async def list_leave_requests_endpoint(
     __: None = require_permission("employees", "read"),
 ) -> list[LeaveRequestRead]:
     rows = await list_leave_requests(db, employee_profile_id=employee_profile_id)
-    return [LeaveRequestRead.model_validate(r) for r in rows]
+    return await enrich_leave_request_reads(db, rows)
 
 
 @router.get("/leave-requests", response_model=list[LeaveRequestRead])
@@ -411,7 +471,7 @@ async def list_leave_requests_global(
         limit=limit,
         offset=offset,
     )
-    return [LeaveRequestRead.model_validate(r) for r in rows]
+    return await enrich_leave_request_reads(db, rows)
 
 
 @router.post("/leave-requests/{leave_request_id}/review", response_model=LeaveRequestRead)
@@ -432,6 +492,7 @@ async def review_leave_request_endpoint(
         review_notes=body.review_notes,
         idempotency_key=idem,
     )
+    delivery_id: int | None = None
     if applied:
         await audit_service.log(
             session=db,
@@ -441,8 +502,33 @@ async def review_leave_request_endpoint(
             user_id=current_user.id,
             request=request,
         )
+        ep = await db.get(EmployeeProfile, row.employee_profile_id)
+        if ep is not None:
+            approved = row.status == LeaveStatus.APPROVED
+            title = "Leave request approved" if approved else "Leave request rejected"
+            body_txt = (
+                f"Your leave request #{row.id} was approved."
+                if approved
+                else f"Your leave request #{row.id} was rejected."
+            )
+            delivery_id = await enqueue_direct_notification(
+                db,
+                user_id=ep.user_id,
+                title=title,
+                body=body_txt,
+                template_kind="leave_request_review",
+                idempotency_key=f"leave_req:{row.id}:{row.status.value}:{idem or 'noidem'}",
+                data={"leave_request_id": row.id, "path": "/hr/leave"},
+                provider_name=None,
+                default_push_provider=settings.PUSH_PROVIDER,
+            )
+    reads = await enrich_leave_request_reads(db, [row])
     await db.commit()
-    return LeaveRequestRead.model_validate(row)
+    if delivery_id is not None:
+        await dispatch_delivery_after_commit(
+            delivery_id, default_push_provider=settings.PUSH_PROVIDER
+        )
+    return reads[0]
 
 
 @router.delete("/leave-requests/{leave_request_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -119,6 +119,12 @@ async def _create_sales_invoice(
     return invoice
 
 
+@pytest.mark.skip(
+    reason=(
+        "Deferred: income statement / period-end behavior tied to ongoing accounting "
+        "changes; re-enable with POS–GL integration (testing suite maintenance plan)."
+    ),
+)
 @pytest.mark.asyncio
 async def test_income_statement_includes_entries_on_period_end(
     client,

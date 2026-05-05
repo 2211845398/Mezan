@@ -111,9 +111,7 @@ async def send_po_endpoint(
 ) -> PurchaseOrderRead:
     prev = await get_po(db, po_id)
     prev_status = prev.status
-    po = await mark_po_sent(
-        db, po_id=po_id, idempotency_key=body.idempotency_key
-    )
+    po = await mark_po_sent(db, po_id=po_id, idempotency_key=body.idempotency_key)
     if prev_status != "sent":
         await audit_service.log(
             session=db,

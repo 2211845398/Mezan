@@ -22,6 +22,7 @@ export const DEFAULT_USER = {
   preferred_language: 'ar',
   avatar_url: null,
   last_login_at: '2026-04-22T08:00:00Z',
+  employee_profile_id: null as number | null,
 };
 
 export const DEFAULT_ADMIN_PERMISSIONS = [

@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/select';
 import type { AuthUser } from '@/features/auth/stores/authStore';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import EmployeeLeaveRequestDialog from '@/features/hr/pages/employees/EmployeeLeaveRequestDialog';
+import { usePermission } from '@/hooks/usePermission';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { cn } from '@/lib/utils';
 
@@ -93,8 +95,11 @@ type PasswordFormValues = z.infer<ReturnType<typeof buildPasswordSchema>>;
 
 export default function ProfilePage() {
   const { t } = useTranslation('auth');
+  const { t: tHr } = useTranslation('hr');
   const setUser = useAuthStore((s) => s.setUser);
   const roleCodes = useAuthStore((s) => s.roleCodes);
+  const canCreateLeave = usePermission('employees', 'create');
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const { data: me, isLoading, isError } = useMe();
   const update = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
@@ -242,9 +247,32 @@ export default function ProfilePage() {
     });
   }
 
+  const showLeaveRequest =
+    canCreateLeave &&
+    me.employee_profile_id != null &&
+    me.employee_profile_id > 0;
+
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-4 md:p-6">
-      <PageHeader title={t('profile.page_title')} subtitle={t('profile.page_subtitle')} />
+      <PageHeader
+        title={t('profile.page_title')}
+        subtitle={t('profile.page_subtitle')}
+        actions={
+          showLeaveRequest ? (
+            <Button type="button" size="sm" onClick={() => setLeaveDialogOpen(true)}>
+              {tHr('leave.dialog.trigger')}
+            </Button>
+          ) : null
+        }
+      />
+
+      {showLeaveRequest ? (
+        <EmployeeLeaveRequestDialog
+          employeeProfileId={me.employee_profile_id!}
+          open={leaveDialogOpen}
+          onOpenChange={setLeaveDialogOpen}
+        />
+      ) : null}
 
       <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-secondary/25 bg-card p-6 shadow-sm sm:flex-row sm:items-center">
         <Avatar

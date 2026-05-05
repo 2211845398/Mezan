@@ -26,6 +26,7 @@ export type AuthUser = {
   preferred_language: string | null;
   avatar_url: string | null;
   last_login_at: string | null;
+  employee_profile_id?: number | null;
 };
 
 export type AuthStatus = 'idle' | 'booting' | 'authenticated' | 'unauthenticated';

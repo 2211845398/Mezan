@@ -13,6 +13,7 @@ from app.models.role import Role
 from app.models.role_permission import RolePermission
 from app.models.user_role import UserRole
 from app.models.users import User
+from app.services.attendance_policy_service import seed_default_policies
 from app.utils.security import hash_password
 
 # Default permissions used by routes.
@@ -305,6 +306,7 @@ async def seed_permissions_and_roles(db: AsyncSession) -> None:
         )
         await _ensure_role_permissions(db, role=role, target_permission_ids=target_permission_ids)
 
+    await seed_default_policies(db)
     await db.commit()
 
 

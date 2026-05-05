@@ -133,7 +133,6 @@ const HrEmployeeData = lazy(() => import('@/features/hr/pages/employees/Employee
 const HrAttendanceList = lazy(() => import('@/features/hr/pages/attendance/AttendanceList'));
 const HrTimesheetDetail = lazy(() => import('@/features/hr/pages/attendance/TimesheetDetail'));
 const HrLeaveList = lazy(() => import('@/features/hr/pages/leave/LeaveList'));
-const HrLeaveRequestForm = lazy(() => import('@/features/hr/pages/leave/LeaveRequestForm'));
 const HrAnomaliesDashboard = lazy(() => import('@/features/hr/pages/anomalies/AnomaliesDashboard'));
 
 const AiPurchaseReorder = lazy(() => import('@/features/ai/pages/PurchaseReorderAdvisor'));
@@ -143,6 +142,8 @@ const AiInvoiceMatchReview = lazy(() => import('@/features/ai/pages/InvoiceMatch
 const PayrollRunsList = lazy(() => import('@/features/payroll/pages/runs/RunsList'));
 const PayrollRunDetail = lazy(() => import('@/features/payroll/pages/runs/RunDetail'));
 const PayrollApprovalsQueue = lazy(() => import('@/features/payroll/pages/approvals/ApprovalsQueue'));
+const PayrollOverview = lazy(() => import('@/features/payroll/pages/overview/PayrollOverview'));
+const PayrollDeductionPolicies = lazy(() => import('@/features/payroll/pages/policies/DeductionPolicies'));
 
 function withSuspense(Component: ComponentType): JSX.Element {
   return (
@@ -632,14 +633,6 @@ export const router = createBrowserRouter([
                       </RequirePermission>
                     ),
                   },
-                  {
-                    path: 'new',
-                    element: (
-                      <RequirePermission resource="employees" action="create">
-                        {withSuspense(HrLeaveRequestForm)}
-                      </RequirePermission>
-                    ),
-                  },
                 ],
               },
               {
@@ -657,7 +650,23 @@ export const router = createBrowserRouter([
           {
             path: '/payroll',
             children: [
-              { index: true, element: <Navigate to="/payroll/runs" replace /> },
+              { index: true, element: <Navigate to="/payroll/overview" replace /> },
+              {
+                path: 'overview',
+                element: (
+                  <RequirePermission resource="payroll" action="read">
+                    {withSuspense(PayrollOverview)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'deduction-policies',
+                element: (
+                  <RequirePermission resource="payroll" action="read">
+                    {withSuspense(PayrollDeductionPolicies)}
+                  </RequirePermission>
+                ),
+              },
               {
                 path: 'runs',
                 children: [

@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 /*
  * Topbar theme selector. Uses `next-themes` with three choices — light,
@@ -20,13 +21,24 @@ import {
 export function ThemeToggle() {
   const { t } = useTranslation();
   const { resolvedTheme, setTheme } = useTheme();
-  const Icon = resolvedTheme === 'dark' ? Moon : Sun;
+  const isDark = resolvedTheme === 'dark';
+  const Icon = isDark ? Moon : Sun;
+  const triggerIconClass = cn(
+    'size-4 text-muted-foreground transition-colors',
+    isDark ? 'group-hover:text-purple-500' : 'group-hover:text-amber-500',
+  );
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label={t('layout.toggle_theme')}>
-          <Icon className="size-4" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="group"
+          aria-label={t('layout.toggle_theme')}
+        >
+          <Icon className={triggerIconClass} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

@@ -82,6 +82,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/onboarding-assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Onboarding Assignees
+         * @description Users eligible to be assigned as onboarding reviewer (active + effective HR permissions).
+         */
+        get: operations["list_onboarding_assignees_api_v1_users_onboarding_assignees_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}": {
         parameters: {
             query?: never;
@@ -169,6 +189,26 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hr/onboarding/{onboarding_id}/subject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Pending Onboarding Subject
+         * @description Update subject user's name, branch, or org-level role while onboarding is pending.
+         */
+        patch: operations["patch_pending_onboarding_subject_api_v1_hr_onboarding__onboarding_id__subject_patch"];
         trace?: never;
     };
     "/api/v1/hr/onboarding/{onboarding_id}/complete": {
@@ -382,21 +422,25 @@ export interface paths {
         head?: never;
         /**
          * Update Me
-         * @description Update current user profile (full_name, phone, preferred_language).
+         * @description Update current user profile (email, contact, language, avatar URL, optional password).
          */
         patch: operations["update_me_api_v1_auth_me_patch"];
         trace?: never;
     };
-    "/api/v1/auth/me/avatar": {
+    "/api/v1/auth/me/roles": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Me Roles
+         * @description Return distinct role codes for UI gates (e.g. org-wide notification admin).
+         */
+        get: operations["me_roles_api_v1_auth_me_roles_get"];
         put?: never;
-        post: operations["upload_my_avatar_api_v1_auth_me_avatar_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -422,6 +466,26 @@ export interface paths {
         get: operations["me_permissions_api_v1_auth_me_permissions_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload My Avatar
+         * @description Upload a profile photo (JPEG, PNG, or WebP).
+         */
+        post: operations["upload_my_avatar_api_v1_auth_me_avatar_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1506,6 +1570,23 @@ export interface paths {
         patch: operations["update_employee_profile_endpoint_api_v1_employees__employee_profile_id__patch"];
         trace?: never;
     };
+    "/api/v1/employees/{employee_profile_id}/leave-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Employee Leave Balance Endpoint */
+        get: operations["get_employee_leave_balance_endpoint_api_v1_employees__employee_profile_id__leave_balance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/employees/{employee_profile_id}/schedules": {
         parameters: {
             query?: never;
@@ -1534,7 +1615,8 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Schedule Endpoint */
+        delete: operations["delete_schedule_endpoint_api_v1_employees__employee_profile_id__schedules__schedule_id__delete"];
         options?: never;
         head?: never;
         /** Update Schedule Endpoint */
@@ -1601,6 +1683,23 @@ export interface paths {
         };
         /** List Attendance Logs Global */
         get: operations["list_attendance_logs_global_api_v1_attendance_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Attendance Summary Endpoint */
+        get: operations["attendance_summary_endpoint_api_v1_attendance_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1848,6 +1947,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payroll/payslips/{payslip_id}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Payslip Adjustments Endpoint */
+        patch: operations["patch_payslip_adjustments_endpoint_api_v1_payroll_payslips__payslip_id__adjustments_patch"];
+        trace?: never;
+    };
     "/api/v1/payroll/payslips/{payslip_id}/recalculate": {
         parameters: {
             query?: never;
@@ -1876,6 +1992,94 @@ export interface paths {
         put?: never;
         /** Approve Payslip Endpoint */
         post: operations["approve_payslip_endpoint_api_v1_payroll_payslips_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payroll/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payroll Overview Endpoint */
+        get: operations["payroll_overview_endpoint_api_v1_payroll_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payroll/payout/mark-paid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Paid Endpoint
+         * @description Mark approved payslips in the period as paid and notify employees.
+         */
+        post: operations["mark_paid_endpoint_api_v1_payroll_payout_mark_paid_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payroll/approve-and-pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve And Pay Endpoint */
+        post: operations["approve_and_pay_endpoint_api_v1_payroll_approve_and_pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payroll/policies/attendance-deductions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Attendance Policies Endpoint */
+        get: operations["list_attendance_policies_endpoint_api_v1_payroll_policies_attendance_deductions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payroll/policies/attendance-deductions/{role_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upsert Attendance Policy Endpoint */
+        put: operations["upsert_attendance_policy_endpoint_api_v1_payroll_policies_attendance_deductions__role_code__put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2296,6 +2500,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/deliveries/me/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Unread Count Endpoint */
+        get: operations["my_unread_count_endpoint_api_v1_notifications_deliveries_me_unread_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/deliveries/{delivery_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark Delivery Read Endpoint */
+        patch: operations["mark_delivery_read_endpoint_api_v1_notifications_deliveries__delivery_id__read_patch"];
+        trace?: never;
+    };
+    "/api/v1/notifications/deliveries/me/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark All Deliveries Read Endpoint */
+        post: operations["mark_all_deliveries_read_endpoint_api_v1_notifications_deliveries_me_read_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/deliveries/me/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Read Deliveries Endpoint
+         * @description Delete all read deliveries for the current user.
+         */
+        delete: operations["delete_read_deliveries_endpoint_api_v1_notifications_deliveries_me_read_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/notifications/templates": {
         parameters: {
             query?: never;
@@ -2332,6 +2607,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/notifications/schedules/{schedule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Schedule Endpoint */
+        delete: operations["delete_schedule_endpoint_api_v1_admin_notifications_schedules__schedule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/notifications/runs": {
         parameters: {
             query?: never;
@@ -2343,6 +2635,44 @@ export interface paths {
         get: operations["list_notification_runs_endpoint_api_v1_admin_notifications_runs_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Admin Deliveries Endpoint */
+        get: operations["list_admin_deliveries_endpoint_api_v1_admin_notifications_deliveries_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete All Deliveries Endpoint
+         * @description Delete all notification deliveries (admin only).
+         */
+        delete: operations["delete_all_deliveries_endpoint_api_v1_admin_notifications_deliveries_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/notifications/broadcast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Broadcast Notification Endpoint */
+        post: operations["broadcast_notification_endpoint_api_v1_admin_notifications_broadcast_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2964,6 +3294,86 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Attendance Category */
+            attendance_category?: string | null;
+            /** Classification Status */
+            classification_status?: string | null;
+            /** Payroll Impact Amount */
+            payroll_impact_amount?: string | null;
+            /** Scheduled Start At */
+            scheduled_start_at?: string | null;
+            /** Scheduled End At */
+            scheduled_end_at?: string | null;
+            /** Late Minutes */
+            late_minutes?: number | null;
+            /** Early Close Minutes */
+            early_close_minutes?: number | null;
+            /** Overtime Minutes */
+            overtime_minutes?: number | null;
+            /** Policy Snapshot */
+            policy_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** AttendancePayrollPolicyRead */
+        AttendancePayrollPolicyRead: {
+            /** Id */
+            id: number;
+            /** Role Code */
+            role_code: string;
+            /** Attendance Category */
+            attendance_category: string;
+            /** Grace Minutes */
+            grace_minutes: number;
+            /** Absence Deduction Amount */
+            absence_deduction_amount: string;
+            /** Late Deduction Amount */
+            late_deduction_amount: string;
+            /** Early Close Deduction Amount */
+            early_close_deduction_amount: string;
+            /** Overtime Multiplier */
+            overtime_multiplier: string;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** AttendancePayrollPolicyUpsert */
+        AttendancePayrollPolicyUpsert: {
+            /**
+             * Attendance Category
+             * @enum {string}
+             */
+            attendance_category: "exempt" | "office" | "operational";
+            /** Grace Minutes */
+            grace_minutes: number;
+            /** Absence Deduction Amount */
+            absence_deduction_amount: number | string;
+            /** Late Deduction Amount */
+            late_deduction_amount: number | string;
+            /** Early Close Deduction Amount */
+            early_close_deduction_amount: number | string;
+            /** Overtime Multiplier */
+            overtime_multiplier: number | string;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+        };
+        /**
+         * AttendanceSummaryRead
+         * @description Aggregated HR attendance stats for a filtered window.
+         */
+        AttendanceSummaryRead: {
+            /** By Status */
+            by_status: {
+                [key: string]: number;
+            };
+            /** Overtime Minutes Total */
+            overtime_minutes_total: number;
+            /** Record Count */
+            record_count: number;
+            /** Absent Days */
+            absent_days: number;
         };
         /**
          * AuditLogListResponse
@@ -3051,6 +3461,11 @@ export interface components {
             liability_lines?: components["schemas"]["StatementAccountLineRead"][];
             /** Equity Lines */
             equity_lines?: components["schemas"]["StatementAccountLineRead"][];
+        };
+        /** Body_upload_my_avatar_api_v1_auth_me_avatar_post */
+        Body_upload_my_avatar_api_v1_auth_me_avatar_post: {
+            /** File */
+            file: string;
         };
         /**
          * BranchCreate
@@ -3787,6 +4202,8 @@ export interface components {
             hourly_rate?: number | string | null;
             /** Bank Account */
             bank_account?: string | null;
+            /** Annual Leave Entitlement Days */
+            annual_leave_entitlement_days?: number | string | null;
         };
         /** EmployeeProfileRead */
         EmployeeProfileRead: {
@@ -3805,6 +4222,8 @@ export interface components {
             hourly_rate?: string | null;
             /** Bank Account */
             bank_account?: string | null;
+            /** Annual Leave Entitlement Days */
+            annual_leave_entitlement_days?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3840,11 +4259,13 @@ export interface components {
             hourly_rate?: number | string | null;
             /** Bank Account */
             bank_account?: string | null;
-            /** Linked user display name (not email/status). */
+            /** Annual Leave Entitlement Days */
+            annual_leave_entitlement_days?: number | string | null;
+            /** Subject Full Name */
             subject_full_name?: string | null;
-            /** Linked user branch id. */
+            /** Subject Branch Id */
             subject_branch_id?: number | null;
-            /** Org-level role code for the linked user (replaces branch-null assignment). */
+            /** Subject Role Code */
             subject_role_code?: string | null;
         };
         /**
@@ -4450,6 +4871,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Vacation Balance Remaining */
+            vacation_balance_remaining?: string | null;
         };
         /** LeaveRequestReview */
         LeaveRequestReview: {
@@ -4645,6 +5068,42 @@ export interface components {
             /** Confidence */
             confidence: number;
         };
+        /** NotificationBroadcastRequest */
+        NotificationBroadcastRequest: {
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /**
+             * Target Type
+             * @default all
+             * @enum {string}
+             */
+            target_type: "all" | "role";
+            /** Role Code */
+            role_code?: string | null;
+            /** Role Codes */
+            role_codes?: string[] | null;
+            /** Branch Id */
+            branch_id?: number | null;
+            /** Branch Ids */
+            branch_ids?: number[] | null;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        /** NotificationBroadcastResponse */
+        NotificationBroadcastResponse: {
+            /** Deliveries Created */
+            deliveries_created: number;
+            /** Deliveries Sent */
+            deliveries_sent: number;
+            /** Deliveries Failed */
+            deliveries_failed: number;
+            /** Deliveries Skipped */
+            deliveries_skipped: number;
+        };
         /** NotificationDeliveryListResponse */
         NotificationDeliveryListResponse: {
             /** Items */
@@ -4685,6 +5144,13 @@ export interface components {
             created_at: string;
             /** Sent At */
             sent_at: string | null;
+            /** Read At */
+            read_at: string | null;
+        };
+        /** NotificationMarkReadResponse */
+        NotificationMarkReadResponse: {
+            /** Updated */
+            updated: number;
         };
         /** NotificationRunRead */
         NotificationRunRead: {
@@ -4805,6 +5271,11 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+        };
+        /** NotificationUnreadCountResponse */
+        NotificationUnreadCountResponse: {
+            /** Unread Count */
+            unread_count: number;
         };
         /** OpenItemRead */
         OpenItemRead: {
@@ -4936,6 +5407,65 @@ export interface components {
             /** External Id */
             external_id: string | null;
         };
+        /** PayrollApproveAndPayRequest */
+        PayrollApproveAndPayRequest: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+        };
+        /** PayrollOverviewRow */
+        PayrollOverviewRow: {
+            /** Employee Profile Id */
+            employee_profile_id: number;
+            /** User Email */
+            user_email?: string | null;
+            /** User Full Name */
+            user_full_name?: string | null;
+            /** User Role Code */
+            user_role_code?: string | null;
+            /** Base Salary */
+            base_salary?: string | null;
+            /** Hourly Rate */
+            hourly_rate?: string | null;
+            /** Payslip Id */
+            payslip_id?: number | null;
+            /** Payslip Status */
+            payslip_status: string;
+            /** Paid At */
+            paid_at?: string | null;
+            /** Gross Amount */
+            gross_amount: string;
+            /** Net Amount */
+            net_amount: string;
+            /** Deductions Total */
+            deductions_total: string;
+            /** Automatic Deductions Amount */
+            automatic_deductions_amount?: string | null;
+            /** Manual Deductions Amount */
+            manual_deductions_amount?: string | null;
+            /** Bonus Amount */
+            bonus_amount?: string | null;
+            /** Overtime Amount */
+            overtime_amount?: string | null;
+            /** Base Salary Amount */
+            base_salary_amount?: string | null;
+        };
+        /** PayslipAdjustmentsPatch */
+        PayslipAdjustmentsPatch: {
+            /** Bonus Amount */
+            bonus_amount?: number | string | null;
+            /** Manual Deductions */
+            manual_deductions?: number | string | null;
+        };
         /** PayslipApproveRequest */
         PayslipApproveRequest: {
             /** Payslip Id */
@@ -4959,11 +5489,14 @@ export interface components {
             period_end: string;
             /**
              * Deductions
+             * @description Manual deductions only; automatic attendance deductions are added server-side.
              * @default 0.00
              */
             deductions: number | string;
             /** Hourly Rate Override */
             hourly_rate_override?: number | string | null;
+            /** Bonus Amount */
+            bonus_amount?: number | string | null;
             /** Idempotency Key */
             idempotency_key?: string | null;
         };
@@ -5013,6 +5546,28 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Base Salary Amount */
+            base_salary_amount?: string | null;
+            /** Bonus Amount */
+            bonus_amount?: string | null;
+            /** Overtime Amount */
+            overtime_amount?: string | null;
+            /** Automatic Deductions Amount */
+            automatic_deductions_amount?: string | null;
+            /** Manual Deductions Amount */
+            manual_deductions_amount?: string | null;
+            /** Calculation Details */
+            calculation_details?: {
+                [key: string]: unknown;
+            } | null;
+            /** Paid At */
+            paid_at?: string | null;
+            /** Paid By User Id */
+            paid_by_user_id?: number | null;
+            /** User Full Name */
+            user_full_name?: string | null;
+            /** User Email */
+            user_email?: string | null;
         };
         /** PosShiftCashEventRequest */
         PosShiftCashEventRequest: {
@@ -5292,13 +5847,10 @@ export interface components {
         };
         /**
          * ProfileUpdate
-         * @description Update current user profile (identity, contact, language, avatar URL, optional password).
+         * @description Update current user profile (identity, contact, language, optional password).
          */
         ProfileUpdate: {
-            /**
-             * Email
-             * Format: email
-             */
+            /** Email */
             email?: string | null;
             /** Full Name */
             full_name?: string | null;
@@ -6186,29 +6738,16 @@ export interface components {
             contract_end?: string | null;
             /** Salary Amount */
             salary_amount?: number | string | null;
-            /** Salary Currency */
-            salary_currency?: string | null;
             /** Hourly Rate */
             hourly_rate?: number | string | null;
+            /** Salary Currency */
+            salary_currency?: string | null;
             /** Bank Account */
             bank_account?: string | null;
             /** Notes */
             notes?: string | null;
             /** Schedules */
-            schedules?:
-                | {
-                      /** Weekday */
-                      weekday: number;
-                      /** Start Time */
-                      start_time: string;
-                      /** End Time */
-                      end_time: string;
-                      /** Is Day Off */
-                      is_day_off?: boolean;
-                      /** Branch Id */
-                      branch_id: number;
-                  }[]
-                | null;
+            schedules?: components["schemas"]["WeeklyScheduleItem"][] | null;
         };
         /** UserOnboardingRead */
         UserOnboardingRead: {
@@ -6264,6 +6803,18 @@ export interface components {
             requested_by_name?: string | null;
             /** Assigned Hr Name */
             assigned_hr_name?: string | null;
+        };
+        /**
+         * UserOnboardingSubjectUpdate
+         * @description HR edits the subject user while onboarding is still pending (no users:update required).
+         */
+        UserOnboardingSubjectUpdate: {
+            /** Full Name */
+            full_name?: string | null;
+            /** Branch Id */
+            branch_id?: number | null;
+            /** Role Code */
+            role_code?: string | null;
         };
         /** UserPermissionOverrideRead */
         UserPermissionOverrideRead: {
@@ -6332,6 +6883,8 @@ export interface components {
             avatar_url?: string | null;
             /** Last Login At */
             last_login_at?: string | null;
+            /** Employee Profile Id */
+            employee_profile_id?: number | null;
         };
         /**
          * UserRoleAssign
@@ -6344,6 +6897,14 @@ export interface components {
             branch_id?: number | null;
         };
         /**
+         * UserRolesResponse
+         * @description Assigned role codes for the current user (strings match ``roles.code``).
+         */
+        UserRolesResponse: {
+            /** Codes */
+            codes: string[];
+        };
+        /**
          * UserUpdate
          * @description Update user (status, profile, branch).
          */
@@ -6354,6 +6915,20 @@ export interface components {
             status?: string | null;
             /** Branch Id */
             branch_id?: number | null;
+        };
+        /**
+         * VacationLeaveBalanceRead
+         * @description Annual vacation balance for the calendar year (UTC date).
+         */
+        VacationLeaveBalanceRead: {
+            /** Calendar Year */
+            calendar_year: number;
+            /** Entitlement Days */
+            entitlement_days?: string | null;
+            /** Used Days */
+            used_days: string;
+            /** Remaining Days */
+            remaining_days?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -6399,6 +6974,25 @@ export interface components {
              */
             is_day_off: boolean;
         };
+        /**
+         * WeeklyScheduleItem
+         * @description Schedule block to create during onboarding completion.
+         */
+        WeeklyScheduleItem: {
+            /** Weekday */
+            weekday: number;
+            /** Start Time */
+            start_time: string;
+            /** End Time */
+            end_time: string;
+            /**
+             * Is Day Off
+             * @default false
+             */
+            is_day_off: boolean;
+            /** Branch Id */
+            branch_id: number;
+        };
         /** WeeklyScheduleRead */
         WeeklyScheduleRead: {
             /** Id */
@@ -6440,7 +7034,7 @@ export interface components {
             end_time?: string | null;
             /** Is Day Off */
             is_day_off?: boolean | null;
-            /** Weekday (0=Mon … 6=Sun) */
+            /** Weekday */
             weekday?: number | null;
             /** Branch Id */
             branch_id?: number | null;
@@ -6585,6 +7179,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_onboarding_assignees_api_v1_users_onboarding_assignees_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"][];
                 };
             };
         };
@@ -6807,6 +7421,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserOnboardingRead"][];
+                };
+            };
+        };
+    };
+    patch_pending_onboarding_subject_api_v1_hr_onboarding__onboarding_id__subject_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                onboarding_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserOnboardingSubjectUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7188,33 +7837,6 @@ export interface operations {
             };
         };
     };
-    upload_my_avatar_api_v1_auth_me_avatar_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** @format binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-        };
-    };
     update_me_api_v1_auth_me_patch: {
         parameters: {
             query?: never;
@@ -7248,6 +7870,26 @@ export interface operations {
             };
         };
     };
+    me_roles_api_v1_auth_me_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRolesResponse"];
+                };
+            };
+        };
+    };
     me_permissions_api_v1_auth_me_permissions_get: {
         parameters: {
             query?: never;
@@ -7264,6 +7906,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__api__v1__auth__PermissionRead"][];
+                };
+            };
+        };
+    };
+    upload_my_avatar_api_v1_auth_me_avatar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_my_avatar_api_v1_auth_me_avatar_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -9899,6 +10574,37 @@ export interface operations {
             };
         };
     };
+    get_employee_leave_balance_endpoint_api_v1_employees__employee_profile_id__leave_balance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employee_profile_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VacationLeaveBalanceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_schedules_endpoint_api_v1_employees__employee_profile_id__schedules_get: {
         parameters: {
             query?: never;
@@ -9953,6 +10659,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WeeklyScheduleRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_schedule_endpoint_api_v1_employees__employee_profile_id__schedules__schedule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employee_profile_id: number;
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -10109,6 +10845,8 @@ export interface operations {
                 employee_profile_id?: number | null;
                 date_from?: string | null;
                 date_to?: string | null;
+                classification_status?: string | null;
+                attendance_category?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -10125,6 +10863,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AttendanceLogRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attendance_summary_endpoint_api_v1_attendance_summary_get: {
+        parameters: {
+            query?: {
+                branch_id?: number | null;
+                employee_profile_id?: number | null;
+                date_from?: string | null;
+                date_to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceSummaryRead"];
                 };
             };
             /** @description Validation Error */
@@ -10574,6 +11346,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string | null;
+                period_start?: string | null;
+                period_end?: string | null;
             };
             header?: never;
             path?: never;
@@ -10611,6 +11385,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayslipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_payslip_adjustments_endpoint_api_v1_payroll_payslips__payslip_id__adjustments_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payslip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayslipAdjustmentsPatch"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -10683,6 +11492,159 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PayslipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payroll_overview_endpoint_api_v1_payroll_overview_get: {
+        parameters: {
+            query: {
+                period_start: string;
+                period_end: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayrollOverviewRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_paid_endpoint_api_v1_payroll_payout_mark_paid_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayrollApproveAndPayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayslipRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_and_pay_endpoint_api_v1_payroll_approve_and_pay_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayrollApproveAndPayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayslipRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_attendance_policies_endpoint_api_v1_payroll_policies_attendance_deductions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendancePayrollPolicyRead"][];
+                };
+            };
+        };
+    };
+    upsert_attendance_policy_endpoint_api_v1_payroll_policies_attendance_deductions__role_code__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendancePayrollPolicyUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendancePayrollPolicyRead"];
                 };
             };
             /** @description Validation Error */
@@ -11603,6 +12565,7 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                unread_only?: boolean;
             };
             header?: never;
             path?: never;
@@ -11627,6 +12590,95 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    my_unread_count_endpoint_api_v1_notifications_deliveries_me_unread_count_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationUnreadCountResponse"];
+                };
+            };
+        };
+    };
+    mark_delivery_read_endpoint_api_v1_notifications_deliveries__delivery_id__read_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                delivery_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationDeliveryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_deliveries_read_endpoint_api_v1_notifications_deliveries_me_read_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationMarkReadResponse"];
+                };
+            };
+        };
+    };
+    delete_read_deliveries_endpoint_api_v1_notifications_deliveries_me_read_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -11736,6 +12788,35 @@ export interface operations {
             };
         };
     };
+    delete_schedule_endpoint_api_v1_admin_notifications_schedules__schedule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_notification_runs_endpoint_api_v1_admin_notifications_runs_get: {
         parameters: {
             query?: {
@@ -11754,6 +12835,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationRunRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_admin_deliveries_endpoint_api_v1_admin_notifications_deliveries_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationDeliveryListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_all_deliveries_endpoint_api_v1_admin_notifications_deliveries_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    broadcast_notification_endpoint_api_v1_admin_notifications_broadcast_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationBroadcastRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationBroadcastResponse"];
                 };
             };
             /** @description Validation Error */

@@ -68,7 +68,5 @@ async def update_supplier_endpoint(
     _: User = Depends(get_current_user),
     __: None = require_permission("suppliers", "update"),
 ) -> SupplierRead:
-    s = await update_supplier(
-        db, supplier_id=supplier_id, data=body.model_dump(exclude_unset=True)
-    )
+    s = await update_supplier(db, supplier_id=supplier_id, data=body.model_dump(exclude_unset=True))
     return SupplierRead.model_validate(s)

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
+from app.core.errors import AppError
 from app.db.database import get_db
 from app.models.role import Role
 from app.models.user_role import UserRole
@@ -55,9 +56,11 @@ async def create_user(
 
     if user_in.assigned_hr_user_id is not None:
         if not await user_can_act_as_onboarding_assignee(db, user_in.assigned_hr_user_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="onboarding_assignee_ineligible",
+            raise AppError(
+                code="onboarding_assignee_ineligible",
+                message="Onboarding assignee is not eligible",
+                http_status=422,
+                details={"detail": "onboarding_assignee_ineligible"},
             )
 
     user = User(
@@ -311,17 +314,19 @@ async def list_pending_onboarding(
     for row in rows:
         onboarding = row["onboarding"]
         data = UserOnboardingRead.model_validate(onboarding).model_dump()
-        data.update({
-            "user_email": row["user_email"],
-            "user_full_name": row["user_full_name"],
-            "user_branch_id": row["user_branch_id"],
-            "user_branch_name": row["user_branch_name"],
-            "user_status": row["user_status"],
-            "user_role_code": row["user_role_code"],
-            "user_role_name": row["user_role_name"],
-            "requested_by_name": row["requested_by_name"],
-            "assigned_hr_name": row["assigned_hr_name"],
-        })
+        data.update(
+            {
+                "user_email": row["user_email"],
+                "user_full_name": row["user_full_name"],
+                "user_branch_id": row["user_branch_id"],
+                "user_branch_name": row["user_branch_name"],
+                "user_status": row["user_status"],
+                "user_role_code": row["user_role_code"],
+                "user_role_name": row["user_role_name"],
+                "requested_by_name": row["requested_by_name"],
+                "assigned_hr_name": row["assigned_hr_name"],
+            }
+        )
         result.append(UserOnboardingRead.model_validate(data))
     return result
 
@@ -341,7 +346,9 @@ async def patch_pending_onboarding_subject(
     result = await db.execute(select(UserOnboarding).where(UserOnboarding.id == onboarding_id))
     onboarding_task = result.scalar_one_or_none()
     if not onboarding_task:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Onboarding task not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Onboarding task not found"
+        )
     if not await _can_complete_onboarding(db, onboarding_task, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -374,9 +381,7 @@ async def patch_pending_onboarding_subject(
 _CAN_COMPLETE_ANY_ONBOARDING_ROLES = {"OWNER", "ADMIN", "HR_MANAGER"}
 
 
-async def _can_complete_onboarding(
-    db: AsyncSession, onboarding_task, current_user_id: int
-) -> bool:
+async def _can_complete_onboarding(db: AsyncSession, onboarding_task, current_user_id: int) -> bool:
     """Check if current user can complete the onboarding task.
 
     Allowed if:
@@ -413,7 +418,9 @@ async def complete_onboarding(
     result = await db.execute(select(UserOnboarding).where(UserOnboarding.id == onboarding_id))
     onboarding_task = result.scalar_one_or_none()
     if not onboarding_task:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Onboarding task not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Onboarding task not found"
+        )
 
     if not await _can_complete_onboarding(db, onboarding_task, current_user.id):
         raise HTTPException(

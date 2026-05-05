@@ -49,11 +49,6 @@ export function BranchCombobox({
   const [open, setOpen] = useState(false);
   const { data: branches = [], isLoading } = useBranches(includeArchived);
 
-  const selected = useMemo(() => {
-    if (value == null || value === 0) return null;
-    return branches.find((b) => b.id === value) ?? null;
-  }, [branches, value]);
-
   const labelText = useMemo(() => {
     if (value == null || value === 0) {
       return allowClear ? t('branches.picker_clear') : t('branches.picker_placeholder');

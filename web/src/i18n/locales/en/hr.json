@@ -23,6 +23,10 @@
       "bank": "Bank account (IBAN)",
       "save": "Save",
       "saved": "Employee saved",
+      "annual_leave_entitlement": "Annual leave entitlement (days)",
+      "annual_leave_placeholder": "e.g. 21",
+      "annual_leave_hint": "Used to compute remaining vacation balance for the calendar year. Leave empty if you do not track vacation days.",
+      "annual_leave_invalid": "Enter a valid non-negative number of days, or leave empty.",
       "schedule": "Weekly schedule",
       "schedule_hint": "Mark a weekday as day off or add blocks from the list.",
       "weekday": "Day {{d}}",
@@ -70,6 +74,8 @@
     "employee": "Employee",
     "all": "All",
     "timesheet_link": "Timesheet",
+    "filter_category": "Category",
+    "filter_status": "Status",
     "col": {
       "id": "ID",
       "employee": "Employee",
@@ -78,7 +84,36 @@
       "out": "Out",
       "date": "Date",
       "duration": "Duration",
-      "timesheet": "Timesheet"
+      "timesheet": "Timesheet",
+      "category": "Category",
+      "status": "Status",
+      "ot_min": "OT (min)",
+      "payroll_impact": "Payroll impact"
+    },
+    "summary": {
+      "present": "Present",
+      "late": "Late",
+      "absent_days": "Absent days (est.)",
+      "ot_minutes": "Overtime minutes",
+      "records": "Records"
+    },
+    "category": {
+      "exempt": "Exempt",
+      "office": "Office",
+      "operational": "Operational"
+    },
+    "status": {
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent",
+      "open": "Open shift",
+      "exempt_log": "Exempt (log)",
+      "supplemental": "Supplemental",
+      "operational_open": "Operational (open)",
+      "operational_late_open": "Late opening",
+      "operational_early_close": "Early close",
+      "operational_complete": "Operational (complete)",
+      "no_schedule": "No schedule"
     },
     "open": "Open",
     "total_records": "Total records",
@@ -95,6 +130,7 @@
   },
   "leave": {
     "title": "Leave",
+    "self_service_profile": "Submitting for your linked employee profile.",
     "new": "New request",
     "review": "Review",
     "review_title": "Review leave",
@@ -105,6 +141,22 @@
     "filter_status": "Status",
     "created": "Leave request created",
     "empty": "No leave requests",
+    "dialog": {
+      "trigger": "New leave request",
+      "title": "Leave request",
+      "description": "Submit a leave request for this employee.",
+      "duration": "Duration",
+      "duration_days": "{{count}} calendar days",
+      "duration_placeholder": "Choose start and end dates",
+      "date_order": "End date must be on or after start date",
+      "balance_section": "Annual vacation balance",
+      "balance_year": "Calendar year {{year}} (UTC)",
+      "balance_remaining": "Remaining (vacation)",
+      "balance_entitlement": "Annual entitlement",
+      "balance_used": "Approved vacation days used",
+      "balance_not_tracked": "Not tracked — set annual entitlement on the employee profile.",
+      "balance_loading": "Loading balance…"
+    },
     "stats": {
       "total": "Total",
       "approved": "Approved",
@@ -122,7 +174,10 @@
       "reviewed_by": "Reviewed by",
       "reviewed_at": "Reviewed at",
       "requested_at": "Requested at",
-      "actions": "Actions"
+      "actions": "Actions",
+      "period": "Leave period",
+      "balance": "Vacation balance remaining",
+      "performance": "Open performance"
     },
     "type": {
       "vacation": "Vacation",

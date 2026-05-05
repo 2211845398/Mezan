@@ -42,6 +42,7 @@ class UserRead(BaseModel):
     preferred_language: str | None = None
     avatar_url: str | None = None
     last_login_at: datetime | None = None
+    employee_profile_id: int | None = None
 
 
 class UserOnboardingRead(BaseModel):

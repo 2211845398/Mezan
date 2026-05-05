@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 
 from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +18,8 @@ from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
-from app.schemas.employees import WeeklyScheduleRead
+from app.schemas.employees import LeaveRequestRead, VacationLeaveBalanceRead, WeeklyScheduleRead
+from app.services.attendance_classification_service import refresh_attendance_log_classification
 
 
 def _to_utc(dt: datetime | None) -> datetime:
@@ -91,16 +94,18 @@ async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
     enriched = []
     for row in result.all():
         employee = row[0]
-        enriched.append({
-            "employee": employee,
-            "user_email": row.user_email,
-            "user_full_name": row.user_full_name,
-            "user_status": row.user_status,
-            "user_branch_id": row.user_branch_id,
-            "user_branch_name": row.user_branch_name,
-            "user_role_code": row.user_role_code,
-            "user_role_name": row.user_role_name,
-        })
+        enriched.append(
+            {
+                "employee": employee,
+                "user_email": row.user_email,
+                "user_full_name": row.user_full_name,
+                "user_status": row.user_status,
+                "user_branch_id": row.user_branch_id,
+                "user_branch_name": row.user_branch_name,
+                "user_role_code": row.user_role_code,
+                "user_role_name": row.user_role_name,
+            }
+        )
 
     return enriched
 
@@ -212,9 +217,7 @@ async def update_employee_profile(
         setattr(employee, key, value)
 
     if subject_patch:
-        await _apply_employee_subject_user_updates(
-            db, user_id=employee.user_id, data=subject_patch
-        )
+        await _apply_employee_subject_user_updates(db, user_id=employee.user_id, data=subject_patch)
 
     await db.flush()
     await db.refresh(employee)
@@ -321,6 +324,7 @@ async def clock_in(
     db.add(log)
     await db.flush()
     await db.refresh(log)
+    await refresh_attendance_log_classification(db, log)
     return log
 
 
@@ -346,6 +350,7 @@ async def clock_out(
     log.clock_out_at = out_at
     await db.flush()
     await db.refresh(log)
+    await refresh_attendance_log_classification(db, log)
     return log
 
 
@@ -359,6 +364,118 @@ async def list_attendance_logs(
         .order_by(AttendanceLog.clock_in_at.desc())
     )
     return list(result.scalars().all())
+
+
+def _vacation_overlap_days_in_year(req_start: date, req_end: date, year: int) -> int:
+    ys, ye = date(year, 1, 1), date(year, 12, 31)
+    s = max(req_start, ys)
+    e = min(req_end, ye)
+    if s > e:
+        return 0
+    return (e - s).days + 1
+
+
+async def _approved_vacation_used_by_profile_for_year(
+    db: AsyncSession,
+    *,
+    employee_profile_ids: list[int],
+    year: int,
+) -> dict[int, Decimal]:
+    if not employee_profile_ids:
+        return {}
+    ys, ye = date(year, 1, 1), date(year, 12, 31)
+    result = await db.execute(
+        select(LeaveRequest).where(
+            LeaveRequest.employee_profile_id.in_(employee_profile_ids),
+            LeaveRequest.is_deleted.is_(False),
+            LeaveRequest.leave_type == LeaveType.VACATION,
+            LeaveRequest.status == LeaveStatus.APPROVED,
+            LeaveRequest.end_date >= ys,
+            LeaveRequest.start_date <= ye,
+        )
+    )
+    rows = list(result.scalars().all())
+    acc: dict[int, Decimal] = defaultdict(lambda: Decimal("0"))
+    for lv in rows:
+        days = _vacation_overlap_days_in_year(lv.start_date, lv.end_date, year)
+        acc[lv.employee_profile_id] += Decimal(days)
+    return dict(acc)
+
+
+async def vacation_balance_remaining_by_profile(
+    db: AsyncSession,
+    *,
+    employee_profile_ids: list[int],
+    reference_date: date | None = None,
+) -> dict[int, Decimal | None]:
+    uniq = list(dict.fromkeys(employee_profile_ids))
+    if not uniq:
+        return {}
+    ref = reference_date or datetime.now(UTC).date()
+    year = ref.year
+    ent_result = await db.execute(
+        select(EmployeeProfile.id, EmployeeProfile.annual_leave_entitlement_days).where(
+            EmployeeProfile.id.in_(uniq)
+        )
+    )
+    entitlements: dict[int, Decimal | None] = {
+        row.id: row.annual_leave_entitlement_days for row in ent_result.all()
+    }
+    used_map = await _approved_vacation_used_by_profile_for_year(
+        db, employee_profile_ids=uniq, year=year
+    )
+    out: dict[int, Decimal | None] = {}
+    for ep_id in uniq:
+        ent = entitlements.get(ep_id)
+        if ent is None:
+            out[ep_id] = None
+            continue
+        used = used_map.get(ep_id, Decimal("0"))
+        remaining = ent - used
+        if remaining < 0:
+            remaining = Decimal("0")
+        out[ep_id] = remaining
+    return out
+
+
+async def get_vacation_leave_balance(
+    db: AsyncSession,
+    *,
+    employee_profile_id: int,
+    reference_date: date | None = None,
+) -> VacationLeaveBalanceRead:
+    ref = reference_date or datetime.now(UTC).date()
+    year = ref.year
+    ep = await _get_employee_profile(db, employee_profile_id)
+    used_map = await _approved_vacation_used_by_profile_for_year(
+        db, employee_profile_ids=[employee_profile_id], year=year
+    )
+    used = used_map.get(employee_profile_id, Decimal("0"))
+    ent = ep.annual_leave_entitlement_days
+    remaining: Decimal | None = None if ent is None else max(Decimal("0"), ent - used)
+    return VacationLeaveBalanceRead(
+        calendar_year=year,
+        entitlement_days=ent,
+        used_days=used,
+        remaining_days=remaining,
+    )
+
+
+async def enrich_leave_request_reads(
+    db: AsyncSession, rows: list[LeaveRequest]
+) -> list[LeaveRequestRead]:
+    if not rows:
+        return []
+    balance_map = await vacation_balance_remaining_by_profile(
+        db,
+        employee_profile_ids=[r.employee_profile_id for r in rows],
+    )
+    out: list[LeaveRequestRead] = []
+    for r in rows:
+        payload = LeaveRequestRead.model_validate(r).model_dump()
+        payload["vacation_balance_remaining"] = balance_map.get(r.employee_profile_id)
+        out.append(LeaveRequestRead.model_validate(payload))
+    return out
 
 
 async def create_leave_request(
@@ -406,7 +523,11 @@ async def list_leave_requests_filtered(
         q = q.where(LeaveRequest.status == LeaveStatus(status))
     if employee_profile_id is not None:
         q = q.where(LeaveRequest.employee_profile_id == employee_profile_id)
-    q = q.order_by(LeaveRequest.created_at.desc()).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    q = (
+        q.order_by(LeaveRequest.created_at.desc())
+        .limit(min(max(limit, 1), 500))
+        .offset(max(offset, 0))
+    )
     result = await db.execute(q)
     return list(result.scalars().all())
 
@@ -418,6 +539,8 @@ async def list_attendance_logs_filtered(
     employee_profile_id: int | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    classification_status: str | None = None,
+    attendance_category: str | None = None,
     limit: int = 200,
     offset: int = 0,
 ) -> list[AttendanceLog]:
@@ -432,7 +555,15 @@ async def list_attendance_logs_filtered(
     if date_to is not None:
         end_dt = datetime.combine(date_to + timedelta(days=1), time.min).replace(tzinfo=UTC)
         q = q.where(AttendanceLog.clock_in_at < end_dt)
-    q = q.order_by(AttendanceLog.clock_in_at.desc()).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    if classification_status:
+        q = q.where(AttendanceLog.classification_status == classification_status)
+    if attendance_category:
+        q = q.where(AttendanceLog.attendance_category == attendance_category)
+    q = (
+        q.order_by(AttendanceLog.clock_in_at.desc())
+        .limit(min(max(limit, 1), 500))
+        .offset(max(offset, 0))
+    )
     result = await db.execute(q)
     return list(result.scalars().all())
 
@@ -503,3 +634,43 @@ async def soft_delete_leave_request(db: AsyncSession, *, leave_request_id: int) 
     await db.flush()
     await db.refresh(leave)
     return leave
+
+
+async def attendance_period_summary(
+    db: AsyncSession,
+    *,
+    branch_id: int | None = None,
+    employee_profile_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> dict:
+    """Roll-up counts for HR dashboards; absent_days only when a single employee is scoped."""
+    from app.services.attendance_payroll_engine import (
+        count_absent_days_for_employee,
+        summarize_attendance_log_rows,
+    )
+
+    logs = await list_attendance_logs_filtered(
+        db,
+        branch_id=branch_id,
+        employee_profile_id=employee_profile_id,
+        date_from=date_from,
+        date_to=date_to,
+        limit=500,
+        offset=0,
+    )
+    agg = summarize_attendance_log_rows(logs)
+    absent_days = 0
+    if employee_profile_id is not None and date_from is not None and date_to is not None:
+        absent_days = await count_absent_days_for_employee(
+            db,
+            employee_profile_id=employee_profile_id,
+            period_start=date_from,
+            period_end=date_to,
+        )
+    return {**agg, "absent_days": absent_days}
+
+
+async def get_employee_profile_id_for_user(db: AsyncSession, user_id: int) -> int | None:
+    res = await db.execute(select(EmployeeProfile.id).where(EmployeeProfile.user_id == user_id))
+    return res.scalar_one_or_none()

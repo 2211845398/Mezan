@@ -158,6 +158,9 @@ export function leaveRequestRowSearchValue(
     row.reviewed_at,
     row.created_at,
     row.updated_at,
+    row.vacation_balance_remaining != null && row.vacation_balance_remaining !== ''
+      ? String(row.vacation_balance_remaining)
+      : '',
   ];
   return parts.filter(Boolean).join(' ');
 }

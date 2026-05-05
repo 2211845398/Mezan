@@ -1,10 +1,28 @@
 {
   "runs": {
-    "title": "Payroll runs",
-    "generate_section": "Generate payslip"
+    "title": "Payslip history",
+    "generate_section": "Generate payslip",
+    "history_hint": "All payslips across periods. Use Monthly payroll to prepare and approve the current month.",
+    "filters": {
+      "month": "Payroll month",
+      "clear_month": "Clear month",
+      "status": "Status",
+      "status_all": "All statuses"
+    }
   },
   "run": {
-    "title": "Payslip #{{id}}"
+    "title": "Payslip #{{id}}",
+    "adjustments_title": "Draft adjustments",
+    "save_adjustments": "Save adjustments",
+    "adjust_saved": "Adjustments saved",
+    "col": {
+      "base_salary": "Base salary",
+      "bonus": "Bonus",
+      "overtime": "Overtime",
+      "auto_deductions": "Auto deductions",
+      "manual_deductions": "Manual deductions",
+      "paid_at": "Paid at"
+    }
   },
   "approvals": {
     "title": "Payroll approvals"
@@ -13,7 +31,8 @@
     "emp_id": "Employee profile ID",
     "period_start": "Period start",
     "period_end": "Period end",
-    "deductions": "Deductions"
+    "deductions": "Deductions",
+    "bonus": "Bonus"
   },
   "col": {
     "id": "ID",
@@ -42,6 +61,76 @@
   },
   "export": {
     "filename": "approved_payslips.csv"
+  },
+  "overview": {
+    "title": "Monthly payroll",
+    "month_label": "Payroll month",
+    "month_help": "Review and approve salaries for the selected calendar month. Use Prepare to create draft payslips for all active employees.",
+    "prepare": "Prepare payroll",
+    "prepare_ok": "Created {{created}} draft payslip(s); {{skipped}} already existed or skipped.",
+    "prepare_partial": "{{count}} employee(s) could not be prepared — check pay rates in their profile.",
+    "export_pdf": "Export PDF",
+    "export_pdf_ok": "PDF downloaded",
+    "approve_pay": "Approve & mark deposited",
+    "approve_pay_ok": "Payroll approved and employees notified",
+    "approve_pay_none": "No draft payslips to approve for this month.",
+    "approve_pay_disabled_no_drafts": "All payslips are already approved or there are no drafts.",
+    "gate_title": "Approval not open yet",
+    "gate_body": "You can review this payroll now. Approval and deposit actions open on {{date}} (month {{month}}).",
+    "gate_tooltip": "Opens on {{date}}",
+    "payslip_status": {
+      "no_payslip": "No payslip",
+      "draft": "Draft",
+      "approved": "Approved"
+    },
+    "kpi": {
+      "employees": "Employees",
+      "missing": "Missing payslip",
+      "missing_hint": "Run Prepare payroll",
+      "draft": "Draft",
+      "approved_unpaid": "Approved (not deposited)",
+      "paid": "Deposited",
+      "gross": "Gross total",
+      "net": "Net total",
+      "bonus": "Bonus total"
+    },
+    "col": {
+      "name": "Name",
+      "role": "Role",
+      "status": "Status",
+      "base_salary": "Base salary",
+      "hourly": "Hourly",
+      "auto_ded": "Auto deductions",
+      "manual_ded": "Manual deductions",
+      "bonus": "Bonus",
+      "ot": "Overtime",
+      "paid": "Paid at"
+    }
+  },
+  "policies": {
+    "title": "Attendance & deduction policies",
+    "edit": "Edit",
+    "edit_title": "Policy: {{role}}",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Policy saved",
+    "col": {
+      "role": "Role",
+      "category": "Category",
+      "grace": "Grace (min)",
+      "absence": "Absence",
+      "late": "Late",
+      "early": "Early close",
+      "ot_mult": "OT mult."
+    },
+    "form": {
+      "category": "Attendance category",
+      "grace": "Grace minutes",
+      "absence": "Absence deduction",
+      "late": "Late deduction",
+      "early": "Early close deduction",
+      "ot_mult": "Overtime multiplier"
+    }
   },
   "errors": {
     "generic": "Something went wrong. Try again."

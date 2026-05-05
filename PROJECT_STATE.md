@@ -122,6 +122,7 @@
 - [x] **4.5** User onboarding workflow (pending → HR completion → active).
 - [x] **4.6** Pending employee requests page for HR approval.
 - [x] **4.7** Per-employee performance, attendance, leave, and schedule tracking pages.
+- [x] **4.8** Attendance & payroll SRS: RBAC `AttendancePayrollPolicy`, classified `AttendanceLog` fields, period engine with approved-leave exclusion, payslip breakdown (`base_salary_amount`, automatic/manual deductions, bonus, overtime, `calculation_details`, `paid_at`), payroll overview / approve-and-pay / policy APIs, HR attendance UI summary, payroll overview & deduction policy screens, leave self-service defaults and notification deep links to `/hr/leave`. **Monthly payroll workspace:** calendar-month period APIs (`GET/POST /payroll/periods/...`), batch prepare drafts, configurable approval open day (default 26th) enforced server-side for calendar months, PDF period export, simplified web navigation (overview primary; payslip history secondary).
 
 #### Epic 5 — Accounting and Executive BI
 - [x] **5.1** Chart of accounts, journal entries/lines with mandatory `branch_id`.
@@ -252,7 +253,7 @@
 | **CSP headers** | Open | Medium | W-7.3 |
 | **Dockerfile multi-stage** | Open | Medium | W-8.1 |
 | **PWA + Dexie offline** | Open | High | W-9 (requires backend Epic 12) |
-| **Notifications client** | Open | Medium | W-10 |
+| **Notifications client** | Open | Medium | W-10 (in-app center + deep links shipped; FCM wiring pending) |
 
 ### Known Divergences (Plan vs Reality)
 
@@ -522,4 +523,4 @@ flutter analyze
 
 ---
 
-*Last consolidated: April 2026. See git history for per-section changes.*
+*Last consolidated: May 2026. See git history for per-section changes.*

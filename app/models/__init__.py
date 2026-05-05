@@ -6,6 +6,7 @@ from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
 from app.models.ar_payment_application import ArPaymentApplication
 from app.models.attendance_log import AttendanceLog
+from app.models.attendance_payroll_policy import AttendancePayrollPolicy, AttendancePolicyCategory
 from app.models.audit_log import AuditLog
 from app.models.branch import Branch
 from app.models.branch_product_costs import BranchProductCost
@@ -73,6 +74,8 @@ __all__ = [
     "ArPaymentApplication",
     "AuditLog",
     "AttendanceLog",
+    "AttendancePayrollPolicy",
+    "AttendancePolicyCategory",
     "Branch",
     "BranchSequence",
     "BranchProductCost",

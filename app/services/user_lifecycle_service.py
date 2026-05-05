@@ -125,18 +125,20 @@ async def list_onboarding_tasks_enriched(
     enriched = []
     for row in rows:
         onboarding = row[0]
-        enriched.append({
-            "onboarding": onboarding,
-            "user_email": row.user_email,
-            "user_full_name": row.user_full_name,
-            "user_branch_id": row.user_branch_id,
-            "user_status": row.user_status,
-            "user_branch_name": row.user_branch_name,
-            "user_role_code": row.user_role_code,
-            "user_role_name": row.user_role_name,
-            "requested_by_name": names_map.get(onboarding.requested_by_user_id),
-            "assigned_hr_name": names_map.get(onboarding.assigned_hr_user_id),
-        })
+        enriched.append(
+            {
+                "onboarding": onboarding,
+                "user_email": row.user_email,
+                "user_full_name": row.user_full_name,
+                "user_branch_id": row.user_branch_id,
+                "user_status": row.user_status,
+                "user_branch_name": row.user_branch_name,
+                "user_role_code": row.user_role_code,
+                "user_role_name": row.user_role_name,
+                "requested_by_name": names_map.get(onboarding.requested_by_user_id),
+                "assigned_hr_name": names_map.get(onboarding.assigned_hr_user_id),
+            }
+        )
 
     return enriched
 
@@ -185,7 +187,9 @@ async def complete_onboarding_task(
     salary_amount = data.get("salary_amount") or task.salary_amount
     hourly_rate = data.get("hourly_rate")
     if salary_amount is None and hourly_rate is None:
-        raise ValidationError("Either salary_amount or hourly_rate is required to complete onboarding")
+        raise ValidationError(
+            "Either salary_amount or hourly_rate is required to complete onboarding"
+        )
 
     emp_res = await db.execute(select(EmployeeProfile).where(EmployeeProfile.user_id == user.id))
     employee = emp_res.scalar_one_or_none()
@@ -221,7 +225,9 @@ async def complete_onboarding_task(
             # Parse time strings
             start_parts = start_time_str.split(":")
             end_parts = end_time_str.split(":")
-            start_time = dt_time(int(start_parts[0]), int(start_parts[1]) if len(start_parts) > 1 else 0)
+            start_time = dt_time(
+                int(start_parts[0]), int(start_parts[1]) if len(start_parts) > 1 else 0
+            )
             end_time = dt_time(int(end_parts[0]), int(end_parts[1]) if len(end_parts) > 1 else 0)
 
             schedule = WeeklySchedule(
@@ -279,7 +285,7 @@ async def update_pending_onboarding_subject(
 
     if "full_name" in payload:
         fn = payload["full_name"]
-        user.full_name = (fn.strip() if isinstance(fn, str) and fn.strip() else None)
+        user.full_name = fn.strip() if isinstance(fn, str) and fn.strip() else None
 
     if "branch_id" in payload:
         user.branch_id = payload["branch_id"]

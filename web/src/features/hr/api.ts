@@ -11,6 +11,7 @@ export type AttendanceLogRead = components['schemas']['AttendanceLogRead'];
 export type LeaveRequestRead = components['schemas']['LeaveRequestRead'];
 export type LeaveRequestCreate = components['schemas']['LeaveRequestCreate'];
 export type LeaveRequestReview = components['schemas']['LeaveRequestReview'];
+export type VacationLeaveBalanceRead = components['schemas']['VacationLeaveBalanceRead'];
 export type HrAnomalyRequest = components['schemas']['HrAnomalyRequest'];
 export type HrAnomalyResponse = components['schemas']['HrAnomalyResponse'];
 export type HrAnomaly = components['schemas']['HrAnomaly'];
@@ -77,10 +78,29 @@ export async function listAttendanceLogsGlobal(params: {
   employee_profile_id?: number;
   date_from?: string;
   date_to?: string;
+  classification_status?: string;
+  attendance_category?: string;
   limit?: number;
   offset?: number;
 }): Promise<AttendanceLogRead[]> {
   const { data } = await apiClient.get<AttendanceLogRead[]>('/attendance/logs', { params });
+  return data;
+}
+
+export type AttendanceSummaryRead = {
+  by_status: Record<string, number>;
+  overtime_minutes_total: number;
+  record_count: number;
+  absent_days: number;
+};
+
+export async function getAttendanceSummary(params: {
+  branch_id?: number;
+  employee_profile_id?: number;
+  date_from?: string;
+  date_to?: string;
+}): Promise<AttendanceSummaryRead> {
+  const { data } = await apiClient.get<AttendanceSummaryRead>('/attendance/summary', { params });
   return data;
 }
 
@@ -108,6 +128,15 @@ export async function createLeaveRequest(
   const { data } = await apiClient.post<LeaveRequestRead>(
     `/employees/${employeeProfileId}/leave-requests`,
     body,
+  );
+  return data;
+}
+
+export async function getEmployeeLeaveBalance(
+  employeeProfileId: number,
+): Promise<VacationLeaveBalanceRead> {
+  const { data } = await apiClient.get<VacationLeaveBalanceRead>(
+    `/employees/${employeeProfileId}/leave-balance`,
   );
   return data;
 }

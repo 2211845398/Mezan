@@ -38,8 +38,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_user_role_codes
 from app.core.config import settings
-from app.core.notification_rbac import ORG_NOTIFICATION_MANAGER_ROLE_CODES
 from app.core.errors import ExternalServiceError, NotFoundError, ValidationError
+from app.core.notification_rbac import ORG_NOTIFICATION_MANAGER_ROLE_CODES
 from app.db.database import AsyncSessionLocal
 from app.models.notifications import (
     DevicePlatform,
@@ -263,7 +263,9 @@ async def get_schedule(db: AsyncSession, *, schedule_id: int) -> NotificationSch
     return row
 
 
-async def list_schedules(db: AsyncSession, *, viewer_user_id: int | None = None) -> list[NotificationSchedule]:
+async def list_schedules(
+    db: AsyncSession, *, viewer_user_id: int | None = None
+) -> list[NotificationSchedule]:
     """List schedules; non–org-managers do not see company-wide (all users, all branches) rows."""
     stmt = select(NotificationSchedule).order_by(NotificationSchedule.id.asc())
     if viewer_user_id is not None:
@@ -324,7 +326,9 @@ async def count_unread_deliveries(db: AsyncSession, *, user_id: int) -> int:
     return int(result.scalar_one())
 
 
-async def mark_delivery_read(db: AsyncSession, *, user_id: int, delivery_id: int) -> NotificationDelivery:
+async def mark_delivery_read(
+    db: AsyncSession, *, user_id: int, delivery_id: int
+) -> NotificationDelivery:
     result = await db.execute(
         select(NotificationDelivery)
         .where(NotificationDelivery.id == delivery_id)
@@ -355,6 +359,7 @@ async def mark_all_deliveries_read(db: AsyncSession, *, user_id: int) -> int:
 async def delete_read_deliveries(db: AsyncSession, *, user_id: int) -> int:
     """Delete all read deliveries for a user. Returns the number of rows deleted."""
     from sqlalchemy import delete
+
     result = await db.execute(
         delete(NotificationDelivery)
         .where(NotificationDelivery.user_id == user_id)
@@ -368,6 +373,7 @@ async def delete_all_deliveries(db: AsyncSession, *, user_id: int | None = None)
     """Delete all deliveries. If user_id is provided, only delete for that user.
     Returns the number of rows deleted."""
     from sqlalchemy import delete
+
     stmt = delete(NotificationDelivery)
     if user_id is not None:
         stmt = stmt.where(NotificationDelivery.user_id == user_id)
@@ -523,9 +529,7 @@ async def _resolve_broadcast_recipients(
             .where(Role.code.in_(codes))
         )
         if branch_ids:
-            stmt = stmt.where(
-                or_(UserRole.branch_id.is_(None), UserRole.branch_id.in_(branch_ids))
-            )
+            stmt = stmt.where(or_(UserRole.branch_id.is_(None), UserRole.branch_id.in_(branch_ids)))
     elif target_type != "all":
         raise ValidationError(
             "Unsupported notification target",
@@ -547,6 +551,56 @@ async def _delivery_status_counts(
         .group_by(NotificationDelivery.status)
     )
     return {row[0]: int(row[1]) for row in result.all()}
+
+
+async def enqueue_direct_notification(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    title: str,
+    body: str,
+    template_kind: str,
+    idempotency_key: str,
+    data: dict | None,
+    provider_name: str | None,
+    default_push_provider: str,
+) -> int | None:
+    """Insert a single in-app/push delivery row. Returns delivery id or None on duplicate."""
+    provider = get_provider(provider_name, default_push_provider=default_push_provider)
+    row = NotificationDelivery(
+        schedule_id=None,
+        run_id=None,
+        user_id=user_id,
+        template_kind=template_kind,
+        idempotency_key=idempotency_key,
+        title=title,
+        body=body,
+        data=data or {},
+        status=NotificationStatus.PENDING,
+        provider=provider.name,
+    )
+    try:
+        async with db.begin_nested():
+            db.add(row)
+            await db.flush()
+    except IntegrityError:
+        return None
+    return row.id
+
+
+async def dispatch_delivery_after_commit(
+    delivery_id: int, *, default_push_provider: str, provider_name: str | None = None
+) -> None:
+    """Dispatch using a fresh session (call after the inserting transaction commits)."""
+    provider = get_provider(provider_name, default_push_provider=default_push_provider)
+    async with AsyncSessionLocal() as db:
+        res = await db.execute(
+            select(NotificationDelivery).where(NotificationDelivery.id == delivery_id)
+        )
+        delivery_row = res.scalar_one_or_none()
+        if delivery_row is None:
+            return
+        await _dispatch_delivery(db, delivery=delivery_row, provider=provider)
 
 
 async def broadcast_notification(
@@ -611,7 +665,9 @@ async def broadcast_notification(
 
     counts = await _delivery_status_counts(db, delivery_ids=delivery_ids)
     sent = counts.get(NotificationStatus.SENT, 0) + counts.get(NotificationStatus.SENT.value, 0)
-    failed = counts.get(NotificationStatus.FAILED, 0) + counts.get(NotificationStatus.FAILED.value, 0)
+    failed = counts.get(NotificationStatus.FAILED, 0) + counts.get(
+        NotificationStatus.FAILED.value, 0
+    )
     skipped = counts.get(NotificationStatus.SKIPPED, 0) + counts.get(
         NotificationStatus.SKIPPED.value, 0
     )

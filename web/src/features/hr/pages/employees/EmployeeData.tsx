@@ -33,11 +33,21 @@ const formSchema = z
     base_salary: z.string().optional(),
     hourly_rate: z.string().optional(),
     bank_account: z.string().max(64).optional().nullable(),
+    annual_leave_entitlement_days: z.string().optional(),
   })
   .refine((d) => (d.base_salary && d.base_salary !== '') || (d.hourly_rate && d.hourly_rate !== ''), {
     message: 'base_or_hourly',
     path: ['hourly_rate'],
-  });
+  })
+  .refine(
+    (d) => {
+      const s = d.annual_leave_entitlement_days?.trim();
+      if (!s) return true;
+      const n = Number(s);
+      return !Number.isNaN(n) && n >= 0;
+    },
+    { message: 'annual_leave_invalid', path: ['annual_leave_entitlement_days'] },
+  );
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -66,6 +76,7 @@ export default function EmployeeData() {
       base_salary: '',
       hourly_rate: '',
       bank_account: '',
+      annual_leave_entitlement_days: '',
     },
   });
 
@@ -79,6 +90,10 @@ export default function EmployeeData() {
       base_salary: existing.base_salary != null ? String(existing.base_salary) : '',
       hourly_rate: existing.hourly_rate != null ? String(existing.hourly_rate) : '',
       bank_account: existing.bank_account ?? '',
+      annual_leave_entitlement_days:
+        existing.annual_leave_entitlement_days != null && existing.annual_leave_entitlement_days !== ''
+          ? String(existing.annual_leave_entitlement_days)
+          : '',
     });
   }, [existing, form]);
 
@@ -95,6 +110,8 @@ export default function EmployeeData() {
         subject_full_name: v.subject_full_name.trim() ? v.subject_full_name.trim() : null,
         subject_branch_id: v.subject_branch_id ?? null,
       };
+      const al = v.annual_leave_entitlement_days?.trim();
+      payload.annual_leave_entitlement_days = al && al !== '' ? Number(al) : null;
       if (rc) {
         payload.subject_role_code = rc;
       }
@@ -143,6 +160,9 @@ export default function EmployeeData() {
           (errs) => {
             if (errs.hourly_rate?.message === 'base_or_hourly') {
               toast.error(t('employees.form.base_or_hourly'));
+            }
+            if (errs.annual_leave_entitlement_days?.message === 'annual_leave_invalid') {
+              toast.error(t('employees.form.annual_leave_invalid'));
             }
           },
         )}
@@ -240,6 +260,18 @@ export default function EmployeeData() {
             <div className="grid gap-2">
               <Label htmlFor="bank-data">{t('employees.form.bank')}</Label>
               <Input id="bank-data" {...form.register('bank_account')} disabled={!canUpdate} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="annual-leave">{t('employees.form.annual_leave_entitlement')}</Label>
+              <Input
+                id="annual-leave"
+                type="text"
+                inputMode="decimal"
+                {...form.register('annual_leave_entitlement_days')}
+                disabled={!canUpdate}
+                placeholder={t('employees.form.annual_leave_placeholder')}
+              />
+              <p className="text-xs text-muted-foreground">{t('employees.form.annual_leave_hint')}</p>
             </div>
             {formError ? (
               <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

@@ -76,6 +76,22 @@ describe('W-5.5 payroll', () => {
     expect(calls).toEqual([{ kind: 'gen' }, { kind: 'appr' }, { kind: 'exp' }]);
   });
 
+  it('payroll: period PDF export hits /payroll/periods/:y/:m/export.pdf (MSW)', async () => {
+    const calls: string[] = [];
+    server.use(
+      http.get(`${API}/payroll/periods/2026/4/export.pdf`, () => {
+        calls.push('pdf');
+        return new HttpResponse(new Uint8Array([37, 80, 68, 70, 45, 49, 46]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf' },
+        });
+      }),
+    );
+    const blob = await api.exportPayrollPeriodPdfBlob(2026, 4);
+    expect(blob).toBeInstanceOf(Blob);
+    expect(calls).toEqual(['pdf']);
+  });
+
   it('Run detail: no Approve when user lacks payroll:approve', async () => {
     useAuthStore.setState({ status: 'authenticated' });
     useAuthStore.getState().setPermissions([

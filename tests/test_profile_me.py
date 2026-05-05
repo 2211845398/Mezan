@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.models.users import User
 from app.utils.security import hash_password, verify_password
+from tests.api_response_helpers import api_error_detail_text
 
 
 @pytest.mark.anyio
@@ -40,7 +41,9 @@ async def test_patch_me_email_conflict(client, admin_auth_header, db_session):
         json={"email": "taken@example.com"},
     )
     assert res.status_code == 409
-    assert "Email" in (res.json().get("detail") or "")
+    res_json = res.json()
+    error_detail = res_json.get("error", {}).get("details", {}).get("detail", "")
+    assert "Email" in error_detail
 
 
 @pytest.mark.anyio
@@ -51,7 +54,7 @@ async def test_patch_me_wrong_current_password(client, admin_auth_header):
         json={"current_password": "not-the-password", "new_password": "newpassw0rd"},
     )
     assert res.status_code == 400
-    assert "Current password" in (res.json().get("detail") or "")
+    assert "Current password" in api_error_detail_text(res.json())
 
 
 @pytest.mark.anyio

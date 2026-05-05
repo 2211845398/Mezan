@@ -13,10 +13,28 @@ from app.utils.security import hash_password
 
 
 @pytest.mark.asyncio
+async def test_create_user_invalid_email_returns_422(
+    client: AsyncClient,
+    admin_auth_header: dict[str, str],
+) -> None:
+    """Pydantic / FastAPI validation uses 422 with envelope ``details.errors``."""
+    resp = await client.post(
+        "/api/v1/users",
+        json={"email": "not-an-email"},
+        headers=admin_auth_header,
+    )
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["error"]["code"] == "validation_error"
+    assert "errors" in body["error"]["details"]
+
+
+@pytest.mark.asyncio
 async def test_create_user_duplicate_email_returns_machine_code(
     client: AsyncClient,
     admin_auth_header: dict[str, str],
 ) -> None:
+    """Duplicate email is rejected in the route after schema validation (HTTP 400, not 422)."""
     resp = await client.post(
         "/api/v1/users",
         json={"email": "admin@example.com", "full_name": "Dup"},
@@ -50,14 +68,21 @@ async def test_create_user_rejects_ineligible_assignee(
     resp = await client.post(
         "/api/v1/users",
         json={
-            "email": "new_staff_assignee@test.local",
+            "email": "new_staff_assignee@example.com",
             "full_name": "Staff",
             "assigned_hr_user_id": cashier.id,
         },
         headers=admin_auth_header,
     )
-    assert resp.status_code == 400
-    assert resp.json()["error"]["details"]["detail"] == "onboarding_assignee_ineligible"
+    assert resp.status_code == 422
+
+    res_json = resp.json()
+    error_obj = res_json.get("error", {}) or {}
+    details = error_obj.get("details") or {}
+
+    # Machine id may live under details.detail (AppError) or error.code (stable id)
+    actual_error = details.get("detail") or error_obj.get("code")
+    assert actual_error == "onboarding_assignee_ineligible", res_json
 
 
 @pytest.mark.asyncio

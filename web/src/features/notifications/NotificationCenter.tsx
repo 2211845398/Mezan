@@ -44,10 +44,12 @@ export function NotificationCenter() {
           type="button"
           variant="ghost"
           size="icon"
-          className="relative"
+          className={`relative transition-colors hover:bg-muted/80 hover:text-primary ${
+            unreadCount > 0 ? 'text-primary' : 'text-muted-foreground'
+          }`}
           aria-label={t('notifications.open')}
         >
-          <Bell className="size-5" />
+          <Bell className="size-5" strokeWidth={unreadCount > 0 ? 2.25 : 2} />
           {unreadCount > 0 ? (
             <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -96,23 +98,25 @@ export function NotificationCenter() {
               <div key={item.id} className="border-b p-3 last:border-b-0">
                 <p className="font-medium">{item.title}</p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{item.body}</p>
-                <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">
                     {formatIso(item.created_at, 'yyyy-MM-dd HH:mm')}
                   </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      markRead.mutate(item.id, {
-                        onSuccess: () => notify.success(t('toasts.marked_read')),
-                      })
-                    }
-                    disabled={markRead.isPending}
-                  >
-                    {t('notifications.mark_read')}
-                  </Button>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        markRead.mutate(item.id, {
+                          onSuccess: () => notify.success(t('toasts.marked_read')),
+                        })
+                      }
+                      disabled={markRead.isPending}
+                    >
+                      {t('notifications.mark_read')}
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))

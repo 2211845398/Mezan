@@ -39,7 +39,9 @@ async def executive_sales_kpis(
     branch_id: int | None = None,
 ) -> dict:
     """Revenue, margin estimate, trends, category mix, top products, PO snapshot, loyalty accruals."""
-    inv_pred = _invoice_filters(period_start=period_start, period_end=period_end, branch_id=branch_id)
+    inv_pred = _invoice_filters(
+        period_start=period_start, period_end=period_end, branch_id=branch_id
+    )
 
     stmt_summary = select(
         func.count(SalesInvoice.id).label("invoice_count"),

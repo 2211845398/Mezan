@@ -73,7 +73,9 @@ async def generate_manual_broadcast(
             .where(Role.code == str(target_role_code))
         )
         if branch_id is not None:
-            stmt = stmt.where(or_(UserRole.branch_id.is_(None), UserRole.branch_id == int(branch_id)))
+            stmt = stmt.where(
+                or_(UserRole.branch_id.is_(None), UserRole.branch_id == int(branch_id))
+            )
 
     result = await db.execute(stmt.distinct())
     recipients = [row[0] for row in result.all()]

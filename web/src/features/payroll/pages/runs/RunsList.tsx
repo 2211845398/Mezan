@@ -1,24 +1,25 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Eye } from 'lucide-react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
+import { Link, useSearchParams } from 'react-router-dom';
 
-import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { DateField } from '@/components/shared/form/DateField';
-import { MoneyInput } from '@/components/shared/form/MoneyInput';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { usePermission } from '@/hooks/usePermission';
-import { newIdempotencyKey } from '@/lib/idempotency';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 import type { PayslipRead } from '../../api';
-import { generatePayslip } from '../../api';
-import { payrollKeys, payslipsQueryOptions } from '../../queries';
+import { payslipsQueryOptions, type PayslipListFilters } from '../../queries';
 
 function statusLabel(s: string, t: (k: string) => string): string {
   if (s === 'draft') return t('status.calculated');
@@ -26,36 +27,73 @@ function statusLabel(s: string, t: (k: string) => string): string {
   return s;
 }
 
+function payslipEmployeeDisplay(row: PayslipRead): string {
+  const name = row.user_full_name?.trim();
+  if (name) return name;
+  const email = row.user_email?.trim();
+  if (email) return email;
+  return `#${row.employee_profile_id}`;
+}
+
+/** `YYYY-MM` → calendar period bounds as ISO date strings. */
+function calendarMonthToPeriod(ym: string): { period_start: string; period_end: string } | null {
+  if (!ym || !/^\d{4}-\d{2}$/.test(ym)) return null;
+  const [ys, ms] = ym.split('-');
+  const y = Number(ys);
+  const m = Number(ms);
+  if (!y || m < 1 || m > 12) return null;
+  const padM = String(m).padStart(2, '0');
+  const period_start = `${y}-${padM}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const period_end = `${y}-${padM}-${String(lastDay).padStart(2, '0')}`;
+  return { period_start, period_end };
+}
+
 export default function RunsList() {
   const { t } = useTranslation('payroll');
-  const qc = useQueryClient();
-  const canCreate = usePermission('payroll', 'create');
-  const [empId, setEmpId] = useState('');
-  const [ps, setPs] = useState('');
-  const [pe, setPe] = useState('');
-  const [ded, setDed] = useState('0');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const monthYm = searchParams.get('month') ?? '';
+  const statusParam = searchParams.get('status') ?? '';
 
-  const { data: rows = [], isLoading, isError, refetch } = useQuery(payslipsQueryOptions());
+  const period = useMemo(() => calendarMonthToPeriod(monthYm), [monthYm]);
 
-  const gen = useMutation({
-    mutationFn: async () => {
-      const idem = newIdempotencyKey();
-      return generatePayslip(
-        {
-          employee_profile_id: Number(empId),
-          period_start: ps,
-          period_end: pe,
-          deductions: ded as never,
-        },
-        idem,
-      );
-    },
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: payrollKeys.root });
-      toast.success(t('actions.gen_ok'));
-    },
-    onError: (error) => notifyApiError(error, t('errors.generic')),
-  });
+  const listFilters = useMemo((): PayslipListFilters => {
+    const f: PayslipListFilters = {};
+    if (statusParam === 'draft' || statusParam === 'approved') {
+      f.status = statusParam;
+    }
+    if (period) {
+      f.period_start = period.period_start;
+      f.period_end = period.period_end;
+    }
+    return f;
+  }, [statusParam, period]);
+
+  const { data: rows = [], isLoading, isError, refetch } = useQuery(payslipsQueryOptions(listFilters));
+
+  const setMonth = (next: string) => {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (next) n.set('month', next);
+        else n.delete('month');
+        return n;
+      },
+      { replace: true },
+    );
+  };
+
+  const setStatus = (next: string) => {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (next) n.set('status', next);
+        else n.delete('status');
+        return n;
+      },
+      { replace: true },
+    );
+  };
 
   const columns = useMemo(
     () =>
@@ -64,7 +102,11 @@ export default function RunsList() {
         {
           id: 'emp',
           header: t('col.employee'),
-          cell: ({ row }) => row.original.employee_profile_id,
+          accessorFn: (row) =>
+            [row.user_full_name, row.user_email, String(row.employee_profile_id)]
+              .filter(Boolean)
+              .join(' '),
+          cell: ({ row }) => payslipEmployeeDisplay(row.original),
         },
         {
           id: 'period',
@@ -97,40 +139,45 @@ export default function RunsList() {
     [t],
   );
 
-  return (
-    <div className="flex flex-col gap-6 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{t('runs.title')}</h1>
-      </div>
-      {canCreate ? (
-        <div className="grid max-w-xl gap-2 rounded-md border p-4">
-          <div className="font-medium">{t('runs.generate_section')}</div>
-          <div className="grid gap-1">
-            <Label>{t('form.emp_id')}</Label>
-            <Input value={empId} onChange={(e) => setEmpId(e.target.value)} inputMode="numeric" />
-          </div>
-          <div className="grid gap-1">
-            <Label>{t('form.period_start')}</Label>
-            <DateField value={ps} onChange={setPs} />
-          </div>
-          <div className="grid gap-1">
-            <Label>{t('form.period_end')}</Label>
-            <DateField value={pe} onChange={setPe} />
-          </div>
-          <div className="grid gap-1">
-            <Label>{t('form.deductions')}</Label>
-            <MoneyInput value={ded} onChange={setDed} />
-          </div>
-          <Button
-            type="button"
-            disabled={gen.isPending || !empId || !ps || !pe}
-            onClick={() => void gen.mutate()}
-          >
-            <Plus className="me-2 size-4" />
-            {t('actions.generate')}
-          </Button>
+  const toolbarExtras = (
+    <div className="flex flex-wrap items-end gap-4">
+      <div className="flex min-w-[10rem] flex-col gap-1.5">
+        <Label htmlFor="payroll-runs-month">{t('runs.filters.month')}</Label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            id="payroll-runs-month"
+            type="month"
+            className="w-[11rem]"
+            value={monthYm || ''}
+            onChange={(e) => setMonth(e.target.value)}
+          />
+          {monthYm ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMonth('')}>
+              {t('runs.filters.clear_month')}
+            </Button>
+          ) : null}
         </div>
-      ) : null}
+      </div>
+      <div className="flex min-w-[10rem] flex-col gap-1.5">
+        <Label htmlFor="payroll-runs-status">{t('runs.filters.status')}</Label>
+        <Select value={statusParam || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
+          <SelectTrigger id="payroll-runs-status" className="w-[11rem]">
+            <SelectValue placeholder={t('runs.filters.status_all')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('runs.filters.status_all')}</SelectItem>
+            <SelectItem value="draft">{t('status.calculated')}</SelectItem>
+            <SelectItem value="approved">{t('status.approved')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader title={t('runs.title')} />
+      <p className="text-sm text-muted-foreground">{t('runs.history_hint')}</p>
       <DataTable
         mode="client"
         columns={columns}
@@ -138,6 +185,7 @@ export default function RunsList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        toolbarExtras={toolbarExtras}
       />
     </div>
   );

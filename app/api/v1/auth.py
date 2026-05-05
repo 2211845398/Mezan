@@ -2,12 +2,14 @@
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_current_user_permissions, get_user_role_codes
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.db.database import get_db
+from app.models.employee_profile import EmployeeProfile
 from app.models.users import User
 from app.schemas.auth import (
     LoginRequest,
@@ -132,9 +134,16 @@ async def password_reset_confirm(
 
 
 @router.get("/auth/me", response_model=UserRead)
-async def me(user: User = Depends(get_current_user)) -> UserRead:
+async def me(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserRead:
     """Return current authenticated user (profile)."""
-    return UserRead.model_validate(user)
+    res = await db.execute(select(EmployeeProfile.id).where(EmployeeProfile.user_id == user.id))
+    employee_profile_id = res.scalar_one_or_none()
+    payload = UserRead.model_validate(user).model_dump()
+    payload["employee_profile_id"] = employee_profile_id
+    return UserRead.model_validate(payload)
 
 
 class PermissionRead(BaseModel):

@@ -25,7 +25,10 @@ from app.services.inventory_valuation_service import apply_receipt_to_weighted_a
 
 async def _qty_received_by_po_line(db: AsyncSession, *, purchase_order_id: int) -> dict[int, int]:
     q = (
-        select(GoodsReceiptLine.purchase_order_line_id, func.coalesce(func.sum(GoodsReceiptLine.qty), 0))
+        select(
+            GoodsReceiptLine.purchase_order_line_id,
+            func.coalesce(func.sum(GoodsReceiptLine.qty), 0),
+        )
         .join(GoodsReceipt, GoodsReceiptLine.goods_receipt_id == GoodsReceipt.id)
         .where(
             and_(
@@ -105,7 +108,9 @@ async def receive_goods_for_purchase_order(
                 details={"line": raw},
             )
         if qty <= 0:
-            raise ValidationError("qty must be positive", details={"purchase_order_line_id": pol_id})
+            raise ValidationError(
+                "qty must be positive", details={"purchase_order_line_id": pol_id}
+            )
         planned[pol_id] += qty
 
     receipt_lines_payload: list[tuple[int, int, Decimal, PurchaseOrderLine]] = []

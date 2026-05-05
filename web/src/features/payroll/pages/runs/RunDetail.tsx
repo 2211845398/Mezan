@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -16,7 +19,7 @@ import {
 import { usePermission } from '@/hooks/usePermission';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
-import { approvePayslip, exportPayrollCsvBlob, recalculatePayslip } from '../../api';
+import { approvePayslip, exportPayrollCsvBlob, patchPayslipAdjustments, recalculatePayslip } from '../../api';
 import { payrollKeys, payslipQueryOptions } from '../../queries';
 
 export default function RunDetail() {
@@ -28,10 +31,23 @@ export default function RunDetail() {
   const canCreate = usePermission('payroll', 'create');
   const canExport = usePermission('payroll', 'export');
 
+  const [bonusAdj, setBonusAdj] = useState('');
+  const [manualAdj, setManualAdj] = useState('');
+
   const { data: ps, refetch, isLoading } = useQuery({
     ...payslipQueryOptions(pid),
     enabled: !Number.isNaN(pid),
   });
+
+  useEffect(() => {
+    if (!ps) return;
+    setBonusAdj(ps.bonus_amount != null && ps.bonus_amount !== '' ? String(ps.bonus_amount) : '');
+    setManualAdj(
+      ps.manual_deductions_amount != null && ps.manual_deductions_amount !== ''
+        ? String(ps.manual_deductions_amount)
+        : '',
+    );
+  }, [ps]);
 
   const appr = useMutation({
     mutationFn: () => {
@@ -69,6 +85,20 @@ export default function RunDetail() {
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
+  const patchAdj = useMutation({
+    mutationFn: () =>
+      patchPayslipAdjustments(pid, {
+        bonus_amount: bonusAdj.trim() === '' ? null : bonusAdj,
+        manual_deductions: manualAdj.trim() === '' ? null : manualAdj,
+      }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: payrollKeys.root });
+      toast.success(t('run.adjust_saved'));
+      void refetch();
+    },
+    onError: (error) => notifyApiError(error, t('errors.generic')),
+  });
+
   if (Number.isNaN(pid)) return null;
   if (isLoading || !ps) return <div className="p-4">…</div>;
 
@@ -99,6 +129,48 @@ export default function RunDetail() {
           </Button>
         ) : null}
       </div>
+      <div className="grid max-w-xl gap-2 rounded-md border p-4 text-sm">
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">{t('run.col.base_salary')}</span>
+          <span className="font-medium tabular-nums">{ps.base_salary_amount ?? '—'}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">{t('run.col.bonus')}</span>
+          <span className="font-medium tabular-nums">{ps.bonus_amount ?? '—'}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">{t('run.col.overtime')}</span>
+          <span className="font-medium tabular-nums">{ps.overtime_amount ?? '—'}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">{t('run.col.auto_deductions')}</span>
+          <span className="font-medium tabular-nums">{ps.automatic_deductions_amount ?? '—'}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">{t('run.col.manual_deductions')}</span>
+          <span className="font-medium tabular-nums">{ps.manual_deductions_amount ?? '—'}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">{t('run.col.paid_at')}</span>
+          <span className="font-medium">{ps.paid_at ?? '—'}</span>
+        </div>
+      </div>
+      {canCreate && ps.status === 'draft' ? (
+        <div className="grid max-w-xl gap-3 rounded-md border p-4">
+          <div className="font-medium">{t('run.adjustments_title')}</div>
+          <div className="grid gap-1">
+            <Label>{t('run.col.bonus')}</Label>
+            <MoneyInput value={bonusAdj} onChange={setBonusAdj} />
+          </div>
+          <div className="grid gap-1">
+            <Label>{t('run.col.manual_deductions')}</Label>
+            <MoneyInput value={manualAdj} onChange={setManualAdj} />
+          </div>
+          <Button type="button" disabled={patchAdj.isPending} onClick={() => void patchAdj.mutate()}>
+            {t('run.save_adjustments')}
+          </Button>
+        </div>
+      ) : null}
       <Table>
         <TableHeader>
           <TableRow>

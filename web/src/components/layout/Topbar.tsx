@@ -94,6 +94,7 @@ export function Topbar() {
               type="button"
               variant="ghost"
               size="icon"
+              className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               onClick={() => {
                 void onSignOut();
               }}

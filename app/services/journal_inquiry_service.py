@@ -47,8 +47,7 @@ async def list_journal_entries(
             JournalEntryLine.journal_entry_id.label("je_id"),
             func.coalesce(func.sum(JournalEntryLine.debit), 0).label("td"),
             func.coalesce(func.sum(JournalEntryLine.credit), 0).label("tc"),
-        )
-        .group_by(JournalEntryLine.journal_entry_id)
+        ).group_by(JournalEntryLine.journal_entry_id)
     ).subquery()
 
     j = JournalEntry
@@ -146,7 +145,9 @@ class JournalEntryDetail:
     lines: list[JournalLineDetail]
 
 
-async def get_journal_entry_detail(db: AsyncSession, *, journal_entry_id: int) -> JournalEntryDetail:
+async def get_journal_entry_detail(
+    db: AsyncSession, *, journal_entry_id: int
+) -> JournalEntryDetail:
     res = await db.execute(
         select(JournalEntry)
         .options(selectinload(JournalEntry.lines))
@@ -154,7 +155,9 @@ async def get_journal_entry_detail(db: AsyncSession, *, journal_entry_id: int) -
     )
     je = res.scalar_one_or_none()
     if not je:
-        raise NotFoundError("Journal entry not found", details={"journal_entry_id": journal_entry_id})
+        raise NotFoundError(
+            "Journal entry not found", details={"journal_entry_id": journal_entry_id}
+        )
 
     acc_ids = {ln.account_id for ln in je.lines}
     acc_res = await db.execute(select(ChartAccount).where(ChartAccount.id.in_(acc_ids)))

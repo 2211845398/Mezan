@@ -12,10 +12,19 @@ export const hrKeys = {
     date_to?: string;
     branch_id?: number;
     employee_profile_id?: number;
+    classification_status?: string;
+    attendance_category?: string;
   }) => [...hrKeys.root, 'attendance', q] as const,
+  attendanceSummary: (q: {
+    date_from?: string;
+    date_to?: string;
+    branch_id?: number;
+    employee_profile_id?: number;
+  }) => [...hrKeys.root, 'attendanceSummary', q] as const,
   timesheet: (employeeId: number) => [...hrKeys.root, 'timesheet', employeeId] as const,
   leaveList: (q: { status?: string; employee_profile_id?: number }) =>
     [...hrKeys.root, 'leave', q] as const,
+  leaveBalance: (employeeId: number) => [...hrKeys.root, 'leave-balance', employeeId] as const,
   anomalies: (payload: string) => [...hrKeys.root, 'anomalies', payload] as const,
 };
 
@@ -47,10 +56,24 @@ export function attendanceListQueryOptions(params: {
   date_to?: string;
   branch_id?: number;
   employee_profile_id?: number;
+  classification_status?: string;
+  attendance_category?: string;
 }) {
   return queryOptions({
     queryKey: hrKeys.attendance(params),
     queryFn: () => api.listAttendanceLogsGlobal({ ...params, limit: 500, offset: 0 }),
+  });
+}
+
+export function attendanceSummaryQueryOptions(params: {
+  date_from?: string;
+  date_to?: string;
+  branch_id?: number;
+  employee_profile_id?: number;
+}) {
+  return queryOptions({
+    queryKey: hrKeys.attendanceSummary(params),
+    queryFn: () => api.getAttendanceSummary(params),
   });
 }
 
@@ -66,6 +89,14 @@ export function leaveListQueryOptions(params: { status?: string; employee_profil
   return queryOptions({
     queryKey: hrKeys.leaveList(params),
     queryFn: () => api.listLeaveRequestsGlobal({ ...params, limit: 200, offset: 0 }),
+  });
+}
+
+export function leaveBalanceQueryOptions(employeeProfileId: number) {
+  return queryOptions({
+    queryKey: hrKeys.leaveBalance(employeeProfileId),
+    queryFn: () => api.getEmployeeLeaveBalance(employeeProfileId),
+    enabled: !Number.isNaN(employeeProfileId) && employeeProfileId > 0,
   });
 }
 

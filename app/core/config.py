@@ -88,6 +88,17 @@ class Settings(BaseSettings):
     BACKUP_OUTPUT_DIR: str = Field(default="./backups", description="Local backup output directory")
     BACKUP_S3_BUCKET: str | None = Field(default=None, description="Optional S3 backup bucket")
 
+    # Payroll monthly approval (calendar-month periods)
+    PAYROLL_APPROVAL_OPEN_DAY_OF_MONTH: int = Field(
+        default=26,
+        ge=1,
+        le=31,
+        description=(
+            "For full calendar-month payroll periods, approval and payout actions are allowed "
+            "only on or after this calendar day within the payroll month (clamped to month end)."
+        ),
+    )
+
     # Push notifications (Epic 13)
     NOTIFICATIONS_ENABLED: bool = Field(
         default=False, description="Enable the notification scheduler loop"

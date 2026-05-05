@@ -1,0 +1,3 @@
+# Optional: place DejaVuSans.ttf, Cairo-Regular.ttf, or NotoSansArabic-Regular.ttf here for payroll PDF.
+# Docker images install fonts-dejavu-core (DejaVu at /usr/share/fonts/truetype/dejavu/).
+# Override with env PAYROLL_PDF_FONT_PATH=/path/to/font.ttf if needed.
