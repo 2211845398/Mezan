@@ -35,7 +35,7 @@ export function Toolbar<TData>({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-3 pb-3',
+        'flex flex-wrap items-end gap-3 pb-3',
         showSearch === false ? 'justify-end' : 'justify-between',
       )}
     >
@@ -66,7 +66,7 @@ export function Toolbar<TData>({
         </div>
       ) : null}
 
-      <div className={cn('flex items-center gap-2', showSearch === false && 'w-full sm:w-auto')}>
+      <div className={cn('flex flex-wrap items-end gap-2', showSearch === false && 'w-full sm:w-auto')}>
         {toolbarExtras}
         <DensityToggle density={density} onChange={onDensityChange} />
         <ColumnVisibilityMenu table={table} />

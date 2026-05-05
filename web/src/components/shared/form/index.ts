@@ -1,4 +1,6 @@
 export { DateField } from './DateField';
+export { MonthYearField } from './MonthYearField';
+export type { MonthYearFieldProps, MonthYearValue } from './MonthYearField';
 export { Form } from './Form';
 export { applyBackendFieldErrors, handleFormApiError } from './formFieldErrors';
 export { MoneyInput } from './MoneyInput';

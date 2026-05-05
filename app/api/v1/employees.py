@@ -11,7 +11,7 @@ from app.api.deps import get_current_user, require_permission
 from app.core.config import settings
 from app.db.database import get_db
 from app.models.employee_profile import EmployeeProfile
-from app.models.leave_request import LeaveStatus
+from app.models.leave_request import LeaveStatus, LeaveType
 from app.models.users import User
 from app.schemas.employees import (
     AttendanceClockInRequest,
@@ -58,6 +58,25 @@ from app.services.notifications.service import (
 )
 
 router = APIRouter()
+
+
+def _leave_type_label_ar(leave_type: LeaveType) -> str:
+    return {
+        LeaveType.VACATION: "إجازة سنوية",
+        LeaveType.SICK: "إجازة مرضية",
+        LeaveType.PERSONAL: "إجازة شخصية",
+    }.get(leave_type, "إجازة")
+
+
+def _leave_period_phrase(start: date, end: date) -> str:
+    return f"من {start} إلى {end}"
+
+
+def _append_ref_note(body: str, note: str | None) -> str:
+    text = (note or "").strip()
+    if not text:
+        return body
+    return f"{body}\n\nملاحظة المرجع:\n{text}"
 
 
 def _review_idempotency_key(request: Request, body_key: str | None) -> str | None:
@@ -437,7 +456,30 @@ async def create_leave_request_endpoint(
         request=request,
     )
     reads = await enrich_leave_request_reads(db, [row])
+    delivery_id: int | None = None
+    ep = await db.get(EmployeeProfile, row.employee_profile_id)
+    if ep is not None:
+        kind_ar = _leave_type_label_ar(row.leave_type)
+        period = _leave_period_phrase(row.start_date, row.end_date)
+        title = "تم استلام طلب إجازتك"
+        body_txt = f"تم تسجيل طلب {kind_ar} (رقم {row.id}) للفترة {period}."
+        body_txt = _append_ref_note(body_txt, row.reason)
+        delivery_id = await enqueue_direct_notification(
+            db,
+            user_id=ep.user_id,
+            title=title,
+            body=body_txt,
+            template_kind="leave_request_submitted",
+            idempotency_key=f"leave_req_submitted:{row.id}",
+            data={"leave_request_id": row.id, "path": "/hr/leave"},
+            provider_name=None,
+            default_push_provider=settings.PUSH_PROVIDER,
+        )
     await db.commit()
+    if delivery_id is not None:
+        await dispatch_delivery_after_commit(
+            delivery_id, default_push_provider=settings.PUSH_PROVIDER
+        )
     return reads[0]
 
 
@@ -505,12 +547,15 @@ async def review_leave_request_endpoint(
         ep = await db.get(EmployeeProfile, row.employee_profile_id)
         if ep is not None:
             approved = row.status == LeaveStatus.APPROVED
-            title = "Leave request approved" if approved else "Leave request rejected"
-            body_txt = (
-                f"Your leave request #{row.id} was approved."
-                if approved
-                else f"Your leave request #{row.id} was rejected."
-            )
+            leave_kind_ar = _leave_type_label_ar(row.leave_type)
+            period = _leave_period_phrase(row.start_date, row.end_date)
+            if approved:
+                title = "تمت الموافقة على طلب إجازتك"
+                body_txt = f"تمت الموافقة على طلب {leave_kind_ar} (رقم {row.id}) للفترة {period}."
+            else:
+                title = "تم رفض طلب إجازتك"
+                body_txt = f"تم رفض طلب {leave_kind_ar} (رقم {row.id}) للفترة {period}."
+            body_txt = _append_ref_note(body_txt, row.review_notes)
             delivery_id = await enqueue_direct_notification(
                 db,
                 user_id=ep.user_id,

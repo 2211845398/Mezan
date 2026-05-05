@@ -21,6 +21,7 @@ def test_build_category_tree_nodes_nested_without_db() -> None:
         slug="root-901",
         sort_order=0,
         is_active=True,
+        image_url=None,
         created_at=now,
         updated_at=now,
     )
@@ -31,6 +32,7 @@ def test_build_category_tree_nodes_nested_without_db() -> None:
         slug="child-902",
         sort_order=1,
         is_active=True,
+        image_url=None,
         created_at=now,
         updated_at=now,
     )

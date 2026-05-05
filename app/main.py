@@ -220,6 +220,22 @@ app.mount(
     name="static_avatars",
 )
 
+_catalog_cat_img_dir = Path(settings.CATALOG_CATEGORY_IMAGE_UPLOAD_DIR)
+_catalog_cat_img_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/v1/static/catalog-category-images",
+    StaticFiles(directory=str(_catalog_cat_img_dir.resolve())),
+    name="static_catalog_category_images",
+)
+
+_catalog_prod_img_dir = Path(settings.CATALOG_PRODUCT_IMAGE_UPLOAD_DIR)
+_catalog_prod_img_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/v1/static/catalog-product-images",
+    StaticFiles(directory=str(_catalog_prod_img_dir.resolve())),
+    name="static_catalog_product_images",
+)
+
 # Include v1 routers
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
 app.include_router(backups_router, prefix="/api/v1", tags=["backups"])

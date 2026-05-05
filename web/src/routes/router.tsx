@@ -66,10 +66,11 @@ const AdminNotificationsLayout = lazy(
 );
 
 const CatalogProductsList = lazy(() => import('@/features/catalog/pages/products/ProductsList'));
+const CatalogProductFormPage = lazy(() => import('@/features/catalog/pages/products/ProductFormPage'));
 const CatalogCategoriesTree = lazy(() => import('@/features/catalog/pages/categories/CategoriesTree'));
-const CatalogPriceListsList = lazy(() => import('@/features/catalog/pages/price-lists/PriceListsList'));
-const CatalogPriceListEdit = lazy(() => import('@/features/catalog/pages/price-lists/PriceListEdit'));
-
+const CatalogCategoryProperties = lazy(
+  () => import('@/features/catalog/pages/categories/CategoryPropertiesPage'),
+);
 const InventoryStockOnHand = lazy(() => import('@/features/inventory/pages/stock/StockOnHand'));
 const InventoryAdjustmentsList = lazy(
   () => import('@/features/inventory/pages/adjustments/AdjustmentsList'),
@@ -271,48 +272,57 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="/catalog/products" replace /> },
               {
                 path: 'products',
-                element: (
-                  <RequirePermission resource="catalog" action="read">
-                    {withSuspense(CatalogProductsList)}
-                  </RequirePermission>
-                ),
-              },
-              {
-                path: 'categories',
-                element: (
-                  <RequirePermission resource="catalog" action="read">
-                    {withSuspense(CatalogCategoriesTree)}
-                  </RequirePermission>
-                ),
-              },
-              {
-                path: 'price-lists',
                 children: [
                   {
                     index: true,
                     element: (
                       <RequirePermission resource="catalog" action="read">
-                        {withSuspense(CatalogPriceListsList)}
+                        {withSuspense(CatalogProductsList)}
                       </RequirePermission>
                     ),
                   },
                   {
                     path: 'new',
                     element: (
-                      <RequirePermission resource="catalog" action="update">
-                        {withSuspense(CatalogPriceListEdit)}
+                      <RequirePermission resource="catalog" action="create">
+                        {withSuspense(CatalogProductFormPage)}
                       </RequirePermission>
                     ),
                   },
                   {
-                    path: ':id',
+                    path: ':productId/edit',
                     element: (
-                      <RequirePermission resource="catalog" action="read">
-                        {withSuspense(CatalogPriceListEdit)}
+                      <RequirePermission resource="catalog" action="update">
+                        {withSuspense(CatalogProductFormPage)}
                       </RequirePermission>
                     ),
                   },
                 ],
+              },
+              {
+                path: 'categories',
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="catalog" action="read">
+                        {withSuspense(CatalogCategoriesTree)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':categoryId',
+                    element: (
+                      <RequirePermission resource="catalog" action="read">
+                        {withSuspense(CatalogCategoryProperties)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
+              },
+              {
+                path: 'price-lists/*',
+                element: <Navigate to="/catalog/products" replace />,
               },
             ],
           },

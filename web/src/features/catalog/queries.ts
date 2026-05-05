@@ -4,11 +4,9 @@ import type { ProductRead } from './api';
 import {
   getCategory,
   getCategoryTree,
-  getPriceList,
   getProduct,
   listCategories,
   listCategoryAttributes,
-  listPriceLists,
   listProducts,
 } from './api';
 
@@ -20,13 +18,12 @@ export const catalogKeys = {
   categories: (parentId: number | null) => [...catalogKeys.root, 'categories', { parentId }] as const,
   category: (id: number) => [...catalogKeys.root, 'category', id] as const,
   categoryAttrs: (id: number) => [...catalogKeys.root, 'categoryAttrs', id] as const,
-  priceLists: (q: Record<string, unknown>) => [...catalogKeys.root, 'priceLists', q] as const,
-  priceList: (id: number) => [...catalogKeys.root, 'priceList', id] as const,
 };
 
 export type ListProductsParams = {
   q?: string;
   category_id?: number;
+  category_include_descendants?: boolean;
   status?: string;
   limit: number;
   offset: number;
@@ -39,6 +36,9 @@ function buildListParams(p: ListProductsParams): Parameters<typeof listProducts>
   }
   if (p.category_id !== undefined) {
     o.category_id = p.category_id;
+  }
+  if (p.category_include_descendants !== undefined) {
+    o.category_include_descendants = p.category_include_descendants;
   }
   if (p.status !== undefined) {
     o.status = p.status;
@@ -61,15 +61,24 @@ export function useProducts(
 export function useProductListQuery(params: {
   q?: string;
   category_id?: number;
+  category_include_descendants?: boolean;
   status?: string | null;
   limit: number;
   offset: number;
 }) {
   const q = params.q;
   const category_id = params.category_id;
+  const category_include_descendants = params.category_include_descendants;
   const status = params.status ?? undefined;
   return useQuery({
-    queryKey: catalogKeys.products({ q, category_id, status, limit: params.limit, offset: params.offset }),
+    queryKey: catalogKeys.products({
+      q,
+      category_id,
+      category_include_descendants,
+      status,
+      limit: params.limit,
+      offset: params.offset,
+    }),
     queryFn: () =>
       listProducts(
         buildListParams({
@@ -77,6 +86,7 @@ export function useProductListQuery(params: {
           offset: params.offset,
           ...(q !== undefined ? { q } : {}),
           ...(category_id !== undefined ? { category_id } : {}),
+          ...(category_include_descendants !== undefined ? { category_include_descendants } : {}),
           ...(status !== undefined ? { status } : {}),
         }),
       ),
@@ -95,10 +105,11 @@ export function useCategoryTreeQuery() {
   return useQuery({ queryKey: catalogKeys.categoryTree(), queryFn: getCategoryTree });
 }
 
-export function useCategoriesQuery(parentId: number | null) {
+export function useCategoriesQuery(parentId: number | null, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: catalogKeys.categories(parentId),
     queryFn: () => listCategories(parentId ?? undefined),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -115,20 +126,5 @@ export function useCategoryAttributesQuery(categoryId: number | null) {
     queryKey: catalogKeys.categoryAttrs(categoryId ?? 0),
     queryFn: () => listCategoryAttributes(categoryId!),
     enabled: categoryId != null,
-  });
-}
-
-export function usePriceListsQuery(params?: { limit?: number; offset?: number }) {
-  return useQuery({
-    queryKey: catalogKeys.priceLists(params ?? {}),
-    queryFn: () => listPriceLists(params),
-  });
-}
-
-export function usePriceListQuery(id: number | null) {
-  return useQuery({
-    queryKey: catalogKeys.priceList(id ?? 0),
-    queryFn: () => getPriceList(id!),
-    enabled: id != null,
   });
 }

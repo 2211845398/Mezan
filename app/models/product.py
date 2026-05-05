@@ -22,6 +22,7 @@ class Product(Base):
         ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     sku: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     barcode: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True, index=True)
     status: Mapped[str] = mapped_column(
@@ -47,3 +48,8 @@ class Product(Base):
     )
 
     category = relationship("Category", back_populates="products")
+    category_links = relationship(
+        "ProductCategory",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )

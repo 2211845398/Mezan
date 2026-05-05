@@ -9,14 +9,13 @@ import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { SectionCard } from '@/components/shared/ContentSurface';
+import { MonthYearField } from '@/components/shared/form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { roleCodeLabel } from '@/features/admin/lib/roleLabels';
 import { usePermission } from '@/hooks/usePermission';
-import { formatIso } from '@/lib/date';
+import { formatIso, now } from '@/lib/date';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { cn } from '@/lib/utils';
 
@@ -45,7 +44,7 @@ function StatCard({ label, value, subtext }: StatCardProps) {
 }
 
 function defaultYearMonth(): { year: number; month: number } {
-  const d = new Date();
+  const d = now();
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
@@ -68,7 +67,6 @@ export default function PayrollOverview() {
   const canExport = usePermission('payroll', 'export');
 
   const [{ year, month }, setYm] = useState(defaultYearMonth);
-  const monthInputValue = `${year}-${String(month).padStart(2, '0')}`;
 
   const { data: period, isLoading, isError, refetch } = useQuery(
     payrollPeriodQueryOptions(year, month),
@@ -215,6 +213,20 @@ export default function PayrollOverview() {
 
   const approvalLocked = period && !period.is_approval_open;
 
+  const overviewToolbarExtras = (
+    <div className="flex flex-wrap items-end gap-4">
+      <div className="flex min-w-[10rem] flex-col gap-1.5">
+        <Label htmlFor="payroll-month">{t('overview.month_label')}</Label>
+        <MonthYearField
+          id="payroll-month"
+          value={{ year, month }}
+          onChange={setYm}
+          onClear={() => setYm(defaultYearMonth())}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
@@ -269,23 +281,7 @@ export default function PayrollOverview() {
         }
       />
 
-      <SectionCard>
-        <div className="grid max-w-md gap-2">
-          <Label htmlFor="payroll-month">{t('overview.month_label')}</Label>
-          <Input
-            id="payroll-month"
-            type="month"
-            value={monthInputValue}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return;
-              const [y, m] = v.split('-').map(Number);
-              if (y && m) setYm({ year: y, month: m });
-            }}
-          />
-          <p className="text-xs text-muted-foreground">{t('overview.month_help')}</p>
-        </div>
-      </SectionCard>
+      <p className="max-w-2xl text-xs text-muted-foreground">{t('overview.month_help')}</p>
 
       {period && approvalLocked ? (
         <Alert>
@@ -326,6 +322,7 @@ export default function PayrollOverview() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        toolbarExtras={overviewToolbarExtras}
       />
     </div>
   );

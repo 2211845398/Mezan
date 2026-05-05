@@ -3,7 +3,15 @@ import { useFormContext } from 'react-hook-form';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 
 import type { AttrDef } from '../api';
 
@@ -13,6 +21,8 @@ type AttributeFieldsetProps = {
   defs: AttrDef[] | undefined;
   /** Category id — seed missing keys when it changes. */
   categoryId: number | null;
+  /** Tighter controls for dense forms (e.g. product form). */
+  compact?: boolean;
 };
 
 function setKey(
@@ -26,9 +36,11 @@ function setKey(
 /**
  * Renders category attribute definitions into RHF `attributes` object keys.
  */
-export function AttributeFieldset({ defs, categoryId }: AttributeFieldsetProps) {
+export function AttributeFieldset({ defs, categoryId, compact }: AttributeFieldsetProps) {
   const { setValue, watch } = useFormContext<AttrFormValues>();
   const attributes = (watch('attributes') ?? {}) as Record<string, unknown>;
+  const inputClass = compact ? 'h-8 text-sm' : undefined;
+  const labelClass = compact ? 'text-sm' : undefined;
 
   useEffect(() => {
     if (categoryId == null) {
@@ -52,8 +64,15 @@ export function AttributeFieldset({ defs, categoryId }: AttributeFieldsetProps) 
     return null;
   }
 
+  const selectOptionsFromDef = (d: AttrDef): string[] => {
+    const o = d.options as { values?: unknown; choices?: unknown } | null | undefined;
+    const raw = o?.values ?? o?.choices;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((x): x is string => typeof x === 'string');
+  };
+
   return (
-    <div className="space-y-4">
+    <div className={cn('space-y-4', compact && 'space-y-3')}>
       {defs
         .slice()
         .sort((a, b) => a.sort_order - b.sort_order)
@@ -61,7 +80,7 @@ export function AttributeFieldset({ defs, categoryId }: AttributeFieldsetProps) 
           const t = d.type.toLowerCase();
           return (
             <div key={d.id} className="space-y-1">
-              <Label htmlFor={`attr-${d.key}`}>
+              <Label htmlFor={`attr-${d.key}`} className={labelClass}>
                 {d.label}
                 {d.required ? ' *' : ''}
               </Label>
@@ -78,6 +97,7 @@ export function AttributeFieldset({ defs, categoryId }: AttributeFieldsetProps) 
               ) : t === 'int' || t === 'integer' ? (
                 <Input
                   id={`attr-${d.key}`}
+                  className={inputClass}
                   type="number"
                   step={1}
                   value={
@@ -97,6 +117,7 @@ export function AttributeFieldset({ defs, categoryId }: AttributeFieldsetProps) 
               ) : t === 'float' || t === 'number' ? (
                 <Input
                   id={`attr-${d.key}`}
+                  className={inputClass}
                   type="number"
                   step="any"
                   value={
@@ -113,9 +134,76 @@ export function AttributeFieldset({ defs, categoryId }: AttributeFieldsetProps) 
                     );
                   }}
                 />
+              ) : t === 'date' ? (
+                <Input
+                  id={`attr-${d.key}`}
+                  className={inputClass}
+                  type="date"
+                  value={String(attributes[d.key] ?? '')}
+                  onChange={(e) =>
+                    setValue('attributes', setKey(attributes, d.key, e.target.value), { shouldDirty: true })
+                  }
+                />
+              ) : t === 'select' || t === 'enum' ? (
+                (() => {
+                  const opts = selectOptionsFromDef(d);
+                  if (!opts.length) {
+                    return (
+                      <Input
+                        id={`attr-${d.key}`}
+                        className={inputClass}
+                        type="text"
+                        value={String(attributes[d.key] ?? '')}
+                        onChange={(e) =>
+                          setValue('attributes', setKey(attributes, d.key, e.target.value), {
+                            shouldDirty: true,
+                          })
+                        }
+                      />
+                    );
+                  }
+                  const EMPTY = '__none__';
+                  const cur = attributes[d.key];
+                  const inOpts = typeof cur === 'string' && opts.includes(cur);
+                  const val =
+                    cur === '' || cur == null
+                      ? !d.required
+                        ? EMPTY
+                        : (opts[0] ?? '')
+                      : inOpts
+                        ? String(cur)
+                        : !d.required
+                          ? EMPTY
+                          : (opts[0] ?? String(cur));
+                  return (
+                    <Select
+                      value={val}
+                      onValueChange={(v) =>
+                        setValue(
+                          'attributes',
+                          setKey(attributes, d.key, v === EMPTY ? '' : v),
+                          { shouldDirty: true },
+                        )
+                      }
+                    >
+                      <SelectTrigger id={`attr-${d.key}`} className={cn(compact && 'h-8 text-sm')}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {!d.required ? <SelectItem value={EMPTY}>—</SelectItem> : null}
+                        {opts.map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                })()
               ) : (
                 <Input
                   id={`attr-${d.key}`}
+                  className={inputClass}
                   type="text"
                   value={String(attributes[d.key] ?? '')}
                   onChange={(e) =>

@@ -65,6 +65,11 @@
   "overview": {
     "title": "الرواتب الشهرية",
     "month_label": "شهر الراتب",
+    "month_placeholder": "اختر الشهر",
+    "month_picker_clear": "مسح",
+    "month_picker_this_month": "الشهر الحالي",
+    "month_picker_prev_year": "السنة السابقة",
+    "month_picker_next_year": "السنة التالية",
     "month_help": "راجع واعتماد رواتب الشهر التقويمي المحدد. استخدم «تحضير الرواتب» لإنشاء مسودات القسائم لجميع الموظفين النشطين.",
     "prepare": "تحضير الرواتب",
     "prepare_ok": "تم إنشاء {{created}} مسودة؛ {{skipped}} موجودة مسبقاً أو تم تخطيها.",

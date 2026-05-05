@@ -3755,6 +3755,8 @@ export interface components {
             is_active: boolean;
             /** Parent Id */
             parent_id?: number | null;
+            /** Image Url */
+            image_url?: string | null;
         };
         /**
          * CategoryMixRow
@@ -3798,6 +3800,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Image Url */
+            image_url?: string | null;
         };
         /** CategoryTreeNode */
         CategoryTreeNode: {
@@ -3829,6 +3833,13 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Image Url */
+            image_url?: string | null;
+            /**
+             * Direct Product Count
+             * @default 0
+             */
+            direct_product_count?: number;
             /** Children */
             children?: components["schemas"]["CategoryTreeNode"][];
         };
@@ -3844,6 +3855,8 @@ export interface components {
             is_active?: boolean | null;
             /** Parent Id */
             parent_id?: number | null;
+            /** Image Url */
+            image_url?: string | null;
         };
         /** ChartAccountRead */
         ChartAccountRead: {
@@ -5749,7 +5762,7 @@ export interface components {
             /** Name */
             name: string;
             /** Sku */
-            sku: string;
+            sku?: string | null;
             /** Barcode */
             barcode?: string | null;
             /**
@@ -5776,6 +5789,10 @@ export interface components {
             sell_price?: number | string | null;
             /** Sell Price Currency Id */
             sell_price_currency_id?: number | null;
+            /** Category Ids */
+            category_ids?: number[] | null;
+            /** Image Url */
+            image_url?: string | null;
         };
         /** ProductRead */
         ProductRead: {
@@ -5816,6 +5833,10 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Category Ids */
+            category_ids?: number[];
+            /** Image Url */
+            image_url?: string | null;
         };
         /** ProductUpdate */
         ProductUpdate: {
@@ -5844,6 +5865,10 @@ export interface components {
             sell_price?: number | string | null;
             /** Sell Price Currency Id */
             sell_price_currency_id?: number | null;
+            /** Category Ids */
+            category_ids?: number[] | null;
+            /** Image Url */
+            image_url?: string | null;
         };
         /**
          * ProfileUpdate
@@ -8809,6 +8834,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 category_id?: number | null;
+                category_include_descendants?: boolean;
                 status?: string | null;
                 limit?: number;
                 offset?: number;

@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.models.refresh_token import RefreshToken
 from app.models.users import User
 from app.schemas.auth import ProfileUpdate
+from app.utils.image_format import detect_raster_image_extension
 from app.utils.security import (
     create_access_token,
     create_refresh_token,
@@ -251,22 +252,11 @@ async def update_own_profile(db: AsyncSession, user: User, body: ProfileUpdate) 
     return user
 
 
-def _detect_avatar_extension(header: bytes) -> str | None:
-    """Return file extension for JPEG / PNG / WebP from magic bytes."""
-    if len(header) >= 3 and header[:3] == b"\xff\xd8\xff":
-        return "jpg"
-    if len(header) >= 8 and header[:8] == b"\x89PNG\r\n\x1a\n":
-        return "png"
-    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
-        return "webp"
-    return None
-
-
 async def save_user_avatar_image(db: AsyncSession, user: User, file_body: bytes) -> User:
     """Persist avatar bytes to disk and set ``user.avatar_url`` to a stable URL path."""
     if len(file_body) > settings.AVATAR_MAX_BYTES:
         raise ValueError("avatar_too_large")
-    ext = _detect_avatar_extension(file_body[:64])
+    ext = detect_raster_image_extension(file_body[:64])
     if ext is None:
         raise ValueError("avatar_invalid_image")
 

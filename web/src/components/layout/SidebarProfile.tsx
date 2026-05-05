@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMe } from '@/features/auth/queries';
-import { resolveMediaUrl } from '@/lib/mediaUrl';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import { resolveMediaUrl, withMediaCacheBust } from '@/lib/mediaUrl';
 import { cn } from '@/lib/utils';
 
 function initials(displayName: string | null | undefined, email: string): string {
@@ -29,6 +30,7 @@ export type SidebarProfileProps = {
 export function SidebarProfile({ collapsed }: SidebarProfileProps) {
   const { t } = useTranslation();
   const { data: me, isLoading } = useMe();
+  const avatarCacheBust = useAuthStore((s) => s.avatarCacheBust);
 
   if (isLoading && !me) {
     return (
@@ -48,7 +50,8 @@ export function SidebarProfile({ collapsed }: SidebarProfileProps) {
   const label = me.full_name?.trim() || me.email;
   const sub = me.full_name?.trim() ? me.email : null;
   const ini = initials(me.full_name, me.email);
-  const avatarSrc = resolveMediaUrl(me.avatar_url?.trim()) ?? null;
+  const baseAvatar = resolveMediaUrl(me.avatar_url?.trim());
+  const avatarSrc = baseAvatar ? withMediaCacheBust(baseAvatar, avatarCacheBust) : null;
 
   if (collapsed) {
     return (

@@ -27,7 +27,7 @@ import type { AuthUser } from '@/features/auth/stores/authStore';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import EmployeeLeaveRequestDialog from '@/features/hr/pages/employees/EmployeeLeaveRequestDialog';
 import { usePermission } from '@/hooks/usePermission';
-import { resolveMediaUrl } from '@/lib/mediaUrl';
+import { resolveMediaUrl, withMediaCacheBust } from '@/lib/mediaUrl';
 import { cn } from '@/lib/utils';
 
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
@@ -98,6 +98,7 @@ export default function ProfilePage() {
   const { t: tHr } = useTranslation('hr');
   const setUser = useAuthStore((s) => s.setUser);
   const roleCodes = useAuthStore((s) => s.roleCodes);
+  const avatarCacheBust = useAuthStore((s) => s.avatarCacheBust);
   const canCreateLeave = usePermission('employees', 'create');
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const { data: me, isLoading, isError } = useMe();
@@ -163,7 +164,9 @@ export default function ProfilePage() {
   }
 
   const displayName = (fullNameWatch || me.full_name)?.trim() || me.email;
-  const heroAvatarSrc = localPreview ?? resolveMediaUrl(me.avatar_url);
+  const heroAvatarSrc =
+    localPreview ??
+    withMediaCacheBust(resolveMediaUrl(me.avatar_url), avatarCacheBust);
   const ini = initials(fullNameWatch || me.full_name, emailWatch || me.email);
 
   function onProfileSubmit(values: ProfileFormValues) {

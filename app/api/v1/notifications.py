@@ -55,6 +55,7 @@ from app.services.notifications.service import (
     delete_schedule,
     get_schedule,
     list_device_tokens,
+    list_admin_deliveries_for_viewer,
     list_notification_runs,
     list_recent_deliveries,
     list_schedules,
@@ -416,10 +417,13 @@ async def list_notification_runs_endpoint(
 async def list_admin_deliveries_endpoint(
     limit: int = Query(default=200, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     _: None = require_permission("notifications", "read"),
     __: None = require_any_role(*ORG_NOTIFICATION_MANAGER_ROLE_CODES),
 ) -> NotificationDeliveryListResponse:
-    rows = await list_recent_deliveries(db, user_id=None, limit=limit)
+    rows = await list_admin_deliveries_for_viewer(
+        db, viewer_user_id=current_user.id, limit=limit
+    )
     return NotificationDeliveryListResponse(
         items=[NotificationDeliveryRead.model_validate(r) for r in rows]
     )

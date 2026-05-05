@@ -316,6 +316,34 @@ async def list_recent_deliveries(
     return list(result.scalars().all())
 
 
+# Per-user 2nd-person notifications: org admin history should not surface other
+# users' copies (avoids "your leave" rows that are not the viewer's).
+_ADMIN_HISTORY_PERSONAL_KINDS: tuple[str, ...] = (
+    "leave_request_review",
+    "leave_request_submitted",
+    "payslip_paid",
+)
+
+
+async def list_admin_deliveries_for_viewer(
+    db: AsyncSession, *, viewer_user_id: int, limit: int
+) -> list[NotificationDelivery]:
+    kinds = _ADMIN_HISTORY_PERSONAL_KINDS
+    stmt = (
+        select(NotificationDelivery)
+        .where(
+            or_(
+                not_(NotificationDelivery.template_kind.in_(kinds)),
+                NotificationDelivery.user_id == viewer_user_id,
+            )
+        )
+        .order_by(NotificationDelivery.id.desc())
+        .limit(max(1, min(limit, 500)))
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def count_unread_deliveries(db: AsyncSession, *, user_id: int) -> int:
     result = await db.execute(
         select(func.count())

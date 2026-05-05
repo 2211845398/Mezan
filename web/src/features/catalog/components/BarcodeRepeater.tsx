@@ -27,12 +27,13 @@ export function BarcodeRepeater({ value, onChange, onGenerate, disabled }: Barco
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
             autoComplete="off"
+            className="h-8 text-sm"
           />
         </div>
         {onGenerate ? (
           <button
             type="button"
-            className="text-sm text-primary underline-offset-2 hover:underline"
+            className="text-xs font-medium text-primary underline-offset-2 hover:underline sm:shrink-0"
             onClick={onGenerate}
             disabled={disabled}
           >

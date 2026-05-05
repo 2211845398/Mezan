@@ -114,7 +114,13 @@ export default function RunDetail() {
       </div>
       <div className="flex flex-wrap gap-2">
         {canCreate && ps.status === 'draft' ? (
-          <Button type="button" variant="secondary" disabled={recalc.isPending} onClick={() => void recalc.mutate()}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={recalc.isPending}
+            className="border-2 border-secondary bg-background text-secondary hover:bg-muted hover:text-secondary"
+            onClick={() => void recalc.mutate()}
+          >
             {t('actions.recalculate')}
           </Button>
         ) : null}
@@ -129,48 +135,50 @@ export default function RunDetail() {
           </Button>
         ) : null}
       </div>
-      <div className="grid max-w-xl gap-2 rounded-md border p-4 text-sm">
-        <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">{t('run.col.base_salary')}</span>
-          <span className="font-medium tabular-nums">{ps.base_salary_amount ?? '—'}</span>
+      <div className="grid max-w-5xl gap-4 lg:grid-cols-2 lg:items-start">
+        <div className="grid max-w-xl gap-2 rounded-md border p-4 text-sm">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">{t('run.col.base_salary')}</span>
+            <span className="font-medium tabular-nums">{ps.base_salary_amount ?? '—'}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">{t('run.col.bonus')}</span>
+            <span className="font-medium tabular-nums">{ps.bonus_amount ?? '—'}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">{t('run.col.overtime')}</span>
+            <span className="font-medium tabular-nums">{ps.overtime_amount ?? '—'}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">{t('run.col.auto_deductions')}</span>
+            <span className="font-medium tabular-nums">{ps.automatic_deductions_amount ?? '—'}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">{t('run.col.manual_deductions')}</span>
+            <span className="font-medium tabular-nums">{ps.manual_deductions_amount ?? '—'}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">{t('run.col.paid_at')}</span>
+            <span className="font-medium">{ps.paid_at ?? '—'}</span>
+          </div>
         </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">{t('run.col.bonus')}</span>
-          <span className="font-medium tabular-nums">{ps.bonus_amount ?? '—'}</span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">{t('run.col.overtime')}</span>
-          <span className="font-medium tabular-nums">{ps.overtime_amount ?? '—'}</span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">{t('run.col.auto_deductions')}</span>
-          <span className="font-medium tabular-nums">{ps.automatic_deductions_amount ?? '—'}</span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">{t('run.col.manual_deductions')}</span>
-          <span className="font-medium tabular-nums">{ps.manual_deductions_amount ?? '—'}</span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">{t('run.col.paid_at')}</span>
-          <span className="font-medium">{ps.paid_at ?? '—'}</span>
-        </div>
+        {canCreate && ps.status === 'draft' ? (
+          <div className="grid max-w-xl gap-3 rounded-md border p-4">
+            <div className="font-medium">{t('run.adjustments_title')}</div>
+            <div className="grid gap-1">
+              <Label>{t('run.col.bonus')}</Label>
+              <MoneyInput value={bonusAdj} onChange={setBonusAdj} />
+            </div>
+            <div className="grid gap-1">
+              <Label>{t('run.col.manual_deductions')}</Label>
+              <MoneyInput value={manualAdj} onChange={setManualAdj} />
+            </div>
+            <Button type="button" disabled={patchAdj.isPending} onClick={() => void patchAdj.mutate()}>
+              {t('run.save_adjustments')}
+            </Button>
+          </div>
+        ) : null}
       </div>
-      {canCreate && ps.status === 'draft' ? (
-        <div className="grid max-w-xl gap-3 rounded-md border p-4">
-          <div className="font-medium">{t('run.adjustments_title')}</div>
-          <div className="grid gap-1">
-            <Label>{t('run.col.bonus')}</Label>
-            <MoneyInput value={bonusAdj} onChange={setBonusAdj} />
-          </div>
-          <div className="grid gap-1">
-            <Label>{t('run.col.manual_deductions')}</Label>
-            <MoneyInput value={manualAdj} onChange={setManualAdj} />
-          </div>
-          <Button type="button" disabled={patchAdj.isPending} onClick={() => void patchAdj.mutate()}>
-            {t('run.save_adjustments')}
-          </Button>
-        </div>
-      ) : null}
       <Table>
         <TableHeader>
           <TableRow>

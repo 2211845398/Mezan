@@ -127,6 +127,26 @@ class Settings(BaseSettings):
         description="Maximum avatar file size in bytes (default 2 MiB)",
     )
 
+    # Catalog category images (stored on disk; served via /api/v1/static/catalog-category-images)
+    CATALOG_CATEGORY_IMAGE_UPLOAD_DIR: str = Field(
+        default="data/uploads/catalog-category-images",
+        description="Directory for uploaded category cover images",
+    )
+    CATALOG_CATEGORY_IMAGE_MAX_BYTES: int = Field(
+        default=2_097_152,
+        description="Maximum category image file size in bytes (default 2 MiB)",
+    )
+
+    # Catalog product images (stored on disk; served via /api/v1/static/catalog-product-images)
+    CATALOG_PRODUCT_IMAGE_UPLOAD_DIR: str = Field(
+        default="data/uploads/catalog-product-images",
+        description="Directory for uploaded product cover images",
+    )
+    CATALOG_PRODUCT_IMAGE_MAX_BYTES: int = Field(
+        default=2_097_152,
+        description="Maximum product image file size in bytes (default 2 MiB)",
+    )
+
     # Database
     DATABASE_URL: str = Field(
         ...,

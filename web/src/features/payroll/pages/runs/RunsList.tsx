@@ -6,9 +6,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { MonthYearField, type MonthYearValue } from '@/components/shared/form';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -33,6 +33,16 @@ function payslipEmployeeDisplay(row: PayslipRead): string {
   const email = row.user_email?.trim();
   if (email) return email;
   return `#${row.employee_profile_id}`;
+}
+
+/** `YYYY-MM` → `{ year, month }` for the month picker. */
+function parseYm(ym: string): MonthYearValue | null {
+  if (!ym || !/^\d{4}-\d{2}$/.test(ym)) return null;
+  const [ys, ms] = ym.split('-');
+  const y = Number(ys);
+  const m = Number(ms);
+  if (!y || m < 1 || m > 12) return null;
+  return { year: y, month: m };
 }
 
 /** `YYYY-MM` → calendar period bounds as ISO date strings. */
@@ -139,29 +149,26 @@ export default function RunsList() {
     [t],
   );
 
+  const monthValue = parseYm(monthYm);
+
   const toolbarExtras = (
     <div className="flex flex-wrap items-end gap-4">
       <div className="flex min-w-[10rem] flex-col gap-1.5">
         <Label htmlFor="payroll-runs-month">{t('runs.filters.month')}</Label>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            id="payroll-runs-month"
-            type="month"
-            className="w-[11rem]"
-            value={monthYm || ''}
-            onChange={(e) => setMonth(e.target.value)}
-          />
-          {monthYm ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setMonth('')}>
-              {t('runs.filters.clear_month')}
-            </Button>
-          ) : null}
-        </div>
+        <MonthYearField
+          id="payroll-runs-month"
+          value={monthValue}
+          placeholder={t('runs.filters.month')}
+          onChange={({ year: y, month: m }) =>
+            setMonth(`${y}-${String(m).padStart(2, '0')}`)
+          }
+          onClear={() => setMonth('')}
+        />
       </div>
       <div className="flex min-w-[10rem] flex-col gap-1.5">
         <Label htmlFor="payroll-runs-status">{t('runs.filters.status')}</Label>
         <Select value={statusParam || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
-          <SelectTrigger id="payroll-runs-status" className="w-[11rem]">
+          <SelectTrigger id="payroll-runs-status" className="h-10 w-[11rem]">
             <SelectValue placeholder={t('runs.filters.status_all')} />
           </SelectTrigger>
           <SelectContent>

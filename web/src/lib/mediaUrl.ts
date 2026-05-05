@@ -10,3 +10,11 @@ export function resolveMediaUrl(pathOrUrl: string | null | undefined): string | 
   if (!origin) return s.startsWith('/') ? s : `/${s}`;
   return s.startsWith('/') ? `${origin}${s}` : `${origin}/${s}`;
 }
+
+/** Append a cache-busting query so the browser reloads after same-path image replacement. */
+export function withMediaCacheBust(url: string | undefined, bust: number): string | undefined {
+  if (url == null || url === '') return undefined;
+  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}v=${bust}`;
+}

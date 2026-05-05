@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { notifyApiError } from '@/api/errorMessages';
-import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -12,7 +10,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatIso } from '@/lib/date';
-import { notify } from '@/lib/toast';
 
 import {
   formatGroupedDeliveryStatus,
@@ -20,45 +17,26 @@ import {
   sentNotificationBatchKey,
 } from '../../lib/groupSentNotificationDeliveries';
 import { formatNotificationDeliveryTargetGroup } from '../../lib/notificationDeliveryTargetGroup';
-import { useClearAllNotificationDeliveries, useNotificationDeliveries, useNotificationRuns } from '../../queries';
+import { useNotificationDeliveries, useNotificationRuns } from '../../queries';
 
 export default function NotificationHistory() {
   const { t } = useTranslation('admin');
-  const { t: tc } = useTranslation('common');
   const { data: deliveries = [], isLoading: deliveriesLoading } = useNotificationDeliveries();
   const { data: runs = [], isLoading: runsLoading } = useNotificationRuns();
-  const clearAll = useClearAllNotificationDeliveries();
 
   const grouped = useMemo(() => groupSentNotificationDeliveries(deliveries), [deliveries]);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">{t('notifications.history_title')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('notifications.history_lead')}</p>
-        </div>
-        {deliveries.length > 0 ? (
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            onClick={() => {
-              void clearAll
-                .mutateAsync()
-                .then(() => notify.success(tc('toasts.cleared')))
-                .catch((error) => notifyApiError(error, tc('errors.generic')));
-            }}
-            disabled={clearAll.isPending}
-          >
-            {t('notifications.clear_all')}
-          </Button>
-        ) : null}
+      <div>
+        <h2 className="text-xl font-semibold">{t('notifications.history_title')}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t('notifications.history_lead')}</p>
       </div>
 
       <section className="rounded-2xl border bg-card p-4 shadow-sm">
         <h3 className="mb-3 font-semibold">{t('notifications.delivery_history')}</h3>
-        <Table>
+        <div className="max-h-96 overflow-auto overscroll-contain rounded-md border [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('notifications.message_title')}</TableHead>
@@ -84,9 +62,11 @@ export default function NotificationHistory() {
                 return (
                   <TableRow key={sentNotificationBatchKey(row)}>
                     <TableCell>
-                      <div className="max-w-md">
-                        <p className="truncate font-medium">{row.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">{row.body}</p>
+                      <div className="max-w-md min-w-0">
+                        <p className="break-words font-medium">{row.title}</p>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                          {row.body}
+                        </p>
                       </div>
                     </TableCell>
                     <TableCell className="max-w-xs text-sm">
@@ -102,11 +82,13 @@ export default function NotificationHistory() {
             )}
           </TableBody>
         </Table>
+        </div>
       </section>
 
       <section className="rounded-2xl border bg-card p-4 shadow-sm">
         <h3 className="mb-3 font-semibold">{t('notifications.routine_runs')}</h3>
-        <Table>
+        <div className="max-h-96 overflow-auto overscroll-contain rounded-md border [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('notifications.schedule')}</TableHead>
@@ -142,6 +124,7 @@ export default function NotificationHistory() {
             )}
           </TableBody>
         </Table>
+        </div>
       </section>
     </div>
   );

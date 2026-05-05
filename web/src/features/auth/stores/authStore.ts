@@ -49,6 +49,8 @@ export type AuthState = {
    */
   permissionsLoaded: boolean;
   activeBranchId: number | null;
+  /** Increment after avatar image changes so `<img>` URLs bypass browser cache for same path. */
+  avatarCacheBust: number;
 
   setStatus: (status: AuthStatus) => void;
   setAccessToken: (token: string | null) => void;
@@ -58,6 +60,7 @@ export type AuthState = {
   setRoleCodes: (codes: ReadonlyArray<string>) => void;
   setActiveBranchId: (id: number | null) => void;
   hasPermission: (resource: string, action: string) => boolean;
+  bumpAvatarCacheBust: () => void;
   clear: () => void;
 };
 
@@ -94,6 +97,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   roleCodes: [],
   permissionsLoaded: false,
   activeBranchId: null,
+  avatarCacheBust: 0,
 
   setStatus: (status) => set({ status }),
   setAccessToken: (token) => set({ accessToken: token }),
@@ -116,6 +120,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setRoleCodes: (codes) => set({ roleCodes: [...codes] }),
   setActiveBranchId: (id) => set({ activeBranchId: id }),
   hasPermission: (resource, action) => get().permissions.has(permissionKey(resource, action)),
+  bumpAvatarCacheBust: () => set((s) => ({ avatarCacheBust: s.avatarCacheBust + 1 })),
   clear: () => {
     writeRefreshToStorage(null);
     set({
@@ -127,6 +132,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       roleCodes: [],
       permissionsLoaded: false,
       activeBranchId: null,
+      avatarCacheBust: 0,
     });
   },
 }));

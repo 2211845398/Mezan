@@ -65,6 +65,11 @@
   "overview": {
     "title": "Monthly payroll",
     "month_label": "Payroll month",
+    "month_placeholder": "Select month",
+    "month_picker_clear": "Clear",
+    "month_picker_this_month": "This month",
+    "month_picker_prev_year": "Previous year",
+    "month_picker_next_year": "Next year",
     "month_help": "Review and approve salaries for the selected calendar month. Use Prepare to create draft payslips for all active employees.",
     "prepare": "Prepare payroll",
     "prepare_ok": "Created {{created}} draft payslip(s); {{skipped}} already existed or skipped.",

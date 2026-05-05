@@ -12,15 +12,6 @@ type AttrDef = paths['/api/v1/categories/{category_id}/attributes']['get']['resp
 type AttrDefCreate = paths['/api/v1/categories/{category_id}/attributes']['post']['requestBody']['content']['application/json'];
 type AttrDefUpdate =
   paths['/api/v1/categories/{category_id}/attributes/{attr_id}']['patch']['requestBody']['content']['application/json'];
-export type PriceListSummary =
-  paths['/api/v1/price-lists']['get']['responses']['200']['content']['application/json'][number];
-type PriceListRead = paths['/api/v1/price-lists/{price_list_id}']['get']['responses']['200']['content']['application/json'];
-type PriceListCreate = paths['/api/v1/price-lists']['post']['requestBody']['content']['application/json'];
-type PriceListUpdate = paths['/api/v1/price-lists/{price_list_id}']['patch']['requestBody']['content']['application/json'];
-type PriceListLineCreate =
-  paths['/api/v1/price-lists/{price_list_id}/lines']['post']['requestBody']['content']['application/json'];
-type PriceListLineUpdate =
-  paths['/api/v1/price-lists/{price_list_id}/lines/{line_id}']['patch']['requestBody']['content']['application/json'];
 
 export type {
   AttrDef,
@@ -28,7 +19,6 @@ export type {
   CategoryRead,
   CategoryTreeNode,
   CategoryUpdate,
-  PriceListRead,
   ProductCreate,
   ProductRead,
   ProductUpdate,
@@ -37,6 +27,7 @@ export type {
 export async function listProducts(params: {
   q?: string;
   category_id?: number;
+  category_include_descendants?: boolean;
   status?: string;
   limit?: number;
   offset?: number;
@@ -100,6 +91,24 @@ export async function updateCategory(id: number, body: CategoryUpdate): Promise<
   return data;
 }
 
+export type CategoryImageUploadResponse = { image_url: string };
+
+export async function uploadCategoryImage(file: File): Promise<CategoryImageUploadResponse> {
+  const body = new FormData();
+  body.append('file', file);
+  const { data } = await apiClient.post<CategoryImageUploadResponse>('/categories/images', body);
+  return data;
+}
+
+export type ProductImageUploadResponse = { image_url: string };
+
+export async function uploadProductImage(file: File): Promise<ProductImageUploadResponse> {
+  const body = new FormData();
+  body.append('file', file);
+  const { data } = await apiClient.post<ProductImageUploadResponse>('/products/images', body);
+  return data;
+}
+
 export async function deleteCategory(id: number): Promise<void> {
   await apiClient.delete(`/categories/${id}`);
 }
@@ -131,47 +140,6 @@ export async function updateCategoryAttribute(
 
 export async function deleteCategoryAttribute(categoryId: number, attrId: number): Promise<void> {
   await apiClient.delete(`/categories/${categoryId}/attributes/${attrId}`);
-}
-
-export async function listPriceLists(params?: { limit?: number; offset?: number }): Promise<PriceListSummary[]> {
-  const { data } = await apiClient.get<PriceListSummary[]>('/price-lists', { params });
-  return data;
-}
-
-export async function getPriceList(id: number): Promise<PriceListRead> {
-  const { data } = await apiClient.get<PriceListRead>(`/price-lists/${id}`);
-  return data;
-}
-
-export async function createPriceList(body: PriceListCreate): Promise<PriceListRead> {
-  const { data } = await apiClient.post<PriceListRead>('/price-lists', body);
-  return data;
-}
-
-export async function updatePriceList(id: number, body: PriceListUpdate): Promise<PriceListRead> {
-  const { data } = await apiClient.patch<PriceListRead>(`/price-lists/${id}`, body);
-  return data;
-}
-
-export async function addPriceListLine(priceListId: number, body: PriceListLineCreate): Promise<PriceListRead> {
-  const { data } = await apiClient.post<PriceListRead>(`/price-lists/${priceListId}/lines`, body);
-  return data;
-}
-
-export async function patchPriceListLine(
-  priceListId: number,
-  lineId: number,
-  body: PriceListLineUpdate,
-): Promise<PriceListRead> {
-  const { data } = await apiClient.patch<PriceListRead>(
-    `/price-lists/${priceListId}/lines/${lineId}`,
-    body,
-  );
-  return data;
-}
-
-export async function deletePriceListLine(priceListId: number, lineId: number): Promise<void> {
-  await apiClient.delete(`/price-lists/${priceListId}/lines/${lineId}`);
 }
 
 export function getDisplayPrice(p: ProductRead): string {

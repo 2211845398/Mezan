@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
+import secrets
+import uuid
 from collections.abc import Iterable
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, and_, delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.product import Product
-from app.schemas.catalog import CategoryTreeNode
+from app.models.product_category import ProductCategory
+from app.schemas.catalog import CategoryTreeNode, ProductRead
 from app.services.pricing_service import set_product_sell_price
+from app.utils.image_format import detect_raster_image_extension
 from app.utils.money import to_decimal
 
 PRICE_COMPAT_KEY = "price"
@@ -64,7 +70,11 @@ async def list_all_categories(db: AsyncSession) -> list[Category]:
     return list(result.scalars().all())
 
 
-def build_category_tree_nodes(categories: Iterable[Category]) -> list[CategoryTreeNode]:
+def build_category_tree_nodes(
+    categories: Iterable[Category],
+    *,
+    direct_product_counts: dict[int, int] | None = None,
+) -> list[CategoryTreeNode]:
     """Build nested tree DTOs without touching ORM ``children`` (mapped relationship).
 
     Mutating ``Category.children`` with ``setattr`` triggers implicit loads under
@@ -79,6 +89,7 @@ def build_category_tree_nodes(categories: Iterable[Category]) -> list[CategoryTr
 
     def to_node(c: Category) -> CategoryTreeNode:
         kids = by_parent.get(c.id, [])
+        cnt = int(direct_product_counts.get(c.id, 0)) if direct_product_counts is not None else 0
         return CategoryTreeNode(
             id=c.id,
             name=c.name,
@@ -88,10 +99,23 @@ def build_category_tree_nodes(categories: Iterable[Category]) -> list[CategoryTr
             parent_id=c.parent_id,
             created_at=c.created_at,
             updated_at=c.updated_at,
+            image_url=c.image_url,
             children=[to_node(ch) for ch in kids],
+            direct_product_count=cnt,
         )
 
     return [to_node(r) for r in by_parent.get(None, [])]
+
+
+async def count_products_by_primary_category(db: AsyncSession) -> dict[int, int]:
+    result = await db.execute(select(Product.category_id, func.count()).group_by(Product.category_id))
+    return {int(cid): int(n) for cid, n in result.all()}
+
+
+async def list_category_tree(db: AsyncSession) -> list[CategoryTreeNode]:
+    cats = await list_all_categories(db)
+    counts = await count_products_by_primary_category(db)
+    return build_category_tree_nodes(cats, direct_product_counts=counts)
 
 
 async def create_category(db: AsyncSession, *, data: dict[str, Any]) -> Category:
@@ -284,6 +308,88 @@ def _sync_compat_price(attrs: dict[str, Any], *, sell_price: Decimal | None) -> 
     return synced
 
 
+async def _category_descendant_ids(db: AsyncSession, root_id: int) -> set[int]:
+    all_cats = await list_all_categories(db)
+    by_parent: dict[int | None, list[int]] = {}
+    for c in all_cats:
+        by_parent.setdefault(c.parent_id, []).append(c.id)
+    found: set[int] = {root_id}
+    stack = [root_id]
+    while stack:
+        pid = stack.pop()
+        for cid in by_parent.get(pid, []):
+            if cid not in found:
+                found.add(cid)
+                stack.append(cid)
+    return found
+
+
+async def _product_tag_map(db: AsyncSession, product_ids: list[int]) -> dict[int, list[int]]:
+    if not product_ids:
+        return {}
+    result = await db.execute(
+        select(ProductCategory.product_id, ProductCategory.category_id).where(
+            ProductCategory.product_id.in_(product_ids)
+        )
+    )
+    out: dict[int, list[int]] = {int(pid): [] for pid in product_ids}
+    for pid, cid in result.all():
+        out.setdefault(int(pid), []).append(int(cid))
+    return out
+
+
+async def _ensure_category_ids_exist(db: AsyncSession, ids: set[int]) -> None:
+    if not ids:
+        return
+    result = await db.execute(select(Category.id).where(Category.id.in_(list(ids))))
+    found = {int(r) for r in result.scalars().all()}
+    missing = sorted(ids - found)
+    if missing:
+        raise ValidationError("Unknown category_id", details={"category_ids": missing})
+
+
+async def sync_product_category_links(
+    db: AsyncSession,
+    *,
+    product_id: int,
+    primary_category_id: int,
+    extra_category_ids: list[int] | None,
+    merge_existing: bool,
+) -> None:
+    if merge_existing:
+        res = await db.execute(
+            select(ProductCategory.category_id).where(ProductCategory.product_id == product_id)
+        )
+        extras = {int(r) for r in res.scalars().all()}
+        extras.discard(primary_category_id)
+        want: set[int] = {primary_category_id, *extras}
+    else:
+        want = {primary_category_id, *{int(x) for x in (extra_category_ids or [])}}
+    await _ensure_category_ids_exist(db, want)
+    await db.execute(delete(ProductCategory).where(ProductCategory.product_id == product_id))
+    for cid in sorted(want):
+        db.add(ProductCategory(product_id=product_id, category_id=cid))
+    await db.flush()
+
+
+async def product_to_read(db: AsyncSession, product: Product) -> ProductRead:
+    tag_map = await _product_tag_map(db, [product.id])
+    merged = {product.category_id, *tag_map.get(product.id, [])}
+    return ProductRead.model_validate(product).model_copy(update={"category_ids": sorted(merged)})
+
+
+async def products_to_reads(db: AsyncSession, products: list[Product]) -> list[ProductRead]:
+    if not products:
+        return []
+    ids = [p.id for p in products]
+    tag_map = await _product_tag_map(db, ids)
+    out: list[ProductRead] = []
+    for p in products:
+        merged = {p.category_id, *tag_map.get(p.id, [])}
+        out.append(ProductRead.model_validate(p).model_copy(update={"category_ids": sorted(merged)}))
+    return out
+
+
 async def get_product(db: AsyncSession, product_id: int) -> Product:
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
@@ -297,6 +403,7 @@ async def list_products(
     *,
     q: str | None = None,
     category_id: int | None = None,
+    category_include_descendants: bool = False,
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -306,7 +413,16 @@ async def list_products(
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like)))
     if category_id is not None:
-        stmt = stmt.where(Product.category_id == category_id)
+        scope_ids = (
+            await _category_descendant_ids(db, category_id)
+            if category_include_descendants
+            else {category_id}
+        )
+        id_list = list(scope_ids)
+        tag_match = exists().where(
+            and_(ProductCategory.product_id == Product.id, ProductCategory.category_id.in_(id_list))
+        )
+        stmt = stmt.where(or_(Product.category_id.in_(id_list), tag_match))
     if status is not None:
         stmt = stmt.where(Product.status == status)
     stmt = stmt.order_by(Product.id.desc()).limit(limit).offset(offset)
@@ -318,8 +434,10 @@ async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
     data = dict(data)
     sell_price_value = data.pop("sell_price", None)
     sell_price_currency_id = data.pop("sell_price_currency_id", None)
+    extra_tags = data.pop("category_ids", None) or []
     category_id = data["category_id"]
     await get_category(db, category_id)
+    await _ensure_category_ids_exist(db, {category_id, *{int(x) for x in extra_tags}})
     defs = await _load_attr_defs(db, category_id)
     attrs = dict(data.get("attributes") or {})
     sell_price = _derive_sell_price(attrs=attrs, sell_price_value=sell_price_value)
@@ -327,10 +445,26 @@ async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
         attrs=_sync_compat_price(attrs, sell_price=sell_price),
         defs=defs,
     )
+    raw_sku = data.get("sku")
+    auto_sku = raw_sku is None or (isinstance(raw_sku, str) and raw_sku.strip() == "")
+    if auto_sku:
+        data["sku"] = f"__AUTO{secrets.token_hex(16)}__"
+    elif isinstance(raw_sku, str):
+        data["sku"] = raw_sku.strip()
     product = Product(**data)
     db.add(product)
     try:
         await db.flush()
+        if auto_sku:
+            product.sku = f"PRD-{product.id:09d}"
+            await db.flush()
+        await sync_product_category_links(
+            db,
+            product_id=product.id,
+            primary_category_id=product.category_id,
+            extra_category_ids=list(extra_tags),
+            merge_existing=False,
+        )
         if sell_price is not None:
             await set_product_sell_price(
                 db,
@@ -354,8 +488,13 @@ async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, A
     sell_price_value = data.pop("sell_price", _UNSET)
     has_sell_price_currency = "sell_price_currency_id" in data
     sell_price_currency_id = data.pop("sell_price_currency_id", None)
+    extra_tags = data.pop("category_ids", _UNSET)
     category_id = data.get("category_id", product.category_id)
     await get_category(db, category_id)
+    if extra_tags is not _UNSET:
+        await _ensure_category_ids_exist(
+            db, {int(category_id), *{int(x) for x in (extra_tags or [])}}
+        )
     defs = await _load_attr_defs(db, category_id)
 
     sell_price: Decimal | None = None
@@ -391,6 +530,22 @@ async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, A
                 amount=sell_price,
                 currency_id=sell_price_currency_id,
             )
+        if extra_tags is _UNSET:
+            await sync_product_category_links(
+                db,
+                product_id=product.id,
+                primary_category_id=product.category_id,
+                extra_category_ids=None,
+                merge_existing=True,
+            )
+        else:
+            await sync_product_category_links(
+                db,
+                product_id=product.id,
+                primary_category_id=product.category_id,
+                extra_category_ids=list(extra_tags or []),
+                merge_existing=False,
+            )
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
@@ -420,3 +575,31 @@ async def generate_product_barcode(db: AsyncSession, *, product_id: int) -> Prod
         raise ConflictError("Generated barcode conflicts with existing barcode") from e
     await db.refresh(product)
     return product
+
+
+def save_category_image_bytes(file_body: bytes) -> str:
+    """Validate image bytes, persist to disk, return URL path under static mount."""
+    if len(file_body) > settings.CATALOG_CATEGORY_IMAGE_MAX_BYTES:
+        raise ValueError("category_image_too_large")
+    ext = detect_raster_image_extension(file_body[:64])
+    if ext is None:
+        raise ValueError("category_image_invalid")
+    root = Path(settings.CATALOG_CATEGORY_IMAGE_UPLOAD_DIR)
+    root.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    (root / filename).write_bytes(file_body)
+    return f"/api/v1/static/catalog-category-images/{filename}"
+
+
+def save_product_image_bytes(file_body: bytes) -> str:
+    """Validate image bytes, persist to disk, return URL path under product static mount."""
+    if len(file_body) > settings.CATALOG_PRODUCT_IMAGE_MAX_BYTES:
+        raise ValueError("product_image_too_large")
+    ext = detect_raster_image_extension(file_body[:64])
+    if ext is None:
+        raise ValueError("product_image_invalid")
+    root = Path(settings.CATALOG_PRODUCT_IMAGE_UPLOAD_DIR)
+    root.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    (root / filename).write_bytes(file_body)
+    return f"/api/v1/static/catalog-product-images/{filename}"

@@ -46,6 +46,7 @@ from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
 from app.models.price_list import PriceList, PriceListBranch, PriceListLine
 from app.models.product import Product
+from app.models.product_category import ProductCategory
 from app.models.product_price import ProductPrice
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
@@ -139,6 +140,7 @@ __all__ = [
     "CreditNote",
     "ExchangeLink",
     "Product",
+    "ProductCategory",
     "ProductPrice",
     "PurchaseOrder",
     "PurchaseOrderLine",

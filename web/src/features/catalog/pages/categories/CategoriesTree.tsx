@@ -1,291 +1,282 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronRight, Eye, EyeOff, FolderTree, ImageIcon, Package, Plus } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { usePermission } from '@/hooks/usePermission';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
+import { cn } from '@/lib/utils';
 
-import {
-  type CategoryTreeNode,
-  createCategory,
-  createCategoryAttribute,
-  deleteCategoryAttribute,
-} from '../../api';
-import { catalogKeys, useCategoryAttributesQuery, useCategoryTreeQuery } from '../../queries';
+import { type CategoryTreeNode, updateCategory } from '../../api';
+import { CategoryCreateDialog } from '../../components/CategoryCreateDialog';
+import { catalogKeys, useCategoryTreeQuery } from '../../queries';
+import { filterActiveCategoryTree } from '../../utils/categoryTree';
 
-function Node({
-  node,
-  depth,
-  onAddChild,
-  onEditAttrs,
-}: {
-  node: CategoryTreeNode;
-  depth: number;
-  onAddChild: (parentId: number) => void;
-  onEditAttrs: (id: number) => void;
-}) {
-  const { t } = useTranslation('catalog');
-  const [open, setOpen] = useState(depth < 2);
-  const canUpdate = usePermission('catalog', 'update');
-  return (
-    <Collapsible open={open} onOpenChange={setOpen} className="ms-2 border-s border-border ps-2">
-      <div
-        className="flex flex-wrap items-center gap-2 py-1"
-        style={{ paddingInlineStart: depth * 8 }}
-      >
-        <CollapsibleTrigger asChild>
-          <Button type="button" size="icon" variant="ghost" className="size-7">
-            <ChevronRight
-              className={`size-4 transition-transform ${open ? 'rotate-90' : ''}`}
-              aria-hidden
-            />
-          </Button>
-        </CollapsibleTrigger>
-        <span className="font-medium">{node.name}</span>
-        {canUpdate ? (
-          <>
-            <Button type="button" size="sm" variant="outline" onClick={() => onAddChild(node.id)}>
-              <Plus className="me-0.5 size-3" />
-              {t('categories.child')}
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => onEditAttrs(node.id)}>
-              {t('categories.attributes')}
-            </Button>
-          </>
-        ) : null}
-      </div>
-      <CollapsibleContent>
-        {node.children?.map((c) => (
-          <Node
-            key={c.id}
-            node={c}
-            depth={depth + 1}
-            onAddChild={onAddChild}
-            onEditAttrs={onEditAttrs}
-          />
-        ))}
-      </CollapsibleContent>
-    </Collapsible>
-  );
+function indexCategoriesById(nodes: CategoryTreeNode[]): Map<number, CategoryTreeNode> {
+  const map = new Map<number, CategoryTreeNode>();
+  const walk = (n: CategoryTreeNode) => {
+    map.set(n.id, n);
+    (n.children ?? []).forEach(walk);
+  };
+  nodes.forEach(walk);
+  return map;
 }
+
+type CreateParentMode = 'path' | number;
 
 export default function CategoriesTree() {
   const { t } = useTranslation('catalog');
   const qc = useQueryClient();
   const canCreate = usePermission('catalog', 'create');
   const canUpdate = usePermission('catalog', 'update');
-  const { data: tree = [], isLoading, refetch } = useCategoryTreeQuery();
-  const [showNew, setShowNew] = useState(false);
-  const [parentForNew, setParentForNew] = useState<number | null>(null);
-  const [newSlug, setNewSlug] = useState('');
-  const [newName, setNewName] = useState('');
-  const [attrCategoryId, setAttrCategoryId] = useState<number | null>(null);
-  const { data: attrDefs = [] } = useCategoryAttributesQuery(attrCategoryId);
+  const { data: treeRaw = [], isLoading, refetch } = useCategoryTreeQuery();
+  const [showHidden, setShowHidden] = useState(false);
+  const tree = useMemo(
+    () => (showHidden ? treeRaw : filterActiveCategoryTree(treeRaw)),
+    [treeRaw, showHidden],
+  );
 
-  const createM = useMutation({
-    mutationFn: () => {
-      const slug = newSlug.trim() || newName.toLowerCase().replace(/\s+/g, '-');
-      return createCategory({
-        name: newName.trim(),
-        slug,
-        parent_id: parentForNew,
-        sort_order: 0,
-        is_active: true,
-      });
-    },
+  const [path, setPath] = useState<number[]>([]);
+  const byId = useMemo(() => indexCategoriesById(tree), [tree]);
+
+  const currentParentId = path.length === 0 ? null : path[path.length - 1] ?? null;
+  const currentChildren = useMemo(() => {
+    if (path.length === 0) return tree;
+    const node = byId.get(path[path.length - 1]!);
+    return node?.children ?? [];
+  }, [byId, path, tree]);
+
+  const breadcrumbs = useMemo(() => {
+    const parts: { id: number | null; name: string }[] = [{ id: null, name: t('categories.browse_root') }];
+    for (const id of path) {
+      const n = byId.get(id);
+      if (n) parts.push({ id: n.id, name: n.name });
+    }
+    return parts;
+  }, [byId, path, t]);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createParentMode, setCreateParentMode] = useState<CreateParentMode>('path');
+
+  const resolvedCreateParentId = createParentMode === 'path' ? currentParentId : createParentMode;
+
+  const openCreateFromHeader = useCallback(() => {
+    setCreateParentMode('path');
+    setCreateOpen(true);
+  }, []);
+
+  const openCreateUnder = useCallback((parentId: number) => {
+    setCreateParentMode(parentId);
+    setCreateOpen(true);
+  }, []);
+
+  const toggleActiveM = useMutation({
+    mutationFn: ({ id, next }: { id: number; next: boolean }) => updateCategory(id, { is_active: next }),
     onSuccess: async () => {
-      setShowNew(false);
-      setParentForNew(null);
-      setNewName('');
-      setNewSlug('');
       await qc.invalidateQueries({ queryKey: catalogKeys.root });
-      toast.success(t('categories.created'));
+      toast.success(t('categories.visibility_updated'));
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
-  function startNew(parent: number | null) {
-    setParentForNew(parent);
-    setNewName('');
-    setNewSlug('');
-    setShowNew(true);
-  }
+  const enterCategory = (id: number) => {
+    setPath((p) => [...p, id]);
+  };
+
+  const goToCrumb = (idx: number) => {
+    if (idx < 0) return;
+    setPath((p) => p.slice(0, idx));
+  };
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('categories.title')}</h1>
-        {canCreate ? (
-          <Button type="button" onClick={() => startNew(null)}>
-            {t('categories.add_root')}
-          </Button>
-        ) : null}
-      </div>
-      {isLoading ? <p className="text-sm text-muted-foreground">{t('loading')}</p> : null}
-      <div>
-        {tree.map((n) => (
-          <Node
-            key={n.id}
-            node={n}
-            depth={0}
-            onAddChild={(pid) => startNew(pid)}
-            onEditAttrs={setAttrCategoryId}
-          />
-        ))}
-      </div>
-      <Button type="button" variant="link" onClick={() => void refetch()}>
-        {t('actions.refresh')}
-      </Button>
-
-      <Dialog
-        open={showNew}
-        onOpenChange={(o) => {
-          if (!o) {
-            setShowNew(false);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('categories.new')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label>{t('categories.field.name')}</Label>
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} />
-            <Label>{t('categories.field.slug')}</Label>
-            <Input value={newSlug} onChange={(e) => setNewSlug(e.target.value)} />
+    <div className="flex flex-col gap-6 p-4 md:p-6">
+      <PageHeader
+        title={t('categories.title')}
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Switch id="show-hidden" checked={showHidden} onCheckedChange={setShowHidden} />
+              <Label htmlFor="show-hidden" className="text-sm font-normal">
+                {t('categories.show_hidden')}
+              </Label>
+            </div>
+            {canCreate ? (
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+                  {t('actions.refresh')}
+                </Button>
+                <Button type="button" onClick={openCreateFromHeader}>
+                  <Plus className="me-1 size-4" />
+                  {currentParentId == null ? t('categories.add_root') : t('categories.child')}
+                </Button>
+              </div>
+            ) : null}
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setShowNew(false)}>
-              {t('actions.cancel')}
-            </Button>
-            <Button
+        }
+      />
+      <p className="text-sm text-muted-foreground">{t('categories.browse_lead')}</p>
+
+      <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-1 text-sm">
+        {breadcrumbs.map((crumb, idx) => (
+          <span key={crumb.id ?? 'root'} className="flex items-center gap-1">
+            {idx > 0 ? <ChevronRight className="size-4 text-muted-foreground" aria-hidden /> : null}
+            <button
               type="button"
-              onClick={() => {
-                if (newName.trim()) {
-                  void createM.mutate();
+              className={cn(
+                'rounded-md px-2 py-1 font-medium transition-colors hover:bg-muted',
+                idx === breadcrumbs.length - 1 ? 'text-foreground' : 'text-muted-foreground',
+              )}
+              onClick={() => goToCrumb(idx)}
+            >
+              {crumb.name}
+            </button>
+          </span>
+        ))}
+      </nav>
+
+      {isLoading ? <p className="text-sm text-muted-foreground">{t('loading')}</p> : null}
+
+      {!isLoading && currentChildren.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-muted/20 p-8 text-center">
+          <p className="text-sm text-muted-foreground">{t('categories.browse_empty')}</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {canCreate ? (
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={openCreateFromHeader}>
+                <Plus className="me-1 size-3" />
+                {t('categories.child')}
+              </Button>
+            ) : null}
+            {currentParentId != null ? (
+              <Button type="button" variant="outline" size="sm" className="h-8" asChild>
+                <Link to={`/catalog/products?category_id=${currentParentId}&category_subtree=1`}>
+                  <Package className="me-1 size-3" />
+                  {t('categories.view_products')}
+                </Link>
+              </Button>
+            ) : null}
+            {currentParentId != null ? (
+              <Button type="button" variant="outline" size="sm" className="h-8" asChild>
+                <Link to={`/catalog/categories/${currentParentId}`}>{t('categories.properties')}</Link>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {!isLoading && currentChildren.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {currentChildren.map((node) => (
+            <Card
+              key={node.id}
+              role="button"
+              tabIndex={0}
+              className={cn(
+                'cursor-pointer overflow-hidden transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                !node.is_active && 'opacity-80 ring-1 ring-muted-foreground/30',
+              )}
+              onClick={() => enterCategory(node.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  enterCategory(node.id);
                 }
               }}
             >
-              {t('actions.save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={attrCategoryId != null}
-        onOpenChange={(o) => {
-          if (!o) {
-            setAttrCategoryId(null);
-          }
-        }}
-      >
-        <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('categories.attr_editor')}</DialogTitle>
-          </DialogHeader>
-          {attrDefs
-            .slice()
-            .sort((a, b) => a.sort_order - b.sort_order)
-            .map((d) => (
-              <div
-                key={d.id}
-                className="flex items-center justify-between gap-2 border-b py-2 text-sm"
-              >
-                <div>
-                  <code className="text-xs">{d.key}</code> — {d.label} ({d.type})
-                </div>
-                {canUpdate && attrCategoryId != null ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={async () => {
-                      try {
-                        await deleteCategoryAttribute(attrCategoryId, d.id);
-                        void qc.invalidateQueries({ queryKey: catalogKeys.root });
-                        toast.success(t('categories.attr_deleted'));
-                      } catch (error) {
-                        notifyApiError(error, t('errors.generic'));
-                      }
-                    }}
-                  >
-                    {t('actions.delete')}
-                  </Button>
+              <div className="relative aspect-[4/3] w-full bg-muted">
+                {node.image_url ? (
+                  <img
+                    src={resolveMediaUrl(node.image_url) ?? node.image_url}
+                    alt=""
+                    className="size-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex size-full items-center justify-center text-muted-foreground">
+                    <ImageIcon className="size-10 opacity-50" aria-hidden />
+                  </div>
+                )}
+                {!node.is_active ? (
+                  <div className="absolute start-2 top-2">
+                    <span className="inline-flex items-center rounded-md border-2 border-[hsl(var(--ring))] bg-background px-2 py-0.5 text-xs font-semibold text-foreground shadow-sm">
+                      {t('categories.hidden_badge')}
+                    </span>
+                  </div>
                 ) : null}
               </div>
-            ))}
-          {canUpdate && attrCategoryId != null ? (
-            <AddAttrForm
-              categoryId={attrCategoryId}
-              onDone={() => {
-                void qc.invalidateQueries({ queryKey: catalogKeys.root });
-              }}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+              <CardContent className="space-y-2 p-4">
+                <p className="line-clamp-2 font-semibold leading-tight">{node.name}</p>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className="rounded-full bg-muted px-2 py-0.5">
+                    {t('categories.card_children', { count: node.children?.length ?? 0 })}
+                  </span>
+                  <span className="rounded-full bg-muted px-2 py-0.5">
+                    {t('categories.card_products', { count: node.direct_product_count ?? 0 })}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {canCreate ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCreateUnder(node.id);
+                      }}
+                    >
+                      <Plus className="me-1 size-3" />
+                      {t('categories.child')}
+                    </Button>
+                  ) : null}
+                  <Button type="button" variant="outline" size="sm" className="h-8" asChild>
+                    <Link to={`/catalog/categories/${node.id}`} onClick={(e) => e.stopPropagation()}>
+                      {t('categories.properties')}
+                    </Link>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-8" asChild>
+                    <Link to={`/catalog/products?category_id=${node.id}&category_subtree=1`} onClick={(e) => e.stopPropagation()}>
+                      <Package className="me-1 size-3" />
+                      {t('categories.view_products')}
+                    </Link>
+                  </Button>
+                  {canUpdate ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void toggleActiveM.mutate({ id: node.id, next: !node.is_active });
+                      }}
+                      disabled={toggleActiveM.isPending}
+                      aria-label={node.is_active ? t('categories.hide') : t('categories.show')}
+                    >
+                      {node.is_active ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </Button>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
 
-function AddAttrForm({ categoryId, onDone }: { categoryId: number; onDone: () => void }) {
-  const { t } = useTranslation('catalog');
-  const [key, setKey] = useState('');
-  const [label, setLabel] = useState('');
-  const [type, setType] = useState('text');
-  return (
-    <div className="space-y-2 border-t pt-3">
-      <p className="text-sm font-medium">{t('categories.attr_add')}</p>
-      <Input placeholder="key" value={key} onChange={(e) => setKey(e.target.value)} />
-      <Input placeholder="label" value={label} onChange={(e) => setLabel(e.target.value)} />
-      <Input
-        placeholder="type (text|int|float|bool)"
-        value={type}
-        onChange={(e) => setType(e.target.value)}
-      />
-      <Button
-        type="button"
-        onClick={async () => {
-          if (!key.trim() || !label.trim()) {
-            return;
-          }
-          try {
-            await createCategoryAttribute(categoryId, {
-              key: key.trim(),
-              label: label.trim(),
-              type: type.trim() || 'text',
-              required: false,
-              sort_order: 0,
-            });
-            setKey('');
-            setLabel('');
-            onDone();
-          } catch (error) {
-            notifyApiError(error, t('errors.generic'));
-          }
-        }}
-      >
-        {t('actions.add')}
-      </Button>
+      <div className="flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
+        <FolderTree className="size-4" aria-hidden />
+        <span>{t('categories.browse_tree_hint')}</span>
+      </div>
+
+      <CategoryCreateDialog open={createOpen} onOpenChange={setCreateOpen} parentId={resolvedCreateParentId} />
     </div>
   );
 }
