@@ -177,4 +177,5 @@ def build_payroll_period_pdf(
     raw = pdf.output()
     if isinstance(raw, str):
         return raw.encode("latin-1")
-    return raw
+    # fpdf2 may return bytearray; Starlette Response expects str or bytes, not bytearray.
+    return bytes(raw)

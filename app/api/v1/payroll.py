@@ -373,7 +373,7 @@ async def payroll_period_export_pdf_endpoint(
         title=f"Payroll {year}-{month:02d}",
     )
     return Response(
-        content=pdf_bytes,
+        content=bytes(pdf_bytes),
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="payroll-{year}-{month:02d}.pdf"',
