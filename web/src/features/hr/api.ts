@@ -13,6 +13,7 @@ export type LeaveRequestCreate = components['schemas']['LeaveRequestCreate'];
 export type LeaveRequestReview = components['schemas']['LeaveRequestReview'];
 export type HrAnomalyRequest = components['schemas']['HrAnomalyRequest'];
 export type HrAnomalyResponse = components['schemas']['HrAnomalyResponse'];
+export type HrAnomaly = components['schemas']['HrAnomaly'];
 
 export async function listEmployees(): Promise<EmployeeProfileRead[]> {
   const { data } = await apiClient.get<EmployeeProfileRead[]>('/employees');
@@ -65,6 +66,10 @@ export async function updateSchedule(
     body,
   );
   return data;
+}
+
+export async function deleteSchedule(employeeProfileId: number, scheduleId: number): Promise<void> {
+  await apiClient.delete(`/employees/${employeeProfileId}/schedules/${scheduleId}`);
 }
 
 export async function listAttendanceLogsGlobal(params: {

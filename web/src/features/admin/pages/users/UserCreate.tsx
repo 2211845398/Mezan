@@ -7,7 +7,6 @@ import { Link } from 'react-router-dom';
 import { z } from 'zod';
 
 import { applyApiErrorToForm } from '@/api/errorMessages';
-import { notify } from '@/lib/toast';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -15,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { notify } from '@/lib/toast';
 
 import { getUserRoles, listPendingOnboarding } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';

@@ -108,6 +108,20 @@ export async function listPendingOnboarding(): Promise<UserOnboardingRead[]> {
   return data;
 }
 
+export type PendingOnboardingSubjectPatch = {
+  full_name?: string | null;
+  branch_id?: number | null;
+  role_code?: string | null;
+};
+
+export async function patchPendingOnboardingSubject(
+  onboardingId: number,
+  body: PendingOnboardingSubjectPatch,
+): Promise<UserRead> {
+  const { data } = await apiClient.patch<UserRead>(`/hr/onboarding/${onboardingId}/subject`, body);
+  return data;
+}
+
 export async function completeOnboarding(
   onboardingId: number,
   body: {

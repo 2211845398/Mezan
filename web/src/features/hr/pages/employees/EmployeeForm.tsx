@@ -127,7 +127,7 @@ export default function EmployeeForm() {
       toast.success(t('employees.form.saved'));
       setFormError(null);
       if (isNew) {
-        navigate(`/hr/employees/${row.id}/edit`, { replace: true });
+        navigate(`/hr/employees/${row.id}/data`, { replace: true });
       }
     },
   });
@@ -213,7 +213,7 @@ export default function EmployeeForm() {
                 onChange={(s) => form.setValue('hourly_rate', s)}
               />
             </div>
-            <p className="text-xs text-muted-foreground">{t('employees.form.rate_hint')}</p>
+            <p className="text-xs text-muted-foreground">{t('employees.form.compensation_hint')}</p>
             <div className="grid gap-2">
               <Label htmlFor="bank">{t('employees.form.bank')}</Label>
               <Input id="bank" {...form.register('bank_account')} />

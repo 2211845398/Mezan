@@ -31,7 +31,8 @@ from app.services.employee_service import (
     create_employee_profile,
     create_leave_request,
     create_weekly_schedule,
-    get_employee_profile,
+    delete_weekly_schedule,
+    get_employee_profile_enriched,
     list_attendance_logs,
     list_attendance_logs_filtered,
     list_employee_profiles,
@@ -109,8 +110,19 @@ async def get_employee_profile_endpoint(
     _: None = Depends(get_current_user),
     __: None = require_permission("employees", "read"),
 ) -> EmployeeProfileRead:
-    row = await get_employee_profile(db, employee_profile_id)
-    return EmployeeProfileRead.model_validate(row)
+    row = await get_employee_profile_enriched(db, employee_profile_id)
+    employee = row["employee"]
+    data = EmployeeProfileRead.model_validate(employee).model_dump()
+    data.update({
+        "user_email": row["user_email"],
+        "user_full_name": row["user_full_name"],
+        "user_status": row["user_status"],
+        "user_branch_id": row["user_branch_id"],
+        "user_branch_name": row["user_branch_name"],
+        "user_role_code": row["user_role_code"],
+        "user_role_name": row["user_role_name"],
+    })
+    return EmployeeProfileRead.model_validate(data)
 
 
 @router.patch("/employees/{employee_profile_id}", response_model=EmployeeProfileRead)
@@ -137,7 +149,19 @@ async def update_employee_profile_endpoint(
         request=request,
     )
     await db.commit()
-    return EmployeeProfileRead.model_validate(row)
+    row = await get_employee_profile_enriched(db, employee_profile_id)
+    employee = row["employee"]
+    data = EmployeeProfileRead.model_validate(employee).model_dump()
+    data.update({
+        "user_email": row["user_email"],
+        "user_full_name": row["user_full_name"],
+        "user_status": row["user_status"],
+        "user_branch_id": row["user_branch_id"],
+        "user_branch_name": row["user_branch_name"],
+        "user_role_code": row["user_role_code"],
+        "user_role_name": row["user_role_name"],
+    })
+    return EmployeeProfileRead.model_validate(data)
 
 
 @router.post(
@@ -208,6 +232,33 @@ async def update_schedule_endpoint(
     )
     await db.commit()
     return WeeklyScheduleRead.model_validate(row)
+
+
+@router.delete(
+    "/employees/{employee_profile_id}/schedules/{schedule_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_schedule_endpoint(
+    employee_profile_id: int,
+    schedule_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("employees", "update"),
+) -> None:
+    old_value = await delete_weekly_schedule(
+        db, employee_profile_id=employee_profile_id, schedule_id=schedule_id
+    )
+    await audit_service.log(
+        session=db,
+        action="weekly_schedule.deleted",
+        resource_type="weekly_schedule",
+        resource_id=str(schedule_id),
+        old_value=old_value,
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
 
 
 @router.post(

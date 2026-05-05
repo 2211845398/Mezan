@@ -75,6 +75,10 @@ export type DataTableProps<TData> = {
   defaultUrlQuery?: Partial<UrlQuery>;
   /** Estimated row height in px for the virtualizer. */
   estimatedRowHeight?: number;
+  /** Merged onto the root wrapper (e.g. `max-w-4xl` for compact tables). */
+  className?: string;
+  /** Merged onto the inner `<table>` (e.g. `table-fixed` with explicit column sizes). */
+  tableClassName?: string;
 };
 
 export function DataTable<TData>({
@@ -95,6 +99,8 @@ export function DataTable<TData>({
   renderActionBar,
   defaultUrlQuery,
   estimatedRowHeight = 40,
+  className,
+  tableClassName,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
 
@@ -192,7 +198,7 @@ export function DataTable<TData>({
     (emptyState ?? <TableEmpty />)
   ) : (
     <div ref={scrollRef} className="relative w-full overflow-auto">
-      <Table>
+      <Table className={tableClassName}>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id}>
@@ -204,7 +210,11 @@ export function DataTable<TData>({
                     key={header.id}
                     scope="col"
                     className={cn('text-start align-middle', cellClass)}
-                    style={header.column.getSize() ? { width: header.column.getSize() } : undefined}
+                    style={
+                      header.column.columnDef.size != null
+                        ? { width: header.column.getSize(), minWidth: header.column.getSize() }
+                        : undefined
+                    }
                     aria-sort={
                       sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
                     }
@@ -247,7 +257,15 @@ export function DataTable<TData>({
                     className={rowClass}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className={cn('align-middle', cellClass)}>
+                      <TableCell
+                        key={cell.id}
+                        className={cn('align-middle', cellClass)}
+                        style={
+                          cell.column.columnDef.size != null
+                            ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
+                            : undefined
+                        }
+                      >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
@@ -272,7 +290,15 @@ export function DataTable<TData>({
                 className={rowClass}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className={cn('align-middle', cellClass)}>
+                  <TableCell
+                    key={cell.id}
+                    className={cn('align-middle', cellClass)}
+                    style={
+                      cell.column.columnDef.size != null
+                        ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
+                        : undefined
+                    }
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -285,7 +311,7 @@ export function DataTable<TData>({
   );
 
   return (
-    <div className="w-full" aria-label={t('table.label')}>
+    <div className={cn('w-full', className)} aria-label={t('table.label')}>
       <Toolbar
         table={table}
         searchValue={q}

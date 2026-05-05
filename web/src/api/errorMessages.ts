@@ -1,5 +1,5 @@
-import type { FieldValues, UseFormReturn } from 'react-hook-form';
 import type { TFunction } from 'i18next';
+import type { FieldValues, UseFormReturn } from 'react-hook-form';
 
 import { ApiError, ServerError, ValidationError } from '@/api/errors';
 import i18n from '@/i18n';

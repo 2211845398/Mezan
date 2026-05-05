@@ -3840,6 +3840,12 @@ export interface components {
             hourly_rate?: number | string | null;
             /** Bank Account */
             bank_account?: string | null;
+            /** Linked user display name (not email/status). */
+            subject_full_name?: string | null;
+            /** Linked user branch id. */
+            subject_branch_id?: number | null;
+            /** Org-level role code for the linked user (replaces branch-null assignment). */
+            subject_role_code?: string | null;
         };
         /**
          * ExecutiveKpiRead
@@ -6248,6 +6254,8 @@ export interface components {
             user_branch_id?: number | null;
             /** User Branch Name */
             user_branch_name?: string | null;
+            /** User Status */
+            user_status?: string | null;
             /** User Role Code */
             user_role_code?: string | null;
             /** User Role Name */
@@ -6432,6 +6440,10 @@ export interface components {
             end_time?: string | null;
             /** Is Day Off */
             is_day_off?: boolean | null;
+            /** Weekday (0=Mon … 6=Sun) */
+            weekday?: number | null;
+            /** Branch Id */
+            branch_id?: number | null;
         };
         /**
          * PermissionRead

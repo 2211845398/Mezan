@@ -7,10 +7,14 @@ import { useParams } from 'react-router-dom';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { listBranches } from '@/features/admin/api';
+import { getBranchLabel } from '@/features/admin/lib/branchLabels';
+import { adminKeys } from '@/features/admin/queries';
 import { formatIso, hoursBetween, now, utcCalendarDayKey } from '@/lib/date';
 
 import type { AttendanceLogRead, LeaveRequestRead } from '../../api';
-import { attendanceListQueryOptions, leaveListQueryOptions } from '../../queries';
+import { attendanceLogRowSearchValue } from '../../lib/hrTableSearch';
+import { attendanceListQueryOptions, employeeQueryOptions, leaveListQueryOptions } from '../../queries';
 
 interface StatCardProps {
   label: string;
@@ -32,6 +36,16 @@ export default function EmployeePerformance() {
   const { id } = useParams<{ id: string }>();
   const employeeId = Number(id);
   const { t } = useTranslation('hr');
+
+  const { data: employee } = useQuery({
+    ...employeeQueryOptions(employeeId),
+    enabled: !Number.isNaN(employeeId),
+  });
+
+  const { data: branches = [] } = useQuery({
+    queryKey: adminKeys.branches(false),
+    queryFn: () => listBranches({ include_archived: false }),
+  });
 
   // Get attendance data for last 30 days
   const dateFrom = utcCalendarDayKey(subDays(now(), 30));
@@ -95,18 +109,42 @@ export default function EmployeePerformance() {
         {
           id: 'date',
           header: t('attendance.col.date'),
+          accessorFn: (row) => {
+            const employeeText = [employee?.user_full_name, employee?.user_email].filter(Boolean).join(' ');
+            const branchText = getBranchLabel(branches, row.branch_id);
+            const inText = row.clock_in_at ? formatIso(row.clock_in_at, 'yyyy-MM-dd HH:mm') : '';
+            const outText = row.clock_out_at ? formatIso(row.clock_out_at, 'yyyy-MM-dd HH:mm') : '';
+            const openText = row.clock_out_at ? '' : t('performance.missing_clock_out');
+            return attendanceLogRowSearchValue(row, { employeeText, branchText, inText, outText, openText });
+          },
           cell: ({ row }) =>
             row.original.clock_in_at ? formatIso(row.original.clock_in_at, 'yyyy-MM-dd') : '—',
         },
         {
           id: 'in',
           header: t('attendance.col.in'),
+          accessorFn: (row) => {
+            const employeeText = [employee?.user_full_name, employee?.user_email].filter(Boolean).join(' ');
+            const branchText = getBranchLabel(branches, row.branch_id);
+            const inText = row.clock_in_at ? formatIso(row.clock_in_at, 'yyyy-MM-dd HH:mm') : '';
+            const outText = row.clock_out_at ? formatIso(row.clock_out_at, 'yyyy-MM-dd HH:mm') : '';
+            const openText = row.clock_out_at ? '' : t('performance.missing_clock_out');
+            return attendanceLogRowSearchValue(row, { employeeText, branchText, inText, outText, openText });
+          },
           cell: ({ row }) =>
             row.original.clock_in_at ? formatIso(row.original.clock_in_at, 'HH:mm') : '—',
         },
         {
           id: 'out',
           header: t('attendance.col.out'),
+          accessorFn: (row) => {
+            const employeeText = [employee?.user_full_name, employee?.user_email].filter(Boolean).join(' ');
+            const branchText = getBranchLabel(branches, row.branch_id);
+            const inText = row.clock_in_at ? formatIso(row.clock_in_at, 'yyyy-MM-dd HH:mm') : '';
+            const outText = row.clock_out_at ? formatIso(row.clock_out_at, 'yyyy-MM-dd HH:mm') : '';
+            const openText = row.clock_out_at ? '' : t('performance.missing_clock_out');
+            return attendanceLogRowSearchValue(row, { employeeText, branchText, inText, outText, openText });
+          },
           cell: ({ row }) =>
             row.original.clock_out_at
               ? formatIso(row.original.clock_out_at, 'HH:mm')
@@ -115,6 +153,14 @@ export default function EmployeePerformance() {
         {
           id: 'hours',
           header: t('performance.hours'),
+          accessorFn: (row) => {
+            const employeeText = [employee?.user_full_name, employee?.user_email].filter(Boolean).join(' ');
+            const branchText = getBranchLabel(branches, row.branch_id);
+            const inText = row.clock_in_at ? formatIso(row.clock_in_at, 'yyyy-MM-dd HH:mm') : '';
+            const outText = row.clock_out_at ? formatIso(row.clock_out_at, 'yyyy-MM-dd HH:mm') : '';
+            const openText = row.clock_out_at ? '' : t('performance.missing_clock_out');
+            return attendanceLogRowSearchValue(row, { employeeText, branchText, inText, outText, openText });
+          },
           cell: ({ row }) => {
             if (!row.original.clock_in_at || !row.original.clock_out_at) return '—';
             const hours = hoursBetween(row.original.clock_in_at, row.original.clock_out_at);
@@ -122,7 +168,7 @@ export default function EmployeePerformance() {
           },
         },
       ]),
-    [t],
+    [branches, employee?.user_email, employee?.user_full_name, t],
   );
 
   return (
@@ -161,12 +207,12 @@ export default function EmployeePerformance() {
         </div>
       )}
 
-      <SectionCard title={t('performance.recent_activity')}>
+      <SectionCard title={t('performance.recent_attendance')}>
         <DataTable
           mode="client"
           columns={activityColumns}
           data={attendance.slice(0, 10)}
-          emptyState={<p className="text-sm text-muted-foreground">{t('performance.no_activity')}</p>}
+          emptyState={<p className="text-sm text-muted-foreground">{t('performance.no_recent_attendance')}</p>}
         />
       </SectionCard>
 
@@ -179,7 +225,8 @@ export default function EmployeePerformance() {
               {leaves.slice(0, 5).map((leave: LeaveRequestRead) => (
                 <li key={leave.id} className="flex justify-between rounded border p-2 text-sm">
                   <span>
-                    {leave.leave_type} ({leave.start_date} - {leave.end_date})
+                    {t(`leave.type.${leave.leave_type}`, { defaultValue: leave.leave_type })} ({leave.start_date} -{' '}
+                    {leave.end_date})
                   </span>
                   <span
                     className={
@@ -190,7 +237,7 @@ export default function EmployeePerformance() {
                           : 'text-red-600'
                     }
                   >
-                    {leave.status}
+                    {t(`leave.st.${leave.status}`, { defaultValue: leave.status })}
                   </span>
                 </li>
               ))}

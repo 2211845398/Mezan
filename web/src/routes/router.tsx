@@ -129,6 +129,7 @@ const HrEmployeePerformance = lazy(() => import('@/features/hr/pages/employees/E
 const HrEmployeeAttendance = lazy(() => import('@/features/hr/pages/employees/EmployeeAttendance'));
 const HrEmployeeLeave = lazy(() => import('@/features/hr/pages/employees/EmployeeLeave'));
 const HrEmployeeSchedule = lazy(() => import('@/features/hr/pages/employees/EmployeeSchedule'));
+const HrEmployeeData = lazy(() => import('@/features/hr/pages/employees/EmployeeData'));
 const HrAttendanceList = lazy(() => import('@/features/hr/pages/attendance/AttendanceList'));
 const HrTimesheetDetail = lazy(() => import('@/features/hr/pages/attendance/TimesheetDetail'));
 const HrLeaveList = lazy(() => import('@/features/hr/pages/leave/LeaveList'));
@@ -560,6 +561,14 @@ export const router = createBrowserRouter([
                         element: (
                           <RequirePermission resource="employees" action="read">
                             {withSuspense(HrEmployeePerformance)}
+                          </RequirePermission>
+                        ),
+                      },
+                      {
+                        path: 'data',
+                        element: (
+                          <RequirePermission resource="employees" action="read">
+                            {withSuspense(HrEmployeeData)}
                           </RequirePermission>
                         ),
                       },

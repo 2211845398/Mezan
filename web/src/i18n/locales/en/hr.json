@@ -17,9 +17,9 @@
       "user": "User ID",
       "hire_date": "Hire date",
       "base_salary": "Base salary",
-      "hourly_rate": "Hourly rate",
-      "rate_hint": "Enter either base salary or hourly rate, not both.",
-      "base_or_hourly": "Provide base salary or hourly rate.",
+      "hourly_rate": "Overtime hourly rate",
+      "compensation_hint": "Base salary is the regular-hours baseline. Hourly rate is used for overtime. You can set one or both; at least one compensation value is required.",
+      "base_or_hourly": "Provide base salary and/or overtime hourly rate (at least one).",
       "bank": "Bank account (IBAN)",
       "save": "Save",
       "saved": "Employee saved",
@@ -41,6 +41,9 @@
     "empty": "No pending requests",
     "not_found": "Onboarding request not found",
     "review": "Review",
+    "review_header": "Review",
+    "primary_card_title": "Onboarding review",
+    "email_readonly_hint": "Email is managed by the user from their profile.",
     "detail_title": "Complete employee onboarding",
     "detail_subtitle": "Enter employment details for {{name}}",
     "user_info": "User information",
@@ -54,8 +57,10 @@
     "schedule_hint": "Set up the weekly work schedule for this employee",
     "no_schedules": "No schedule set up yet. Click below to add days.",
     "add_schedule": "Add schedule day",
-    "error_salary_or_hourly": "Please provide either base salary or hourly rate",
-    "error_contract_start": "Contract start date is required"
+    "error_salary_or_hourly": "Provide base salary and/or overtime hourly rate (at least one).",
+    "error_contract_start": "Contract start date is required",
+    "error_role_required": "Select a role for this employee.",
+    "schedule_after_onboarding": "After onboarding is completed, set weekly work hours from the employee’s Schedule tab."
   },
   "attendance": {
     "title": "Attendance",
@@ -72,7 +77,8 @@
       "in": "In",
       "out": "Out",
       "date": "Date",
-      "duration": "Duration"
+      "duration": "Duration",
+      "timesheet": "Timesheet"
     },
     "open": "Open",
     "total_records": "Total records",
@@ -113,7 +119,15 @@
       "to": "To",
       "days": "Days",
       "reason": "Reason",
-      "reviewed_by": "Reviewed by"
+      "reviewed_by": "Reviewed by",
+      "reviewed_at": "Reviewed at",
+      "requested_at": "Requested at",
+      "actions": "Actions"
+    },
+    "type": {
+      "vacation": "Vacation",
+      "sick": "Sick",
+      "personal": "Personal"
     },
     "st": {
       "pending": "Pending",
@@ -131,22 +145,54 @@
     }
   },
   "anomalies": {
-    "title": "HR anomalies",
+    "title": "HR attendance review",
+    "run_hint": "Find attendance patterns that may need HR review.",
+    "filters_title": "Analysis options",
+    "results_title": "Results",
     "lookback": "Lookback (days)",
-    "branch": "Branch ID (optional)",
+    "branch": "Branch",
     "run": "Run analysis",
+    "running": "Running analysis…",
+    "not_run": "Run an analysis to see suggested follow-ups.",
+    "empty": "No anomalies were found for the selected filters.",
+    "advanced": "Advanced details",
+    "meta_line": "Model: {{model}} · {{when}}",
     "model": "Model",
     "facts": "Facts used",
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "issue": {
+      "excessive_overtime": "Excessive overtime",
+      "missing_clock_out": "Missing clock-out",
+      "outside_schedule": "Outside schedule",
+      "unusual_pattern": "Unusual pattern"
+    },
+    "suggestion": {
+      "excessive_overtime": "Review shifts over policy, confirm approvals, and discuss workload with the employee.",
+      "missing_clock_out": "Ask the employee to complete clock-out or correct the attendance record.",
+      "outside_schedule": "Verify schedule vs. actual punches and adjust schedule or attendance as needed.",
+      "unusual_pattern": "Spot-check attendance with the employee and branch supervisor."
+    },
     "col": {
       "employee": "Employee",
       "type": "Type",
+      "issue": "Issue",
       "severity": "Severity",
-      "rationale": "Rationale"
+      "rationale": "Rationale",
+      "explanation": "Explanation",
+      "suggestion": "Suggested action"
     }
   },
   "tracking": {
     "title": "Employee tracking",
     "performance": "Performance",
+    "data": "Employee data",
+    "data_title": "Employee data",
+    "data_profile": "Profile",
+    "data_compensation": "HR & compensation",
     "attendance": "Attendance",
     "leave": "Leave",
     "schedule": "Schedule"
@@ -164,7 +210,9 @@
     "open_shifts_alert": "Open shifts detected",
     "open_shifts_count": "{{count}} shifts without clock-out",
     "recent_activity": "Recent activity",
+    "recent_attendance": "Recent attendance",
     "no_activity": "No recent activity",
+    "no_recent_attendance": "No recent attendance",
     "hours": "Hours",
     "missing_clock_out": "Missing clock-out",
     "leave_summary": "Leave summary",
@@ -173,17 +221,33 @@
   "schedule": {
     "current": "Current schedule",
     "add_new": "Add schedule entry",
+    "holiday": "Holiday",
+    "toggle_holiday": "Toggle holiday",
+    "weekday": {
+      "0": "Monday",
+      "1": "Tuesday",
+      "2": "Wednesday",
+      "3": "Thursday",
+      "4": "Friday",
+      "5": "Saturday",
+      "6": "Sunday"
+    },
     "col": {
       "day": "Day",
       "branch": "Branch",
-      "status": "Status",
-      "hours": "Hours"
+      "status": "Status"
     },
     "start_time": "Start time",
     "end_time": "End time",
     "add": "Add",
     "added": "Schedule added",
     "updated": "Schedule updated",
+    "deleted": "Schedule removed",
+    "edit_title": "Edit schedule entry",
+    "edit": "Edit",
+    "delete": "Delete",
+    "delete_confirm_title": "Delete this schedule row?",
+    "delete_confirm_body": "This cannot be undone.",
     "mark_workday": "Mark as workday",
     "mark_day_off": "Mark as day off",
     "empty": "No schedule set up yet"

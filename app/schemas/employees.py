@@ -22,6 +22,10 @@ class EmployeeProfileUpdate(BaseModel):
     base_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
     bank_account: str | None = None
+    # Linked user (via employees:update); email and status are not editable here.
+    subject_full_name: str | None = None
+    subject_branch_id: int | None = None
+    subject_role_code: str | None = None
 
 
 class EmployeeProfileRead(BaseModel):
@@ -57,6 +61,8 @@ class WeeklyScheduleUpdate(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     is_day_off: bool | None = None
+    weekday: int | None = Field(default=None, ge=0, le=6)
+    branch_id: int | None = None
 
 
 class WeeklyScheduleRead(BaseModel):

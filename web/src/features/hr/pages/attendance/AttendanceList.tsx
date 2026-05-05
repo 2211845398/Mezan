@@ -4,9 +4,11 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { SectionCard } from '@/components/shared/ContentSurface';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,11 +19,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { listBranches } from '@/features/admin/api';
+import { getBranchLabel } from '@/features/admin/lib/branchLabels';
 import { adminKeys } from '@/features/admin/queries';
-import { now, utcCalendarDayKey } from '@/lib/date';
+import { formatIso, now, utcCalendarDayKey } from '@/lib/date';
 
 import type { AttendanceLogRead } from '../../api';
-import { attendanceListQueryOptions,employeesQueryOptions } from '../../queries';
+import { attendanceLogRowSearchValue } from '../../lib/hrTableSearch';
+import { attendanceListQueryOptions, employeesQueryOptions } from '../../queries';
 
 export default function AttendanceList() {
   const { t } = useTranslation('hr');
@@ -35,6 +39,8 @@ export default function AttendanceList() {
     queryFn: () => listBranches({ include_archived: false }),
   });
   const { data: emps = [] } = useQuery(employeesQueryOptions());
+
+  const employeeById = useMemo(() => new Map(emps.map((e) => [e.id, e])), [emps]);
 
   const q = useMemo(
     () => ({
@@ -57,22 +63,92 @@ export default function AttendanceList() {
         {
           id: 'employee',
           header: t('attendance.col.employee'),
-          cell: ({ row }) => row.original.employee_profile_id,
+          accessorFn: (row) => {
+            const ep = employeeById.get(row.employee_profile_id);
+            const label = ep?.user_full_name ?? ep?.user_email ?? '';
+            const branchText = getBranchLabel(branches, row.branch_id);
+            const inText = row.clock_in_at ? formatIso(row.clock_in_at, 'yyyy-MM-dd HH:mm') : '';
+            const outText = row.clock_out_at ? formatIso(row.clock_out_at, 'yyyy-MM-dd HH:mm') : '';
+            const openText = row.clock_out_at ? '' : t('attendance.open');
+            return attendanceLogRowSearchValue(row, {
+              employeeText: [label, String(row.employee_profile_id), ep?.user_email].filter(Boolean).join(' '),
+              branchText,
+              inText,
+              outText,
+              openText,
+            });
+          },
+          cell: ({ row }) => {
+            const ep = employeeById.get(row.original.employee_profile_id);
+            return ep?.user_full_name ?? ep?.user_email ?? `#${row.original.employee_profile_id}`;
+          },
         },
-        { id: 'branch', accessorKey: 'branch_id', header: t('attendance.col.branch') },
+        {
+          id: 'branch',
+          header: t('attendance.col.branch'),
+          accessorFn: (row) => {
+            const ep = employeeById.get(row.employee_profile_id);
+            const label = ep?.user_full_name ?? ep?.user_email ?? '';
+            const branchText = getBranchLabel(branches, row.branch_id);
+            const inText = row.clock_in_at ? formatIso(row.clock_in_at, 'yyyy-MM-dd HH:mm') : '';
+            const outText = row.clock_out_at ? formatIso(row.clock_out_at, 'yyyy-MM-dd HH:mm') : '';
+            const openText = row.clock_out_at ? '' : t('attendance.open');
+            return attendanceLogRowSearchValue(row, {
+              employeeText: label,
+              branchText,
+              inText,
+              outText,
+              openText,
+            });
+          },
+          cell: ({ row }) => getBranchLabel(branches, row.original.branch_id) || String(row.original.branch_id),
+        },
         {
           id: 'in',
           header: t('attendance.col.in'),
-          cell: ({ row }) => row.original.clock_in_at?.slice(0, 19) ?? '—',
+          accessorFn: (row) => {
+            const branchText = getBranchLabel(branches, row.branch_id);
+            const ep = employeeById.get(row.employee_profile_id);
+            const label = ep?.user_full_name ?? ep?.user_email ?? '';
+            const inText = row.clock_in_at ? formatIso(row.clock_in_at, 'yyyy-MM-dd HH:mm') : '';
+            const outText = row.clock_out_at ? formatIso(row.clock_out_at, 'yyyy-MM-dd HH:mm') : '';
+            const openText = row.clock_out_at ? '' : t('attendance.open');
+            return attendanceLogRowSearchValue(row, {
+              employeeText: label,
+              branchText,
+              inText,
+              outText,
+              openText,
+            });
+          },
+          cell: ({ row }) =>
+            row.original.clock_in_at ? formatIso(row.original.clock_in_at, 'yyyy-MM-dd HH:mm') : '—',
         },
         {
           id: 'out',
           header: t('attendance.col.out'),
-          cell: ({ row }) => row.original.clock_out_at?.slice(0, 19) ?? '—',
+          accessorFn: (row) => {
+            const branchText = getBranchLabel(branches, row.branch_id);
+            const ep = employeeById.get(row.employee_profile_id);
+            const label = ep?.user_full_name ?? ep?.user_email ?? '';
+            const inText = row.clock_in_at ? formatIso(row.clock_in_at, 'yyyy-MM-dd HH:mm') : '';
+            const outText = row.clock_out_at ? formatIso(row.clock_out_at, 'yyyy-MM-dd HH:mm') : '';
+            const openText = row.clock_out_at ? '' : t('attendance.open');
+            return attendanceLogRowSearchValue(row, {
+              employeeText: label,
+              branchText,
+              inText,
+              outText,
+              openText,
+            });
+          },
+          cell: ({ row }) =>
+            row.original.clock_out_at ? formatIso(row.original.clock_out_at, 'yyyy-MM-dd HH:mm') : '—',
         },
         {
           id: 'open',
-          header: '',
+          header: t('attendance.col.timesheet'),
+          enableGlobalFilter: false,
           cell: ({ row }) => (
             <Button type="button" size="sm" variant="link" asChild>
               <Link to={`/hr/attendance/timesheet/${row.original.employee_profile_id}`}>
@@ -82,54 +158,56 @@ export default function AttendanceList() {
           ),
         },
       ]),
-    [t],
+    [branches, employeeById, t],
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">{t('attendance.title')}</h1>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-1">
-          <Label>{t('attendance.from')}</Label>
-          <DateField value={dateFrom} onChange={setDateFrom} />
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader title={t('attendance.title')} />
+      <SectionCard>
+        <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))] lg:items-end">
+          <div className="grid min-w-0 gap-1">
+            <Label>{t('attendance.from')}</Label>
+            <DateField value={dateFrom} onChange={setDateFrom} />
+          </div>
+          <div className="grid min-w-0 gap-1">
+            <Label>{t('attendance.to')}</Label>
+            <DateField value={dateTo} onChange={setDateTo} />
+          </div>
+          <div className="grid min-w-0 gap-1">
+            <Label>{t('attendance.branch')}</Label>
+            <Select value={branchId || '__all'} onValueChange={(v) => setBranchId(v === '__all' ? '' : v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">{t('attendance.all')}</SelectItem>
+                {branches.map((b) => (
+                  <SelectItem key={b.id} value={String(b.id)}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid min-w-0 gap-1">
+            <Label>{t('attendance.employee')}</Label>
+            <Select value={employeeId || '__all'} onValueChange={(v) => setEmployeeId(v === '__all' ? '' : v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">{t('attendance.all')}</SelectItem>
+                {emps.map((e) => (
+                  <SelectItem key={e.id} value={String(e.id)}>
+                    {e.user_full_name ?? e.user_email ?? `#${e.id}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="grid gap-1">
-          <Label>{t('attendance.to')}</Label>
-          <DateField value={dateTo} onChange={setDateTo} />
-        </div>
-        <div className="grid gap-1">
-          <Label>{t('attendance.branch')}</Label>
-          <Select value={branchId || '__all'} onValueChange={(v) => setBranchId(v === '__all' ? '' : v)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">{t('attendance.all')}</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={String(b.id)}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-1">
-          <Label>{t('attendance.employee')}</Label>
-          <Select value={employeeId || '__all'} onValueChange={(v) => setEmployeeId(v === '__all' ? '' : v)}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">{t('attendance.all')}</SelectItem>
-              {emps.map((e) => (
-                <SelectItem key={e.id} value={String(e.id)}>
-                  #{e.id} (user {e.user_id})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      </SectionCard>
       <DataTable
         mode="client"
         columns={columns}

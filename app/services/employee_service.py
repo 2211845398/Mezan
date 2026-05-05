@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
@@ -16,6 +16,7 @@ from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
+from app.schemas.employees import WeeklyScheduleRead
 
 
 def _to_utc(dt: datetime | None) -> datetime:
@@ -104,16 +105,117 @@ async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
     return enriched
 
 
+async def get_employee_profile_enriched(db: AsyncSession, employee_profile_id: int) -> dict:
+    """Return one employee profile with the same user/branch/role enrichment as list."""
+    stmt = (
+        select(
+            EmployeeProfile,
+            User.email.label("user_email"),
+            User.full_name.label("user_full_name"),
+            User.status.label("user_status"),
+            User.branch_id.label("user_branch_id"),
+            Branch.name.label("user_branch_name"),
+            Role.code.label("user_role_code"),
+            Role.name.label("user_role_name"),
+        )
+        .join(User, EmployeeProfile.user_id == User.id)
+        .outerjoin(Branch, User.branch_id == Branch.id)
+        .outerjoin(
+            UserRole,
+            (UserRole.user_id == User.id) & (UserRole.branch_id.is_(None)),
+        )
+        .outerjoin(Role, UserRole.role_id == Role.id)
+        .where(EmployeeProfile.id == employee_profile_id)
+    )
+    result = await db.execute(stmt)
+    row = result.one_or_none()
+    if row is None:
+        raise NotFoundError(
+            "Employee profile not found", details={"employee_profile_id": employee_profile_id}
+        )
+    employee = row[0]
+    return {
+        "employee": employee,
+        "user_email": row.user_email,
+        "user_full_name": row.user_full_name,
+        "user_status": row.user_status,
+        "user_branch_id": row.user_branch_id,
+        "user_branch_name": row.user_branch_name,
+        "user_role_code": row.user_role_code,
+        "user_role_name": row.user_role_name,
+    }
+
+
 async def get_employee_profile(db: AsyncSession, employee_profile_id: int) -> EmployeeProfile:
     return await _get_employee_profile(db, employee_profile_id)
+
+
+async def _apply_employee_subject_user_updates(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    data: dict,
+) -> None:
+    """Update display name, branch, and org-level role for the employee's linked user."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise NotFoundError("User not found", details={"user_id": user_id})
+
+    if "subject_full_name" in data:
+        fn = data["subject_full_name"]
+        if fn is None or (isinstance(fn, str) and not fn.strip()):
+            user.full_name = None
+        elif isinstance(fn, str):
+            user.full_name = fn.strip()
+
+    if "subject_branch_id" in data:
+        bid = data["subject_branch_id"]
+        if bid is not None:
+            br = await db.execute(select(Branch).where(Branch.id == bid))
+            if br.scalar_one_or_none() is None:
+                raise ValidationError("Branch not found", details={"branch_id": bid})
+        user.branch_id = bid
+
+    if "subject_role_code" in data:
+        raw = (data["subject_role_code"] or "").strip().upper()
+        if not raw:
+            raise ValidationError(
+                "subject_role_code cannot be empty",
+                details={"code": "role_required"},
+            )
+        role_res = await db.execute(select(Role).where(Role.code == raw))
+        role = role_res.scalar_one_or_none()
+        if role is None:
+            raise ValidationError("Role code not found", details={"role_code": raw})
+        await db.execute(
+            delete(UserRole).where(
+                UserRole.user_id == user.id,
+                UserRole.branch_id.is_(None),
+            ),
+        )
+        db.add(UserRole(user_id=user.id, role_id=role.id, branch_id=None))
+
+    await db.flush()
+    await db.refresh(user)
 
 
 async def update_employee_profile(
     db: AsyncSession, *, employee_profile_id: int, data: dict
 ) -> EmployeeProfile:
     employee = await _get_employee_profile(db, employee_profile_id)
-    for key, value in data.items():
+    patch = dict(data)
+    subject_keys = ("subject_full_name", "subject_branch_id", "subject_role_code")
+    subject_patch = {k: patch.pop(k) for k in subject_keys if k in patch}
+
+    for key, value in patch.items():
         setattr(employee, key, value)
+
+    if subject_patch:
+        await _apply_employee_subject_user_updates(
+            db, user_id=employee.user_id, data=subject_patch
+        )
+
     await db.flush()
     await db.refresh(employee)
     return employee
@@ -161,6 +263,12 @@ async def update_weekly_schedule(
     if not schedule:
         raise NotFoundError("Weekly schedule not found", details={"schedule_id": schedule_id})
 
+    if "branch_id" in data and data["branch_id"] is not None:
+        bid = data["branch_id"]
+        br = await db.execute(select(Branch).where(Branch.id == bid))
+        if br.scalar_one_or_none() is None:
+            raise ValidationError("Branch not found", details={"branch_id": bid})
+
     for key, value in data.items():
         setattr(schedule, key, value)
     if not schedule.is_day_off and schedule.end_time <= schedule.start_time:
@@ -168,6 +276,28 @@ async def update_weekly_schedule(
     await db.flush()
     await db.refresh(schedule)
     return schedule
+
+
+async def delete_weekly_schedule(
+    db: AsyncSession, *, employee_profile_id: int, schedule_id: int
+) -> dict:
+    """Remove one weekly schedule row; returns serialized row for audit."""
+    await _get_employee_profile(db, employee_profile_id)
+    result = await db.execute(
+        select(WeeklySchedule).where(
+            and_(
+                WeeklySchedule.id == schedule_id,
+                WeeklySchedule.employee_profile_id == employee_profile_id,
+            )
+        )
+    )
+    schedule = result.scalar_one_or_none()
+    if not schedule:
+        raise NotFoundError("Weekly schedule not found", details={"schedule_id": schedule_id})
+    payload = WeeklyScheduleRead.model_validate(schedule).model_dump()
+    await db.delete(schedule)
+    await db.flush()
+    return payload
 
 
 async def clock_in(

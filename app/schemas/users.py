@@ -66,10 +66,19 @@ class UserOnboardingRead(BaseModel):
     user_full_name: str | None = None
     user_branch_id: int | None = None
     user_branch_name: str | None = None
+    user_status: str | None = None
     user_role_code: str | None = None
     user_role_name: str | None = None
     requested_by_name: str | None = None
     assigned_hr_name: str | None = None
+
+
+class UserOnboardingSubjectUpdate(BaseModel):
+    """HR edits the subject user while onboarding is still pending (no users:update required)."""
+
+    full_name: str | None = None
+    branch_id: int | None = None
+    role_code: str | None = Field(default=None, max_length=64)
 
 
 class WeeklyScheduleItem(BaseModel):

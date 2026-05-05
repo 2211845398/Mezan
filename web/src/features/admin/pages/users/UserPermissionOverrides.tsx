@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { notify } from '@/lib/toast';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
@@ -22,6 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePermission } from '@/hooks/usePermission';
+import { notify } from '@/lib/toast';
 import RouteLoader from '@/routes/RouteLoader';
 
 import { deletePermissionOverride, upsertPermissionOverride } from '../../api';

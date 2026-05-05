@@ -14,6 +14,7 @@ from app.schemas.users import (
     UserCreate,
     UserOnboardingComplete,
     UserOnboardingRead,
+    UserOnboardingSubjectUpdate,
     UserPermissionOverrideRead,
     UserPermissionOverrideWrite,
     UserRead,
@@ -31,6 +32,7 @@ from app.services.user_lifecycle_service import (
     ensure_onboarding_task,
     list_onboarding_tasks_enriched,
     list_user_permission_overrides,
+    update_pending_onboarding_subject,
     upsert_user_permission_override,
 )
 from app.utils.security import hash_password
@@ -314,6 +316,7 @@ async def list_pending_onboarding(
             "user_full_name": row["user_full_name"],
             "user_branch_id": row["user_branch_id"],
             "user_branch_name": row["user_branch_name"],
+            "user_status": row["user_status"],
             "user_role_code": row["user_role_code"],
             "user_role_name": row["user_role_name"],
             "requested_by_name": row["requested_by_name"],
@@ -321,6 +324,50 @@ async def list_pending_onboarding(
         })
         result.append(UserOnboardingRead.model_validate(data))
     return result
+
+
+@router.patch("/hr/onboarding/{onboarding_id}/subject", response_model=UserRead)
+async def patch_pending_onboarding_subject(
+    onboarding_id: int,
+    body: UserOnboardingSubjectUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("onboarding", "update"),
+) -> User:
+    """Update subject user's name, branch, or org-level role while onboarding is pending."""
+    from app.models.user_onboarding import UserOnboarding
+
+    result = await db.execute(select(UserOnboarding).where(UserOnboarding.id == onboarding_id))
+    onboarding_task = result.scalar_one_or_none()
+    if not onboarding_task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Onboarding task not found")
+    if not await _can_complete_onboarding(db, onboarding_task, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the assigned reviewer or HR/Owner/Admin can update this onboarding",
+        )
+
+    old_user = await db.execute(select(User).where(User.id == onboarding_task.user_id))
+    user_before = old_user.scalar_one_or_none()
+    if not user_before:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    old_value = UserRead.model_validate(user_before).model_dump()
+
+    user = await update_pending_onboarding_subject(db, onboarding_id=onboarding_id, body=body)
+    await audit_service.log(
+        session=db,
+        action="onboarding.subject_updated",
+        resource_type="user",
+        resource_id=str(user.id),
+        old_value=old_value,
+        new_value=UserRead.model_validate(user).model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 # Role codes allowed to complete any onboarding (owner/admin/HR manager)

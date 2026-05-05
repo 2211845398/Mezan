@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
@@ -16,6 +16,7 @@ from app.models.user_permission_override import UserPermissionOverride
 from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
+from app.schemas.users import UserOnboardingSubjectUpdate
 
 
 async def assign_role_by_code(db: AsyncSession, *, user_id: int, role_code: str) -> None:
@@ -82,6 +83,7 @@ async def list_onboarding_tasks_enriched(
             UserModel.email.label("user_email"),
             UserModel.full_name.label("user_full_name"),
             UserModel.branch_id.label("user_branch_id"),
+            UserModel.status.label("user_status"),
             BranchModel.name.label("user_branch_name"),
             RoleModel.code.label("user_role_code"),
             RoleModel.name.label("user_role_name"),
@@ -97,6 +99,9 @@ async def list_onboarding_tasks_enriched(
     )
     if status_filter:
         stmt = stmt.where(UserOnboarding.status == status_filter)
+    # HR "pending" queue is only for accounts still awaiting onboarding, not deactivated/etc.
+    if status_filter == "pending":
+        stmt = stmt.where(UserModel.status == "pending_onboarding")
 
     result = await db.execute(stmt)
     rows = result.all()
@@ -125,6 +130,7 @@ async def list_onboarding_tasks_enriched(
             "user_email": row.user_email,
             "user_full_name": row.user_full_name,
             "user_branch_id": row.user_branch_id,
+            "user_status": row.user_status,
             "user_branch_name": row.user_branch_name,
             "user_role_code": row.user_role_code,
             "user_role_name": row.user_role_name,
@@ -238,6 +244,65 @@ async def complete_onboarding_task(
     await db.flush()
     await db.refresh(task)
     return task
+
+
+async def update_pending_onboarding_subject(
+    db: AsyncSession,
+    *,
+    onboarding_id: int,
+    body: UserOnboardingSubjectUpdate,
+) -> User:
+    """Apply name/branch/org-level role edits for a user still in pending_onboarding."""
+    payload = body.model_dump(exclude_unset=True)
+    if not payload:
+        raise ValidationError("No fields to update", details={"code": "empty_update"})
+
+    result = await db.execute(select(UserOnboarding).where(UserOnboarding.id == onboarding_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise NotFoundError("Onboarding task not found", details={"onboarding_id": onboarding_id})
+    if task.status != "pending":
+        raise ValidationError(
+            "Onboarding task is not pending",
+            details={"onboarding_id": onboarding_id, "status": task.status},
+        )
+
+    user_res = await db.execute(select(User).where(User.id == task.user_id))
+    user = user_res.scalar_one_or_none()
+    if not user:
+        raise NotFoundError("User not found", details={"user_id": task.user_id})
+    if user.status != "pending_onboarding":
+        raise ValidationError(
+            "User account is not pending onboarding",
+            details={"user_id": user.id, "status": user.status},
+        )
+
+    if "full_name" in payload:
+        fn = payload["full_name"]
+        user.full_name = (fn.strip() if isinstance(fn, str) and fn.strip() else None)
+
+    if "branch_id" in payload:
+        user.branch_id = payload["branch_id"]
+
+    if "role_code" in payload:
+        raw = (payload["role_code"] or "").strip().upper()
+        if not raw:
+            raise ValidationError("role_code cannot be empty", details={"code": "role_required"})
+        role_res = await db.execute(select(Role).where(Role.code == raw))
+        role = role_res.scalar_one_or_none()
+        if not role:
+            raise ValidationError("Role code not found", details={"role_code": raw})
+        await db.execute(
+            delete(UserRole).where(
+                UserRole.user_id == user.id,
+                UserRole.branch_id.is_(None),
+            ),
+        )
+        db.add(UserRole(user_id=user.id, role_id=role.id, branch_id=None))
+
+    await db.flush()
+    await db.refresh(user)
+    return user
 
 
 async def list_user_permission_overrides(

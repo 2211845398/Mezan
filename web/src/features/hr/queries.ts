@@ -70,4 +70,4 @@ export function leaveListQueryOptions(params: { status?: string; employee_profil
 }
 
 // Re-export API functions for direct use
-export { createSchedule, updateSchedule } from './api';
+export { createSchedule, deleteSchedule, updateSchedule } from './api';
