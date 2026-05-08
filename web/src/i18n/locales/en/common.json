@@ -19,6 +19,7 @@
     "hr_employees": "Employees",
     "hr_attendance": "Attendance",
     "hr_leave": "Leave",
+    "hr_pending": "Pending onboarding",
     "hr_anomalies": "Anomalies",
     "payroll": "Payroll",
     "payroll_runs": "Payslip history",

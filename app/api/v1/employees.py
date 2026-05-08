@@ -7,7 +7,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_permission
+from app.api.deps import get_current_user, require_any_permission, require_permission
 from app.core.config import settings
 from app.db.database import get_db
 from app.models.employee_profile import EmployeeProfile
@@ -47,6 +47,7 @@ from app.services.employee_service import (
     list_leave_requests,
     list_leave_requests_filtered,
     list_weekly_schedules,
+    list_weekly_schedules_for_authenticated_user,
     review_leave_request,
     soft_delete_leave_request,
     update_employee_profile,
@@ -133,6 +134,23 @@ async def list_employee_profiles_endpoint(
         )
         result.append(EmployeeProfileRead.model_validate(data))
     return result
+
+
+@router.get("/employees/me/schedules", response_model=list[WeeklyScheduleRead])
+async def list_my_weekly_schedules_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(
+        ("employees", "read"),
+        ("pos_shifts", "read"),
+        ("catalog", "read"),
+        ("customers", "read"),
+        ("accounting", "read"),
+        ("users", "read"),
+    ),
+) -> list[WeeklyScheduleRead]:
+    rows = await list_weekly_schedules_for_authenticated_user(db, user_id=current_user.id)
+    return [WeeklyScheduleRead.model_validate(r) for r in rows]
 
 
 @router.get("/employees/{employee_profile_id}", response_model=EmployeeProfileRead)

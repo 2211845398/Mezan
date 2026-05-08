@@ -92,5 +92,7 @@ export const authHandlers = [
 
   http.get(`${BASE}/auth/me/roles`, () => HttpResponse.json({ codes: ['ADMIN'] })),
 
+  http.get(`${BASE}/employees/me/schedules`, () => HttpResponse.json([])),
+
   http.get(`${BASE}/health`, () => HttpResponse.json({ status: 'healthy' })),
 ];

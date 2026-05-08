@@ -46,6 +46,12 @@ export async function listSchedules(employeeProfileId: number): Promise<WeeklySc
   return data;
 }
 
+/** Self-service: current user's weekly schedule (no ``employees:read``). */
+export async function listMySchedules(): Promise<WeeklyScheduleRead[]> {
+  const { data } = await apiClient.get<WeeklyScheduleRead[]>('/employees/me/schedules');
+  return data;
+}
+
 export async function createSchedule(
   employeeProfileId: number,
   body: WeeklyScheduleCreate,

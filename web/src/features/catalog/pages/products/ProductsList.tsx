@@ -39,6 +39,14 @@ import {
 import { ProductCategoryChips } from '../../components/ProductCategoryChips';
 import { catalogKeys, useCategoryTreeQuery, useProductListQuery } from '../../queries';
 
+/** Table display: normalize API decimal strings to a fixed number of fraction digits. */
+function formatCatalogTableDecimals(raw: string | null | undefined, fractionDigits = 3): string | null {
+  if (raw == null || raw === '') return null;
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n)) return raw;
+  return n.toFixed(fractionDigits);
+}
+
 function flattenCategoryTree(
   nodes: { id: number; name: string; is_active?: boolean; children?: typeof nodes }[],
 ): { id: number; name: string }[] {
@@ -144,7 +152,14 @@ export default function ProductsList() {
           header: t('products.col.cost'),
           cell: ({ row }) => {
             const v = row.original.standard_cost;
-            return v != null && v !== '' ? String(v) : '—';
+            const d = formatCatalogTableDecimals(v);
+            return d != null ? (
+              <span className="num-latin tabular-nums" dir="ltr">
+                {d}
+              </span>
+            ) : (
+              '—'
+            );
           },
         },
         {
@@ -160,7 +175,11 @@ export default function ProductsList() {
         {
           id: 'vat',
           header: t('products.col.vat'),
-          cell: ({ row }) => String(row.original.output_vat_rate ?? '0'),
+          cell: ({ row }) => (
+            <span className="num-latin tabular-nums" dir="ltr">
+              {formatCatalogTableDecimals(String(row.original.output_vat_rate ?? '0')) ?? '0.000'}
+            </span>
+          ),
         },
         {
           id: 'barcode',

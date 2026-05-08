@@ -20,6 +20,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import { previewQuietPanelClassName } from '@/lib/uiSurface';
 
 import { BranchIdsMultiPicker } from '../../components/BranchIdsMultiPicker';
 import { RoleCodesMultiPicker } from '../../components/RoleCodesMultiPicker';
@@ -138,7 +140,7 @@ export default function SendNow() {
             />
           ) : null}
 
-          <div className="rounded-xl border bg-muted/30 p-4">
+          <div className={cn(previewQuietPanelClassName, 'p-4')}>
             <p className="text-sm font-medium">{t('notifications.preview')}</p>
             <p className="mt-2 font-semibold">{title || t('notifications.message_title_placeholder')}</p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">

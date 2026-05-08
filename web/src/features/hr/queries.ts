@@ -25,6 +25,7 @@ export const hrKeys = {
   leaveList: (q: { status?: string; employee_profile_id?: number; limit?: number }) =>
     [...hrKeys.root, 'leave', q] as const,
   leaveBalance: (employeeId: number) => [...hrKeys.root, 'leave-balance', employeeId] as const,
+  mySchedules: () => [...hrKeys.root, 'my-schedules'] as const,
   anomalies: (payload: string) => [...hrKeys.root, 'anomalies', payload] as const,
 };
 
@@ -48,6 +49,14 @@ export function schedulesQueryOptions(employeeId: number) {
     queryKey: hrKeys.schedules(employeeId),
     queryFn: () => api.listSchedules(employeeId),
     enabled: !Number.isNaN(employeeId),
+  });
+}
+
+export function mySchedulesQueryOptions(options?: { enabled?: boolean }) {
+  return queryOptions({
+    queryKey: hrKeys.mySchedules(),
+    queryFn: () => api.listMySchedules(),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -93,14 +102,14 @@ export function leaveListQueryOptions(params: {
   const limit = params.limit ?? 200;
   return queryOptions({
     queryKey: hrKeys.leaveList({
-      status: params.status,
-      employee_profile_id: params.employee_profile_id,
+      ...(params.status !== undefined && params.status !== '' ? { status: params.status } : {}),
+      ...(params.employee_profile_id !== undefined ? { employee_profile_id: params.employee_profile_id } : {}),
       limit,
     }),
     queryFn: () =>
       api.listLeaveRequestsGlobal({
-        status: params.status,
-        employee_profile_id: params.employee_profile_id,
+        ...(params.status !== undefined && params.status !== '' ? { status: params.status } : {}),
+        ...(params.employee_profile_id !== undefined ? { employee_profile_id: params.employee_profile_id } : {}),
         limit,
         offset: 0,
       }),

@@ -77,7 +77,6 @@ export const navigation: NavItem[] = [
     icon: LayoutDashboard,
     href: '/dashboard',
     section: 'ops',
-    permission: { resource: 'analytics', action: 'read' },
   },
   {
     key: 'notifications-inbox',

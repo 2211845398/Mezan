@@ -258,11 +258,7 @@ export const router = createBrowserRouter([
           },
           {
             path: '/dashboard',
-            element: (
-              <RequirePermission resource="analytics" action="read">
-                {withSuspense(DashboardPage)}
-              </RequirePermission>
-            ),
+            element: withSuspense(DashboardPage),
           },
 
           // Catalog

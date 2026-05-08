@@ -84,12 +84,15 @@ export default function ProductFormPage() {
   const canUpdate = usePermission('catalog', 'update');
 
   const isNew = /\/products\/new\/?$/.test(location.pathname);
-  const productId = isNew ? null : Number(params.productId);
-  const productIdValid = !isNew && !Number.isNaN(productId) && productId > 0;
+  const rawProductId = isNew ? null : Number(params.productId);
+  const productIdValid =
+    !isNew && rawProductId !== null && !Number.isNaN(rawProductId) && rawProductId > 0;
 
   const formSchema = useMemo(() => buildProductFormSchema(isNew), [isNew]);
 
-  const { data: product, isLoading: loadingProduct } = useProductQuery(isNew || !productIdValid ? null : productId);
+  const { data: product, isLoading: loadingProduct } = useProductQuery(
+    isNew || !productIdValid ? null : rawProductId,
+  );
   const { data: tree = [] } = useCategoryTreeQuery();
   const flat = useMemo(() => flattenCategoryTree(tree, '', true), [tree]);
 

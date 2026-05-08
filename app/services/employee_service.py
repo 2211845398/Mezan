@@ -250,6 +250,22 @@ async def list_weekly_schedules(
     return list(result.scalars().all())
 
 
+async def list_weekly_schedules_for_authenticated_user(
+    db: AsyncSession, *, user_id: int
+) -> list[WeeklySchedule]:
+    """Return the signed-in user's weekly schedule rows (self-service; no ``employees:read``)."""
+    res = await db.execute(select(EmployeeProfile).where(EmployeeProfile.user_id == user_id))
+    profile = res.scalar_one_or_none()
+    if profile is None:
+        return []
+    result = await db.execute(
+        select(WeeklySchedule)
+        .where(WeeklySchedule.employee_profile_id == profile.id)
+        .order_by(WeeklySchedule.weekday.asc(), WeeklySchedule.start_time.asc())
+    )
+    return list(result.scalars().all())
+
+
 async def update_weekly_schedule(
     db: AsyncSession, *, employee_profile_id: int, schedule_id: int, data: dict
 ) -> WeeklySchedule:

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Eye, Play, RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -17,6 +18,7 @@ import { roleCodeLabel } from '@/features/admin/lib/roleLabels';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso, now } from '@/lib/date';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { previewQuietPanelClassName } from '@/lib/uiSurface';
 import { cn } from '@/lib/utils';
 
 import type { PayrollOverviewRow } from '../../api';
@@ -35,7 +37,7 @@ interface StatCardProps {
 
 function StatCard({ label, value, subtext }: StatCardProps) {
   return (
-    <div className="rounded-lg border p-4">
+    <div className="rounded-lg border bg-background p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
       {subtext ? <p className="text-xs text-muted-foreground">{subtext}</p> : null}
@@ -48,10 +50,7 @@ function defaultYearMonth(): { year: number; month: number } {
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
-function payslipStatusLabel(
-  status: string,
-  t: (key: string, opts?: { defaultValue?: string }) => string,
-): string {
+function payslipStatusLabel(status: string, t: TFunction<'payroll'>): string {
   if (status === 'no_payslip') return t('overview.payslip_status.no_payslip');
   if (status === 'draft') return t('overview.payslip_status.draft');
   if (status === 'approved') return t('overview.payslip_status.approved');
@@ -284,7 +283,7 @@ export default function PayrollOverview() {
       <p className="max-w-2xl text-xs text-muted-foreground">{t('overview.month_help')}</p>
 
       {period && approvalLocked ? (
-        <Alert>
+        <Alert className={previewQuietPanelClassName}>
           <AlertTitle>{t('overview.gate_title')}</AlertTitle>
           <AlertDescription>
             {t('overview.gate_body', {

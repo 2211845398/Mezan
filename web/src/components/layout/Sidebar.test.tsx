@@ -6,8 +6,8 @@ import { renderWithProviders, screen } from '@/test/utils';
 
 /*
  * RBAC-driven sidebar trimming. A cashier (POS + catalog:read) must see the
- * POS entry and the catalog products link, and must NOT see Admin or the
- * dashboard (which requires `bi:read`).
+ * POS entry, the catalog products link, and the Dashboard entry (always visible).
+ * Admin-only groups stay hidden without the right permissions.
  */
 
 describe('Sidebar RBAC trimming', () => {
@@ -24,19 +24,19 @@ describe('Sidebar RBAC trimming', () => {
 
   it('shows items the cashier has permission for and hides Admin', () => {
     useAuthStore.getState().setPermissions([
+      { resource: 'pos_shifts', action: 'read' },
       { resource: 'pos_carts', action: 'create' },
       { resource: 'catalog', action: 'read' },
     ]);
 
     renderWithProviders(<Sidebar />);
 
-    // Visible: POS + Catalog group.
     expect(screen.getByText('نقطة البيع')).toBeInTheDocument();
-    expect(screen.getByText('الكتالوج')).toBeInTheDocument();
+    expect(screen.getByText('التصنيفات')).toBeInTheDocument();
+    expect(screen.getByText('لوحة التحكم')).toBeInTheDocument();
 
-    // Hidden: Dashboard (needs bi:read), Admin (needs users:read etc.),
+    // Hidden: Admin (needs users:read etc.),
     // Accounting (needs accounting:read).
-    expect(screen.queryByText('لوحة التحكم')).toBeNull();
     expect(screen.queryByText('الإدارة')).toBeNull();
     expect(screen.queryByText('المحاسبة')).toBeNull();
   });

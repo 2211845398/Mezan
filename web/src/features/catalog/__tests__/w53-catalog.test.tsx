@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { server } from '@/test/msw/server';
 
+import type { CategoryTreeNode, ProductRead } from '../api';
+
 const API = (import.meta.env.VITE_API_BASE_URL as string) || '/api/v1';
 
 describe('W-5.3 catalog API wiring', () => {
@@ -36,10 +38,10 @@ describe('W-5.3 catalog API wiring', () => {
 
   it('listProducts forwards category_include_descendants', async () => {
     const mod = await import('../api');
-    let seen: URL | null = null;
+    const captured = { url: null as URL | null };
     server.use(
       http.get(`${API}/products`, ({ request }) => {
-        seen = new URL(request.url);
+        captured.url = new URL(request.url);
         return HttpResponse.json([]);
       }),
     );
@@ -49,7 +51,7 @@ describe('W-5.3 catalog API wiring', () => {
       category_id: 5,
       category_include_descendants: true,
     });
-    expect(seen?.searchParams.get('category_include_descendants')).toBe('true');
+    expect(captured.url?.searchParams.get('category_include_descendants')).toBe('true');
   });
 
   it('ProductCategoryChips shows primary and tag labels', async () => {
@@ -60,7 +62,7 @@ describe('W-5.3 catalog API wiring', () => {
       [1, 'Primary'],
       [2, 'Tag'],
     ]);
-    const product = {
+    const product: ProductRead = {
       id: 9,
       category_id: 1,
       category_ids: [1, 2],
@@ -72,7 +74,7 @@ describe('W-5.3 catalog API wiring', () => {
       updated_at: '2024-01-01T00:00:00Z',
     };
 
-    render(<ProductCategoryChips product={product as never} nameById={nameById} />);
+    render(<ProductCategoryChips product={product} nameById={nameById} />);
     expect(screen.getByText('Primary')).toBeInTheDocument();
     expect(screen.getByText('Tag')).toBeInTheDocument();
   });
@@ -104,7 +106,7 @@ describe('W-5.3 catalog API wiring', () => {
         ],
       },
     ];
-    const out = filterActiveCategoryTree(tree as never);
+    const out = filterActiveCategoryTree(tree as CategoryTreeNode[]);
     expect(out).toHaveLength(1);
     expect(out[0]?.children ?? []).toHaveLength(0);
   });

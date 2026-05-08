@@ -16,7 +16,6 @@ type AttrDefUpdate =
 
 export type {
   AttrDef,
-  CategoryAttrDef,
   CategoryCreate,
   CategoryRead,
   CategoryTreeNode,

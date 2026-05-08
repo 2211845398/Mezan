@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DateField } from '@/components/shared/form/DateField';
 import { renderWithProviders, screen, userEvent, waitFor } from '@/test/utils';
@@ -15,13 +15,22 @@ function Harness({ initial }: { initial: string }) {
 }
 
 describe('DateField', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-10T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders the currently-selected date on the trigger', () => {
     renderWithProviders(<Harness initial="2026-04-22" />);
     expect(screen.getByRole('button', { name: 'date' })).toHaveTextContent('2026-04-22');
   });
 
   it('updates the value when a calendar day is picked', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderWithProviders(<Harness initial="2026-04-22" />);
 
     await user.click(screen.getByRole('button', { name: 'date' }));
