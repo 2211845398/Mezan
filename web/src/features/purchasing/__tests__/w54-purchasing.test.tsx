@@ -213,6 +213,9 @@ describe('W-5.4 purchasing', () => {
   });
 
   it('Match review: confirm single line updates local state', async () => {
+    useAuthStore.setState({ status: 'authenticated' });
+    useAuthStore.getState().setPermissions([{ resource: 'invoice_scans', action: 'validate' }]);
+
     server.use(
       http.get(`${API}/invoice-scans/7`, () =>
         HttpResponse.json({
@@ -244,17 +247,17 @@ describe('W-5.4 purchasing', () => {
       ),
     );
 
-    const { default: MatchReview } = await import('../pages/invoice-match/MatchReview');
+    const { default: InvoiceScanDetail } = await import('@/features/invoice_scans/pages/InvoiceScanDetail');
     const user = userEvent.setup();
     renderWithProviders(
       <Routes>
-        <Route path="/purchasing/invoice-match/:id" element={<MatchReview />} />
+        <Route path="/purchasing/invoice-match/:id" element={<InvoiceScanDetail />} />
       </Routes>,
       { initialEntries: ['/purchasing/invoice-match/7'] },
     );
 
     await user.click(await screen.findByRole('button', { name: /load suggestions/i }));
-    await screen.findByRole('combobox');
+    await screen.findByRole('combobox', { name: /change.*#1/i });
 
     expect(screen.queryByTestId('confirmed-1')).toBeNull();
     const confirmButtons = await screen.findAllByRole('button', { name: /^confirm$/i });

@@ -1,21 +1,27 @@
 import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 
 import type { SupplierRead } from '../../api';
 import { suppliersQueryOptions } from '../../queries';
 
+import SupplierForm from './SupplierForm';
+
 export default function SuppliersList() {
   const { t } = useTranslation('purchasing');
   const canCreate = usePermission('suppliers', 'create');
   const canUpdate = usePermission('suppliers', 'update');
+  const [newSupplierOpen, setNewSupplierOpen] = useState(false);
+  const [newSupplierFormKey, setNewSupplierFormKey] = useState(0);
   const { data: rows = [], isLoading, isError, refetch } = useQuery(suppliersQueryOptions());
 
   const columns = useMemo(
@@ -53,18 +59,26 @@ export default function SuppliersList() {
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{t('suppliers.title')}</h1>
-        {canCreate ? (
-          <Button asChild>
-            <Link to="/purchasing/suppliers/new">
-              <Plus className="me-2 size-4" />
-              {t('suppliers.new')}
-            </Link>
-          </Button>
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        title={t('suppliers.title')}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canCreate ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  setNewSupplierFormKey((k) => k + 1);
+                  setNewSupplierOpen(true);
+                }}
+              >
+                <Plus className="me-2 size-4" />
+                {t('suppliers.new')}
+              </Button>
+            ) : null}
+          </div>
+        }
+      />
       <DataTable
         mode="client"
         columns={columns}
@@ -73,6 +87,21 @@ export default function SuppliersList() {
         isError={isError}
         onRetry={() => void refetch()}
       />
+
+      <FloatingFormDialog
+        open={newSupplierOpen}
+        onOpenChange={setNewSupplierOpen}
+        title={t('suppliers.new')}
+        maxWidth="lg"
+      >
+        {newSupplierOpen ? (
+          <SupplierForm
+            key={newSupplierFormKey}
+            variant="dialog"
+            onDismiss={() => setNewSupplierOpen(false)}
+          />
+        ) : null}
+      </FloatingFormDialog>
     </div>
   );
 }

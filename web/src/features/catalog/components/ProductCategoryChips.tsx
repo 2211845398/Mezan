@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { TableCategoryTags } from '@/components/shared/TableCategoryTags';
 
 import type { ProductRead } from '../api';
 
@@ -11,8 +11,8 @@ type ProductCategoryChipsProps = {
 const MAX_VISIBLE_CATEGORY_CHIPS = 2;
 
 /**
- * Primary category + additional tag categories for catalog tables.
- * Shows at most two chips total (primary + one tag when extras exist).
+ * Primary category + additional tag categories for catalog tables (`/catalog/products`).
+ * Delegates rendering to {@link TableCategoryTags} for parity with inventory stock.
  */
 export function ProductCategoryChips({ product, nameById, className }: ProductCategoryChipsProps) {
   const primary = product.category_id;
@@ -23,23 +23,10 @@ export function ProductCategoryChips({ product, nameById, className }: ProductCa
 
   const fullListTitle = linked.map((id) => nameById.get(id) ?? String(id)).join(' · ');
 
-  return (
-    <div className={cn('flex flex-wrap items-center gap-1', className)} title={fullListTitle}>
-      <span
-        className="max-w-[10rem] truncate rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-foreground"
-        title={nameById.get(primary) ?? String(primary)}
-      >
-        {nameById.get(primary) ?? primary}
-      </span>
-      {visibleTags.map((id) => (
-        <span
-          key={id}
-          className="max-w-[8rem] truncate rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-          title={nameById.get(id) ?? String(id)}
-        >
-          {nameById.get(id) ?? id}
-        </span>
-      ))}
-    </div>
-  );
+  const labels: string[] = [String(nameById.get(primary) ?? primary)];
+  for (const id of visibleTags) {
+    labels.push(String(nameById.get(id) ?? id));
+  }
+
+  return <TableCategoryTags tags={labels} title={fullListTitle} className={className} />;
 }

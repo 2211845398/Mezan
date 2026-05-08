@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import * as api from './api';
+import { invoiceScanDetailQueryOptions, invoiceScansListQueryOptions } from '@/features/invoice_scans/queries';
 
 export const purchasingKeys = {
   root: ['purchasing'] as const,
@@ -9,8 +10,6 @@ export const purchasingKeys = {
   suppliers: () => [...purchasingKeys.root, 'suppliers'] as const,
   supplier: (id: number) => [...purchasingKeys.root, 'supplier', id] as const,
   receipts: (poId: number) => [...purchasingKeys.root, 'receipts', poId] as const,
-  matchScans: (status?: string) => [...purchasingKeys.root, 'match-scans', status ?? 'all'] as const,
-  scan: (id: number) => [...purchasingKeys.root, 'scan', id] as const,
 };
 
 export function purchaseOrdersQueryOptions(status?: string) {
@@ -52,16 +51,13 @@ export function goodsReceiptsQueryOptions(poId: number) {
 }
 
 export function matchQueueQueryOptions(status?: string) {
-  return queryOptions({
-    queryKey: purchasingKeys.matchScans(status),
-    queryFn: () => api.listInvoiceScansForMatch({ limit: 100, offset: 0, ...(status ? { status } : {}) }),
+  return invoiceScansListQueryOptions({
+    limit: 100,
+    offset: 0,
+    ...(status ? { status } : {}),
   });
 }
 
 export function invoiceScanQueryOptions(id: number) {
-  return queryOptions({
-    queryKey: purchasingKeys.scan(id),
-    queryFn: () => api.getInvoiceScan(id),
-    enabled: !Number.isNaN(id),
-  });
+  return invoiceScanDetailQueryOptions(id);
 }

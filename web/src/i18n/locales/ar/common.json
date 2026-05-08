@@ -6,10 +6,10 @@
     "catalog_products": "المنتجات",
     "catalog_categories": "الفئات",
     "inventory": "المخزون",
-    "inventory_stock": "الأرصدة",
-    "inventory_adjustments": "التسويات",
-    "inventory_transfers": "التحويلات",
-    "inventory_scans": "مسح الفواتير",
+    "inventory_stock": "المخزون والأرصدة",
+    "inventory_adjustments": "حركات المخزون",
+    "inventory_transfers": "التحويلات الداخلية",
+    "inventory_scans": "مستندات الشراء",
     "purchasing": "المشتريات",
     "purchasing_orders": "أوامر الشراء",
     "purchasing_suppliers": "الموردون",
@@ -194,5 +194,8 @@
     "retry": "إعادة المحاولة",
     "close": "إغلاق",
     "clear": "مسح"
+  },
+  "file_drop": {
+    "select_file": "رفع ملف"
   }
 }

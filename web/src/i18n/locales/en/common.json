@@ -5,11 +5,11 @@
     "catalog": "Catalog",
     "catalog_products": "Products",
     "catalog_categories": "Categories",
-    "inventory": "Inventory",
-    "inventory_stock": "Stock",
-    "inventory_adjustments": "Adjustments",
-    "inventory_transfers": "Transfers",
-    "inventory_scans": "Invoice scans",
+    "inventory": "المخزون",
+    "inventory_stock": "المخزون والأرصدة",
+    "inventory_adjustments": "حركات المخزون",
+    "inventory_transfers": "التحويلات",
+    "inventory_scans": "Purchase documents",
     "purchasing": "Purchasing",
     "purchasing_orders": "Purchase orders",
     "purchasing_suppliers": "Suppliers",
@@ -194,5 +194,8 @@
     "retry": "Retry",
     "close": "Close",
     "clear": "Clear"
+  },
+  "file_drop": {
+    "select_file": "Upload file"
   }
 }

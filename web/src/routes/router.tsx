@@ -72,6 +72,7 @@ const CatalogCategoryProperties = lazy(
   () => import('@/features/catalog/pages/categories/CategoryPropertiesPage'),
 );
 const InventoryStockOnHand = lazy(() => import('@/features/inventory/pages/stock/StockOnHand'));
+const InventoryProductStockCard = lazy(() => import('@/features/inventory/pages/stock/ProductStockCard'));
 const InventoryAdjustmentsList = lazy(
   () => import('@/features/inventory/pages/adjustments/AdjustmentsList'),
 );
@@ -80,16 +81,20 @@ const InventoryAdjustmentForm = lazy(
 );
 const InventoryTransfersList = lazy(() => import('@/features/inventory/pages/transfers/TransfersList'));
 const InventoryTransferForm = lazy(() => import('@/features/inventory/pages/transfers/TransferForm'));
-const InventoryScansList = lazy(() => import('@/features/inventory/pages/scans/ScansList'));
-const InventoryScanReview = lazy(() => import('@/features/inventory/pages/scans/ScanReview'));
+const InventoryScansIndexRedirect = lazy(
+  () => import('@/features/invoice_scans/pages/InventoryScansIndexRedirect'),
+);
+const InventoryScansDetailRedirect = lazy(
+  () => import('@/features/invoice_scans/pages/InventoryScansDetailRedirect'),
+);
 
 const PurchasingOrdersList = lazy(() => import('@/features/purchasing/pages/orders/OrdersList'));
 const PurchasingOrderForm = lazy(() => import('@/features/purchasing/pages/orders/OrderForm'));
 const PurchasingOrderDetail = lazy(() => import('@/features/purchasing/pages/orders/OrderDetail'));
 const PurchasingSuppliersList = lazy(() => import('@/features/purchasing/pages/suppliers/SuppliersList'));
 const PurchasingSupplierForm = lazy(() => import('@/features/purchasing/pages/suppliers/SupplierForm'));
-const PurchasingMatchQueue = lazy(() => import('@/features/purchasing/pages/invoice-match/MatchQueue'));
-const PurchasingMatchReview = lazy(() => import('@/features/purchasing/pages/invoice-match/MatchReview'));
+const InvoiceScanQueue = lazy(() => import('@/features/invoice_scans/pages/InvoiceScanQueue'));
+const InvoiceScanDetail = lazy(() => import('@/features/invoice_scans/pages/InvoiceScanDetail'));
 
 const AccountingJournalList = lazy(() => import('@/features/accounting/pages/journal/JournalList'));
 const AccountingJournalDetail = lazy(() => import('@/features/accounting/pages/journal/JournalDetail'));
@@ -329,6 +334,14 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="/inventory/stock" replace /> },
               {
+                path: 'stock/:productId',
+                element: (
+                  <RequirePermission resource="inventory" action="read">
+                    {withSuspense(InventoryProductStockCard)}
+                  </RequirePermission>
+                ),
+              },
+              {
                 path: 'stock',
                 element: (
                   <RequirePermission resource="inventory" action="read">
@@ -393,7 +406,7 @@ export const router = createBrowserRouter([
                     index: true,
                     element: (
                       <RequirePermission resource="invoice_scans" action="read">
-                        {withSuspense(InventoryScansList)}
+                        {withSuspense(InventoryScansIndexRedirect)}
                       </RequirePermission>
                     ),
                   },
@@ -401,7 +414,7 @@ export const router = createBrowserRouter([
                     path: ':id',
                     element: (
                       <RequirePermission resource="invoice_scans" action="read">
-                        {withSuspense(InventoryScanReview)}
+                        {withSuspense(InventoryScansDetailRedirect)}
                       </RequirePermission>
                     ),
                   },
@@ -488,16 +501,16 @@ export const router = createBrowserRouter([
                   {
                     index: true,
                     element: (
-                      <RequirePermission resource="invoice_scans" action="validate">
-                        {withSuspense(PurchasingMatchQueue)}
+                      <RequirePermission resource="invoice_scans" action="read">
+                        {withSuspense(InvoiceScanQueue)}
                       </RequirePermission>
                     ),
                   },
                   {
                     path: ':id',
                     element: (
-                      <RequirePermission resource="invoice_scans" action="validate">
-                        {withSuspense(PurchasingMatchReview)}
+                      <RequirePermission resource="invoice_scans" action="read">
+                        {withSuspense(InvoiceScanDetail)}
                       </RequirePermission>
                     ),
                   },

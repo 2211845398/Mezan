@@ -1,5 +1,6 @@
-import { Upload } from 'lucide-react';
+import { Camera, Upload } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,7 @@ export function FileDrop({
   onFiles,
   'aria-label': ariaLabel = 'File upload',
 }: FileDropProps) {
+  const { t } = useTranslation('common');
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -93,13 +95,15 @@ export function FileDrop({
       />
       <Button
         type="button"
-        variant="secondary"
+        variant="outline"
         size="sm"
+        className="gap-2 rounded-lg border-secondary/60"
         onClick={() => inputRef.current?.click()}
         disabled={disabled}
         aria-describedby={id + '-desc'}
       >
-        Select file
+        <Camera className="size-4 shrink-0" aria-hidden />
+        {t('file_drop.select_file')}
       </Button>
     </div>
   );

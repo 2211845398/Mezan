@@ -79,6 +79,8 @@ export type DataTableProps<TData> = {
   className?: string;
   /** Merged onto the inner `<table>` (e.g. `table-fixed` with explicit column sizes). */
   tableClassName?: string;
+  /** Sets `dir` on the bordered table wrapper (e.g. `rtl` for Arabic list columns). */
+  tableDir?: 'rtl' | 'ltr';
 };
 
 export function DataTable<TData>({
@@ -101,6 +103,7 @@ export function DataTable<TData>({
   estimatedRowHeight = 40,
   className,
   tableClassName,
+  tableDir,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
 
@@ -323,7 +326,9 @@ export function DataTable<TData>({
         showSearch={showSearch}
       />
 
-      <div className="rounded-md border">{body}</div>
+      <div className="rounded-md border" dir={tableDir}>
+        {body}
+      </div>
 
       <Pagination
         page={page}

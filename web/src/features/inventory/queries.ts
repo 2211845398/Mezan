@@ -1,9 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import {
-  getInvoiceScan,
+  getProductStockCard,
   getTransferBatch,
-  listInvoiceScans,
+  listReorderAlerts,
   listStockMovements,
   listStockOnHand,
   listTransferBatches,
@@ -15,24 +15,50 @@ export const inventoryKeys = {
   movements: (q: Record<string, unknown>) => [...inventoryKeys.root, 'movements', q] as const,
   transfers: (q: Record<string, unknown>) => [...inventoryKeys.root, 'transfers', q] as const,
   transfer: (id: number) => [...inventoryKeys.root, 'transfer', id] as const,
-  scans: (q: Record<string, unknown>) => [...inventoryKeys.root, 'scans', q] as const,
-  scan: (id: number) => [...inventoryKeys.root, 'scan', id] as const,
+  reorderAlerts: (q: Record<string, unknown>) => [...inventoryKeys.root, 'reorderAlerts', q] as const,
+  stockCard: (productId: number) => [...inventoryKeys.root, 'stockCard', productId] as const,
 };
 
-export function useStockOnHandQuery(params: {
-  branch_id?: number;
-  category_id?: number;
-  q?: string;
-  limit?: number;
-  offset?: number;
-}) {
-  return useQuery({
+export function stockOnHandQueryOptions(params: Record<string, unknown>) {
+  return queryOptions({
     queryKey: inventoryKeys.stockOnHand(params),
-    queryFn: () => listStockOnHand(params),
+    queryFn: () =>
+      listStockOnHand({
+        ...(params.branch_id != null && params.branch_id !== ''
+          ? { branch_id: Number(params.branch_id) }
+          : {}),
+        ...(params.category_id != null && params.category_id !== ''
+          ? { category_id: Number(params.category_id) }
+          : {}),
+        ...(params.q ? { q: String(params.q) } : {}),
+        ...(params.reorder_only ? { reorder_only: true } : {}),
+        ...(params.status && params.status !== 'all' ? { status: String(params.status) } : {}),
+        ...(params.sort ? { sort: String(params.sort) } : {}),
+        limit: params.limit != null ? Number(params.limit) : 500,
+        offset: params.offset != null ? Number(params.offset) : 0,
+      }),
   });
 }
 
-export function useMovementsQuery(params: { branch_id?: number; limit?: number; offset?: number }) {
+export function reorderAlertsQueryOptions(params: { branch_id?: number } = {}) {
+  return queryOptions({
+    queryKey: inventoryKeys.reorderAlerts(params),
+    queryFn: () => listReorderAlerts(params),
+  });
+}
+
+export function stockCardQueryOptions(productId: number) {
+  return queryOptions({
+    queryKey: inventoryKeys.stockCard(productId),
+    queryFn: () => getProductStockCard(productId),
+  });
+}
+
+export function useStockOnHandQuery(params: Record<string, unknown>) {
+  return useQuery(stockOnHandQueryOptions(params));
+}
+
+export function useMovementsQuery(params: { branch_id?: number; product_id?: number; limit?: number; offset?: number }) {
   return useQuery({
     queryKey: inventoryKeys.movements(params),
     queryFn: () => listStockMovements({ ...params, limit: params.limit ?? 100, offset: params.offset ?? 0 }),
@@ -54,17 +80,14 @@ export function useTransferQuery(id: number | null) {
   });
 }
 
-export function useInvoiceScansListQuery(params?: { status?: string; limit?: number; offset?: number }) {
-  return useQuery({
-    queryKey: inventoryKeys.scans(params ?? {}),
-    queryFn: () => listInvoiceScans(params),
-  });
+export function useReorderAlertsQuery(params: { branch_id?: number } = {}) {
+  return useQuery(reorderAlertsQueryOptions(params));
 }
 
-export function useInvoiceScanQuery(id: number | null) {
+export function useStockCardQuery(productId: number | null) {
+  const id = productId ?? 0;
   return useQuery({
-    queryKey: inventoryKeys.scan(id ?? 0),
-    queryFn: () => getInvoiceScan(id!),
-    enabled: id != null,
+    ...stockCardQueryOptions(id),
+    enabled: productId != null && productId > 0,
   });
 }

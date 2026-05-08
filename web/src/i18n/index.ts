@@ -11,6 +11,7 @@ import arCatalog from './locales/ar/catalog.json';
 import arCommon from './locales/ar/common.json';
 import arCrm from './locales/ar/crm.json';
 import arHr from './locales/ar/hr.json';
+import arInvoiceScans from './locales/ar/invoice_scans.json';
 import arInventory from './locales/ar/inventory.json';
 import arMarketing from './locales/ar/marketing.json';
 import arPayroll from './locales/ar/payroll.json';
@@ -25,6 +26,7 @@ import enCatalog from './locales/en/catalog.json';
 import enCommon from './locales/en/common.json';
 import enCrm from './locales/en/crm.json';
 import enHr from './locales/en/hr.json';
+import enInvoiceScans from './locales/en/invoice_scans.json';
 import enInventory from './locales/en/inventory.json';
 import enMarketing from './locales/en/marketing.json';
 import enPayroll from './locales/en/payroll.json';
@@ -45,6 +47,7 @@ export const resources = {
     accounting: arAccounting,
     catalog: arCatalog,
     hr: arHr,
+    invoiceScans: arInvoiceScans,
     inventory: arInventory,
     payroll: arPayroll,
     crm: arCrm,
@@ -61,6 +64,7 @@ export const resources = {
     accounting: enAccounting,
     catalog: enCatalog,
     hr: enHr,
+    invoiceScans: enInvoiceScans,
     inventory: enInventory,
     payroll: enPayroll,
     crm: enCrm,
@@ -89,6 +93,7 @@ void i18n
       'bi',
       'ai',
       'hr',
+      'invoiceScans',
       'inventory',
       'payroll',
       'purchasing',

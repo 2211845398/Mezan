@@ -23,6 +23,7 @@ from app.models.fiscal_period import FiscalPeriod
 from app.models.global_config import GlobalConfig
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
+from app.models.inventory_policy import InventoryPolicy
 from app.models.invoice_scan import InvoiceScan
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.leave_request import LeaveRequest, LeaveStatus, LeaveType
@@ -149,6 +150,7 @@ __all__ = [
     "StockMovement",
     "GoodsReceipt",
     "GoodsReceiptLine",
+    "InventoryPolicy",
     "FiscalPeriod",
     "TransferBatch",
     "TransferLine",

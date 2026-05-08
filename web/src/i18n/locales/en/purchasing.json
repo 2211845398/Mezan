@@ -123,6 +123,24 @@
       "line_confirmed": "Confirmed"
     }
   },
+  "document_intake": {
+    "upload_document": "Upload document",
+    "dialog_title": "Upload purchase document",
+    "dialog_description": "Upload an image of an invoice or delivery note. It will be analyzed and listed here as pending matching until you complete review.",
+    "uploading": "Uploading…",
+    "upload_success": "Document received — processing started.",
+    "close": "Close",
+    "pending_title": "Documents awaiting matching",
+    "pending_empty": "No documents awaiting matching.",
+    "col_id": "Scan #",
+    "col_created": "Created",
+    "col_status": "Status",
+    "col_actions": "Actions",
+    "review_action": "Review & match",
+    "approve_hint": "Use Review & match to approve catalog matches and post receipt, or Dismiss to hide this row on this page only.",
+    "reject": "Dismiss",
+    "reject_toast": "Hidden on this page. The scan remains under Purchase documents."
+  },
   "errors": {
     "generic": "Something went wrong"
   }

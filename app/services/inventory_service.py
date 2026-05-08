@@ -22,22 +22,47 @@ def _is_retryable_inventory_integrity_error(error: IntegrityError) -> bool:
     )
 
 
-async def apply_stock_movement(
+def _validate_stock_level_invariants(level: StockLevel) -> None:
+    if level.on_hand < 0 or level.reserved < 0 or level.damaged < 0:
+        raise ValidationError(
+            "Stock levels cannot be negative",
+            details={
+                "on_hand": level.on_hand,
+                "reserved": level.reserved,
+                "damaged": level.damaged,
+            },
+        )
+    if level.reserved + level.damaged > level.on_hand:
+        raise ValidationError(
+            "reserved + damaged cannot exceed on_hand",
+            details={
+                "on_hand": level.on_hand,
+                "reserved": level.reserved,
+                "damaged": level.damaged,
+            },
+        )
+
+
+async def apply_stock_movement_extended(
     db: AsyncSession,
     *,
     idempotency_key: str,
     branch_id: int,
     product_id: int,
-    qty_delta: int,
+    on_hand_delta: int = 0,
+    reserved_delta: int = 0,
+    damaged_delta: int = 0,
     reason: str,
     ref_type: str | None = None,
     ref_id: str | None = None,
+    movement_kind: str | None = None,
+    notes: str | None = None,
+    user_id: int | None = None,
 ) -> StockMovement:
-    if qty_delta == 0:
-        raise ValidationError("qty_delta cannot be zero")
+    if on_hand_delta == 0 and reserved_delta == 0 and damaged_delta == 0:
+        raise ValidationError("At least one of on_hand_delta, reserved_delta, damaged_delta must be non-zero")
 
     for attempt in range(2):
-        # Idempotency: if movement exists, return it.
         existing = await db.execute(
             select(StockMovement).where(StockMovement.idempotency_key == idempotency_key)
         )
@@ -46,8 +71,6 @@ async def apply_stock_movement(
             return movement
 
         try:
-            # Keep the stock update and movement insert in the same savepoint so
-            # idempotency races cannot leave stock mutated without a ledger row.
             async with db.begin_nested():
                 res = await db.execute(
                     select(StockLevel).where(
@@ -61,6 +84,7 @@ async def apply_stock_movement(
                         product_id=product_id,
                         on_hand=0,
                         reserved=0,
+                        damaged=0,
                     )
                     db.add(level)
                     await db.flush()
@@ -74,7 +98,12 @@ async def apply_stock_movement(
                             StockLevel.version == expected_version,
                         )
                     )
-                    .values(on_hand=StockLevel.on_hand + qty_delta, version=StockLevel.version + 1)
+                    .values(
+                        on_hand=StockLevel.on_hand + on_hand_delta,
+                        reserved=StockLevel.reserved + reserved_delta,
+                        damaged=StockLevel.damaged + damaged_delta,
+                        version=StockLevel.version + 1,
+                    )
                     .returning(StockLevel.id)
                 )
                 upd = await db.execute(stmt)
@@ -84,14 +113,23 @@ async def apply_stock_movement(
                         details={"branch_id": branch_id, "product_id": product_id},
                     )
 
+                chk = await db.execute(select(StockLevel).where(StockLevel.id == level.id))
+                updated = chk.scalar_one()
+                _validate_stock_level_invariants(updated)
+
                 movement = StockMovement(
                     idempotency_key=idempotency_key,
                     branch_id=branch_id,
                     product_id=product_id,
-                    qty_delta=qty_delta,
+                    qty_delta=on_hand_delta,
                     reason=reason,
                     ref_type=ref_type,
                     ref_id=ref_id,
+                    movement_kind=movement_kind,
+                    notes=notes,
+                    user_id=user_id,
+                    reserved_delta=reserved_delta if reserved_delta != 0 else None,
+                    damaged_delta=damaged_delta if damaged_delta != 0 else None,
                 )
                 db.add(movement)
                 await db.flush()
@@ -112,3 +150,33 @@ async def apply_stock_movement(
         return movement
 
     raise ConflictError("Inventory movement conflict")
+
+
+async def apply_stock_movement(
+    db: AsyncSession,
+    *,
+    idempotency_key: str,
+    branch_id: int,
+    product_id: int,
+    qty_delta: int,
+    reason: str,
+    ref_type: str | None = None,
+    ref_id: str | None = None,
+) -> StockMovement:
+    if qty_delta == 0:
+        raise ValidationError("qty_delta cannot be zero")
+    return await apply_stock_movement_extended(
+        db,
+        idempotency_key=idempotency_key,
+        branch_id=branch_id,
+        product_id=product_id,
+        on_hand_delta=qty_delta,
+        reserved_delta=0,
+        damaged_delta=0,
+        reason=reason,
+        ref_type=ref_type,
+        ref_id=ref_id,
+        movement_kind=None,
+        notes=None,
+        user_id=None,
+    )

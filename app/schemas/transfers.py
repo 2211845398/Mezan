@@ -14,6 +14,7 @@ class TransferLineCreate(BaseModel):
 
 class TransferLineRead(TransferLineCreate):
     id: int
+    product_name: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -28,8 +29,11 @@ class TransferBatchRead(BaseModel):
     id: int
     from_branch_id: int
     to_branch_id: int
+    from_branch_name: str = ""
+    to_branch_name: str = ""
     status: str
     created_by_user_id: int | None
+    created_by_user_name: str | None = None
     dispatched_at: datetime | None
     received_at: datetime | None
     created_at: datetime

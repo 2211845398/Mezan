@@ -1,34 +1,199 @@
 {
   "loading": "Loading…",
-  "actions": { "back": "Back", "open": "Open", "submit": "Submit", "cancel": "Cancel", "create": "Create", "add_line": "Add line" },
+  "actions": {
+    "back": "Back",
+    "open": "Open",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "create": "Create",
+    "add_line": "Add line"
+  },
   "errors": { "generic": "Something went wrong." },
   "stock": {
-    "title": "Stock on hand",
+    "title": "Inventory & stock",
+    "subtitle": "Operational view of availability, coverage, and reorder health by branch.",
     "wavg_note": "Unit cost is weighted-average (display only).",
-    "filter": { "branch": "Branch", "category": "Category", "all_branches": "All branches", "all_categories": "All categories" },
-    "col": { "branch": "Branch", "sku": "SKU", "product": "Product", "category": "Category", "qty": "On hand", "unit_cost": "Unit cost", "extended": "Extended" }
+    "po_created": "Created {{count}} draft purchase order(s).",
+    "action": {
+      "movement": "New movement",
+      "transfer": "New transfer",
+      "create_po_alerts": "Create POs from alerts"
+    },
+    "kpi": {
+      "low": "Items below reorder point",
+      "out": "Items out of stock",
+      "reserved_units": "Total reserved units",
+      "damaged_units": "Total damaged units",
+      "in_transit_units": "Total units in transit"
+    },
+    "search": { "label": "Search product", "placeholder": "Name or SKU…", "button": "Search" },
+    "filter": {
+      "branch": "Branch",
+      "category": "Category",
+      "all_branches": "All branches",
+      "all_categories": "All categories",
+      "reorder_only": "Reorder alerts only"
+    },
+    "reorder_status": {
+      "none": "No policy",
+      "ok": "OK",
+      "below_reorder": "Below reorder",
+      "out_of_stock": "Out of stock"
+    },
+    "col": {
+      "branch": "Branch",
+      "sku": "SKU",
+      "product": "Product",
+      "category": "Category",
+      "qty": "On hand",
+      "available": "Available quantity",
+      "on_hand": "Quantity on hand",
+      "reserved": "Reserved",
+      "damaged": "Damaged",
+      "on_order": "On order",
+      "in_transit_in": "Inbound goods",
+      "in_transit_out": "Outbound goods",
+      "reorder_point": "Reorder point",
+      "days_cover": "Days of cover",
+      "status": "Status",
+      "unit_cost": "Unit cost",
+      "extended": "Extended"
+    }
+  },
+  "stockCard": {
+    "invalid": "Invalid product.",
+    "branches": "By branch",
+    "movements": "Recent movements",
+    "view_catalog": "Catalog product",
+    "col": {
+      "branch": "Branch",
+      "available": "Available quantity",
+      "on_hand": "Quantity on hand",
+      "reserved": "Reserved",
+      "damaged": "Damaged",
+      "on_order": "On order",
+      "in_transit_in": "Inbound goods",
+      "in_transit_out": "Outbound goods",
+      "reorder_point": "Reorder point",
+      "days_cover": "Days of cover",
+      "status": "Status"
+    }
   },
   "adjustments": {
-    "title": "Stock adjustments",
-    "new": "New adjustment",
-    "posted": "Adjustment posted",
-    "field": { "branch": "Branch", "product": "Product", "delta": "Quantity delta", "reason": "Reason" },
-    "col": { "branch": "Branch", "product": "Product", "delta": "Delta", "reason": "Reason", "at": "Time" }
+    "title": "Inventory movements",
+    "new": "Record movement",
+    "posted": "Movement posted",
+    "field": {
+      "branch": "Branch",
+      "product": "Product",
+      "delta": "Quantity delta",
+      "reason": "Reason",
+      "reason_placeholder": "Reason",
+      "type": "Transaction type",
+      "quantity": "Quantity",
+      "qty_signed": "Count adjustment (+/−)",
+      "notes": "Notes",
+      "unit_cost": "Unit cost"
+    },
+    "errors": {
+      "unit_cost_add_stock": "Enter a positive unit cost when receiving goods (add stock)."
+    },
+    "col": {
+      "movement_no": "Movement #",
+      "branch": "Branch",
+      "product": "Product",
+      "delta": "Delta",
+      "reason": "Reason",
+      "at": "Time",
+      "kind": "Kind"
+    },
+    "txn": {
+      "add_stock": "Goods receipt",
+      "issue_stock": "Issue stock",
+      "return_stock": "Return to stock",
+      "damage_mark": "Mark damaged",
+      "damage_scrap": "Scrap damaged",
+      "reserve": "Reserve",
+      "release": "Release reservation",
+      "count_adjust": "Count adjustment"
+    }
   },
   "transfers": {
-    "title": "Transfers",
+    "title": "Internal transfers",
+    "subtitle": "Track shipments between branches from pending dispatch through receipt.",
     "new": "New transfer",
     "created": "Transfer created",
     "from": "From branch",
     "to": "To branch",
-    "line": { "product_id": "Product id", "qty": "Qty" },
-    "col": { "from": "From", "to": "To", "status": "Status", "created": "Created" },
+    "line": { "product_id": "Product id", "product": "Product", "qty": "Qty" },
+    "col": {
+      "transfer_no": "Transfer #",
+      "from": "From",
+      "to": "To",
+      "status": "Status",
+      "created": "Created"
+    },
     "dispatch": "Dispatch",
     "receive": "Receive",
-    "wavg_note": "Cost follows weighted-average on receive (GL posted server-side)."
+    "dispatched": "Shipment dispatched",
+    "received_ok": "Shipment received",
+    "cancel": "Cancel transfer",
+    "cancel_title": "Cancel this transfer?",
+    "cancel_desc": "The transfer will be permanently deleted because it has not been dispatched yet. This cannot be undone.",
+    "cancel_confirm": "Yes, cancel transfer",
+    "cancel_pending": "Cancelling…",
+    "cancelled": "Transfer cancelled",
+    "status": {
+      "pending_dispatch": "Pending dispatch",
+      "in_transit": "In transit",
+      "received": "Received"
+    },
+    "detail": {
+      "title": "Transfer #{{id}}",
+      "route_title": "Route",
+      "lines_title": "Shipment lines",
+      "meta_created": "Created",
+      "meta_updated": "Last updated",
+      "meta_dispatched": "Dispatched",
+      "meta_received": "Received",
+      "meta_creator": "Created by",
+      "totals": "Total units",
+      "line_count": "Line count",
+      "cost_note": "Cost is rolled in on receipt using weighted-average valuation.",
+      "dispatch_branch_hint": "Dispatch is performed only from the sending branch.",
+      "receive_branch_hint": "Receipt is confirmed only at the receiving branch."
+    },
+    "wavg_note": "Cost follows weighted-average on receive (GL posted server-side).",
+    "add_line_hint": "Adds the product and quantity to the transfer list after verifying the source branch has enough available stock (including quantities already added for the same product).",
+    "errors": {
+      "select_from_branch": "Choose the source (from) branch first.",
+      "stock_loading": "Stock for the source branch is still loading. Try again in a moment.",
+      "insufficient_at_source": "Available at source branch: {{available}} — total requested: {{requested}} (including current lines)."
+    },
+    "board": {
+      "tab_track": "Track board",
+      "tab_list": "Full history",
+      "search_placeholder": "Search by transfer # or branch name…",
+      "advanced_open": "Advanced filters",
+      "advanced_close": "Hide filters",
+      "date_from": "From date",
+      "date_to": "To date",
+      "filter_from": "From branch",
+      "filter_to": "To branch",
+      "all_branches": "All branches",
+      "column_pending": "Pending dispatch",
+      "column_transit": "In transit",
+      "column_received": "Received",
+      "empty": "No transfers in this stage",
+      "lines": "{{count}} lines",
+      "qty_total": "{{qty}} units",
+      "dispatched_at": "Dispatched",
+      "received_at": "Received",
+      "refresh": "Refresh"
+    }
   },
   "scans": {
-    "title": "Invoice scans",
+    "title": "Receiving scans",
     "review": "Review",
     "review_title": "Scan",
     "no_preview": "No image URL on this scan.",

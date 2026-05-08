@@ -1,4 +1,4 @@
-"""Read-only inventory reporting: stock on hand (W-5.3)."""
+"""Read-only inventory reporting: stock on hand (W-5.3 + operations redesign)."""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,9 @@ async def list_stock_on_hand_endpoint(
     branch_id: int | None = None,
     category_id: int | None = None,
     q: str | None = None,
+    reorder_only: bool = False,
+    status: str | None = None,
+    sort: str | None = None,
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
@@ -31,6 +34,9 @@ async def list_stock_on_hand_endpoint(
         branch_id=branch_id,
         category_id=category_id,
         q=q,
+        reorder_only=reorder_only,
+        status=status,
         limit=min(max(limit, 1), 500),
         offset=max(offset, 0),
+        sort=sort,
     )

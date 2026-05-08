@@ -7,6 +7,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { cn } from '@/lib/utils';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
@@ -52,14 +53,20 @@ type ReorderLocationState = {
   reorderLines?: Array<{ product_id: number; qty: number; unit_cost?: string }>;
 };
 
-export default function OrderForm() {
+export type OrderFormProps = {
+  variant?: 'page' | 'dialog';
+  onDismiss?: () => void;
+};
+
+export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProps = {}) {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation('purchasing');
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
-  const isNew = id === 'new';
-  const poId = id && !isNew ? Number(id) : NaN;
+  const pathnameIsNew = /\/purchasing\/orders\/new\/?$/.test(location.pathname);
+  const isNew = variant === 'dialog' ? true : pathnameIsNew || id === 'new';
+  const poId = !isNew && id ? Number(id) : NaN;
   const reorderAppliedRef = useRef(false);
 
   const { data: existing } = useQuery({
@@ -85,7 +92,7 @@ export default function OrderForm() {
 
   useEffect(() => {
     reorderAppliedRef.current = false;
-  }, [id]);
+  }, [location.pathname, variant]);
 
   useEffect(() => {
     if (!isNew || reorderAppliedRef.current) {
@@ -228,6 +235,10 @@ export default function OrderForm() {
     onSuccess: async (row) => {
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
       toast.success(t('orders.form.created'));
+      if (variant === 'dialog') {
+        onDismiss?.();
+        return;
+      }
       if (isNew) {
         navigate(`/purchasing/orders/${row.id}/edit`, { replace: true });
       }
@@ -264,15 +275,17 @@ export default function OrderForm() {
   });
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{isNew ? t('orders.new') : t('orders.edit')}</h1>
-        <Button type="button" variant="outline" asChild>
-          <Link to="/purchasing/orders">{t('orders.title')}</Link>
-        </Button>
-      </div>
+    <div className={cn('flex flex-col gap-4', variant === 'page' ? 'p-4' : '')}>
+      {variant === 'page' ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold">{isNew ? t('orders.new') : t('orders.edit')}</h1>
+          <Button type="button" variant="outline" asChild>
+            <Link to="/purchasing/orders">{t('orders.title')}</Link>
+          </Button>
+        </div>
+      ) : null}
 
-      <div className="grid max-w-3xl gap-4">
+      <div className={cn('grid w-full gap-4', variant === 'page' ? 'max-w-3xl' : '')}>
         <div className="grid gap-2">
           <Label>{t('orders.form.supplier')}</Label>
           <Select value={supplierId || '__none'} onValueChange={(v) => setSupplierId(v === '__none' ? '' : v)}>
@@ -411,6 +424,11 @@ export default function OrderForm() {
           <Button type="button" onClick={() => saveDraft.mutate()} disabled={saveDraft.isPending}>
             {t('orders.form.save_draft')}
           </Button>
+          {variant === 'dialog' && onDismiss ? (
+            <Button type="button" variant="ghost" onClick={onDismiss} disabled={saveDraft.isPending}>
+              {t('actions.cancel', { ns: 'common' })}
+            </Button>
+          ) : null}
           {!isNew && !Number.isNaN(poId) ? (
             <Button
               type="button"

@@ -105,6 +105,7 @@
 - [x] **2.4** Invoice scan pipeline (basic OCR provider).
 - [x] **2.5** Manual override / validation for scanned invoices.
 - [x] **2.6** Warehouse–store transfers with stock movements.
+- [x] **2.7** Inventory operations: per-branch `inventory_policies` (reorder + preferred supplier), `stock_levels.damaged`, extended movement ledger (`movement_kind`, `reserved_delta`, `damaged_delta`, …), `apply_stock_movement_extended`, human movement service, enriched `GET /inventory/stock-on-hand`, reorder alerts + draft PO creation from alerts, product stock card API.
 
 #### Epic 3 — Point of Sale
 - [x] **3.1** Shifts: open float, cash events, close / Z-style variance.
@@ -204,6 +205,8 @@
 #### Epic W-5 — Feature Modules (1:1 to backend)
 - [x] **W-5.2** POS web: `/pos` shell, `ShiftGate`, `PosRegister`, thermal receipts, offline queue stub.
 - [x] **W-5.3** Inventory and catalog: products, categories, price lists, stock, adjustments, transfers.
+- [x] **W-5.3.1** Inventory operations UI: stock workspace (KPI strip, search, reorder-only filter, PO-from-alerts), product stock card page, movement form (transaction types + `ProductSearch`), transfers with branch/product labels, receiving scans labels; manual TS API shapes until OpenAPI regen.
+
 - [x] **W-5.4** Purchase orders + goods receipts + invoice scans.
 - [x] **W-5.5** HR (employees, attendance, leave) + Payroll.
 - [x] **W-5.5.1** Pending employee onboarding requests page.
@@ -426,7 +429,7 @@ Pattern: offline queue with idempotent server reconciliation.
 
 When converting UI mockups (PDF/PNG) to implementation:
 
-1. **Inventory:** Map each view to route, domain, and primary user task.
+1. **Inventory (operations redesign):** Routes — `/inventory/stock` (dashboard + browser, URL filters `branch_id`, `category_id`, `q`, `reorder_only`), `/inventory/stock/:productId` (stock card), `/inventory/adjustments` + `/new` (movements ledger + human movement form → `POST /inventory/movements`), `/inventory/transfers` (+ `/new`, `/:id`), `/inventory/scans` (receiving). Backend — `GET /inventory/stock-on-hand` (enriched row), `GET/PATCH /inventory/policies/{branch_id}/{product_id}`, `GET /inventory/reorder-alerts`, `POST /inventory/reorder-alerts/create-purchase-order`, `GET /inventory/products/{id}/stock-card`, `POST /inventory/movements`; models `inventory_policies`, `stock_levels.damaged`, extended `stock_movements` metadata (Alembic `e1f2a3b4c5d6`, `f7a8b9c0d1e2`). Reuse patterns: `PageHeader`, `DataTable`, `ProductSearch`, `BranchStockFilterBar`, payroll-style `queryOptions` in `inventory/queries.ts`.
 2. **Pattern identification:** Identify repeated UI patterns before creating new components.
 3. **Token extraction:** Compare visual tokens to `tokens.css`; document proposed changes separately.
 4. **HCI review:** Check contrast, focus states, empty states, error states, touch targets.

@@ -17,6 +17,7 @@ from app.api.v1.executive_bi import router as executive_bi_router
 from app.api.v1.goods_receipts import router as goods_receipts_router
 from app.api.v1.health import router as health_router
 from app.api.v1.inventory_adjustments import router as inventory_adjustments_router
+from app.api.v1.inventory_operations import router as inventory_operations_router
 from app.api.v1.inventory_reporting import router as inventory_reporting_router
 from app.api.v1.invoice_scans import router as invoice_scans_router
 from app.api.v1.loyalty import router as loyalty_router
@@ -51,6 +52,7 @@ __all__ = [
     "goods_receipts_router",
     "health_router",
     "inventory_adjustments_router",
+    "inventory_operations_router",
     "inventory_reporting_router",
     "invoice_scans_router",
     "loyalty_router",

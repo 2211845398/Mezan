@@ -26,4 +26,22 @@ describe('W-5.3 inventory API wiring', () => {
     });
     expect(res).toEqual({ movement_id: 42 });
   });
+
+  it('postHumanInventoryMovement hits MSW', async () => {
+    const mod = await import('../api');
+    server.use(
+      http.post(`${API}/inventory/movements`, () =>
+        HttpResponse.json({ movement_id: 9 }, { status: 200 }),
+      ),
+    );
+    const res = await mod.postHumanInventoryMovement({
+      idempotency_key: 'b'.repeat(12),
+      branch_id: 1,
+      product_id: 2,
+      transaction_type: 'add_stock',
+      quantity: 3,
+      unit_cost: '10.5000',
+    });
+    expect(res).toEqual({ movement_id: 9 });
+  });
 });

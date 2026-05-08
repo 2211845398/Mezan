@@ -41,6 +41,7 @@ from app.api.v1 import (
     goods_receipts_router,
     health_router,
     inventory_adjustments_router,
+    inventory_operations_router,
     inventory_reporting_router,
     invoice_scans_router,
     loyalty_router,
@@ -255,6 +256,7 @@ app.include_router(transfers_router, prefix="/api/v1", tags=["transfers"])
 app.include_router(pos_shifts_router, prefix="/api/v1", tags=["pos_shifts"])
 app.include_router(inventory_adjustments_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(inventory_reporting_router, prefix="/api/v1", tags=["inventory"])
+app.include_router(inventory_operations_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(customers_router, prefix="/api/v1", tags=["customers"])
 app.include_router(employees_router, prefix="/api/v1", tags=["employees"])
 app.include_router(carts_router, prefix="/api/v1", tags=["pos_carts"])

@@ -3,11 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,13 +30,20 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export default function SupplierForm() {
+export type SupplierFormProps = {
+  variant?: 'page' | 'dialog';
+  onDismiss?: () => void;
+};
+
+export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFormProps = {}) {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation('purchasing');
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
-  const isNew = id === 'new';
-  const supplierId = id && !isNew ? Number(id) : NaN;
+  const pathnameIsNew = /\/purchasing\/suppliers\/new\/?$/.test(location.pathname);
+  const isNew = variant === 'dialog' ? true : pathnameIsNew || id === 'new';
+  const supplierId = !isNew && id ? Number(id) : NaN;
 
   const { data: existing } = useQuery({
     ...supplierQueryOptions(supplierId),
@@ -103,6 +111,10 @@ export default function SupplierForm() {
     onSuccess: (row) => {
       void qc.invalidateQueries({ queryKey: purchasingKeys.suppliers() });
       toast.success(t('suppliers.form.created'));
+      if (variant === 'dialog') {
+        onDismiss?.();
+        return;
+      }
       if (isNew) {
         navigate(`/purchasing/suppliers/${row.id}/edit`, { replace: true });
       }
@@ -111,13 +123,15 @@ export default function SupplierForm() {
   });
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{isNew ? t('suppliers.new') : t('suppliers.edit')}</h1>
-        <Button type="button" variant="outline" asChild>
-          <Link to="/purchasing/suppliers">{t('suppliers.title')}</Link>
-        </Button>
-      </div>
+    <div className={cn('mx-auto flex w-full max-w-lg flex-col gap-4', variant === 'page' ? 'p-4' : '')}>
+      {variant === 'page' ? (
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold">{isNew ? t('suppliers.new') : t('suppliers.edit')}</h1>
+          <Button type="button" variant="outline" asChild>
+            <Link to="/purchasing/suppliers">{t('suppliers.title')}</Link>
+          </Button>
+        </div>
+      ) : null}
       <form
         className="flex flex-col gap-3"
         onSubmit={form.handleSubmit((v) => save.mutate(v))}
@@ -154,9 +168,16 @@ export default function SupplierForm() {
           <Label htmlFor="payables_account_id">{t('suppliers.form.payables_account_id')}</Label>
           <Input id="payables_account_id" type="number" {...form.register('payables_account_id')} />
         </div>
-        <Button type="submit" disabled={save.isPending}>
-          {t('suppliers.form.save')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" disabled={save.isPending}>
+            {t('suppliers.form.save')}
+          </Button>
+          {variant === 'dialog' && onDismiss ? (
+            <Button type="button" variant="ghost" onClick={onDismiss} disabled={save.isPending}>
+              {t('actions.cancel', { ns: 'common' })}
+            </Button>
+          ) : null}
+        </div>
       </form>
     </div>
   );

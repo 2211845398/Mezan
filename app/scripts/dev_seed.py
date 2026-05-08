@@ -297,6 +297,7 @@ async def _ensure_products_prices_stock_terminals(
                         product_id=product.id,
                         on_hand=on_hand,
                         reserved=0,
+                        damaged=0,
                         version=0,
                     )
                 )

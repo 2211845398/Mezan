@@ -1,0 +1,63 @@
+{
+  "errors": {
+    "generic": "حدث خطأ"
+  },
+  "queue": {
+    "title": "مستندات الشراء",
+    "new_document": "مستند جديد",
+    "upload_hint": "ارفع صورة (ينشئ مسحاً جديداً)",
+    "review": "مراجعة",
+    "filter_status": "الحالة",
+    "all_statuses": "الكل",
+    "col": {
+      "id": "المسح",
+      "status": "الحالة",
+      "source": "المصدر",
+      "provider": "المزوّد",
+      "created": "تاريخ الإنشاء"
+    }
+  },
+  "map_ui": {
+    "needs_review": "بانتظار المطابقة",
+    "validated": "تمت المطابقة",
+    "failed": "مرفوض"
+  },
+  "status": {
+    "received": "مستلم",
+    "parsed": "تم التحليل",
+    "needs_review": "مراجعة",
+    "validated": "تم التحقق",
+    "failed": "فشل"
+  },
+  "detail": {
+    "review_title": "المستند",
+    "back_queue": "العودة للقائمة",
+    "no_preview": "لا يوجد رابط صورة لهذا المسح.",
+    "parsed_json": "JSON المُحلّل / التعديل",
+    "save_override": "حفظ التعديل",
+    "override_ok": "تم حفظ التعديل",
+    "json_invalid": "JSON غير صالح",
+    "validated": "تم التحقق",
+    "validate_branch": "الاستلام في الفرع",
+    "approve_validate": "التحقق وتسجيل استلام البضائع",
+    "validate_gl_note": "يُرحَّل القيد المحاسبي في الخادم عند نجاح التحقق.",
+    "reupload": "رفع صورة جديدة (ينشئ سجلاً مسحاً جديداً)",
+    "reuploaded": "تم إنشاء مسح جديد",
+    "section_document": "المستند",
+    "section_catalog": "مطابقة الكتالوج",
+    "section_finalize": "إتمام الاستلام",
+    "parsed": "البنود المُحلّلة",
+    "suggestions": "اقتراحات مطابقة الكتالوج",
+    "confirm": "تأكيد",
+    "change": "تغيير",
+    "skip": "تخطّي",
+    "create_product": "إنشاء منتج",
+    "approve_all": "اعتماد الكل",
+    "apply_ok": "تم تطبيق المطابقات",
+    "load_suggestions": "تحميل الاقتراحات",
+    "confidence": "الثقة",
+    "no_candidates": "لا توجد مرشّحات",
+    "line_confirmed": "مؤكّد",
+    "desc_col": "الوصف"
+  }
+}

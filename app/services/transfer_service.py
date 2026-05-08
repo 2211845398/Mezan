@@ -74,12 +74,22 @@ async def get_batch(db: AsyncSession, batch_id: int) -> TransferBatch:
     return await _get_batch(db, batch_id)
 
 
-async def dispatch_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
+async def dispatch_batch(
+    db: AsyncSession,
+    *,
+    batch_id: int,
+    actor_branch_id: int | None = None,
+) -> TransferBatch:
     batch = await _get_batch(db, batch_id)
     if batch.status != "pending_dispatch":
         raise StateTransitionError(
             "Batch must be pending_dispatch to dispatch",
             details={"current_status": batch.status},
+        )
+    if actor_branch_id is not None and actor_branch_id != batch.from_branch_id:
+        raise ValidationError(
+            "Dispatch must be performed at the sending branch",
+            details={"expected_branch_id": batch.from_branch_id, "actor_branch_id": actor_branch_id},
         )
     if not batch.lines:
         raise ValidationError("Batch has no lines")
@@ -103,12 +113,22 @@ async def dispatch_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
     return await _get_batch(db, batch.id)
 
 
-async def receive_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
+async def receive_batch(
+    db: AsyncSession,
+    *,
+    batch_id: int,
+    actor_branch_id: int | None = None,
+) -> TransferBatch:
     batch = await _get_batch(db, batch_id)
     if batch.status != "in_transit":
         raise StateTransitionError(
             "Batch must be in_transit to receive",
             details={"current_status": batch.status},
+        )
+    if actor_branch_id is not None and actor_branch_id != batch.to_branch_id:
+        raise ValidationError(
+            "Receipt must be performed at the receiving branch",
+            details={"expected_branch_id": batch.to_branch_id, "actor_branch_id": actor_branch_id},
         )
     for i, ln in enumerate(batch.lines):
         unit_cost = await get_unit_cost_for_sale(
@@ -147,3 +167,25 @@ async def receive_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
     await post_transfer_batch_receive_gl(db, batch=batch)
     await db.commit()
     return await _get_batch(db, batch.id)
+
+
+async def cancel_pending_batch(
+    db: AsyncSession,
+    *,
+    batch_id: int,
+    actor_branch_id: int | None = None,
+) -> None:
+    """Delete a transfer batch that has not been dispatched yet (no stock movement)."""
+    batch = await _get_batch(db, batch_id)
+    if batch.status != "pending_dispatch":
+        raise StateTransitionError(
+            "Only pending_dispatch transfers can be cancelled",
+            details={"current_status": batch.status},
+        )
+    if actor_branch_id is not None and actor_branch_id != batch.from_branch_id:
+        raise ValidationError(
+            "Cancellation must be performed at the sending branch",
+            details={"expected_branch_id": batch.from_branch_id, "actor_branch_id": actor_branch_id},
+        )
+    await db.delete(batch)
+    await db.flush()

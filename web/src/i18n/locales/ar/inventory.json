@@ -1,34 +1,193 @@
 {
   "loading": "جارٍ التحميل…",
-  "actions": { "back": "رجوع", "open": "فتح", "submit": "إرسال", "cancel": "إلغاء", "create": "إنشاء", "add_line": "إضافة بند" },
+  "actions": {
+    "back": "رجوع",
+    "open": "فتح",
+    "submit": "إرسال",
+    "cancel": "إلغاء",
+    "create": "إنشاء",
+    "add_line": "إضافة بند"
+  },
   "errors": { "generic": "حدث خطأ." },
   "stock": {
-    "title": "أرصدة المخزون",
+    "title": "المخزون والأرصدة",
+    "subtitle": "رؤية تشغيلية للتوافر والتغطية وتنبيهات إعادة الطلب حسب الفرع.",
     "wavg_note": "تكلفة الوحدة مُوزونة—للعرض فقط.",
-    "filter": { "branch": "الفرع", "category": "التصنيف", "all_branches": "كل الفروع", "all_categories": "كل التصنيفات" },
-    "col": { "branch": "الفرع", "sku": "الرمز", "product": "المنتج", "category": "التصنيف", "qty": "الرصيد", "unit_cost": "ت.وحدة", "extended": "الإجمالي" }
+    "po_created": "تم إنشاء {{count}} أمر شراء مسودة.",
+    "action": {
+      "movement": "حركة جديدة",
+      "transfer": "تحويل جديد",
+      "create_po_alerts": "أوامر شراء من التنبيهات"
+    },
+    "kpi": {
+      "low": "أصناف تحت حد إعادة الطلب",
+      "out": "أصناف نفد مخزونها",
+      "reserved_units": "إجمالي الوحدات المحجوزة",
+      "damaged_units": "إجمالي الوحدات التالفة",
+      "in_transit_units": "إجمالي الوحدات قيد النقل"
+    },
+    "search": { "label": "بحث منتج", "placeholder": "اسم أو رمز…", "button": "بحث" },
+    "filter": {
+      "branch": "الفرع",
+      "category": "التصنيف",
+      "all_branches": "كل الفروع",
+      "all_categories": "كل التصنيفات",
+      "reorder_only": "تنبيهات إعادة الطلب فقط"
+    },
+    "reorder_status": {
+      "none": "بدون سياسة",
+      "ok": "سليم",
+      "below_reorder": "تحت إعادة الطلب",
+      "out_of_stock": "نفاد"
+    },
+    "col": {
+      "branch": "الفرع",
+      "sku": "الرمز",
+      "product": "المنتج",
+      "category": "التصنيف",
+      "qty": "الرصيد",
+      "available": "الكمية المتاحة",
+      "on_hand": "الكمية الموجودة",
+      "reserved": "المحجوز",
+      "damaged": "التالف",
+      "on_order": "قيد الطلب",
+      "in_transit_in": "بضاعة واردة",
+      "in_transit_out": "بضاعة صادرة",
+      "reorder_point": "حد إعادة الطلب",
+      "days_cover": "أيام التغطية",
+      "status": "الحالة",
+      "unit_cost": "ت.وحدة",
+      "extended": "الإجمالي"
+    }
+  },
+  "stockCard": {
+    "invalid": "منتج غير صالح.",
+    "branches": "حسب الفرع",
+    "movements": "آخر الحركات",
+    "view_catalog": "منتج في الكتالوج",
+    "col": {
+      "branch": "الفرع",
+      "available": "الكمية المتاحة",
+      "on_hand": "الكمية الموجودة",
+      "reserved": "المحجوز",
+      "damaged": "التالف",
+      "on_order": "قيد الطلب",
+      "in_transit_in": "بضاعة واردة",
+      "in_transit_out": "بضاعة صادرة",
+      "reorder_point": "حد إعادة الطلب",
+      "days_cover": "أيام التغطية",
+      "status": "الحالة"
+    }
   },
   "adjustments": {
-    "title": "تسويات المخزون",
-    "new": "تسوية جديدة",
-    "posted": "تمت التسوية",
-    "field": { "branch": "الفرع", "product": "المنتج", "delta": "فرق الكمية", "reason": "السبب" },
-    "col": { "branch": "الفرع", "product": "المنتج", "delta": "الفرق", "reason": "السبب", "at": "الوقت" }
+    "title": "حركات المخزون",
+    "new": "تسجيل حركة",
+    "posted": "تم تسجيل الحركة",
+    "field": {
+      "branch": "الفرع",
+      "product": "المنتج",
+      "delta": "فرق الكمية",
+      "reason": "السبب",
+      "reason_placeholder": "السبب",
+      "type": "نوع الحركة",
+      "quantity": "الكمية",
+      "qty_signed": "تسوية جرد (+/−)",
+      "notes": "ملاحظات",
+      "unit_cost": "قيمة التكلفة (للوحدة)"
+    },
+    "errors": {
+      "unit_cost_add_stock": "أدخل تكلفة الوحدة (رقم أكبر من صفر) عند استلام بضاعة."
+    },
+    "col": {
+      "movement_no": "رقم الحركة",
+      "branch": "الفرع",
+      "product": "المنتج",
+      "delta": "الفرق",
+      "reason": "السبب",
+      "at": "الوقت",
+      "kind": "النوع"
+    },
+    "txn": {
+      "add_stock": "استلام بضاعة",
+      "issue_stock": "صرف",
+      "return_stock": "إرجاع للمخزون",
+      "damage_mark": "تسجيل تالف",
+      "damage_scrap": "إتلاف تالف",
+      "reserve": "حجز",
+      "release": "إلغاء حجز",
+      "count_adjust": "تسوية جرد"
+    }
   },
   "transfers": {
-    "title": "التحويلات",
+    "title": "التحويلات الداخلية",
+    "subtitle": "متابعة الشحنات بين الفروع من الانتظار للإرسال حتى الاستلام.",
     "new": "تحويل جديد",
     "created": "تم إنشاء التحويل",
     "from": "من فرع",
     "to": "إلى فرع",
-    "line": { "product_id": "رقم المنتج", "qty": "الكمية" },
-    "col": { "from": "من", "to": "إلى", "status": "الحالة", "created": "التاريخ" },
+    "line": { "product_id": "رقم المنتج", "product": "المنتج", "qty": "الكمية" },
+    "col": { "transfer_no": "رقم التحويل", "from": "من", "to": "إلى", "status": "الحالة", "created": "التاريخ" },
     "dispatch": "إرسال",
     "receive": "استلام",
-    "wavg_note": "التكلفة تُحسب عند الاستلام (القيد في الخادم)."
+    "dispatched": "تم إرسال الشحنة",
+    "received_ok": "تم استلام الشحنة",
+    "cancel": "إلغاء التحويل",
+    "cancel_title": "إلغاء هذا التحويل؟",
+    "cancel_desc": "يُحذف التحويل نهائياً لأنه لم يُرسل بعد. لا يمكن التراجع عن هذا الإجراء.",
+    "cancel_confirm": "نعم، إلغاء التحويل",
+    "cancel_pending": "جاري الإلغاء…",
+    "cancelled": "تم إلغاء التحويل",
+    "status": {
+      "pending_dispatch": "بانتظار الإرسال",
+      "in_transit": "قيد النقل",
+      "received": "تم الاستلام"
+    },
+    "detail": {
+      "title": "تحويل #{{id}}",
+      "route_title": "المسار",
+      "lines_title": "بنود الشحنة",
+      "meta_created": "تاريخ الإنشاء",
+      "meta_updated": "آخر تحديث",
+      "meta_dispatched": "تاريخ الإرسال",
+      "meta_received": "تاريخ الاستلام",
+      "meta_creator": "أنشأه",
+      "totals": "إجمالي الوحدات",
+      "line_count": "عدد البنود",
+      "cost_note": "التكلفة تُحدَّث عند الاستلام وفق متوسط التكلفة المرجّح.",
+      "dispatch_branch_hint": "يُنفَّذ الإرسال من قبل مخزن فرع الإرسال فقط.",
+      "receive_branch_hint": "يُؤكَّد الاستلام من قبل مخزن فرع الاستلام فقط."
+    },
+    "wavg_note": "التكلفة تُحسب عند الاستلام (القيد في الخادم).",
+    "add_line_hint": "يضيف المنتج والكمية إلى قائمة التحويل بعد التأكد أن فرع «من» يملك كمية متاحة كافية (يشمل البنود المضافة مسبقاً لنفس المنتج).",
+    "errors": {
+      "select_from_branch": "اختر فرع المصدر (من فرع) أولاً.",
+      "stock_loading": "جاري تحميل أرصدة الفرع، حاول مرة أخرى بعد لحظات.",
+      "insufficient_at_source": "الكمية المتاحة في فرع المصدر {{available}} — المطلوب إجمالاً {{requested}} (بما في ذلك البنود الحالية)."
+    },
+    "board": {
+      "tab_track": "لوحة المسار",
+      "tab_list": "السجل الكامل",
+      "search_placeholder": "بحث برقم التحويل أو اسم الفرع…",
+      "advanced_open": "تصفية متقدمة",
+      "advanced_close": "إخفاء التصفية",
+      "date_from": "من تاريخ",
+      "date_to": "إلى تاريخ",
+      "filter_from": "من فرع",
+      "filter_to": "إلى فرع",
+      "all_branches": "كل الفروع",
+      "column_pending": "بانتظار الإرسال",
+      "column_transit": "قيد النقل",
+      "column_received": "تم الاستلام",
+      "empty": "لا توجد تحويلات في هذه المرحلة",
+      "lines": "{{count}} بند",
+      "qty_total": "{{qty}} وحدة",
+      "dispatched_at": "تاريخ الإرسال",
+      "received_at": "تاريخ الاستلام",
+      "refresh": "تحديث"
+    }
   },
   "scans": {
-    "title": "مسح الفواتير",
+    "title": "مسح الاستلام",
     "review": "مراجعة",
     "review_title": "المسح",
     "no_preview": "لا يوجد رابط صورة.",

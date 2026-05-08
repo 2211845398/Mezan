@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client';
-import type { components, paths } from '@/api/generated/schema';
+import type { components } from '@/api/generated/schema';
 
 export type PurchaseOrderRead = components['schemas']['PurchaseOrderRead'];
 export type PurchaseOrderCreate = components['schemas']['PurchaseOrderCreate'];
@@ -12,11 +12,27 @@ export type SupplierCreate = components['schemas']['SupplierCreate'];
 export type SupplierUpdate = components['schemas']['SupplierUpdate'];
 export type GoodsReceiptRead = components['schemas']['GoodsReceiptRead'];
 export type GoodsReceiptReceiveRequest = components['schemas']['GoodsReceiptReceiveRequest'];
-export type InvoiceScanRead = paths['/api/v1/invoice-scans']['get']['responses']['200']['content']['application/json'][number];
-export type InvoiceScanApplyCatalogMatchesRequest =
-  components['schemas']['InvoiceScanApplyCatalogMatchesRequest'];
-export type InvoiceMatchResponse =
-  paths['/api/v1/ai/advisory/invoice-match']['post']['responses']['200']['content']['application/json'];
+import {
+  applyCatalogMatches,
+  getInvoiceScan,
+  listInvoiceScans,
+  postInvoiceMatch,
+} from '@/features/invoice_scans/api';
+
+export type {
+  InvoiceScanApplyCatalogMatchesRequest,
+  InvoiceMatchResponse,
+  InvoiceScanRead,
+} from '@/features/invoice_scans/api';
+export {
+  applyCatalogMatches,
+  getInvoiceScan,
+  listInvoiceScans,
+  postInvoiceMatch,
+};
+
+/** @deprecated Use `listInvoiceScans` from `@/features/invoice_scans/api` */
+export const listInvoiceScansForMatch = listInvoiceScans;
 
 export async function listPurchaseOrders(params?: {
   limit?: number;
@@ -101,40 +117,6 @@ export async function receiveGoodsForPurchaseOrder(
 ): Promise<GoodsReceiptRead> {
   const { data } = await apiClient.post<GoodsReceiptRead>(
     `/purchase-orders/${purchaseOrderId}/receive-goods`,
-    body,
-    { headers: { 'Idempotency-Key': body.idempotency_key } },
-  );
-  return data;
-}
-
-export async function listInvoiceScansForMatch(params?: {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<InvoiceScanRead[]> {
-  const { data } = await apiClient.get<InvoiceScanRead[]>('/invoice-scans', { params });
-  return data;
-}
-
-export async function getInvoiceScan(id: number): Promise<InvoiceScanRead> {
-  const { data } = await apiClient.get<InvoiceScanRead>(`/invoice-scans/${id}`);
-  return data;
-}
-
-export async function postInvoiceMatch(body: {
-  invoice_scan_id: number;
-  max_candidates_per_line?: number;
-}): Promise<InvoiceMatchResponse> {
-  const { data } = await apiClient.post<InvoiceMatchResponse>('/ai/advisory/invoice-match', body);
-  return data;
-}
-
-export async function applyCatalogMatches(
-  scanId: number,
-  body: InvoiceScanApplyCatalogMatchesRequest,
-): Promise<InvoiceScanRead> {
-  const { data } = await apiClient.post<InvoiceScanRead>(
-    `/invoice-scans/${scanId}/apply-catalog-matches`,
     body,
     { headers: { 'Idempotency-Key': body.idempotency_key } },
   );
