@@ -53,8 +53,8 @@
       "sku": "الرمز",
       "image_url": "رابط الصورة",
       "image_upload": "صورة المنتج",
-      "standard_cost": "التكلفة المعيارية",
-      "sell_price": "سعر البيع الافتراضي",
+      "standard_cost": "تكلفة الشراء",
+      "sell_price": "سعر البيع",
       "vat": "ض.ق.م. مخرجات (كسر، مثال 0.15)",
       "active": "نشط"
     },
@@ -70,7 +70,7 @@
       "categories": "التصنيفات",
       "barcode_count": "الباركود",
       "default_price": "سعر البيع",
-      "cost": "التكلفة",
+      "cost": "تكلفة الشراء",
       "status": "الحالة",
       "vat": "الضريبة"
     },
@@ -79,7 +79,7 @@
       "category": "التصنيف",
       "all": "الكل",
       "search": "بحث",
-      "search_ph": "الاسم أو الرمز…",
+      "search_ph": "الاسم أو الباركود…",
       "include_subcategories": "تضمين التصنيفات الفرعية"
     },
     "status": { "active": "نشط", "archived": "مؤرشف" }
@@ -87,7 +87,7 @@
   "barcode": {
     "label": "الباركود",
     "generate": "توليد EAN",
-    "hint": "التوليد يتاح بعد إنشاء المنتج."
+    "hint": "اتركه فارغًا ليُولَّد باركود داخلي تلقائيًا عند الحفظ. بعد إنشاء المنتج يمكنك استخدام «توليد EAN» لاستبداله."
   },
   "categories": {
     "title": "التصنيفات",
@@ -140,11 +140,33 @@
     "attr_empty": "لا توجد خصائص معرّفة بعد.",
     "attr_required": "إلزامي",
     "attr_optional": "اختياري",
-    "attr_sort": "ترتيب الفرز",
+    "attr_sort": "أولوية العرض",
     "attr_options": "الخيارات",
     "attr_field_required": "إلزامي",
-    "attr_field_sort": "ترتيب الفرز",
-    "attr_delete_title": "حذف الخاصية؟",
+    "attr_field_sort": "أولوية العرض",
+    "attr_display_priority": "أولوية العرض",
+    "attr_priority_high": "عالية",
+    "attr_priority_mid": "متوسطة",
+    "attr_priority_low": "منخفضة",
+    "attr_select_property": "الخاصية",
+    "attr_select_property_ph": "اختر خاصية…",
+    "attr_preset_key_fixed_hint": "المفتاح التقني ثابت للخاصية المختارة.",
+    "attr_select_needs_options": "أضف خيارًا واحدًا على الأقل للقائمة.",
+    "attr_presets": {
+      "COLOR": "اللون",
+      "SIZE": "المقاس",
+      "EXPIRATION_DATE": "تاريخ الانتهاء",
+      "WEIGHT": "الوزن",
+      "VOLUME": "الحجم",
+      "LENGTH": "الطول",
+      "WIDTH": "العرض",
+      "CAPACITY": "السعة"
+    },
+    "attr_inherited": "موروثة من تصنيفات أعلى",
+    "attr_inherited_badge": "موروثة",
+    "attr_inherited_from": "موروثة من «{{name}}»",
+    "attr_inherited_hint": "لتعديلها أو حذفها استخدم التصنيف الأب. الخصائص الخاصة بهذا التصنيف تبقى هنا فقط.",
+    "attr_own": "خصائص هذا التصنيف",
     "attr_delete_desc": "تبقى القيم في بيانات المنتجات، لكن لن تُعرض أو تُتحقق لهذا التصنيف بعد الحذف.",
     "attr_field_key": "المفتاح (اسم تقني)",
     "attr_field_label": "التسمية",
@@ -156,7 +178,7 @@
       "float": "عشري",
       "bool": "نعم / لا",
       "date": "تاريخ",
-      "select": "خيار واحد"
+      "select": "قيمة من قائمة"
     }
   }
 }

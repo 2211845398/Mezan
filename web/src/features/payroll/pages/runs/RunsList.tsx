@@ -119,10 +119,14 @@ export default function RunsList() {
           cell: ({ row }) => payslipEmployeeDisplay(row.original),
         },
         {
-          id: 'period',
-          header: t('col.period'),
-          cell: ({ row }) =>
-            `${row.original.period_start} → ${row.original.period_end}`,
+          id: 'period_start',
+          accessorKey: 'period_start',
+          header: t('form.period_start'),
+        },
+        {
+          id: 'period_end',
+          accessorKey: 'period_end',
+          header: t('form.period_end'),
         },
         {
           id: 'status',

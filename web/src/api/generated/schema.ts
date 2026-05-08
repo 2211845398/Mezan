@@ -814,7 +814,10 @@ export interface paths {
     };
     "/api/v1/categories/{category_id}/attributes": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @default false */
+                include_inherited?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3707,6 +3710,8 @@ export interface components {
             id: number;
             /** Category Id */
             category_id: number;
+            /** When set, this definition was propagated from the given ancestor category. */
+            inherited_from_category_id?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -3717,6 +3722,16 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CategoryAttributeDefListRead */
+        CategoryAttributeDefListRead: components["schemas"]["CategoryAttributeDefRead"] & {
+            /**
+             * Is Inherited
+             * @default false
+             */
+            is_inherited: boolean;
+            /** Source Category Name */
+            source_category_name?: string | null;
         };
         /** CategoryAttributeDefUpdate */
         CategoryAttributeDefUpdate: {
@@ -8699,7 +8714,10 @@ export interface operations {
     };
     list_category_attributes_endpoint_api_v1_categories__category_id__attributes_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @default false */
+                include_inherited?: boolean;
+            };
             header?: never;
             path: {
                 category_id: number;
@@ -8714,7 +8732,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CategoryAttributeDefRead"][];
+                    "application/json": components["schemas"]["CategoryAttributeDefListRead"][];
                 };
             };
             /** @description Validation Error */

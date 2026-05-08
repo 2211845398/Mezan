@@ -21,6 +21,12 @@ class CategoryAttributeDef(Base):
     category_id: Mapped[int] = mapped_column(
         ForeignKey("categories.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    inherited_from_category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        doc="When set, this row was propagated from the given ancestor category.",
+    )
     key: Mapped[str] = mapped_column(String(64), nullable=False)
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[str] = mapped_column(String(32), nullable=False)  # text, int, float, bool, date...
@@ -40,4 +46,8 @@ class CategoryAttributeDef(Base):
         nullable=False,
     )
 
-    category = relationship("Category", back_populates="attribute_defs")
+    category = relationship(
+        "Category",
+        back_populates="attribute_defs",
+        foreign_keys="CategoryAttributeDef.category_id",
+    )

@@ -22,7 +22,7 @@ export const hrKeys = {
     employee_profile_id?: number;
   }) => [...hrKeys.root, 'attendanceSummary', q] as const,
   timesheet: (employeeId: number) => [...hrKeys.root, 'timesheet', employeeId] as const,
-  leaveList: (q: { status?: string; employee_profile_id?: number }) =>
+  leaveList: (q: { status?: string; employee_profile_id?: number; limit?: number }) =>
     [...hrKeys.root, 'leave', q] as const,
   leaveBalance: (employeeId: number) => [...hrKeys.root, 'leave-balance', employeeId] as const,
   anomalies: (payload: string) => [...hrKeys.root, 'anomalies', payload] as const,
@@ -85,10 +85,25 @@ export function timesheetQueryOptions(employeeId: number) {
   });
 }
 
-export function leaveListQueryOptions(params: { status?: string; employee_profile_id?: number }) {
+export function leaveListQueryOptions(params: {
+  status?: string;
+  employee_profile_id?: number;
+  limit?: number;
+} = {}) {
+  const limit = params.limit ?? 200;
   return queryOptions({
-    queryKey: hrKeys.leaveList(params),
-    queryFn: () => api.listLeaveRequestsGlobal({ ...params, limit: 200, offset: 0 }),
+    queryKey: hrKeys.leaveList({
+      status: params.status,
+      employee_profile_id: params.employee_profile_id,
+      limit,
+    }),
+    queryFn: () =>
+      api.listLeaveRequestsGlobal({
+        status: params.status,
+        employee_profile_id: params.employee_profile_id,
+        limit,
+        offset: 0,
+      }),
   });
 }
 

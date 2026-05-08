@@ -50,6 +50,13 @@ export type Permission = {
 
 export type NavSection = 'ops' | 'finance' | 'people' | 'growth' | 'system';
 
+/** Maps to counts from `useNavBadges()` for sidebar attention indicators. */
+export type NavBadgeKind =
+  | 'leave_pending'
+  | 'onboarding_pending'
+  | 'notifications_unread'
+  | 'hr_attention_rollup';
+
 export type NavItem = {
   key: string;
   labelKey: string;
@@ -59,6 +66,8 @@ export type NavItem = {
   /** Optional grouping label in the sidebar (top-level items only). */
   section?: NavSection;
   children?: NavItem[];
+  /** Sidebar badge count (pending work, unread, etc.). */
+  badge?: NavBadgeKind;
 };
 
 export const navigation: NavItem[] = [
@@ -77,6 +86,7 @@ export const navigation: NavItem[] = [
     href: '/notifications',
     section: 'ops',
     permission: { resource: 'notifications', action: 'read' },
+    badge: 'notifications_unread',
   },
   {
     key: 'pos',
@@ -182,6 +192,7 @@ export const navigation: NavItem[] = [
     icon: Users,
     href: '/hr',
     section: 'people',
+    badge: 'hr_attention_rollup',
     children: [
       {
         key: 'hr-employees',
@@ -189,6 +200,7 @@ export const navigation: NavItem[] = [
         icon: UserCheck,
         href: '/hr/employees',
         permission: { resource: 'employees', action: 'read' },
+        badge: 'onboarding_pending',
       },
       {
         key: 'hr-attendance',
@@ -203,6 +215,7 @@ export const navigation: NavItem[] = [
         icon: CalendarX,
         href: '/hr/leave',
         permission: { resource: 'employees', action: 'read' },
+        badge: 'leave_pending',
       },
       {
         key: 'hr-anomalies',

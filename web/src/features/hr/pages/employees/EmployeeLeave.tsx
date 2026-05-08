@@ -63,9 +63,14 @@ export default function EmployeeLeave() {
           ),
         },
         {
-          id: 'period',
-          header: t('leave.col.period'),
-          cell: ({ row }) => `${row.original.start_date} – ${row.original.end_date}`,
+          id: 'leave_start',
+          accessorKey: 'start_date',
+          header: t('leave.col.from'),
+        },
+        {
+          id: 'leave_end',
+          accessorKey: 'end_date',
+          header: t('leave.col.to'),
         },
         {
           id: 'days',

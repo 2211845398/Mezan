@@ -17,7 +17,8 @@ export const catalogKeys = {
   categoryTree: () => [...catalogKeys.root, 'categoryTree'] as const,
   categories: (parentId: number | null) => [...catalogKeys.root, 'categories', { parentId }] as const,
   category: (id: number) => [...catalogKeys.root, 'category', id] as const,
-  categoryAttrs: (id: number) => [...catalogKeys.root, 'categoryAttrs', id] as const,
+  categoryAttrs: (id: number, includeInherited?: boolean) =>
+    [...catalogKeys.root, 'categoryAttrs', id, { includeInherited: includeInherited ?? true }] as const,
 };
 
 export type ListProductsParams = {
@@ -121,10 +122,14 @@ export function useCategoryQuery(id: number | null) {
   });
 }
 
-export function useCategoryAttributesQuery(categoryId: number | null) {
+export function useCategoryAttributesQuery(
+  categoryId: number | null,
+  opts?: { includeInherited?: boolean },
+) {
+  const includeInherited = opts?.includeInherited ?? true;
   return useQuery({
-    queryKey: catalogKeys.categoryAttrs(categoryId ?? 0),
-    queryFn: () => listCategoryAttributes(categoryId!),
+    queryKey: catalogKeys.categoryAttrs(categoryId ?? 0, includeInherited),
+    queryFn: () => listCategoryAttributes(categoryId!, { includeInherited }),
     enabled: categoryId != null,
   });
 }

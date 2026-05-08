@@ -428,12 +428,10 @@ export default function ProductFormPage() {
                         )}
                       />
                       <div>
-                        <Label className="mb-1 block text-sm">{t('barcode.label')}</Label>
                         <BarcodeRepeater
                           value={form.watch('barcode') ?? ''}
                           onChange={(b) => form.setValue('barcode', b)}
                           {...(!isNew && product ? { onGenerate: () => genBar.mutate(product) } : {})}
-                          disabled={!!isNew}
                         />
                         <p className="mt-1 text-xs text-muted-foreground">{t('barcode.hint')}</p>
                       </div>

@@ -44,6 +44,10 @@ def _make_internal_ean13_from_product_id(product_id: int) -> str:
     return base + _ean13_checksum(base)
 
 
+def _barcode_unset(v: str | None) -> bool:
+    return v is None or (isinstance(v, str) and v.strip() == "")
+
+
 async def get_category(db: AsyncSession, category_id: int) -> Category:
     result = await db.execute(select(Category).where(Category.id == category_id))
     category = result.scalar_one_or_none()
@@ -174,13 +178,119 @@ async def list_category_attribute_defs(
     return list(result.scalars().all())
 
 
+async def _category_ancestor_ids_chain(db: AsyncSession, category_id: int) -> list[int]:
+    """Immediate parent first, then further ancestors toward the root."""
+    out: list[int] = []
+    visited: set[int] = set()
+    res = await db.execute(select(Category).where(Category.id == category_id))
+    cat = res.scalar_one_or_none()
+    if not cat:
+        return out
+    pid: int | None = cat.parent_id
+    while pid is not None and pid not in visited:
+        visited.add(pid)
+        out.append(pid)
+        res = await db.execute(select(Category).where(Category.id == pid))
+        parent = res.scalar_one_or_none()
+        pid = parent.parent_id if parent else None
+    return out
+
+
+async def _has_attr_key(db: AsyncSession, category_id: int, key: str) -> bool:
+    r = await db.execute(
+        select(CategoryAttributeDef.id).where(
+            and_(CategoryAttributeDef.category_id == category_id, CategoryAttributeDef.key == key)
+        )
+    )
+    return r.scalar_one_or_none() is not None
+
+
+async def list_category_attribute_defs_for_ui(
+    db: AsyncSession, *, category_id: int, include_inherited: bool
+) -> list[tuple[CategoryAttributeDef, bool, str | None]]:
+    """Return (row, is_inherited, source_category_name) for admin UI.
+
+    When ``include_inherited`` is False, only rows stored on ``category_id`` are returned
+    (each with correct ``is_inherited`` for propagated copies).
+    When True, ancestor definitions that are not overridden on this category are appended
+    (virtual inherited rows).
+    """
+    await get_category(db, category_id)
+    local_rows = await list_category_attribute_defs(db, category_id=category_id)
+    name_ids: set[int] = set()
+    for r in local_rows:
+        name_ids.add(r.category_id)
+        if r.inherited_from_category_id is not None:
+            name_ids.add(r.inherited_from_category_id)
+
+    items: list[tuple[CategoryAttributeDef, bool, str | None]] = []
+
+    def is_row_inherited(r: CategoryAttributeDef) -> bool:
+        return r.inherited_from_category_id is not None
+
+    for r in local_rows:
+        src_id = r.inherited_from_category_id if r.inherited_from_category_id is not None else r.category_id
+        name_ids.add(src_id)
+        items.append((r, is_row_inherited(r), None))
+
+    if include_inherited:
+        local_keys = {r.key for r in local_rows}
+        ancestor_ids = await _category_ancestor_ids_chain(db, category_id)
+        name_ids.update(ancestor_ids)
+        for aid in ancestor_ids:
+            ancestor_defs = await _load_attr_defs(db, aid)
+            for d in sorted(ancestor_defs, key=lambda x: (x.sort_order, x.key)):
+                if d.key not in local_keys:
+                    local_keys.add(d.key)
+                    name_ids.add(d.category_id)
+                    items.append((d, True, None))
+
+    if not items:
+        return []
+
+    res = await db.execute(select(Category.id, Category.name).where(Category.id.in_(sorted(name_ids))))
+    name_map = {int(i): str(n) for i, n in res.all()}
+
+    out: list[tuple[CategoryAttributeDef, bool, str | None]] = []
+    for r, inh, _ in items:
+        src_id = r.inherited_from_category_id if r.inherited_from_category_id is not None else r.category_id
+        src_name = name_map.get(src_id)
+        out.append((r, inh, src_name))
+    return out
+
+
 async def create_category_attribute_def(
     db: AsyncSession, *, category_id: int, data: dict[str, Any]
 ) -> CategoryAttributeDef:
     await get_category(db, category_id)
-    rec = CategoryAttributeDef(category_id=category_id, **data)
+    payload = dict(data)
+    payload.pop("inherited_from_category_id", None)
+    rec = CategoryAttributeDef(
+        category_id=category_id,
+        inherited_from_category_id=None,
+        **payload,
+    )
     db.add(rec)
     try:
+        await db.flush()
+        descendants = await _category_descendant_ids(db, category_id)
+        for desc_id in descendants:
+            if desc_id == category_id:
+                continue
+            if await _has_attr_key(db, desc_id, rec.key):
+                continue
+            child = CategoryAttributeDef(
+                category_id=desc_id,
+                inherited_from_category_id=category_id,
+                key=rec.key,
+                label=rec.label,
+                type=rec.type,
+                required=False,
+                options=rec.options,
+                validation=rec.validation,
+                sort_order=rec.sort_order,
+            )
+            db.add(child)
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
@@ -206,9 +316,31 @@ async def update_category_attribute_def(
     rec = result.scalar_one_or_none()
     if not rec:
         raise NotFoundError("Attribute definition not found", details={"attr_id": attr_id})
+    data = dict(data)
+    data.pop("inherited_from_category_id", None)
     for k, v in data.items():
         setattr(rec, k, v)
-    await db.commit()
+    try:
+        await db.flush()
+        if rec.inherited_from_category_id is None:
+            q = await db.execute(
+                select(CategoryAttributeDef).where(
+                    and_(
+                        CategoryAttributeDef.inherited_from_category_id == category_id,
+                        CategoryAttributeDef.key == rec.key,
+                    )
+                )
+            )
+            for child_rec in q.scalars().all():
+                child_rec.label = rec.label
+                child_rec.type = rec.type
+                child_rec.options = rec.options
+                child_rec.validation = rec.validation
+                child_rec.sort_order = rec.sort_order
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise ConflictError("Attribute update conflicts with existing data") from e
     await db.refresh(rec)
     return rec
 
@@ -228,8 +360,21 @@ async def delete_category_attribute_def(
     rec = result.scalar_one_or_none()
     if not rec:
         raise NotFoundError("Attribute definition not found", details={"attr_id": attr_id})
-    await db.delete(rec)
-    await db.commit()
+    try:
+        if rec.inherited_from_category_id is None:
+            await db.execute(
+                delete(CategoryAttributeDef).where(
+                    and_(
+                        CategoryAttributeDef.inherited_from_category_id == category_id,
+                        CategoryAttributeDef.key == rec.key,
+                    )
+                )
+            )
+        await db.delete(rec)
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise ConflictError("Cannot delete attribute definition") from e
 
 
 async def _load_attr_defs(db: AsyncSession, category_id: int) -> list[CategoryAttributeDef]:
@@ -237,6 +382,21 @@ async def _load_attr_defs(db: AsyncSession, category_id: int) -> list[CategoryAt
         select(CategoryAttributeDef).where(CategoryAttributeDef.category_id == category_id)
     )
     return list(result.scalars().all())
+
+
+async def _load_merged_attr_defs_for_category(
+    db: AsyncSession, category_id: int
+) -> list[CategoryAttributeDef]:
+    """Definitions for product validation: local rows override ancestor keys (nearest ancestor fills gaps)."""
+    local_rows = await _load_attr_defs(db, category_id)
+    by_key: dict[str, CategoryAttributeDef] = {}
+    for d in sorted(local_rows, key=lambda x: (x.sort_order, x.key)):
+        by_key[d.key] = d
+    for aid in await _category_ancestor_ids_chain(db, category_id):
+        for d in sorted(await _load_attr_defs(db, aid), key=lambda x: (x.sort_order, x.key)):
+            if d.key not in by_key:
+                by_key[d.key] = d
+    return sorted(by_key.values(), key=lambda x: (x.sort_order, x.key))
 
 
 def _validate_product_attributes(
@@ -411,7 +571,9 @@ async def list_products(
     stmt: Select[tuple[Product]] = select(Product)
     if q:
         like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like)))
+        stmt = stmt.where(
+            or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like))
+        )
     if category_id is not None:
         scope_ids = (
             await _category_descendant_ids(db, category_id)
@@ -438,7 +600,7 @@ async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
     category_id = data["category_id"]
     await get_category(db, category_id)
     await _ensure_category_ids_exist(db, {category_id, *{int(x) for x in extra_tags}})
-    defs = await _load_attr_defs(db, category_id)
+    defs = await _load_merged_attr_defs_for_category(db, category_id)
     attrs = dict(data.get("attributes") or {})
     sell_price = _derive_sell_price(attrs=attrs, sell_price_value=sell_price_value)
     data["attributes"] = _validate_product_attributes(
@@ -457,6 +619,9 @@ async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
         await db.flush()
         if auto_sku:
             product.sku = f"PRD-{product.id:09d}"
+            await db.flush()
+        if _barcode_unset(product.barcode):
+            product.barcode = _make_internal_ean13_from_product_id(product.id)
             await db.flush()
         await sync_product_category_links(
             db,
@@ -495,7 +660,7 @@ async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, A
         await _ensure_category_ids_exist(
             db, {int(category_id), *{int(x) for x in (extra_tags or [])}}
         )
-    defs = await _load_attr_defs(db, category_id)
+    defs = await _load_merged_attr_defs_for_category(db, category_id)
 
     sell_price: Decimal | None = None
     if (
@@ -523,6 +688,9 @@ async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, A
         setattr(product, k, v)
     try:
         await db.flush()
+        if _barcode_unset(product.barcode):
+            product.barcode = _make_internal_ean13_from_product_id(product.id)
+            await db.flush()
         if sell_price is not None:
             await set_product_sell_price(
                 db,

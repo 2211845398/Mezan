@@ -1,4 +1,9 @@
-import { differenceInCalendarDays, format as dfFormat, parseISO as dfParseISO } from 'date-fns';
+import {
+  addDays,
+  differenceInCalendarDays,
+  format as dfFormat,
+  parseISO as dfParseISO,
+} from 'date-fns';
 import type { Locale } from 'date-fns/locale';
 import { arSA as arSALocale, enUS as enUSLocale } from 'date-fns/locale';
 
@@ -57,4 +62,14 @@ export function hoursBetween(isoStart: string, isoEnd: string): number {
 /** Inclusive calendar-day span for API `date` / `YYYY-MM-DD` strings. */
 export function inclusiveCalendarDaySpan(startIsoDate: string, endIsoDate: string): number {
   return differenceInCalendarDays(fromISO(endIsoDate), fromISO(startIsoDate)) + 1;
+}
+
+/** Last calendar day (YYYY-MM-DD) of an inclusive leave span starting at `startIsoDate`. */
+export function inclusiveEndIsoDateFromStartAndDays(
+  startIsoDate: string,
+  inclusiveDayCount: number,
+): string {
+  const n = Math.max(1, Math.floor(inclusiveDayCount));
+  const end = addDays(fromISO(startIsoDate), n - 1);
+  return dfFormat(end, 'yyyy-MM-dd');
 }

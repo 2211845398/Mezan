@@ -82,10 +82,18 @@ class CategoryAttributeDefUpdate(BaseModel):
 class CategoryAttributeDefRead(CategoryAttributeDefBase):
     id: int
     category_id: int
+    inherited_from_category_id: int | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CategoryAttributeDefListRead(CategoryAttributeDefRead):
+    """Attribute row as shown on a category admin page (own + optional inherited/virtual)."""
+
+    is_inherited: bool = False
+    source_category_name: str | None = None
 
 
 class ProductBase(BaseModel):

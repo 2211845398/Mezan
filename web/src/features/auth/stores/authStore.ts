@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { env } from '@/config/env';
+import { syncUiLanguageFromAccount } from '@/lib/syncUiLanguageFromAccount';
 
 /*
  * Single source of truth for auth state.
@@ -105,11 +106,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     writeRefreshToStorage(token);
     set({ refreshToken: token });
   },
-  setUser: (user) =>
+  setUser: (user) => {
     set({
       user,
       activeBranchId: user?.branch_id ?? get().activeBranchId,
-    }),
+    });
+    if (user) syncUiLanguageFromAccount(user.preferred_language);
+  },
   setPermissions: (pairs) => {
     const set_ = new Set<string>();
     for (const p of pairs) {

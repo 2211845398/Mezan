@@ -34,6 +34,32 @@ import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { useUploadAvatar } from '../hooks/useUploadAvatar';
 import { useMe } from '../queries';
 
+/** Libyan mobile: `09` + operator digit 1–5 + 7 subscriber digits (10 digits). */
+const LY_MOBILE_RE = /^09[1-5]\d{7}$/;
+
+function splitFullName(full: string | null | undefined): {
+  first_name: string;
+  father_name: string;
+  last_name: string;
+} {
+  const raw = full?.trim() ?? '';
+  if (!raw) return { first_name: '', father_name: '', last_name: '' };
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return { first_name: parts[0]!, father_name: '', last_name: '' };
+  if (parts.length === 2) return { first_name: parts[0]!, father_name: '', last_name: parts[1]! };
+  return {
+    first_name: parts[0]!,
+    father_name: parts[1]!,
+    last_name: parts.slice(2).join(' '),
+  };
+}
+
+function joinNameParts(first: string, father: string, last: string): string | null {
+  const segments = [first, father, last].map((s) => s.trim()).filter((s) => s.length > 0);
+  if (segments.length === 0) return null;
+  return segments.join(' ');
+}
+
 function initials(displayName: string | null | undefined, email: string): string {
   const n = displayName?.trim();
   if (n) {
@@ -49,8 +75,19 @@ function initials(displayName: string | null | undefined, email: string): string
 function buildProfileSchema(t: (k: string) => string) {
   return z.object({
     email: z.string().email(t('profile.email_invalid')),
-    full_name: z.string().optional(),
-    phone: z.string().optional(),
+    first_name: z.string().max(120).optional(),
+    father_name: z.string().max(120).optional(),
+    last_name: z.string().max(120).optional(),
+    phone: z
+      .string()
+      .optional()
+      .refine(
+        (v) => {
+          const s = v?.trim() ?? '';
+          return s.length === 0 || LY_MOBILE_RE.test(s);
+        },
+        { message: t('profile.phone_invalid_ly') },
+      ),
     city: z.string().optional(),
     /** Sentinel `__default__` maps to API `null` (no preference). */
     preferred_language: z.enum(['ar', 'en', '__default__']),
@@ -114,7 +151,9 @@ export default function ProfilePage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       email: '',
-      full_name: '',
+      first_name: '',
+      father_name: '',
+      last_name: '',
       phone: '',
       city: '',
       preferred_language: '__default__',
@@ -132,9 +171,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!me) return;
+    const nameParts = splitFullName(me.full_name);
     profileForm.reset({
       email: me.email ?? '',
-      full_name: me.full_name ?? '',
+      ...nameParts,
       phone: me.phone ?? '',
       city: me.city ?? '',
       preferred_language:
@@ -144,7 +184,9 @@ export default function ProfilePage() {
     });
   }, [me, profileForm]);
 
-  const fullNameWatch = profileForm.watch('full_name');
+  const firstNameWatch = profileForm.watch('first_name');
+  const fatherNameWatch = profileForm.watch('father_name');
+  const lastNameWatch = profileForm.watch('last_name');
   const emailWatch = profileForm.watch('email');
 
   if (isLoading && !me) {
@@ -163,15 +205,26 @@ export default function ProfilePage() {
     );
   }
 
-  const displayName = (fullNameWatch || me.full_name)?.trim() || me.email;
+  const composedName = joinNameParts(
+    firstNameWatch ?? '',
+    fatherNameWatch ?? '',
+    lastNameWatch ?? '',
+  );
+  const displayName = (composedName ?? me.full_name?.trim()) || me.email;
   const heroAvatarSrc =
     localPreview ??
     withMediaCacheBust(resolveMediaUrl(me.avatar_url), avatarCacheBust);
-  const ini = initials(fullNameWatch || me.full_name, emailWatch || me.email);
+  const ini = initials(
+    displayName === me.email ? null : displayName,
+    emailWatch || me.email,
+  );
 
   function onProfileSubmit(values: ProfileFormValues) {
-    const full_name =
-      values.full_name == null || values.full_name.trim() === '' ? null : values.full_name.trim();
+    const full_name = joinNameParts(
+      values.first_name ?? '',
+      values.father_name ?? '',
+      values.last_name ?? '',
+    );
     const phone =
       values.phone == null || values.phone.trim() === '' ? null : values.phone.trim();
     const city = values.city == null || values.city.trim() === '' ? null : values.city.trim();
@@ -256,7 +309,7 @@ export default function ProfilePage() {
     me.employee_profile_id > 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 p-4 md:p-6">
+    <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
         title={t('profile.page_title')}
         subtitle={t('profile.page_subtitle')}
@@ -352,20 +405,49 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <FormField
                     control={profileForm.control}
-                    name="full_name"
+                    name="first_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('profile.full_name')}</FormLabel>
+                        <FormLabel>{t('profile.first_name')}</FormLabel>
                         <FormControl>
-                          <Input {...field} autoComplete="name" />
+                          <Input {...field} autoComplete="given-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={profileForm.control}
+                    name="father_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('profile.father_name')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} autoComplete="additional-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={profileForm.control}
+                    name="last_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('profile.last_name')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} autoComplete="family-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
                   <FormField
                     control={profileForm.control}
                     name="email"
@@ -397,7 +479,7 @@ export default function ProfilePage() {
                             autoComplete="tel"
                             className="num-latin"
                             dir="ltr"
-                            placeholder="05xxxxxxxx"
+                            placeholder="0912345678"
                           />
                         </FormControl>
                         <FormMessage />
@@ -417,33 +499,32 @@ export default function ProfilePage() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={profileForm.control}
+                    name="preferred_language"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('profile.language')}</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(v) => field.onChange(v as 'ar' | 'en' | '__default__')}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t('profile.language')} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="__default__">{t('profile.language_default')}</SelectItem>
+                            <SelectItem value="ar">{t('profile.language_ar')}</SelectItem>
+                            <SelectItem value="en">{t('profile.language_en')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-
-                <FormField
-                  control={profileForm.control}
-                  name="preferred_language"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('profile.language')}</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(v) => field.onChange(v as 'ar' | 'en' | '__default__')}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={t('profile.language')} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="__default__">{t('profile.language_default')}</SelectItem>
-                          <SelectItem value="ar">{t('profile.language_ar')}</SelectItem>
-                          <SelectItem value="en">{t('profile.language_en')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <Button type="submit" disabled={update.isPending} className="min-w-[160px]">
                   {update.isPending ? t('actions.loading') : t('profile.save')}

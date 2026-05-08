@@ -10,6 +10,7 @@ import { Toaster } from 'sonner';
 
 import { env } from '@/config/env';
 import AuthBoundary from '@/providers/AuthBoundary';
+import AppErrorBoundary from '@/providers/AppErrorBoundary';
 import I18nProvider from '@/providers/I18nProvider';
 import QueryProvider from '@/providers/QueryProvider';
 import ThemeProvider from '@/providers/ThemeProvider';
@@ -37,16 +38,20 @@ async function bootstrap() {
 
   createRoot(rootEl).render(
     <StrictMode>
-      <I18nProvider>
-        <ThemeProvider>
-          <QueryProvider>
-            <AuthBoundary>
-              <RouterProvider router={router} />
-            </AuthBoundary>
-            <Toaster position="top-center" richColors closeButton />
-          </QueryProvider>
-        </ThemeProvider>
-      </I18nProvider>
+      <div className="h-full min-h-0">
+        <I18nProvider>
+          <ThemeProvider>
+            <QueryProvider>
+              <AppErrorBoundary>
+                <AuthBoundary>
+                  <RouterProvider router={router} />
+                </AuthBoundary>
+              </AppErrorBoundary>
+              <Toaster position="top-center" richColors closeButton />
+            </QueryProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </div>
     </StrictMode>,
   );
 }

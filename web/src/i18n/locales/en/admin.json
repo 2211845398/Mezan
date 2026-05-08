@@ -111,7 +111,7 @@
       "CASHIER": "Cashier",
       "WAREHOUSE_MANAGER": "Warehouse manager",
       "MARKETING_MANAGER": "Marketing manager",
-      "FLOOR_STAFF": "Floor staff"
+      "FLOOR_STAFF": "Sales staff"
     }
   },
   "branches": {
@@ -235,7 +235,7 @@
       "fallback": "Recipients (see template)"
     },
     "target_group_kind": {
-      "warehouse_and_floor": "Warehouse manager & floor staff",
+      "warehouse_and_floor": "Warehouse manager & sales staff",
       "payroll_approvers": "HR manager, accountant & owner",
       "it_and_admin": "IT administrator & system administrator",
       "shift_operator": "Shift operator"

@@ -1,10 +1,12 @@
 """Pydantic schemas for auth: login, refresh, password reset, profile."""
 
+import re
 from typing import Self
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 _PROFILE_STRING_MAX = 128
+_LIBYAN_MOBILE_RE = re.compile(r"^09[1-5]\d{7}$")
 
 
 class LoginRequest(BaseModel):
@@ -72,6 +74,25 @@ class ProfileUpdate(BaseModel):
     def empty_str_to_none(cls, v: object) -> object:
         if v == "":
             return None
+        return v
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone_blank(cls, v: object) -> object:
+        if v == "":
+            return None
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def libyan_mobile_format(cls, v: str | None) -> str | None:
+        """Libyan mobile: mandatory 09, third digit 1–5, then seven digits (10 digits total)."""
+        if v is None:
+            return None
+        if not _LIBYAN_MOBILE_RE.fullmatch(v):
+            raise ValueError("invalid_libyan_phone")
         return v
 
     @model_validator(mode="after")

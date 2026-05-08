@@ -51,7 +51,10 @@ export function NotificationCenter() {
         >
           <Bell className="size-5" strokeWidth={unreadCount > 0 ? 2.25 : 2} />
           {unreadCount > 0 ? (
-            <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+            <Badge
+              variant="successSoft"
+              className="pointer-events-none absolute -right-1 -top-1 h-5 min-w-5 justify-center px-1 text-[10px] font-semibold leading-none"
+            >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
           ) : null}

@@ -15,7 +15,7 @@ import {
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { inclusiveCalendarDaySpan } from '@/lib/date';
+import { inclusiveEndIsoDateFromStartAndDays } from '@/lib/date';
 
 import { createLeaveRequest } from '../../api';
 import { formatVacationBalanceRemaining } from '../../lib/leaveBalanceDisplay';
@@ -32,14 +32,14 @@ import { hrKeys, leaveBalanceQueryOptions } from '../../queries';
 
 const FORM_ID = 'hr-employee-leave-request-form';
 
-const schema = z
-  .object({
-    leave_type: z.enum(['vacation', 'sick', 'personal']),
-    start_date: z.string().min(1),
-    end_date: z.string().min(1),
-    reason: z.string().max(1024).optional(),
-  })
-  .refine((d) => d.start_date <= d.end_date, { message: 'date_order', path: ['end_date'] });
+const schema = z.object({
+  leave_type: z.enum(['vacation', 'sick', 'personal']),
+  start_date: z.string().min(1),
+  duration_days: z.coerce.number().int().min(1).max(366),
+  /** Derived for display only; API still uses inclusiveEndIsoDateFromStartAndDays on submit. */
+  end_date: z.string(),
+  reason: z.string().max(1024).optional(),
+});
 
 type FormValues = z.infer<typeof schema>;
 
@@ -64,21 +64,29 @@ export default function EmployeeLeaveRequestDialog({ employeeProfileId, open, on
     defaultValues: {
       leave_type: 'vacation',
       start_date: '',
+      duration_days: 1,
       end_date: '',
       reason: '',
     },
   });
 
   const start = form.watch('start_date');
-  const end = form.watch('end_date');
-  const durationDays =
-    start && end && start <= end ? inclusiveCalendarDaySpan(start, end) : null;
+  const durationDays = form.watch('duration_days');
+
+  useEffect(() => {
+    const nextEnd =
+      start && durationDays >= 1
+        ? inclusiveEndIsoDateFromStartAndDays(start, durationDays)
+        : '';
+    form.setValue('end_date', nextEnd);
+  }, [start, durationDays, form]);
 
   useEffect(() => {
     if (open) {
       form.reset({
         leave_type: 'vacation',
         start_date: '',
+        duration_days: 1,
         end_date: '',
         reason: '',
       });
@@ -90,7 +98,7 @@ export default function EmployeeLeaveRequestDialog({ employeeProfileId, open, on
       createLeaveRequest(employeeProfileId, {
         leave_type: v.leave_type,
         start_date: v.start_date,
-        end_date: v.end_date,
+        end_date: inclusiveEndIsoDateFromStartAndDays(v.start_date, v.duration_days),
         reason: v.reason?.trim() ? v.reason.trim() : null,
       }),
     onSuccess: async () => {
@@ -106,7 +114,6 @@ export default function EmployeeLeaveRequestDialog({ employeeProfileId, open, on
       open={open}
       onOpenChange={onOpenChange}
       title={t('leave.dialog.title')}
-      description={t('leave.dialog.description')}
       maxWidth="md"
       footer={
         <div className="flex w-full flex-wrap justify-end gap-2">
@@ -134,14 +141,7 @@ export default function EmployeeLeaveRequestDialog({ employeeProfileId, open, on
         <form
           id={FORM_ID}
           className="space-y-4"
-          onSubmit={form.handleSubmit(
-            async (v) => mutation.mutateAsync(v),
-            (errs) => {
-              if (errs.end_date?.message === 'date_order') {
-                toast.error(t('leave.dialog.date_order'));
-              }
-            },
-          )}
+          onSubmit={form.handleSubmit(async (v) => mutation.mutateAsync(v))}
         >
           <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
             <p className="font-medium text-foreground">{t('leave.dialog.balance_section')}</p>
@@ -171,15 +171,6 @@ export default function EmployeeLeaveRequestDialog({ employeeProfileId, open, on
             ) : (
               <p className="mt-1 text-muted-foreground">{t('leave.dialog.balance_loading')}</p>
             )}
-          </div>
-
-          <div className="grid gap-2">
-            <Label>{t('leave.dialog.duration')}</Label>
-            <p className="text-sm text-muted-foreground">
-              {durationDays != null
-                ? t('leave.dialog.duration_days', { count: durationDays })
-                : t('leave.dialog.duration_placeholder')}
-            </p>
           </div>
 
           <FormField
@@ -221,18 +212,49 @@ export default function EmployeeLeaveRequestDialog({ employeeProfileId, open, on
             />
             <FormField
               control={form.control}
-              name="end_date"
+              name="duration_days"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('leave.form.end')}</FormLabel>
+                  <FormLabel>{t('leave.dialog.duration_days_label')}</FormLabel>
                   <FormControl>
-                    <DateField value={field.value} onChange={field.onChange} />
+                    <Input
+                      type="number"
+                      min={1}
+                      max={366}
+                      inputMode="numeric"
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={Number.isFinite(field.value) ? field.value : 1}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        field.onChange(raw === '' ? 1 : Number.parseInt(raw, 10) || 1);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
+
+          <FormField
+            control={form.control}
+            name="end_date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('leave.form.end')}</FormLabel>
+                <FormControl>
+                  <DateField
+                    value={field.value}
+                    onChange={() => {}}
+                    disabled
+                    placeholder={t('leave.dialog.duration_placeholder')}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}

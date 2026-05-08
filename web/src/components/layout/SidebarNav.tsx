@@ -11,7 +11,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { NavItem, NavSection } from '@/config/navigation';
+import { navBadgeCount, useNavBadges, type NavBadgeCounts } from '@/hooks/useNavBadges';
 import { cn } from '@/lib/utils';
+
+import { NavAttentionBadge } from './NavAttentionBadge';
 
 const SECTION_LABEL_KEYS: Record<NavSection, string> = {
   ops: 'layout.nav_section_ops',
@@ -32,9 +35,9 @@ export type SidebarNavProps = {
 
 type NavLeafLinkProps = {
   to: string;
-  className?: string;
+  className?: string | ((state: { isActive: boolean }) => string);
   activeClassName?: string;
-  children: React.ReactNode;
+  children: React.ReactNode | ((state: { isActive: boolean }) => React.ReactNode);
   onNavigate?: () => void;
 };
 
@@ -47,9 +50,11 @@ const NavLeafLink = React.forwardRef<HTMLAnchorElement, NavLeafLinkProps>(functi
       ref={ref}
       to={to}
       onClick={() => onNavigate?.()}
-      className={({ isActive }) => cn(className, isActive && activeClassName)}
+      className={(state) =>
+        cn(typeof className === 'function' ? className(state) : className, state.isActive && activeClassName)
+      }
     >
-      {children}
+      {(state) => (typeof children === 'function' ? children(state) : children)}
     </NavLink>
   );
 });
@@ -60,7 +65,15 @@ function isItemActive(item: NavItem, pathname: string): boolean {
   return item.children?.some((child) => isItemActive(child, pathname)) ?? false;
 }
 
-function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigate?: () => void }) {
+function NavRowExpanded({
+  item,
+  onItemNavigate,
+  badges,
+}: {
+  item: NavItem;
+  onItemNavigate?: () => void;
+  badges: NavBadgeCounts;
+}) {
   const { t } = useTranslation();
   const location = useLocation();
   const Icon = item.icon;
@@ -73,15 +86,21 @@ function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigat
   }, [active, item.children?.length]);
 
   if (!item.children?.length) {
+    const n = navBadgeCount(badges, item.badge);
     return (
       <NavLeafLink
         to={item.href}
         {...(onItemNavigate ? { onNavigate: onItemNavigate } : {})}
-        className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
+        className="relative flex items-center gap-3 overflow-visible rounded-md px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
         activeClassName="bg-sidebar-primary text-sidebar-primary-foreground"
       >
-        <Icon className="size-4 shrink-0" />
-        <span>{label}</span>
+        {({ isActive }) => (
+          <>
+            <Icon className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+            <NavAttentionBadge count={n} navItemActive={isActive} />
+          </>
+        )}
       </NavLeafLink>
     );
   }
@@ -92,15 +111,18 @@ function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigat
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-muted',
+          'flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-muted',
           active && 'bg-muted text-sidebar-foreground',
         )}
       >
-        <span className="flex min-w-0 items-center gap-3">
+        <span className="flex min-w-0 flex-1 items-center gap-3">
           <Icon className="size-4 shrink-0" />
           <span className="truncate">{label}</span>
         </span>
-        <ChevronDown className={cn('size-4 shrink-0 transition-transform', open ? 'rotate-180' : '')} />
+        <span className="flex shrink-0 items-center gap-1">
+          <NavAttentionBadge count={navBadgeCount(badges, item.badge)} />
+          <ChevronDown className={cn('size-4 shrink-0 transition-transform', open ? 'rotate-180' : '')} />
+        </span>
       </button>
       {open && (
         <ul className="ms-6 space-y-1 border-s border-sidebar-border ps-2">
@@ -111,11 +133,19 @@ function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigat
                 <NavLeafLink
                   to={child.href}
                   {...(onItemNavigate ? { onNavigate: onItemNavigate } : {})}
-                  className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
+                  className="relative flex items-center gap-2 overflow-visible rounded-md px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
                   activeClassName="bg-sidebar-primary text-sidebar-primary-foreground"
                 >
-                  <ChildIcon className="size-3.5 shrink-0" />
-                  {t(child.labelKey)}
+                  {({ isActive }) => (
+                    <>
+                      <ChildIcon className="size-3.5 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">{t(child.labelKey)}</span>
+                      <NavAttentionBadge
+                        count={navBadgeCount(badges, child.badge)}
+                        navItemActive={isActive}
+                      />
+                    </>
+                  )}
                 </NavLeafLink>
               </li>
             );
@@ -126,7 +156,15 @@ function NavRowExpanded({ item, onItemNavigate }: { item: NavItem; onItemNavigat
   );
 }
 
-function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNavigate?: () => void }) {
+function NavRowCollapsed({
+  item,
+  onItemNavigate,
+  badges,
+}: {
+  item: NavItem;
+  onItemNavigate?: () => void;
+  badges: NavBadgeCounts;
+}) {
   const { t } = useTranslation();
   const location = useLocation();
   const Icon = item.icon;
@@ -134,16 +172,35 @@ function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNaviga
   const active = isItemActive(item, location.pathname);
 
   if (!item.children?.length) {
+    const n = navBadgeCount(badges, item.badge);
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           <NavLeafLink
             to={item.href}
             {...(onItemNavigate ? { onNavigate: onItemNavigate } : {})}
-            className="flex items-center justify-center rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-muted"
+            className={({ isActive }) =>
+              cn(
+                'relative flex items-center justify-center overflow-visible rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-muted',
+                isActive && 'z-[1]',
+              )
+            }
             activeClassName="bg-sidebar-primary text-sidebar-primary-foreground"
           >
-            <Icon className="size-5 shrink-0" />
+            {({ isActive }) => (
+              <>
+                <Icon className="size-5 shrink-0" />
+                {n > 0 ? (
+                  <span className="absolute end-0 top-0 z-[3] -translate-y-1/2 translate-x-1/4">
+                    <NavAttentionBadge
+                      count={n}
+                      navItemActive={isActive}
+                      className="h-4 min-w-4 px-1 text-[9px]"
+                    />
+                  </span>
+                ) : null}
+              </>
+            )}
           </NavLeafLink>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs">
@@ -159,13 +216,22 @@ function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNaviga
         <button
           type="button"
           className={cn(
-            'flex w-full items-center justify-center rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-muted',
-            active && 'bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary',
+            'relative flex w-full items-center justify-center overflow-visible rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-muted',
+            active && 'z-[1] bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary',
           )}
           aria-label={label}
           title={label}
         >
           <Icon className="size-5 shrink-0" />
+          {navBadgeCount(badges, item.badge) > 0 ? (
+            <span className="absolute end-0 top-0 z-[3] -translate-y-1/2 translate-x-1/4">
+              <NavAttentionBadge
+                count={navBadgeCount(badges, item.badge)}
+                navItemActive={active}
+                className="h-4 min-w-4 px-1 text-[9px]"
+              />
+            </span>
+          ) : null}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start" side="bottom" sideOffset={6}>
@@ -176,12 +242,20 @@ function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNaviga
               onClick={() => onItemNavigate?.()}
               className={({ isActive }) =>
                 cn(
-                  'cursor-pointer',
+                  'relative flex cursor-pointer items-center justify-between gap-2 overflow-visible',
                   isActive && 'bg-sidebar-primary text-sidebar-primary-foreground',
                 )
               }
             >
-              {t(child.labelKey)}
+              {({ isActive }) => (
+                <>
+                  <span className="min-w-0 flex-1 truncate">{t(child.labelKey)}</span>
+                  <NavAttentionBadge
+                    count={navBadgeCount(badges, child.badge)}
+                    navItemActive={isActive}
+                  />
+                </>
+              )}
             </NavLink>
           </DropdownMenuItem>
         ))}
@@ -195,6 +269,7 @@ function NavRowCollapsed({ item, onItemNavigate }: { item: NavItem; onItemNaviga
  */
 export function SidebarNav({ items, variant, onItemNavigate }: SidebarNavProps) {
   const { t } = useTranslation();
+  const badges = useNavBadges();
   let lastSection: NavSection | undefined;
 
   return (
@@ -227,11 +302,13 @@ export function SidebarNav({ items, variant, onItemNavigate }: SidebarNavProps) 
             {variant === 'collapsed' ? (
               <NavRowCollapsed
                 item={item}
+                badges={badges}
                 {...(onItemNavigate ? { onItemNavigate } : {})}
               />
             ) : (
               <NavRowExpanded
                 item={item}
+                badges={badges}
                 {...(onItemNavigate ? { onItemNavigate } : {})}
               />
             )}

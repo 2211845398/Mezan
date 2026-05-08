@@ -183,7 +183,8 @@ export default function RunDetail() {
         <TableHeader>
           <TableRow>
             <TableHead>{t('col.employee')}</TableHead>
-            <TableHead>{t('col.period')}</TableHead>
+            <TableHead>{t('form.period_start')}</TableHead>
+            <TableHead>{t('form.period_end')}</TableHead>
             <TableHead>{t('col.hours')}</TableHead>
             <TableHead>{t('col.rate')}</TableHead>
             <TableHead>{t('col.gross')}</TableHead>
@@ -195,9 +196,8 @@ export default function RunDetail() {
         <TableBody>
           <TableRow>
             <TableCell>{ps.employee_profile_id}</TableCell>
-            <TableCell>
-              {ps.period_start} → {ps.period_end}
-            </TableCell>
+            <TableCell>{ps.period_start}</TableCell>
+            <TableCell>{ps.period_end}</TableCell>
             <TableCell>{String(ps.hours_worked)}</TableCell>
             <TableCell>{String(ps.hourly_rate)}</TableCell>
             <TableCell>{String(ps.gross_amount)}</TableCell>

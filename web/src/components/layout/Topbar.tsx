@@ -15,6 +15,7 @@ import { getTitleKeyForPath } from '@/config/routeTitle';
 import { logout as logoutApi } from '@/features/auth/api';
 import { getRefreshTokenSync, useAuthStore } from '@/features/auth/stores/authStore';
 import { NotificationCenter } from '@/features/notifications/NotificationCenter';
+import { cn } from '@/lib/utils';
 import { useShellStore } from '@/stores/shellStore';
 
 import { SidebarNav } from './SidebarNav';
@@ -78,31 +79,37 @@ export function Topbar() {
               {user.full_name ?? user.email}
             </span>
           ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={toggleLang}
-            aria-label={t('layout.toggle_language')}
+          {/* EN: N → L → T → out (LTR). AR: reverse visual order (flex-row-reverse) while DOM stays keyboard-friendly. */}
+          <div
+            className={cn('flex items-center gap-2', i18n.language.startsWith('ar') && 'flex-row-reverse')}
+            dir="ltr"
           >
-            <Languages className="size-5" />
-          </Button>
-          <ThemeToggle />
-          {user ? <NotificationCenter /> : null}
-          {user ? (
+            {user ? <NotificationCenter /> : null}
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => {
-                void onSignOut();
-              }}
-              aria-label={t('layout.sign_out')}
+              onClick={toggleLang}
+              aria-label={t('layout.toggle_language')}
             >
-              <LogOut className="size-5" />
+              <Languages className="size-5" />
             </Button>
-          ) : null}
+            <ThemeToggle />
+            {user ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => {
+                  void onSignOut();
+                }}
+                aria-label={t('layout.sign_out')}
+              >
+                <LogOut className="size-5" />
+              </Button>
+            ) : null}
+          </div>
         </div>
       </header>
 

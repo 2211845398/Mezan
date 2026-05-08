@@ -11,6 +11,7 @@ from app.db.database import get_db
 from app.models.users import User
 from app.schemas.catalog import (
     CategoryAttributeDefCreate,
+    CategoryAttributeDefListRead,
     CategoryAttributeDefRead,
     CategoryAttributeDefUpdate,
     CategoryCreate,
@@ -35,7 +36,7 @@ from app.services.catalog_service import (
     get_category,
     get_product,
     list_categories,
-    list_category_attribute_defs,
+    list_category_attribute_defs_for_ui,
     list_category_tree,
     list_products,
     product_to_read,
@@ -185,16 +186,32 @@ async def delete_category_endpoint(
 # Category attribute definitions
 @router.get(
     "/categories/{category_id}/attributes",
-    response_model=list[CategoryAttributeDefRead],
+    response_model=list[CategoryAttributeDefListRead],
 )
 async def list_category_attributes_endpoint(
     category_id: int,
+    include_inherited: bool = Query(
+        False,
+        description="Include ancestor definitions not overridden on this category.",
+    ),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("catalog", "read"),
-) -> list[CategoryAttributeDefRead]:
-    rows = await list_category_attribute_defs(db, category_id=category_id)
-    return [CategoryAttributeDefRead.model_validate(r) for r in rows]
+) -> list[CategoryAttributeDefListRead]:
+    rows = await list_category_attribute_defs_for_ui(
+        db, category_id=category_id, include_inherited=include_inherited
+    )
+    out: list[CategoryAttributeDefListRead] = []
+    for rec, is_inherited, src_name in rows:
+        base = CategoryAttributeDefRead.model_validate(rec)
+        out.append(
+            CategoryAttributeDefListRead(
+                **base.model_dump(),
+                is_inherited=is_inherited,
+                source_category_name=src_name,
+            )
+        )
+    return out
 
 
 @router.post(

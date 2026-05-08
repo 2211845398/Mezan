@@ -9,7 +9,7 @@ export default function ForbiddenPage() {
   const state = location.state as { resource?: string; action?: string } | null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <div className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background px-4 py-12">
       <div className="max-w-md space-y-6 text-center">
         <ShieldAlert className="mx-auto size-12 text-destructive" aria-hidden="true" />
         <div className="space-y-2">

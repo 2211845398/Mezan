@@ -51,7 +51,10 @@ export default function CategoryPropertiesPage() {
   const { data: children = [], isLoading: loadingChildren } = useCategoriesQuery(idOk ? categoryIdNum : null, {
     enabled: idOk,
   });
-  const { data: attrDefs = [], isLoading: loadingAttrs } = useCategoryAttributesQuery(idOk ? categoryIdNum : null);
+  const { data: attrDefs = [], isLoading: loadingAttrs } = useCategoryAttributesQuery(
+    idOk ? categoryIdNum : null,
+    { includeInherited: true },
+  );
 
   const node = useMemo(() => (idOk ? findCategoryNode(tree, categoryIdNum) : null), [tree, categoryIdNum, idOk]);
 
@@ -73,6 +76,10 @@ export default function CategoryPropertiesPage() {
     setImageUrl(category.image_url ?? '');
     setIsActive(category.is_active);
   }, [category]);
+
+  useEffect(() => {
+    setCreateOpen(false);
+  }, [categoryIdNum]);
 
   const saveMeta = useMutation({
     mutationFn: () =>
@@ -244,7 +251,7 @@ export default function CategoryPropertiesPage() {
         <SectionCard title={t('categories.detail_tab_attributes')}>
           {loadingAttrs ? <p className="text-sm text-muted-foreground">{t('loading')}</p> : null}
           {!loadingAttrs ? (
-            <CategoryAttributeForm categoryId={categoryIdNum} defs={attrDefs} canUpdate={canUpdate} />
+            <CategoryAttributeForm key={categoryIdNum} categoryId={categoryIdNum} defs={attrDefs} canUpdate={canUpdate} />
           ) : null}
         </SectionCard>
       ) : null}

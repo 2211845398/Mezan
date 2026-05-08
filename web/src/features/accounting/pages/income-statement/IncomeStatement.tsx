@@ -89,9 +89,14 @@ export default function IncomeStatement() {
       </div>
       {data ? (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {data.period_start} → {data.period_end}
-          </p>
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+            <span>
+              <span className="font-medium text-foreground">{t('is.period_start')}:</span> {data.period_start}
+            </span>
+            <span>
+              <span className="font-medium text-foreground">{t('is.period_end')}:</span> {data.period_end}
+            </span>
+          </div>
           <div className="grid gap-2 md:grid-cols-3">
             <div>
               <div className="text-xs text-muted-foreground">{t('is.revenue')}</div>

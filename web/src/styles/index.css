@@ -91,6 +91,16 @@
     @apply h-full;
   }
 
+  /* Shell owns scrolling: sidebar nav + main only — no document-level scrollbar. */
+  html,
+  body {
+    @apply overflow-hidden;
+  }
+
+  #root {
+    @apply min-h-0 overflow-hidden;
+  }
+
   body {
     @apply bg-background font-sans text-foreground antialiased;
     font-family: var(--font-arabic);
@@ -107,8 +117,7 @@
   }
 
   /**
-   * Gray themed scrollbar — used on sidebar nav only.
-   * Creates exactly two scroll areas: sidebar nav + main content.
+   * Gray themed scrollbar — sidebar nav + main content (`AdminLayout` `<main>`).
    */
   .mezan-scrollbar {
     scrollbar-width: thin;

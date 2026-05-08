@@ -53,8 +53,8 @@
       "sku": "SKU",
       "image_url": "Image URL",
       "image_upload": "Product image",
-      "standard_cost": "Standard cost",
-      "sell_price": "Default sell price",
+      "standard_cost": "Purchase cost",
+      "sell_price": "Selling price",
       "vat": "Output VAT (fraction, e.g. 0.15)",
       "active": "Active"
     },
@@ -70,7 +70,7 @@
       "categories": "Categories",
       "barcode_count": "Barcodes",
       "default_price": "Sell price",
-      "cost": "Cost",
+      "cost": "Purchase cost",
       "status": "Status",
       "vat": "VAT"
     },
@@ -79,7 +79,7 @@
       "category": "Category",
       "all": "All",
       "search": "Search",
-      "search_ph": "Name or SKU…",
+      "search_ph": "Name or barcode…",
       "include_subcategories": "Include subcategories"
     },
     "status": { "active": "Active", "archived": "Archived" }
@@ -87,7 +87,7 @@
   "barcode": {
     "label": "Barcode",
     "generate": "Generate EAN",
-    "hint": "Generate is available after the product is created."
+    "hint": "Leave empty to assign an internal barcode automatically when you save. After the product exists you can use Generate EAN to replace it."
   },
   "categories": {
     "title": "Categories",
@@ -140,11 +140,33 @@
     "attr_empty": "No attributes defined yet.",
     "attr_required": "Required",
     "attr_optional": "Optional",
-    "attr_sort": "Sort order",
+    "attr_sort": "Display priority",
     "attr_options": "Options",
     "attr_field_required": "Required",
-    "attr_field_sort": "Sort order",
-    "attr_delete_title": "Delete attribute?",
+    "attr_field_sort": "Display priority",
+    "attr_display_priority": "Display priority",
+    "attr_priority_high": "High",
+    "attr_priority_mid": "Mid",
+    "attr_priority_low": "Low",
+    "attr_select_property": "Property",
+    "attr_select_property_ph": "Select a property…",
+    "attr_preset_key_fixed_hint": "The technical key is fixed for the selected property.",
+    "attr_select_needs_options": "Add at least one option for a single-choice field.",
+    "attr_presets": {
+      "COLOR": "Color",
+      "SIZE": "Size",
+      "EXPIRATION_DATE": "Expiration date",
+      "WEIGHT": "Weight",
+      "VOLUME": "Volume",
+      "LENGTH": "Length",
+      "WIDTH": "Width",
+      "CAPACITY": "Capacity"
+    },
+    "attr_inherited": "Inherited from parent categories",
+    "attr_inherited_badge": "Inherited",
+    "attr_inherited_from": "Inherited from “{{name}}”",
+    "attr_inherited_hint": "Edit or remove these on the parent category. Child-only attributes stay on this category.",
+    "attr_own": "Attributes on this category",
     "attr_delete_desc": "Products keep existing values in their data, but this field will no longer be validated or shown for this category.",
     "attr_field_key": "Key (machine name)",
     "attr_field_label": "Label",

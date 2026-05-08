@@ -59,14 +59,14 @@ export default function LeaveList() {
         },
       },
       {
-        id: 'period',
-        header: t('leave.col.period'),
-        accessorFn: (row) => {
-          const ep = employeeById.get(row.employee_profile_id);
-          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
-          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
-        },
-        cell: ({ row }) => `${row.original.start_date} – ${row.original.end_date}`,
+        id: 'leave_start',
+        accessorKey: 'start_date',
+        header: t('leave.col.from'),
+      },
+      {
+        id: 'leave_end',
+        accessorKey: 'end_date',
+        header: t('leave.col.to'),
       },
       {
         id: 'days',

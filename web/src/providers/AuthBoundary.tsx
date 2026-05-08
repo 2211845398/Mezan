@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { setRefreshFn } from '@/api/interceptors/handle401Refresh';
@@ -36,8 +36,6 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
   const setRoleCodes = useAuthStore((s) => s.setRoleCodes);
   const clear = useAuthStore((s) => s.clear);
 
-  const bootedRef = useRef(false);
-
   useEffect(() => {
     // 2) Plug the refresh callback into the Axios 401 interceptor.
     setRefreshFn(async () => {
@@ -62,10 +60,10 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
   }, [clear]);
 
   useEffect(() => {
-    // 1) Boot sequence runs once. If no refresh token is stashed, we short-
-    //    circuit to `unauthenticated` and the router renders /login.
-    if (bootedRef.current) return;
-    bootedRef.current = true;
+    // 1) Session restore. Must not use a "run once" ref: React 18 Strict Mode
+    //    mounts → unmounts → remounts in dev; skipping the second run leaves
+    //    `status` stuck on `booting` after the first async aborts.
+    let cancelled = false;
 
     const existing = getRefreshTokenSync();
     if (!existing) {
@@ -73,10 +71,9 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let cancelled = false;
     setStatus('booting');
 
-    (async () => {
+    void (async () => {
       try {
         const tokens = await refreshTokenApi({ refresh_token: existing });
         if (cancelled) return;
@@ -106,7 +103,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
       <div
         role="status"
         aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-background"
+        className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background"
       >
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 className="size-8 animate-spin" aria-hidden="true" />

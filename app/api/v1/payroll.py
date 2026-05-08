@@ -51,6 +51,10 @@ from app.services.payroll_service import (
     recalculate_draft_payslip,
     update_draft_payslip_adjustments,
 )
+from app.utils.payroll_notifications import (
+    normalize_notification_lang,
+    payslip_paid_notification_copy,
+)
 
 router = APIRouter()
 
@@ -67,6 +71,32 @@ def _validate_payroll_year_month(year: int, month: int) -> None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="year out of range")
     if month < 1 or month > 12:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="month out of range")
+
+
+async def _enqueue_payslip_paid_for_user(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    payslip_id: int,
+    period_start: date,
+    idempotency_key: str,
+) -> int | None:
+    res = await db.execute(select(User.preferred_language).where(User.id == user_id))
+    lang = normalize_notification_lang(res.scalar_one_or_none())
+    title, body = payslip_paid_notification_copy(
+        lang=lang, period_start=period_start, payslip_id=payslip_id
+    )
+    return await enqueue_direct_notification(
+        db,
+        user_id=user_id,
+        title=title,
+        body=body,
+        template_kind="payslip_paid",
+        idempotency_key=idempotency_key,
+        data={"payslip_id": payslip_id, "path": "/payroll/runs"},
+        provider_name=None,
+        default_push_provider=settings.PUSH_PROVIDER,
+    )
 
 
 def _payroll_period_read_from_snapshot(snap: dict) -> PayrollPeriodRead:
@@ -328,7 +358,6 @@ async def payroll_period_approve_and_pay_endpoint(
         request=request,
     )
     delivery_ids: list[int] = []
-    month_label = period_start.strftime("%B %Y")
     for p in paid:
         res = await db.execute(
             select(EmployeeProfile.user_id).where(EmployeeProfile.id == p.employee_profile_id)
@@ -336,16 +365,12 @@ async def payroll_period_approve_and_pay_endpoint(
         uid = res.scalar_one_or_none()
         if uid is None:
             continue
-        nid = await enqueue_direct_notification(
+        nid = await _enqueue_payslip_paid_for_user(
             db,
             user_id=uid,
-            title="Salary deposited",
-            body=f"Your salary for {month_label} has been deposited (payslip #{p.id}).",
-            template_kind="payslip_paid",
+            payslip_id=p.id,
+            period_start=p.period_start,
             idempotency_key=f"{idem}:approvepay:notify:{p.id}",
-            data={"payslip_id": p.id, "path": "/payroll/runs"},
-            provider_name=None,
-            default_push_provider=settings.PUSH_PROVIDER,
         )
         if nid:
             delivery_ids.append(nid)
@@ -418,16 +443,12 @@ async def mark_paid_endpoint(
         uid = res.scalar_one_or_none()
         if uid is None:
             continue
-        nid = await enqueue_direct_notification(
+        nid = await _enqueue_payslip_paid_for_user(
             db,
             user_id=uid,
-            title="Salary deposited",
-            body=f"Your salary for {p.period_start.strftime('%B %Y')} has been deposited (payslip #{p.id}).",
-            template_kind="payslip_paid",
+            payslip_id=p.id,
+            period_start=p.period_start,
             idempotency_key=f"{idem}:paid:notify:{p.id}",
-            data={"payslip_id": p.id, "path": "/payroll/runs"},
-            provider_name=None,
-            default_push_provider=settings.PUSH_PROVIDER,
         )
         if nid:
             delivery_ids.append(nid)
@@ -474,17 +495,12 @@ async def approve_and_pay_endpoint(
         uid = res.scalar_one_or_none()
         if uid is None:
             continue
-        month_label = p.period_start.strftime("%B %Y")
-        nid = await enqueue_direct_notification(
+        nid = await _enqueue_payslip_paid_for_user(
             db,
             user_id=uid,
-            title="Salary deposited",
-            body=f"Your salary for {month_label} has been deposited (payslip #{p.id}).",
-            template_kind="payslip_paid",
+            payslip_id=p.id,
+            period_start=p.period_start,
             idempotency_key=f"{idem}:approvepay:notify:{p.id}",
-            data={"payslip_id": p.id, "path": "/payroll/runs"},
-            provider_name=None,
-            default_push_provider=settings.PUSH_PROVIDER,
         )
         if nid:
             delivery_ids.append(nid)

@@ -7,7 +7,7 @@ export default function NotFoundPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <div className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background px-4 py-12">
       <div className="max-w-md space-y-6 text-center">
         <Compass className="mx-auto size-12 text-muted-foreground" aria-hidden="true" />
         <div className="space-y-2">

@@ -17,8 +17,8 @@ export function AuthLayout({ logoSlot, children, className }: AuthLayoutProps) {
   return (
     <div
       className={cn(
-        'flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12',
-        className
+        'flex h-full min-h-0 w-full items-center justify-center overflow-y-auto bg-muted/40 px-4 py-12',
+        className,
       )}
     >
       <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-lg">

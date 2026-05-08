@@ -9,12 +9,14 @@ type CategoryCreate = paths['/api/v1/categories']['post']['requestBody']['conten
 type CategoryUpdate = paths['/api/v1/categories/{category_id}']['patch']['requestBody']['content']['application/json'];
 type CategoryTreeNode = paths['/api/v1/categories/tree']['get']['responses']['200']['content']['application/json'][number];
 type AttrDef = paths['/api/v1/categories/{category_id}/attributes']['get']['responses']['200']['content']['application/json'][number];
+export type CategoryAttrDef = AttrDef;
 type AttrDefCreate = paths['/api/v1/categories/{category_id}/attributes']['post']['requestBody']['content']['application/json'];
 type AttrDefUpdate =
   paths['/api/v1/categories/{category_id}/attributes/{attr_id}']['patch']['requestBody']['content']['application/json'];
 
 export type {
   AttrDef,
+  CategoryAttrDef,
   CategoryCreate,
   CategoryRead,
   CategoryTreeNode,
@@ -113,8 +115,13 @@ export async function deleteCategory(id: number): Promise<void> {
   await apiClient.delete(`/categories/${id}`);
 }
 
-export async function listCategoryAttributes(categoryId: number): Promise<AttrDef[]> {
-  const { data } = await apiClient.get<AttrDef[]>(`/categories/${categoryId}/attributes`);
+export async function listCategoryAttributes(
+  categoryId: number,
+  opts?: { includeInherited?: boolean },
+): Promise<CategoryAttrDef[]> {
+  const { data } = await apiClient.get<CategoryAttrDef[]>(`/categories/${categoryId}/attributes`, {
+    params: { include_inherited: opts?.includeInherited ?? false },
+  });
   return data;
 }
 

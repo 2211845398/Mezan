@@ -30,10 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { usePermission } from '@/hooks/usePermission';
-import { formatNumber } from '@/lib/format';
-
 import {
-  getBarcodeCount,
   getDisplayPrice,
   postArchiveProduct,
   postUnarchiveProduct,
@@ -118,11 +115,6 @@ export default function ProductsList() {
     () =>
       defineColumns<ProductRead>()([
         {
-          id: 'barcode_count',
-          header: t('products.col.barcode_count'),
-          cell: ({ row }) => formatNumber(getBarcodeCount(row.original)),
-        },
-        {
           id: 'name',
           header: t('products.col.name'),
           cell: ({ row }) => {
@@ -160,7 +152,6 @@ export default function ProductsList() {
           header: t('products.col.default_price'),
           cell: ({ row }) => getDisplayPrice(row.original),
         },
-        { id: 'sku', accessorKey: 'sku', header: t('products.col.sku') },
         {
           id: 'status',
           header: t('products.col.status'),
@@ -170,6 +161,18 @@ export default function ProductsList() {
           id: 'vat',
           header: t('products.col.vat'),
           cell: ({ row }) => String(row.original.output_vat_rate ?? '0'),
+        },
+        {
+          id: 'barcode',
+          header: t('products.col.barcode_count'),
+          cell: ({ row }) => {
+            const b = row.original.barcode?.trim();
+            return (
+              <span className="num-latin tabular-nums" dir="ltr">
+                {b ? b : '—'}
+              </span>
+            );
+          },
         },
         {
           id: 'actions',
