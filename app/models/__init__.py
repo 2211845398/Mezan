@@ -1,6 +1,8 @@
 """ORM models package."""
 
 from app.models.accounting_settings import AccountingSettings
+from app.models.ai_usage_log import AIUsageLog
+from app.models.bom import BillOfMaterials, BomLine, ProductionOrder, ProductionOrderIssue, ProductionOrderReceipt
 from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
@@ -21,6 +23,7 @@ from app.models.employee_profile import EmployeeProfile
 from app.models.example import Example
 from app.models.fiscal_period import FiscalPeriod
 from app.models.global_config import GlobalConfig
+from app.models.inventory_cost_layer import InventoryCostLayer
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
@@ -71,6 +74,7 @@ from app.models.weekly_schedule import WeeklySchedule
 __all__ = [
     "AccountingSettings",
     "AccountType",
+    "AIUsageLog",
     "ApOpenItem",
     "ApPaymentApplication",
     "ArOpenItem",
@@ -79,6 +83,8 @@ __all__ = [
     "AttendanceLog",
     "AttendancePayrollPolicy",
     "AttendancePolicyCategory",
+    "BillOfMaterials",
+    "BomLine",
     "Branch",
     "BranchSequence",
     "BranchProductCost",
@@ -112,6 +118,7 @@ __all__ = [
     "Payslip",
     "PayslipStatus",
     "GlobalConfig",
+    "InventoryCostLayer",
     "InvoiceScan",
     "JournalEntry",
     "JournalEntryLine",
@@ -133,6 +140,9 @@ __all__ = [
     "PosCashEvent",
     "PosShift",
     "ZReport",
+    "ProductionOrder",
+    "ProductionOrderIssue",
+    "ProductionOrderReceipt",
     "RefreshToken",
     "Role",
     "RolePermission",

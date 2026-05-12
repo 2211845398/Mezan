@@ -13,11 +13,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ValidationError
+from app.models.ap_open_item import ApOpenItem
 from app.models.ar_open_item import ArOpenItem
-from app.models.chart_account import ChartAccount
+from app.models.chart_accounts import ChartAccount
 from app.models.currency import Currency
 from app.models.journal_entries import JournalEntry, JournalEntryLine
-from app.models.payables_open_item import PayablesOpenItem
 from app.services.accounting_governance_service import ensure_period_not_hard_closed
 from app.services.accounting_service import get_accounting_settings
 from app.utils.money import q2
@@ -225,9 +225,9 @@ async def _revalue_ap_items(
 
     # Find open AP items with foreign currency
     ap_res = await db.execute(
-        select(PayablesOpenItem).where(
-            PayablesOpenItem.amount_open > 0,
-            PayablesOpenItem.currency_code == currency_code,
+        select(ApOpenItem).where(
+            ApOpenItem.amount_open > 0,
+            ApOpenItem.currency_code == currency_code,
         )
     )
     ap_items = ap_res.scalars().all()

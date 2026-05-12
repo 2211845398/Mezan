@@ -38,6 +38,7 @@ from app.api.v1.sales import router as sales_router
 from app.api.v1.suppliers import router as suppliers_router
 from app.api.v1.terminals import router as terminals_router
 from app.api.v1.transfers import router as transfers_router
+from app.api.v1.vouchers import router as vouchers_router
 
 __all__ = [
     "accounting_router",
