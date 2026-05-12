@@ -16,7 +16,7 @@ class BranchProductCost(Base):
 
     __tablename__ = "branch_product_costs"
     __table_args__ = (
-        UniqueConstraint("branch_id", "product_id", name="uq_branch_product_costs_branch_product"),
+        UniqueConstraint("branch_id", "product_id", "variant_id", name="uq_branch_product_costs_branch_product_variant"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -25,6 +25,9 @@ class BranchProductCost(Base):
     )
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=True, index=True
     )
     average_unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

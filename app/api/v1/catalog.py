@@ -32,6 +32,7 @@ from app.services.catalog_service import (
     create_product,
     delete_category,
     delete_category_attribute_def,
+    filter_products_by_attributes,
     generate_product_barcode,
     get_category,
     get_product,
@@ -482,3 +483,90 @@ async def generate_barcode_endpoint(
     )
     await db.commit()
     return read
+
+
+# Epic 18.8: Attribute-based product filtering
+@router.post("/products/filter-by-attributes", response_model=list[ProductRead])
+async def filter_products_by_attributes_endpoint(
+    category_id: int | None = None,
+    attributes_filter: dict | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("catalog", "read"),
+) -> list[ProductRead]:
+    """Filter products by category and multiple attributes.
+
+    Example: {"color": "red", "size": "L"} finds products with both attributes.
+    """
+    if attributes_filter is None:
+        attributes_filter = {}
+    rows = await filter_products_by_attributes(
+        db,
+        category_id=category_id,
+        attributes_filter=attributes_filter,
+        limit=limit,
+        offset=offset,
+    )
+    return await products_to_reads(db, rows)
+
+
+# Epic 18.10: Variant-aware product detail
+@router.get("/products/{product_id}/with-variants")
+async def get_product_with_variants_endpoint(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("catalog", "read"),
+) -> dict:
+    """Get product with variants, stock per variant, and last cost per variant."""
+    from app.models.product_variant import ProductVariant
+    from app.models.stock_level import StockLevel
+    from app.models.branch_product_costs import BranchProductCost
+    from app.services.pricing_service import get_active_sell_price
+
+    product = await get_product(db, product_id)
+    base_read = await product_to_read(db, product)
+
+    # Get variants
+    variants_res = await db.execute(
+        select(ProductVariant).where(ProductVariant.product_id == product_id)
+    )
+    variants = variants_res.scalars().all()
+
+    variants_data = []
+    for v in variants:
+        # Get stock for this variant
+        stock_res = await db.execute(
+            select(StockLevel).where(StockLevel.variant_id == v.id)
+        )
+        stock_levels = stock_res.scalars().all()
+        stock_by_branch = {s.branch_id: s.qty for s in stock_levels}
+
+        # Get last cost for this variant
+        cost_res = await db.execute(
+            select(BranchProductCost).where(BranchProductCost.variant_id == v.id)
+        )
+        costs = cost_res.scalars().all()
+        cost_by_branch = {c.branch_id: c.last_unit_cost for c in costs}
+
+        # Get price
+        price = await get_active_sell_price(db, product_id=product_id, variant_id=v.id)
+
+        variants_data.append({
+            "id": v.id,
+            "sku": v.sku,
+            "barcode": v.barcode,
+            "attribute_values": v.attribute_values,
+            "active": v.active,
+            "stock_by_branch": stock_by_branch,
+            "last_cost_by_branch": cost_by_branch,
+            "sell_price": price,
+        })
+
+    return {
+        "product": base_read.model_dump(),
+        "variants": variants_data,
+        "variant_count": len(variants_data),
+    }

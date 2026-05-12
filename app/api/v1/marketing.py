@@ -138,3 +138,150 @@ async def marketing_advisory_endpoint(
     __: None = require_permission("marketing_advisory", "run"),
 ) -> MarketingAdvisoryResponse:
     return await generate_marketing_advisory(db, payload=body)
+
+
+# ── Epic 23.6: Marketing Analytics Charts (Recharts-compatible data) ────────
+
+
+@router.get("/marketing/analytics/charts/sales-trend")
+async def sales_trend_chart_endpoint(
+    days: int = 30,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("analytics", "read"),
+) -> dict:
+    """Get sales trend data for line/area charts (Recharts compatible).
+
+    Returns daily sales totals for the specified period.
+    """
+    from datetime import timedelta
+    from sqlalchemy import func, select
+    from app.models.sales_invoice import SalesInvoice
+
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+
+    stmt = (
+        select(
+            func.date(SalesInvoice.created_at).label("date"),
+            func.sum(SalesInvoice.total).label("total"),
+            func.count(SalesInvoice.id).label("count"),
+        )
+        .where(
+            SalesInvoice.created_at >= start_date,
+            SalesInvoice.created_at <= end_date,
+            SalesInvoice.voided_at.is_(None),
+        )
+        .group_by(func.date(SalesInvoice.created_at))
+        .order_by(func.date(SalesInvoice.created_at))
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return {
+        "period_days": days,
+        "data": [
+            {"date": str(r.date), "total": float(r.total or 0), "count": r.count or 0}
+            for r in rows
+        ],
+    }
+
+
+@router.get("/marketing/analytics/charts/category-breakdown")
+async def category_breakdown_chart_endpoint(
+    days: int = 30,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("analytics", "read"),
+) -> dict:
+    """Get sales by category for pie/donut charts (Recharts compatible)."""
+    from datetime import timedelta
+    from sqlalchemy import func, select
+    from app.models.sales_invoice import SalesInvoice
+    from app.models.sales_invoice_line import SalesInvoiceLine
+    from app.models.product import Product
+
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+
+    stmt = (
+        select(
+            Product.category_id.label("category_id"),
+            func.sum(SalesInvoiceLine.line_total).label("total"),
+        )
+        .join(SalesInvoice, SalesInvoice.id == SalesInvoiceLine.sales_invoice_id)
+        .join(Product, Product.id == SalesInvoiceLine.product_id)
+        .where(
+            SalesInvoice.created_at >= start_date,
+            SalesInvoice.created_at <= end_date,
+            SalesInvoice.voided_at.is_(None),
+        )
+        .group_by(Product.category_id)
+        .order_by(func.sum(SalesInvoiceLine.line_total).desc())
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    # Get category names
+    from app.models.category import Category
+
+    cat_ids = [r.category_id for r in rows if r.category_id]
+    cat_result = await db.execute(select(Category.id, Category.name).where(Category.id.in_(cat_ids)))
+    cat_map = {c.id: c.name for c in cat_result.scalars().all()}
+
+    return {
+        "period_days": days,
+        "data": [
+            {
+                "category_id": r.category_id,
+                "category_name": cat_map.get(r.category_id, "Unknown"),
+                "value": float(r.total or 0),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/marketing/analytics/charts/customer-activity")
+async def customer_activity_chart_endpoint(
+    days: int = 30,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("analytics", "read"),
+) -> dict:
+    """Get customer activity data for bar charts (Recharts compatible)."""
+    from datetime import timedelta
+    from sqlalchemy import func, select
+    from app.models.sales_invoice import SalesInvoice
+
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+
+    # Hourly distribution of sales
+    stmt = (
+        select(
+            func.extract("hour", SalesInvoice.created_at).label("hour"),
+            func.count(SalesInvoice.id).label("count"),
+            func.sum(SalesInvoice.total).label("total"),
+        )
+        .where(
+            SalesInvoice.created_at >= start_date,
+            SalesInvoice.created_at <= end_date,
+            SalesInvoice.voided_at.is_(None),
+        )
+        .group_by(func.extract("hour", SalesInvoice.created_at))
+        .order_by(func.extract("hour", SalesInvoice.created_at))
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return {
+        "period_days": days,
+        "data": [
+            {"hour": int(r.hour), "count": r.count or 0, "total": float(r.total or 0)}
+            for r in rows
+        ],
+    }

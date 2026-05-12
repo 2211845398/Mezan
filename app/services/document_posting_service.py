@@ -21,14 +21,18 @@ from app.utils.money import q2
 
 
 def _normalize_tender(method: str | None) -> str:
-    if method in ("cash", "card", "other"):
+    # Epic 21.6: Add transfer tender method
+    if method in ("cash", "card", "transfer", "other"):
         return method
     return "cash"
 
 
 def _settlement_account_id(settings, tender: str) -> int:
+    # Epic 21.6: Add transfer tender method with clearing account routing
     if tender == "card":
         return settings.default_card_clearing_account_id
+    if tender == "transfer":
+        return getattr(settings, "default_bank_transfer_account_id", settings.default_cash_account_id)
     if tender == "other":
         return settings.default_other_clearing_account_id
     return settings.default_cash_account_id

@@ -24,6 +24,9 @@ class StockMovement(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     qty_delta: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[str] = mapped_column(String(64), nullable=False)
     ref_type: Mapped[str | None] = mapped_column(String(64), nullable=True)

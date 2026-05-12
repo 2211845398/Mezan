@@ -12,6 +12,7 @@ from app.core.errors import ConflictError, NotFoundError, StateTransitionError, 
 from app.models.ar_open_item import ArOpenItem
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
+from app.models.pos_shift import PosCashEvent
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
@@ -29,6 +30,8 @@ from app.services.accounting_governance_service import (
 )
 from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.inventory_service import apply_stock_movement
+from app.services.loyalty_service import adjust_points
+from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
 
 VOID_INVOICE_MAX_AGE_HOURS = 48
@@ -96,6 +99,19 @@ async def finalize_paid_cart(
     receipt = rec_res.scalar_one_or_none()
     tender_method = receipt.method if receipt else "cash"
 
+    # Epic 21.3: Record PosCashEvent on cash tender
+    # Epic 21.6: Handle transfer tender method with clearing account
+    if tender_method == "cash" and cart.shift_id:
+        db.add(
+            PosCashEvent(
+                shift_id=cart.shift_id,
+                event_type="sale",
+                amount=payment_intent.amount,
+                note=f"Cart {cart.id} invoice {invoice.id}",
+                created_by_user_id=user_id,
+            )
+        )
+
     for idx, ln in enumerate(lines):
         db.add(
             SalesInvoiceLine(
@@ -131,11 +147,55 @@ async def finalize_paid_cart(
         select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
     )
     await post_sales_invoice_gl(db, invoice=invoice, lines=list(sil_res.scalars().all()))
+
+    # Epic 21.9: Loyalty purchase accrual (hardcoded rules per user decision)
+    if cart.customer_id:
+        await _accrue_loyalty_for_purchase(
+            db,
+            customer_id=cart.customer_id,
+            invoice_total=invoice.total,
+            invoice_id=invoice.id,
+            user_id=user_id,
+        )
+
     cart.status = "paid"
     cart.paid_at = issued_at
     await db.commit()
     await db.refresh(invoice)
     return invoice
+
+
+async def _accrue_loyalty_for_purchase(
+    db: AsyncSession,
+    *,
+    customer_id: int,
+    invoice_total: Decimal,
+    invoice_id: int,
+    user_id: int,
+) -> None:
+    """Hardcoded loyalty rules (Epic 21.9):
+    - 10 points for every purchase
+    - 50 points for invoices over 1000 (in addition to base 10)
+    """
+    from decimal import Decimal
+
+    points = 10  # Base points for any purchase
+
+    # Bonus for high-value invoices (using 1000 threshold as per requirements)
+    if invoice_total > Decimal("1000"):
+        points += 50
+
+    if points > 0:
+        await adjust_points(
+            db,
+            customer_id=customer_id,
+            points=points,
+            entry_type=LedgerEntryType.CREDIT,
+            reason_code=LedgerReasonCode.PURCHASE,
+            auditor_id=user_id,
+            reference_id=f"INV-{invoice_id}",
+            note=f"Purchase loyalty: {points} points",
+        )
 
 
 def _within_void_time_window(created_at: datetime, *, now: datetime) -> bool:

@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
-from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
+from app.models.pos_cart import CartDaySequence, PosCart, PosCartDiscount, PosCartEvent, PosCartLine
+from app.models.pos_shift import PosShift
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.schemas.pos_cart import CartDiscountRead, CartLineRead, CartRead
@@ -34,6 +35,38 @@ def _assert_transition(current: str, action: str) -> str:
     return nxt
 
 
+async def _next_daily_cart_number(db: AsyncSession, branch_id: int, cart_date: date | None = None) -> int:
+    """Get the next cart number for a branch on a given date (Epic 21.1)."""
+    if cart_date is None:
+        cart_date = datetime.now(UTC).date()
+
+    # Try to get existing sequence
+    seq_res = await db.execute(
+        select(CartDaySequence).where(
+            CartDaySequence.branch_id == branch_id,
+            CartDaySequence.cart_date == cart_date,
+        )
+    )
+    seq = seq_res.scalar_one_or_none()
+
+    if seq is None:
+        # Create new sequence starting at 1
+        seq = CartDaySequence(
+            branch_id=branch_id,
+            cart_date=cart_date,
+            next_number=2,  # Return 1, next will be 2
+        )
+        db.add(seq)
+        await db.flush()
+        return 1
+    else:
+        # Get current number and increment
+        current = seq.next_number
+        seq.next_number = current + 1
+        await db.flush()
+        return current
+
+
 async def create_cart(
     db: AsyncSession, *, terminal_id: int, shift_id: int | None, customer_id: int | None
 ) -> PosCart:
@@ -42,11 +75,29 @@ async def create_cart(
     if not terminal:
         raise ValidationError("Terminal not found")
     await require_branch_open_for_operations(db, terminal.branch_id)
+
+    # Epic 21.2: Validate shift belongs to terminal and is open
+    if shift_id is not None:
+        s_res = await db.execute(
+            select(PosShift).where(
+                PosShift.id == shift_id,
+                PosShift.terminal_id == terminal_id,
+                PosShift.status == "open",
+            )
+        )
+        shift = s_res.scalar_one_or_none()
+        if not shift:
+            raise ValidationError("Shift not found, does not belong to terminal, or is not open")
+
+    # Epic 21.1: Generate per-branch-per-day cart number
+    daily_cart_number = await _next_daily_cart_number(db, terminal.branch_id)
+
     cart = PosCart(
         terminal_id=terminal_id,
         branch_id=terminal.branch_id,
         shift_id=shift_id,
         customer_id=customer_id,
+        daily_cart_number=daily_cart_number,
         status="active",
         subtotal=Decimal("0.00"),
         discount_total=Decimal("0.00"),
@@ -120,6 +171,7 @@ async def _recalc_totals(db: AsyncSession, cart: PosCart) -> None:
 async def upsert_line(
     db: AsyncSession, *, cart_id: int, product_id: int, qty: int, created_by_user_id: int
 ) -> PosCart:
+    """Add, update, or delete cart line. qty=0 deletes the line (Epic 21.8)."""
     c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
     cart = c_res.scalar_one_or_none()
     if not cart:
@@ -130,13 +182,32 @@ async def upsert_line(
     product = p_res.scalar_one_or_none()
     if not product:
         raise ValidationError("Product not found")
-    unit_price = await get_active_sell_price(db, product_id=product.id)
+
     line_res = await db.execute(
         select(PosCartLine).where(
             PosCartLine.cart_id == cart.id, PosCartLine.product_id == product_id
         )
     )
     line = line_res.scalar_one_or_none()
+
+    # Epic 21.8: qty=0 means delete the line
+    if qty <= 0:
+        if line:
+            await db.delete(line)
+            db.add(
+                PosCartEvent(
+                    cart_id=cart.id,
+                    event_type="line_deleted",
+                    payload={"product_id": product_id},
+                    created_by_user_id=created_by_user_id,
+                )
+            )
+        await _recalc_totals(db, cart)
+        await db.commit()
+        await db.refresh(cart)
+        return cart
+
+    unit_price = await get_active_sell_price(db, product_id=product.id)
     rate = product.output_vat_rate if product.output_vat_rate is not None else Decimal("0")
     if rate < 0:
         rate = Decimal("0")

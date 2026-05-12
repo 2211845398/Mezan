@@ -33,23 +33,28 @@ from app.api.v1 import (
     branches_router,
     carts_router,
     catalog_router,
+    chart_accounts_router,
     config_router,
+    customer_performance_router,
     customers_router,
     discounts_router,
     employees_router,
     executive_bi_router,
+    fx_revaluation_router,
     goods_receipts_router,
     health_router,
     inventory_adjustments_router,
     inventory_reporting_router,
     invoice_scans_router,
     loyalty_router,
+    loyalty_rules_router,
     marketing_router,
     notifications_router,
     payments_router,
     payroll_router,
     pos_shifts_router,
     price_lists_router,
+    production_orders_router,
     purchase_orders_router,
     returns_router,
     roles_router,
@@ -58,6 +63,7 @@ from app.api.v1 import (
     terminals_router,
     transfers_router,
     users_router,
+    vouchers_router,
 )
 from app.core.config import settings
 from app.core.errors import AppError
@@ -253,6 +259,7 @@ app.include_router(goods_receipts_router, prefix="/api/v1", tags=["goods_receipt
 app.include_router(invoice_scans_router, prefix="/api/v1", tags=["invoice_scans"])
 app.include_router(transfers_router, prefix="/api/v1", tags=["transfers"])
 app.include_router(pos_shifts_router, prefix="/api/v1", tags=["pos_shifts"])
+app.include_router(production_orders_router, prefix="/api/v1", tags=["production_orders"])
 app.include_router(inventory_adjustments_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(inventory_reporting_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(customers_router, prefix="/api/v1", tags=["customers"])
@@ -263,12 +270,17 @@ app.include_router(payroll_router, prefix="/api/v1", tags=["payroll"])
 app.include_router(sales_router, prefix="/api/v1", tags=["sales"])
 app.include_router(returns_router, prefix="/api/v1", tags=["returns"])
 app.include_router(loyalty_router, prefix="/api/v1", tags=["loyalty"])
+app.include_router(loyalty_rules_router, prefix="/api/v1", tags=["loyalty"])
 app.include_router(discounts_router, prefix="/api/v1", tags=["discounts"])
 app.include_router(marketing_router, prefix="/api/v1", tags=["marketing"])
 app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])
 app.include_router(ai_advisory_router, prefix="/api/v1", tags=["ai_advisory"])
 app.include_router(accounting_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(executive_bi_router, prefix="/api/v1", tags=["executive_bi"])
+app.include_router(chart_accounts_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(fx_revaluation_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(vouchers_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(customer_performance_router, prefix="/api/v1", tags=["customers"])
 app.include_router(suppliers_router, prefix="/api/v1", tags=["suppliers"])
 
 

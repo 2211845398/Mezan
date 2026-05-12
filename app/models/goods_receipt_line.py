@@ -23,6 +23,9 @@ class GoodsReceiptLine(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
 

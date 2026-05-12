@@ -11,6 +11,7 @@ from app.models.users import User
 from app.schemas.inventory_adjustments import StockAdjustmentRequest
 from app.services import audit_service
 from app.services.branch_scope import require_branch_open_for_operations
+from app.services.inventory_adjustment_service import post_stock_movement_gl
 from app.services.inventory_service import apply_stock_movement
 
 router = APIRouter()
@@ -35,6 +36,10 @@ async def create_stock_adjustment(
         ref_type="manual_adjustment",
         ref_id=str(current_user.id),
     )
+
+    # Post GL for the adjustment (Epic 19.6)
+    gl_result = await post_stock_movement_gl(db, movement=mv)
+
     await audit_service.log(
         session=db,
         action="stock.adjusted",
@@ -44,7 +49,7 @@ async def create_stock_adjustment(
         request=request,
     )
     await db.commit()
-    return {"movement_id": mv.id}
+    return {"movement_id": mv.id, "gl_posting": gl_result}
 
 
 @router.get("/inventory/movements")

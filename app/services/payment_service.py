@@ -87,7 +87,8 @@ async def capture_payment(
     reference: str | None,
     card_last4: str | None,
 ) -> PaymentIntent:
-    if method not in {"cash", "card", "other"}:
+    # Epic 21.6: Add transfer tender method
+    if method not in {"cash", "card", "transfer", "other"}:
         raise ValidationError("Unsupported payment method", details={"method": method})
     if method == "card" and not card_last4:
         raise ValidationError("card_last4 is required for card payments")

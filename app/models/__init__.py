@@ -40,13 +40,15 @@ from app.models.notifications import (
 from app.models.password_reset_token import PasswordResetToken
 from app.models.payslip import Payslip, PayslipStatus
 from app.models.permission import Permission
-from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
+from app.models.pos_cart import CartDaySequence, PosCart, PosCartDiscount, PosCartEvent, PosCartLine
+from app.models.pos_expense import PosExpense
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
 from app.models.price_list import PriceList, PriceListBranch, PriceListLine
 from app.models.product import Product
 from app.models.product_category import ProductCategory
+from app.models.product_variant import ProductVariant
 from app.models.product_price import ProductPrice
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
@@ -116,6 +118,8 @@ __all__ = [
     "PasswordResetToken",
     "Permission",
     "POSTerminal",
+    "CartDaySequence",
+    "PosExpense",
     "PosCart",
     "PosCartDiscount",
     "PosCartEvent",
@@ -142,6 +146,7 @@ __all__ = [
     "Product",
     "ProductCategory",
     "ProductPrice",
+    "ProductVariant",
     "PurchaseOrder",
     "PurchaseOrderLine",
     "StockLevel",

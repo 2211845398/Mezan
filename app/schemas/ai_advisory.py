@@ -47,10 +47,29 @@ class PurchaseReorderResponse(BaseModel):
 
 
 class HrAnomalyRequest(BaseModel):
+    """HR anomaly detection request (Epic 23.5: presets supported).
+
+    Use preset="last_month" for quick last-month analysis,
+    or specify lookback_days manually.
+    """
+
+    preset: Literal["last_month", "last_14_days", "last_7_days", "custom"] = Field(
+        default="last_14_days"
+    )
     lookback_days: int = Field(default=14, ge=1, le=90)
     employee_ids: list[int] | None = None
     branch_id: int | None = None
     max_anomalies: int = Field(default=20, ge=1, le=100)
+
+    def get_lookback_days(self) -> int:
+        """Resolve lookback days from preset or explicit value."""
+        if self.preset == "last_month":
+            return 30
+        if self.preset == "last_14_days":
+            return 14
+        if self.preset == "last_7_days":
+            return 7
+        return self.lookback_days
 
 
 class HrAnomaly(BaseModel):

@@ -55,6 +55,11 @@ async def get_or_create_period(db: AsyncSession, *, entry_date: date) -> FiscalP
 
 
 async def ensure_period_open(db: AsyncSession, *, entry_date: date) -> FiscalPeriod:
+    """Ensure period is open for posting. Blocks hard-closed periods; allows soft_closed with warning.
+
+    Raises:
+        ValidationError: If period is hard-closed (status == 'closed')
+    """
     period = await get_or_create_period(db, entry_date=entry_date)
     if period.status == "closed":
         raise ValidationError(
@@ -62,6 +67,33 @@ async def ensure_period_open(db: AsyncSession, *, entry_date: date) -> FiscalPer
             details={"period_key": period.period_key},
         )
     return period
+
+
+async def ensure_period_not_hard_closed(db: AsyncSession, *, entry_date: date) -> FiscalPeriod:
+    """Ensure period is not hard-closed. Allows open and soft_closed.
+
+    Used for operations that should be blocked only after hard-close.
+    """
+    period = await get_or_create_period(db, entry_date=entry_date)
+    if period.status == "closed":
+        raise ValidationError(
+            "Period is permanently closed",
+            details={"period_key": period.period_key, "status": "closed"},
+        )
+    return period
+
+
+async def can_post_to_period(db: AsyncSession, *, entry_date: date) -> tuple[bool, str]:
+    """Check if posting is allowed and provide reason.
+
+    Returns (allowed: bool, reason: str).
+    """
+    period = await get_or_create_period(db, entry_date=entry_date)
+    if period.status == "open":
+        return True, "Period is open"
+    if period.status == "soft_closed":
+        return True, "Period is soft-closed (corrections allowed)"
+    return False, f"Period {period.period_key} is permanently closed"
 
 
 async def list_periods(db: AsyncSession) -> list[FiscalPeriod]:

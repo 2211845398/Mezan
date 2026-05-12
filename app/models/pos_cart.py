@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,6 +28,9 @@ class PosCart(Base):
     customer_id: Mapped[int | None] = mapped_column(
         ForeignKey("customer_profiles.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    daily_cart_number: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, index=True
+    )  # Per-branch-per-day sequence (Epic 21.1)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     subtotal: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=Decimal("0.00")
@@ -61,6 +64,9 @@ class PosCartLine(Base):
     )
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     qty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
@@ -99,4 +105,27 @@ class PosCartEvent(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+
+class CartDaySequence(Base):
+    '''Per-branch-per-day cart number sequence (Epic 21.1).'''
+
+    __tablename__ = 'cart_day_sequences'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    branch_id: Mapped[int] = mapped_column(
+        ForeignKey('branches.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    cart_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    next_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
     )
