@@ -41,7 +41,6 @@ async def finalize_advisor_run(
     cache_input: dict[str, Any],
     model: str,
     response: BaseModel,
-    *,
     cache_hit: bool,
     started_at_perf: float,
     prompt_tokens: int | None,
