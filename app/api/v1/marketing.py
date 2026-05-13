@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
+from app.core.ai_rate_limit import AI_RATE_LIMITS
+from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.ai_discount import AIAutoDiscountRequest, AIAutoDiscountResponse
@@ -27,6 +30,7 @@ from app.services.analytics_service import (
     get_top_selling_products,
 )
 from app.services.discount_service import create_ai_draft_discount
+from app.services.ai_call_context import finalize_advisor_run, load_cached_advisor_response
 from app.services.marketing_advisory_service import generate_marketing_advisory
 
 router = APIRouter()
@@ -131,13 +135,56 @@ async def ai_auto_discount_endpoint(
     "/marketing/advisory/suggestions",
     response_model=MarketingAdvisoryResponse,
 )
+@limiter.limit(AI_RATE_LIMITS["marketing_advisory"])
 async def marketing_advisory_endpoint(
+    request: Request,
     body: MarketingAdvisoryRequest,
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(get_current_user),
-    __: None = require_permission("marketing_advisory", "run"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("marketing_advisory", "run"),
 ) -> MarketingAdvisoryResponse:
-    return await generate_marketing_advisory(db, payload=body)
+    endpoint = "/api/v1/marketing/advisory/suggestions"
+    cache_in = body.model_dump(mode="json")
+    cached = await load_cached_advisor_response(
+        db,
+        endpoint=endpoint,
+        cache_input=cache_in,
+        response_model=MarketingAdvisoryResponse,
+    )
+    t0 = time.perf_counter()
+    if cached is not None:
+        await finalize_advisor_run(
+            db,
+            endpoint=endpoint,
+            user_id=current_user.id,
+            cache_input=cache_in,
+            model=cached.model,
+            response=cached,
+            cache_hit=True,
+            started_at_perf=t0,
+            prompt_tokens=0,
+            completion_tokens=0,
+        )
+        await db.commit()
+        return cached
+
+    result, llm_usage = await generate_marketing_advisory(db, payload=body)
+    pt = llm_usage.get("prompt_tokens") if llm_usage else None
+    ct = llm_usage.get("completion_tokens") if llm_usage else None
+    await finalize_advisor_run(
+        db,
+        endpoint=endpoint,
+        user_id=current_user.id,
+        cache_input=cache_in,
+        model=result.model,
+        response=result,
+        cache_hit=False,
+        started_at_perf=t0,
+        prompt_tokens=pt,
+        completion_tokens=ct,
+    )
+    await db.commit()
+    return result
 
 
 # ── Epic 23.6: Marketing Analytics Charts (Recharts-compatible data) ────────

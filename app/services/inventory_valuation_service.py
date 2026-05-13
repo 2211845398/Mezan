@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.branch_product_costs import BranchProductCost
 from app.models.product import Product
 from app.services.catalog_service import resolve_default_variant_id
+from app.services.fifo_valuation_service import get_fifo_unit_cost, get_valuation_policy
 
 COST_Q = Decimal("0.0001")
 
@@ -28,6 +29,12 @@ async def get_unit_cost_for_sale(
         if variant_id is not None
         else await resolve_default_variant_id(db, product_id=product_id)
     )
+    if await get_valuation_policy(db) == "fifo":
+        return _q4(
+            await get_fifo_unit_cost(
+                db, branch_id=branch_id, product_id=product_id, variant_id=vid
+            )
+        )
     cost_res = await db.execute(
         select(BranchProductCost.average_unit_cost).where(
             and_(

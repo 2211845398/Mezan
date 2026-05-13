@@ -54,9 +54,9 @@ class HrAnomalyRequest(BaseModel):
     """
 
     preset: Literal["last_month", "last_14_days", "last_7_days", "custom"] = Field(
-        default="last_14_days"
+        default="last_month"
     )
-    lookback_days: int = Field(default=14, ge=1, le=90)
+    lookback_days: int = Field(default=30, ge=1, le=90)
     employee_ids: list[int] | None = None
     branch_id: int | None = None
     max_anomalies: int = Field(default=20, ge=1, le=100)

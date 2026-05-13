@@ -19,6 +19,7 @@ from app.models.stock_level import StockLevel
 from app.models.suppliers import Supplier
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.document_posting_service import post_goods_receipt_gl
+from app.services.fifo_valuation_service import create_cost_layer, get_valuation_policy
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
 
@@ -155,6 +156,8 @@ async def receive_goods_for_purchase_order(
     db.add(receipt)
     await db.flush()
 
+    valuation_pol = await get_valuation_policy(db)
+
     for i, (pol_id, qty, unit_cost, pol) in enumerate(receipt_lines_payload):
         line_variant_id = pol.variant_id
         db.add(
@@ -197,6 +200,17 @@ async def receive_goods_for_purchase_order(
             qty_on_hand_before=qty_on_hand_before,
             variant_id=line_variant_id,
         )
+        if valuation_pol == "fifo":
+            await create_cost_layer(
+                db,
+                branch_id=branch_id,
+                product_id=pol.product_id,
+                variant_id=line_variant_id,
+                source_type="goods_receipt",
+                source_id=f"{receipt.id}:{i}",
+                qty=Decimal(qty),
+                unit_cost=unit_cost,
+            )
 
     await post_goods_receipt_gl(db, receipt=receipt)
     await db.commit()

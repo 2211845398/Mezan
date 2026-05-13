@@ -94,7 +94,7 @@ class FiscalPeriodRead(BaseModel):
     period_key: str
     period_start: date
     period_end: date
-    status: Literal["open", "closed"]
+    status: Literal["open", "soft_closed", "closed"]
     closed_at: datetime | None = None
     closed_by_user_id: int | None = None
 
@@ -102,7 +102,7 @@ class FiscalPeriodRead(BaseModel):
 
 
 class FiscalPeriodStatusUpdate(BaseModel):
-    status: Literal["open", "closed"]
+    status: Literal["open", "soft_closed", "closed"]
 
 
 class JournalReversalRequest(BaseModel):
@@ -126,6 +126,10 @@ class ArOpenItemCreate(BaseModel):
     document_date: date
     due_date: date | None = None
     currency_code: str = "USD"
+    fx_rate: Decimal | None = Field(
+        default=None,
+        description="Functional rate at posting; defaults from currency master vs base",
+    )
     amount_total: Decimal = Field(gt=0)
 
 
@@ -138,6 +142,10 @@ class ApOpenItemCreate(BaseModel):
     document_date: date
     due_date: date | None = None
     currency_code: str = "USD"
+    fx_rate: Decimal | None = Field(
+        default=None,
+        description="Functional rate at posting; defaults from currency master vs base",
+    )
     amount_total: Decimal = Field(gt=0)
 
 
@@ -150,6 +158,7 @@ class OpenItemRead(BaseModel):
     document_date: date
     due_date: date | None = None
     currency_code: str
+    fx_rate: Decimal | None = None
     amount_total: Decimal
     amount_open: Decimal
     status: str

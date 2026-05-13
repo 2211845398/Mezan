@@ -10,13 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ValidationError
 from app.models.inventory_cost_layer import InventoryCostLayer
+from app.services.accounting_service import get_accounting_settings
 from app.utils.money import q2
 
 
 async def get_valuation_policy(db: AsyncSession) -> str:
-    """Return active policy slug; WAVG remains default until settings expose FIFO."""
-    _ = db
-    return "wavg"
+    settings = await get_accounting_settings(db)
+    raw = (settings.inventory_valuation_policy or "wavg").strip().lower()
+    return raw if raw in ("wavg", "fifo") else "wavg"
 
 
 async def create_cost_layer(

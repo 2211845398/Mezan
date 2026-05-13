@@ -1,19 +1,20 @@
 """FX Revaluation API (Epic 20.2)."""
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.fx_revaluation import (
+    FxBalanceRead,
     FxRevaluationRunRequest,
     FxRevaluationRunResponse,
     FxRevaluationSummaryRequest,
     FxRevaluationSummaryResponse,
 )
 from app.services import audit_service
-from app.services.fx_revaluation_service import run_fx_revaluation
+from app.services.fx_revaluation_service import preview_fx_revaluation, run_fx_revaluation
 
 router = APIRouter()
 
@@ -75,11 +76,22 @@ async def preview_fx_revaluation_endpoint(
     _: None = require_permission("accounting", "read"),
 ) -> FxRevaluationSummaryResponse:
     """Preview estimated FX gains/losses without creating journal entries."""
-    # This would call a preview service method
-    # For now return a placeholder
+    _ = current_user
+    preview = await preview_fx_revaluation(
+        db, as_of_date=body.as_of_date, branch_id=body.branch_id
+    )
     return FxRevaluationSummaryResponse(
-        as_of_date=body.as_of_date,
-        branch_id=body.branch_id,
-        currencies=[],
-        total_estimated_gain_loss=0,
+        as_of_date=preview.as_of_date,
+        branch_id=preview.branch_id,
+        currencies=[
+            FxBalanceRead(
+                currency_code=c.currency_code,
+                current_rate=c.current_rate,
+                open_ar_count=c.open_ar_count,
+                open_ap_count=c.open_ap_count,
+                estimated_gain_loss=c.estimated_gain_loss,
+            )
+            for c in preview.currencies
+        ],
+        total_estimated_gain_loss=preview.total_estimated_gain_loss,
     )

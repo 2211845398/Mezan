@@ -168,6 +168,13 @@ async def post_voucher_gl(
         if reference:
             idempotency_key += f":{reference}"
 
+    line_extras: dict = {}
+    if currency_code:
+        line_extras["currency_code"] = currency_code[:3]
+    if fx_rate is not None:
+        line_extras["fx_rate"] = fx_rate
+        line_extras["transaction_amount"] = dr_amt
+
     # Build journal entry lines
     lines = [
         {
@@ -176,6 +183,7 @@ async def post_voucher_gl(
             "debit": dr_amt,
             "credit": Decimal("0"),
             "memo": debit.memo or f"{voucher_type.value} - debit",
+            **line_extras,
         },
         {
             "account_id": credit_account_id,
@@ -183,6 +191,7 @@ async def post_voucher_gl(
             "debit": Decimal("0"),
             "credit": cr_amt,
             "memo": credit.memo or f"{voucher_type.value} - credit",
+            **line_extras,
         },
     ]
 
@@ -229,6 +238,8 @@ async def post_receipt_voucher(
     reference: str | None = None,
     branch_id: int,
     memo: str = "",
+    idempotency_key: str | None = None,
+    user_id: int | None = None,
 ) -> dict:
     """Receipt Voucher: Dr Cash, Cr Customer AR.
 
@@ -260,6 +271,8 @@ async def post_receipt_voucher(
         description=description,
         reference=reference,
         branch_id=branch_id,
+        user_id=user_id,
+        idempotency_key=idempotency_key,
     )
 
 
@@ -274,6 +287,8 @@ async def post_payment_voucher(
     reference: str | None = None,
     branch_id: int,
     memo: str = "",
+    idempotency_key: str | None = None,
+    user_id: int | None = None,
 ) -> dict:
     """Payment Voucher: Dr Supplier AP, Cr Cash.
 
@@ -305,6 +320,8 @@ async def post_payment_voucher(
         description=description,
         reference=reference,
         branch_id=branch_id,
+        user_id=user_id,
+        idempotency_key=idempotency_key,
     )
 
 
@@ -319,6 +336,8 @@ async def post_expense_voucher(
     reference: str | None = None,
     branch_id: int,
     memo: str = "",
+    idempotency_key: str | None = None,
+    user_id: int | None = None,
 ) -> dict:
     """Expense Voucher: Dr Expense, Cr Cash.
 
@@ -350,6 +369,8 @@ async def post_expense_voucher(
         description=description,
         reference=reference,
         branch_id=branch_id,
+        user_id=user_id,
+        idempotency_key=idempotency_key,
     )
 
 
@@ -364,6 +385,8 @@ async def post_internal_transfer(
     reference: str | None = None,
     branch_id: int,
     memo: str = "",
+    idempotency_key: str | None = None,
+    user_id: int | None = None,
 ) -> dict:
     """Internal Cash/Bank Transfer: Dr To-Account, Cr From-Account.
 
@@ -395,4 +418,6 @@ async def post_internal_transfer(
         description=description,
         reference=reference,
         branch_id=branch_id,
+        user_id=user_id,
+        idempotency_key=idempotency_key,
     )

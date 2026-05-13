@@ -85,6 +85,12 @@ class AccountingSettings(Base):
     default_inventory_damaged_account_id: Mapped[int | None] = mapped_column(
         ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=True
     )
+    default_inventory_gain_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=True
+    )
+    default_other_expenses_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=True
+    )
     default_loyalty_point_value: Mapped[Decimal] = mapped_column(
         Numeric(12, 4), nullable=False, default=Decimal("0.0100")
     )

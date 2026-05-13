@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from datetime import date
+from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import ValidationError
 from app.models.chart_accounts import AccountType, ChartAccount
+from app.utils.money import q2
 
 
 MAX_COA_DEPTH = 5  # Root + 4 sub-levels per spec
@@ -340,6 +344,59 @@ async def get_chart_account_tree(
     roots = [a for a in accounts if a.parent_id is None or a.parent_id not in root_ids]
 
     return [build_node(root) for root in roots]
+
+
+async def get_chart_account_tree_for_branch(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    as_of: date,
+    active_only: bool = True,
+) -> list[dict]:
+    """Same hierarchy as :func:`get_chart_account_tree`, plus branch-scoped TB balances."""
+    from app.services.financial_reports_service import trial_balance
+
+    tree = await get_chart_account_tree(db, account_type=None, active_only=active_only)
+    tb_rows = await trial_balance(db, as_of=as_of, branch_id=branch_id)
+    tb_by_id = {r["account_id"]: r for r in tb_rows}
+
+    def collect_subtree_ids(node: dict) -> set[int]:
+        s = {node["id"]}
+        for c in node.get("children", []):
+            s |= collect_subtree_ids(c)
+        return s
+
+    def enrich(node: dict) -> dict:
+        raw_children = node.get("children", [])
+        children = [enrich(c) for c in raw_children]
+        own = tb_by_id.get(node["id"])
+        odr = q2(own["total_debit"]) if own else Decimal("0")
+        ocr = q2(own["total_credit"]) if own else Decimal("0")
+        one = q2(own["net"]) if own else Decimal("0")
+        ids = collect_subtree_ids(node)
+        st = Decimal("0")
+        for aid in ids:
+            row = tb_by_id.get(aid)
+            if row:
+                st += q2(row["net"])
+        st = q2(st)
+        return {
+            "id": node["id"],
+            "code": node["code"],
+            "name": node["name"],
+            "account_type": node["account_type"],
+            "is_control": node["is_control"],
+            "is_system": node["is_system"],
+            "active": node["active"],
+            "depth": node["depth"],
+            "branch_total_debit": odr,
+            "branch_total_credit": ocr,
+            "branch_net": one,
+            "branch_subtree_net": st,
+            "children": children,
+        }
+
+    return [enrich(n) for n in tree]
 
 
 async def delete_chart_account(db: AsyncSession, *, account_id: int) -> bool:

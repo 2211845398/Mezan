@@ -4,6 +4,8 @@ Tree editor for managing the Chart of Accounts with depth validation
 and drag-drop support.
 """
 
+from datetime import UTC, date, datetime
+
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +18,7 @@ from app.schemas.chart_accounts import (
     ChartAccountDeleteCheck,
     ChartAccountMoveRequest,
     ChartAccountRead,
+    ChartAccountTreeBranchNode,
     ChartAccountTreeNode,
     ChartAccountUpdate,
     CoaTypeSummary,
@@ -26,6 +29,7 @@ from app.services.chart_account_service import (
     delete_chart_account,
     get_chart_account,
     get_chart_account_tree,
+    get_chart_account_tree_for_branch,
     list_chart_accounts,
     update_chart_account,
     can_delete_account,
@@ -53,6 +57,29 @@ async def get_coa_tree_endpoint(
         db, account_type=account_type, active_only=active_only
     )
     return [ChartAccountTreeNode(**node) for node in tree]
+
+
+@router.get(
+    "/accounting/chart-accounts/by-branch/{branch_id}",
+    response_model=list[ChartAccountTreeBranchNode],
+)
+async def get_coa_tree_by_branch_endpoint(
+    branch_id: int,
+    as_of: date | None = Query(
+        default=None,
+        description="Trial balance as-of date for branch amounts (default: today UTC)",
+    ),
+    active_only: bool = Query(default=True),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> list[ChartAccountTreeBranchNode]:
+    """Chart of accounts tree with per-node balances for one branch (TB through ``as_of``)."""
+    eff = as_of or datetime.now(UTC).date()
+    tree = await get_chart_account_tree_for_branch(
+        db, branch_id=branch_id, as_of=eff, active_only=active_only
+    )
+    return [ChartAccountTreeBranchNode(**node) for node in tree]
 
 
 @router.get(

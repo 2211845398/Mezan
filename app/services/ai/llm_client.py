@@ -25,7 +25,7 @@ async def call_llm_json[T: BaseModel](
     response_model: type[T],
     max_tokens: int | None = None,
     temperature: float = 0.2,
-) -> T:
+) -> tuple[T, dict[str, int] | None]:
     """Call the configured LLM, demand strict JSON, validate with Pydantic.
 
     Raises
@@ -72,7 +72,17 @@ async def call_llm_json[T: BaseModel](
         body = response.json()
         content = body["choices"][0]["message"]["content"]
         parsed = json.loads(content)
-        return response_model.model_validate(parsed)
+        usage_raw = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+        usage_out: dict[str, int] | None = None
+        if usage_raw:
+            pt = usage_raw.get("prompt_tokens")
+            ct = usage_raw.get("completion_tokens")
+            if isinstance(pt, int) or isinstance(ct, int):
+                usage_out = {
+                    "prompt_tokens": int(pt) if isinstance(pt, int) else 0,
+                    "completion_tokens": int(ct) if isinstance(ct, int) else 0,
+                }
+        return response_model.model_validate(parsed), usage_out
     except PydanticValidationError as exc:
         raise ExternalServiceError(
             "AI response schema validation failed",

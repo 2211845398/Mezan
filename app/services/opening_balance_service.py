@@ -21,20 +21,22 @@ from app.utils.money import q2
 @dataclass
 class OpeningBalanceLine:
     """Single line in opening balance entry."""
+
     account_id: int
     amount: Decimal
     line_type: Literal["debit", "credit"]
     memo: str = ""
+    branch_id: int | None = None
 
 
-async def post_opening_balance(
+async def post_opening_balance_gl(
     db: AsyncSession,
     *,
     entry_date: date,
     description: str,
     lines: list[OpeningBalanceLine],
     reference: str | None = None,
-    branch_id: int,
+    default_branch_id: int,
     idempotency_key: str | None = None,
 ) -> dict:
     """Post opening balance journal entry.
@@ -52,7 +54,7 @@ async def post_opening_balance(
         description: Entry description
         lines: List of OpeningBalanceLine (must balance)
         reference: Optional reference number
-        branch_id: Branch for accounting
+        default_branch_id: Branch used when a line omits ``branch_id``
         idempotency_key: Optional idempotency key
 
     Returns:
@@ -74,11 +76,13 @@ async def post_opening_balance(
         if amt <= 0:
             raise ValidationError(f"Line {i} amount must be positive", details={"amount": str(amt)})
 
+        line_branch = line.branch_id if line.branch_id is not None else default_branch_id
+
         if line.line_type == "debit":
             total_dr += amt
             journal_lines.append({
                 "account_id": line.account_id,
-                "branch_id": branch_id,
+                "branch_id": line_branch,
                 "debit": amt,
                 "credit": Decimal("0"),
                 "memo": line.memo or f"Opening balance - debit",
@@ -87,7 +91,7 @@ async def post_opening_balance(
             total_cr += amt
             journal_lines.append({
                 "account_id": line.account_id,
-                "branch_id": branch_id,
+                "branch_id": line_branch,
                 "debit": Decimal("0"),
                 "credit": amt,
                 "memo": line.memo or f"Opening balance - credit",
@@ -101,7 +105,7 @@ async def post_opening_balance(
 
     # Build idempotency key
     if not idempotency_key:
-        idempotency_key = f"opening_balance:{branch_id}:{entry_date.isoformat()}:{total_dr}"
+        idempotency_key = f"opening_balance:{default_branch_id}:{entry_date.isoformat()}:{total_dr}"
         if reference:
             idempotency_key += f":{reference}"
 
@@ -141,6 +145,7 @@ async def post_capital_injection(
     reference: str | None = None,
     branch_id: int,
     cash_account_id: int | None = None,
+    idempotency_key: str | None = None,
 ) -> dict:
     """Simplified capital injection: Dr Cash, Cr Equity.
 
@@ -161,22 +166,25 @@ async def post_capital_injection(
             amount=cash_amount,
             line_type="debit",
             memo="Capital injection - cash",
+            branch_id=branch_id,
         ),
         OpeningBalanceLine(
             account_id=equity_account_id,
             amount=cash_amount,
             line_type="credit",
             memo="Capital injection - equity",
+            branch_id=branch_id,
         ),
     ]
 
-    return await post_opening_balance(
+    return await post_opening_balance_gl(
         db,
         entry_date=entry_date,
         description=description or "Capital injection",
         lines=lines,
         reference=reference,
-        branch_id=branch_id,
+        default_branch_id=branch_id,
+        idempotency_key=idempotency_key,
     )
 
 
@@ -190,6 +198,7 @@ async def post_initial_inventory(
     reference: str | None = None,
     branch_id: int,
     inventory_account_id: int | None = None,
+    idempotency_key: str | None = None,
 ) -> dict:
     """Simplified initial inventory: Dr Inventory, Cr Cash/AP.
 
@@ -210,20 +219,23 @@ async def post_initial_inventory(
             amount=inventory_amount,
             line_type="debit",
             memo="Initial inventory",
+            branch_id=branch_id,
         ),
         OpeningBalanceLine(
             account_id=source_account_id,
             amount=inventory_amount,
             line_type="credit",
             memo="Inventory funding",
+            branch_id=branch_id,
         ),
     ]
 
-    return await post_opening_balance(
+    return await post_opening_balance_gl(
         db,
         entry_date=entry_date,
         description=description or "Initial inventory acquisition",
         lines=lines,
         reference=reference,
-        branch_id=branch_id,
+        default_branch_id=branch_id,
+        idempotency_key=idempotency_key,
     )

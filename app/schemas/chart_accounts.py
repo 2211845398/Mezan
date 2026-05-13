@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from pydantic import BaseModel, Field
 
 from app.models.chart_accounts import AccountType
@@ -63,6 +65,27 @@ class ChartAccountTreeNode(BaseModel):
         from_attributes = True
 
 
+class ChartAccountTreeBranchNode(BaseModel):
+    """Tree node with branch-filtered trial balance (own row + subtree roll-up net)."""
+
+    id: int
+    code: str
+    name: str
+    account_type: AccountType
+    is_control: bool
+    is_system: bool
+    active: bool
+    depth: int
+    branch_total_debit: Decimal = Decimal("0")
+    branch_total_credit: Decimal = Decimal("0")
+    branch_net: Decimal = Decimal("0")
+    branch_subtree_net: Decimal = Decimal("0")
+    children: list["ChartAccountTreeBranchNode"] = []
+
+    class Config:
+        from_attributes = True
+
+
 class ChartAccountMoveRequest(BaseModel):
     """Request to move an account to a new parent."""
 
@@ -82,3 +105,6 @@ class CoaTypeSummary(BaseModel):
     account_type: AccountType
     count: int
     root_count: int
+
+
+ChartAccountTreeBranchNode.model_rebuild()

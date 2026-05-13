@@ -48,11 +48,16 @@ async def log_ai_usage(
     error_message: str | None = None,
     cache_hit: bool = False,
     cache_key: str | None = None,
+    response_summary_max_chars: int | None = 262_144,
 ) -> AIUsageLog:
     total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
     estimated_cost = None
     if prompt_tokens is not None and completion_tokens is not None:
         estimated_cost = _estimate_cost(model, prompt_tokens, completion_tokens)
+
+    summary = response_summary or ""
+    if response_summary_max_chars is not None and len(summary) > response_summary_max_chars:
+        summary = summary[:response_summary_max_chars]
 
     log = AIUsageLog(
         endpoint=endpoint,
@@ -65,7 +70,7 @@ async def log_ai_usage(
         cache_hit=cache_hit,
         cache_key=cache_key,
         request_payload=request_payload,
-        response_summary=(response_summary or "")[:1000] or None,
+        response_summary=summary or None,
         user_id=user_id,
         duration_ms=duration_ms,
         status=status,

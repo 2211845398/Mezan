@@ -38,10 +38,12 @@ async def post_journal_entry(
     source_id: str,
     idempotency_key: str,
     lines: list[dict],
+    allow_posting_in_soft_closed: bool = False,
 ) -> JournalEntry | None:
     """Insert a balanced journal batch. Returns existing entry if idempotency_key matches.
 
-    Each line dict: account_id, branch_id, debit: Decimal, credit: Decimal, memo optional.
+    Each line dict: account_id, branch_id, debit, credit; optional memo, currency_code,
+    transaction_amount, fx_rate (persisted on journal_entry_lines when provided).
     """
     existing = await db.execute(
         select(JournalEntry).where(JournalEntry.idempotency_key == idempotency_key)
@@ -64,6 +66,13 @@ async def post_journal_entry(
             )
         total_dr += dr
         total_cr += cr
+        cc = ln.get("currency_code")
+        txn_amt = ln.get("transaction_amount")
+        fx = ln.get("fx_rate")
+        if txn_amt is not None:
+            txn_amt = _q2(Decimal(str(txn_amt)))
+        if fx is not None:
+            fx = Decimal(str(fx))
         normalized.append(
             {
                 "line_no": i + 1,
@@ -72,6 +81,9 @@ async def post_journal_entry(
                 "debit": dr,
                 "credit": cr,
                 "memo": ln.get("memo"),
+                "currency_code": cc if isinstance(cc, str) and cc.strip() else None,
+                "transaction_amount": txn_amt,
+                "fx_rate": fx,
             }
         )
 
@@ -81,7 +93,9 @@ async def post_journal_entry(
             details={"total_debit": str(total_dr), "total_credit": str(total_cr)},
         )
 
-    period = await ensure_period_open(db, entry_date=entry_date)
+    period = await ensure_period_open(
+        db, entry_date=entry_date, allow_in_soft_close=allow_posting_in_soft_closed
+    )
 
     je = JournalEntry(
         entry_date=entry_date,
@@ -96,17 +110,22 @@ async def post_journal_entry(
     await db.flush()
 
     for ln in normalized:
-        db.add(
-            JournalEntryLine(
-                journal_entry_id=je.id,
-                line_no=ln["line_no"],
-                account_id=ln["account_id"],
-                branch_id=ln["branch_id"],
-                debit=ln["debit"],
-                credit=ln["credit"],
-                memo=ln["memo"],
-            )
-        )
+        line_kw: dict = {
+            "journal_entry_id": je.id,
+            "line_no": ln["line_no"],
+            "account_id": ln["account_id"],
+            "branch_id": ln["branch_id"],
+            "debit": ln["debit"],
+            "credit": ln["credit"],
+            "memo": ln["memo"],
+        }
+        if ln.get("currency_code"):
+            line_kw["currency_code"] = ln["currency_code"][:3]
+        if ln.get("transaction_amount") is not None:
+            line_kw["transaction_amount"] = ln["transaction_amount"]
+        if ln.get("fx_rate") is not None:
+            line_kw["fx_rate"] = ln["fx_rate"]
+        db.add(JournalEntryLine(**line_kw))
     await db.flush()
     return je
 

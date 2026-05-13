@@ -14,6 +14,7 @@ from app.models.customer_profile import CustomerProfile
 from app.models.loyalty import LoyaltyLedger
 from app.models.product import Product
 from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
+from app.models.sales_return import ExchangeLink, SalesReturn
 from app.utils.money import q2
 
 
@@ -90,6 +91,18 @@ async def get_customer_performance(
     elif len(recent_90) > 0:
         visit_trend = "new"
 
+    since_90_ex = now - timedelta(days=90)
+    exch_res = await db.execute(
+        select(func.count(ExchangeLink.id))
+        .join(SalesReturn, SalesReturn.id == ExchangeLink.sales_return_id)
+        .join(SalesInvoice, SalesInvoice.id == SalesReturn.sales_invoice_id)
+        .where(
+            SalesInvoice.customer_id == customer_id,
+            ExchangeLink.created_at >= since_90_ex,
+        )
+    )
+    exchanges_last_90_days = int(exch_res.scalar_one() or 0)
+
     return {
         "customer_id": customer_id,
         "customer_name": _customer_display_name(customer),
@@ -102,6 +115,7 @@ async def get_customer_performance(
             "lifetime_value": total_spend_lifetime,
             "loyalty_points_balance": int(loyalty_balance),
             "open_debt": q2(debt),
+            "exchanges_last_90_days": exchanges_last_90_days,
         },
         "visits": {
             "last_visit": last_visit.isoformat() if last_visit else None,

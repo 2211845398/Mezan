@@ -1,7 +1,7 @@
 """Production orders and BoM cost rollup (Epic 20.3).
 
-Uses ``default_other_clearing_account_id`` as a clearing surrogate for WIP until a
-dedicated WIP account exists on ``AccountingSettings``.
+Uses ``default_wip_account_id`` when configured; otherwise falls back to
+``default_other_clearing_account_id`` for WIP clearing.
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ async def issue_materials(
     component_ids = [ln.component_product_id for ln in bom_lines]
     unit_costs = await get_unit_costs_for_sale(db, branch_id=order.branch_id, product_ids=component_ids)
     settings = await get_accounting_settings(db)
-    wip_clearing = settings.default_other_clearing_account_id
+    wip_clearing = settings.default_wip_account_id or settings.default_other_clearing_account_id
     inventory_account = settings.default_inventory_account_id
 
     total_issued = Decimal("0")
@@ -139,7 +139,7 @@ async def issue_materials(
                     "branch_id": order.branch_id,
                     "debit": total_issued,
                     "credit": Decimal("0"),
-                    "memo": "Production clearing (WIP surrogate)",
+                    "memo": "Work in process - materials issued",
                 },
                 {
                     "account_id": inventory_account,
@@ -206,7 +206,7 @@ async def receive_finished_goods(
     )
 
     settings = await get_accounting_settings(db)
-    wip_clearing = settings.default_other_clearing_account_id
+    wip_clearing = settings.default_wip_account_id or settings.default_other_clearing_account_id
     inventory_account = settings.default_inventory_account_id
 
     if total_value > 0:
@@ -230,7 +230,7 @@ async def receive_finished_goods(
                     "branch_id": order.branch_id,
                     "debit": Decimal("0"),
                     "credit": total_value,
-                    "memo": "Clear production clearing (WIP surrogate)",
+                    "memo": "Clear work in process - finished goods",
                 },
             ],
         )

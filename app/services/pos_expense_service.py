@@ -9,8 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
+from app.models.accounting_settings import AccountingSettings
+from app.models.chart_accounts import ChartAccount
 from app.models.pos_expense import PosExpense
-from app.models.pos_shift import PosCashEvent, PosShift
+from app.models.pos_shift import PosShift
+from app.services import shift_service
 from app.services.voucher_service import post_expense_voucher
 
 
@@ -27,8 +30,10 @@ async def record_pos_expense(
 
     Creates:
     - PosExpense record
-    - PosCashEvent of type 'payout' for cash tracking
+    - Cash payout via ``shift_service.add_cash_event`` (updates expected cash)
     - GL entry: Dr Expense account, Cr Cash account
+
+    Does not commit; caller owns the transaction.
     """
     s_res = await db.execute(
         select(PosShift).where(PosShift.id == shift_id, PosShift.status == "open")
@@ -46,40 +51,56 @@ async def record_pos_expense(
         created_by_user_id=user_id,
     )
     db.add(expense)
-
-    # Record as cash payout from the shift
-    db.add(
-        PosCashEvent(
-            shift_id=shift_id,
-            event_type="payout",
-            amount=amount,
-            note=description or f"POS {expense_category} expense",
-            created_by_user_id=user_id,
-        )
-    )
-
     await db.flush()
 
-    # Post GL: Dr Expense, Cr Cash (Epic 21.4)
-    # Use default expense account code based on category
-    expense_account_code = _category_to_account_code(expense_category)
+    await shift_service.add_cash_event(
+        db,
+        shift_id=shift_id,
+        event_type="payout",
+        amount=amount,
+        note=description or f"POS {expense_category} expense",
+        created_by_user_id=user_id,
+    )
+
+    settings_res = await db.execute(select(AccountingSettings).where(AccountingSettings.id == 1))
+    settings = settings_res.scalar_one_or_none()
+    if not settings:
+        raise ValidationError("Accounting is not configured")
+
+    expense_account_id = await _resolve_pos_expense_account_id(db, settings, expense_category)
     gl_ref = f"POS-EXP-{expense.id}"
     await post_expense_voucher(
         db,
-        expense_account_code=expense_account_code,
-        cash_account_id=None,  # Use default cash from settings
+        expense_account_id=expense_account_id,
+        cash_account_id=None,
         amount=amount,
-        currency="USD",  # Default, can be parameterized
         entry_date=datetime.now(UTC).date(),
         description=description or f"POS expense: {expense_category}",
         reference=gl_ref,
         branch_id=shift.branch_id,
         memo=f"POS expense {expense.id} by user {user_id}",
+        idempotency_key=f"pos-expense:{expense.id}",
     )
 
-    await db.commit()
     await db.refresh(expense)
     return expense
+
+
+async def _resolve_pos_expense_account_id(
+    db: AsyncSession,
+    settings: AccountingSettings,
+    expense_category: str,
+) -> int:
+    code = _category_to_account_code(expense_category)
+    res = await db.execute(
+        select(ChartAccount.id).where(ChartAccount.code == code, ChartAccount.active.is_(True))
+    )
+    by_code = res.scalar_one_or_none()
+    if by_code is not None:
+        return int(by_code)
+    if settings.default_other_expenses_account_id is not None:
+        return int(settings.default_other_expenses_account_id)
+    return int(settings.default_cogs_account_id)
 
 
 def _category_to_account_code(category: str) -> str:

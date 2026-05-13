@@ -9,10 +9,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
+from app.models.pos_cart import PosCart
 from app.models.product import Product
 from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import CreditNote, ExchangeLink, SalesReturn, SalesReturnLine
-from app.schemas.sales_return import ReturnEligibleLineRead, SalesInvoiceReturnLookupRead
+from app.schemas.sales_return import (
+    ExchangeLinkDetailRead,
+    ReturnEligibleLineRead,
+    SalesInvoiceReturnLookupRead,
+)
 from app.services.document_posting_service import post_sales_return_gl
 from app.services.inventory_service import apply_stock_movement
 from app.utils.money import q2
@@ -90,6 +95,21 @@ async def create_return_and_credit(
     )
     db.add(credit)
     if exchange_cart_id is not None:
+        xres = await db.execute(select(PosCart).where(PosCart.id == exchange_cart_id))
+        ex_cart = xres.scalar_one_or_none()
+        if not ex_cart:
+            raise ValidationError("Exchange cart not found")
+        if ex_cart.branch_id != invoice.branch_id:
+            raise ValidationError(
+                "Exchange cart must belong to the same branch as the original invoice"
+            )
+        ores = await db.execute(select(PosCart).where(PosCart.id == invoice.cart_id))
+        orig_cart = ores.scalar_one_or_none()
+        if orig_cart is not None and orig_cart.shift_id is not None:
+            if ex_cart.shift_id != orig_cart.shift_id:
+                raise ValidationError(
+                    "Exchange cart must use the same POS shift as the original sale"
+                )
         db.add(ExchangeLink(sales_return_id=ret.id, new_cart_id=exchange_cart_id))
     await post_sales_return_gl(
         db,
@@ -167,4 +187,30 @@ async def lookup_sales_invoice_for_return(
         invoice_barcode=invoice.invoice_barcode,
         branch_id=invoice.branch_id,
         lines=eligible,
+    )
+
+
+async def get_exchange_link_detail(db: AsyncSession, *, sales_return_id: int) -> ExchangeLinkDetailRead:
+    link_res = await db.execute(
+        select(ExchangeLink).where(ExchangeLink.sales_return_id == sales_return_id)
+    )
+    link = link_res.scalar_one_or_none()
+    if not link:
+        raise NotFoundError("No exchange is linked to this return")
+    ret_res = await db.execute(select(SalesReturn).where(SalesReturn.id == sales_return_id))
+    ret = ret_res.scalar_one_or_none()
+    if not ret:
+        raise NotFoundError("Return not found")
+    inv_res = await db.execute(select(SalesInvoice).where(SalesInvoice.id == ret.sales_invoice_id))
+    inv = inv_res.scalar_one_or_none()
+    if not inv:
+        raise NotFoundError("Invoice not found for this return")
+    return ExchangeLinkDetailRead(
+        sales_return_id=sales_return_id,
+        new_cart_id=link.new_cart_id,
+        original_sales_invoice_id=inv.id,
+        original_invoice_number=inv.invoice_number,
+        original_invoice_barcode=inv.invoice_barcode,
+        branch_id=inv.branch_id,
+        original_cart_id=inv.cart_id,
     )

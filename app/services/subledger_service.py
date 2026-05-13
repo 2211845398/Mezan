@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
+from app.models.currency import Currency
 from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
@@ -36,10 +37,37 @@ def _days_overdue(due_date: date | None) -> int | None:
     return (date.today() - due_date).days
 
 
+_FX_RATE_QUANT = Decimal("0.00000001")
+
+
+async def _fx_rate_at_open_item_creation(db: AsyncSession, *, currency_code: str) -> Decimal | None:
+    """Txn functional rate: 1 for base currency; else `currencies.exchange_rate_to_base` when set."""
+    from app.services.accounting_service import get_accounting_settings
+
+    settings = await get_accounting_settings(db)
+    base_res = await db.execute(select(Currency).where(Currency.id == settings.base_currency_id))
+    base_cur = base_res.scalar_one()
+    code = (currency_code or "USD").strip()
+    if code == str(base_cur.code).strip():
+        return Decimal("1").quantize(_FX_RATE_QUANT, rounding=ROUND_HALF_UP)
+    cur_res = await db.execute(select(Currency).where(Currency.code == code))
+    cur = cur_res.scalar_one_or_none()
+    if cur is None or cur.exchange_rate_to_base is None or cur.exchange_rate_to_base <= 0:
+        return None
+    return Decimal(str(cur.exchange_rate_to_base)).quantize(_FX_RATE_QUANT, rounding=ROUND_HALF_UP)
+
+
 async def create_ar_open_item(db: AsyncSession, *, data: dict) -> ArOpenItem:
     amount_total = _d(data["amount_total"])
     if amount_total <= Decimal("0.00"):
         raise ValidationError("amount_total must be greater than zero")
+    cc = (data.get("currency_code") or "USD").strip()
+    if data.get("fx_rate") is not None:
+        fx_rate: Decimal | None = Decimal(str(data["fx_rate"])).quantize(
+            _FX_RATE_QUANT, rounding=ROUND_HALF_UP
+        )
+    else:
+        fx_rate = await _fx_rate_at_open_item_creation(db, currency_code=cc)
     row = ArOpenItem(
         branch_id=data["branch_id"],
         customer_id=data.get("customer_id"),
@@ -48,7 +76,8 @@ async def create_ar_open_item(db: AsyncSession, *, data: dict) -> ArOpenItem:
         description=data.get("description"),
         document_date=data["document_date"],
         due_date=data.get("due_date"),
-        currency_code=data.get("currency_code", "USD"),
+        currency_code=cc,
+        fx_rate=fx_rate,
         amount_total=amount_total,
         amount_open=amount_total,
         status="open",
@@ -63,6 +92,13 @@ async def create_ap_open_item(db: AsyncSession, *, data: dict) -> ApOpenItem:
     amount_total = _d(data["amount_total"])
     if amount_total <= Decimal("0.00"):
         raise ValidationError("amount_total must be greater than zero")
+    cc = (data.get("currency_code") or "USD").strip()
+    if data.get("fx_rate") is not None:
+        fx_rate: Decimal | None = Decimal(str(data["fx_rate"])).quantize(
+            _FX_RATE_QUANT, rounding=ROUND_HALF_UP
+        )
+    else:
+        fx_rate = await _fx_rate_at_open_item_creation(db, currency_code=cc)
     row = ApOpenItem(
         branch_id=data["branch_id"],
         supplier_id=data.get("supplier_id"),
@@ -71,7 +107,8 @@ async def create_ap_open_item(db: AsyncSession, *, data: dict) -> ApOpenItem:
         description=data.get("description"),
         document_date=data["document_date"],
         due_date=data.get("due_date"),
-        currency_code=data.get("currency_code", "USD"),
+        currency_code=cc,
+        fx_rate=fx_rate,
         amount_total=amount_total,
         amount_open=amount_total,
         status="open",
@@ -208,6 +245,7 @@ def serialize_ar_item(item: ArOpenItem) -> dict:
         "document_date": item.document_date,
         "due_date": item.due_date,
         "currency_code": item.currency_code,
+        "fx_rate": item.fx_rate,
         "amount_total": _d(item.amount_total),
         "amount_open": _d(item.amount_open),
         "status": item.status,
@@ -226,6 +264,7 @@ def serialize_ap_item(item: ApOpenItem) -> dict:
         "document_date": item.document_date,
         "due_date": item.due_date,
         "currency_code": item.currency_code,
+        "fx_rate": item.fx_rate,
         "amount_total": _d(item.amount_total),
         "amount_open": _d(item.amount_open),
         "status": item.status,

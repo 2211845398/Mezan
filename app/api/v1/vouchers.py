@@ -157,7 +157,7 @@ async def create_expense_voucher(
     """
     result = await post_expense_voucher(
         db,
-        expense_account_code=str(body.expense_account_id),  # Map ID to code or pass directly
+        expense_account_id=body.expense_account_id,
         cash_account_id=body.cash_account_id,
         amount=body.amount,
         entry_date=body.entry_date,
@@ -212,8 +212,8 @@ async def create_internal_transfer(
     """
     result = await post_internal_transfer(
         db,
-        from_account_id=body.from_cash_account_id,
-        to_account_id=body.to_cash_account_id,
+        from_cash_account_id=body.from_cash_account_id,
+        to_cash_account_id=body.to_cash_account_id,
         amount=body.amount,
         entry_date=body.entry_date,
         description=body.description,

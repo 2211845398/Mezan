@@ -22,6 +22,15 @@ from app.services.accounting_service import get_accounting_settings, post_journa
 from app.utils.money import q2
 
 
+def _negative_adjustment_expense_account_id(settings, reason: str) -> int:
+    r = (reason or "").strip().lower()
+    if r in {"damaged", "damage"}:
+        return int(settings.default_inventory_damaged_account_id or settings.default_cogs_account_id)
+    if r in {"shortage", "count_loss"}:
+        return int(settings.default_inventory_shortage_account_id or settings.default_cogs_account_id)
+    return int(settings.default_cogs_account_id)
+
+
 async def post_stock_movement_gl(
     db: AsyncSession,
     *,
@@ -92,6 +101,7 @@ async def post_stock_movement_gl(
         idempotency_key = f"stock_movement_gl:{movement.id}:{movement.reason}"
 
     if movement.qty_delta < 0:
+        expense_acct = _negative_adjustment_expense_account_id(settings, movement.reason)
         # Negative: Loss/Damage (Dr Expense, Cr Inventory)
         je = await post_journal_entry(
             db,
@@ -102,7 +112,7 @@ async def post_stock_movement_gl(
             idempotency_key=idempotency_key,
             lines=[
                 {
-                    "account_id": settings.default_cogs_account_id,
+                    "account_id": expense_acct,
                     "branch_id": movement.branch_id,
                     "debit": ext_cost,
                     "credit": Decimal("0"),
@@ -126,9 +136,10 @@ async def post_stock_movement_gl(
             "type": "loss",
         }
     else:
-        # Positive: Excess found (Dr Inventory, Cr Income)
-        # Using sales revenue as gain account; ideally should be dedicated income account
-        gain_account_id = settings.default_sales_revenue_account_id
+        # Positive: Excess found (Dr Inventory, Cr income / gain account)
+        gain_account_id = int(
+            settings.default_inventory_gain_account_id or settings.default_sales_revenue_account_id
+        )
 
         je = await post_journal_entry(
             db,

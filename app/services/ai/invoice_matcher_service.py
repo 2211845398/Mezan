@@ -140,7 +140,7 @@ async def _load_product_pool(db: AsyncSession, *, limit: int = 1000) -> list[dic
 
 async def match_invoice_scan(
     db: AsyncSession, *, payload: InvoiceMatchRequest
-) -> InvoiceMatchResponse:
+) -> tuple[InvoiceMatchResponse, dict[str, int] | None]:
     result = await db.execute(select(InvoiceScan).where(InvoiceScan.id == payload.invoice_scan_id))
     scan = result.scalar_one_or_none()
     if scan is None:
@@ -188,10 +188,11 @@ async def match_invoice_scan(
 
     model_name = "deterministic_fallback"
     line_matches = deterministic_matches
+    llm_usage: dict[str, int] | None = None
 
     if settings.OPENAI_API_KEY and deterministic_matches:
         try:
-            envelope = await call_llm_json(
+            envelope, llm_usage = await call_llm_json(
                 system_prompt=_SYSTEM_PROMPT,
                 user_payload={
                     "request": payload.model_dump(),
@@ -231,11 +232,15 @@ async def match_invoice_scan(
                 model_name = settings.OPENAI_MODEL
         except ExternalServiceError:
             line_matches = deterministic_matches
+            llm_usage = None
 
-    return InvoiceMatchResponse(
-        model=model_name,
-        generated_at=datetime.now(UTC),
-        invoice_scan_id=scan.id,
-        facts_used=facts,
-        line_matches=line_matches,
+    return (
+        InvoiceMatchResponse(
+            model=model_name,
+            generated_at=datetime.now(UTC),
+            invoice_scan_id=scan.id,
+            facts_used=facts,
+            line_matches=line_matches,
+        ),
+        llm_usage,
     )

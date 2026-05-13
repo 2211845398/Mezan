@@ -16,6 +16,7 @@ from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceL
 from app.models.suppliers import Supplier
 from app.models.transfer_batch import TransferBatch
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
+from app.services.fifo_valuation_service import consume_layers_fifo, get_valuation_policy
 from app.services.inventory_valuation_service import get_unit_cost_for_sale
 from app.utils.money import q2
 
@@ -66,15 +67,28 @@ async def post_sales_invoice_gl(
     if disc_debit < 0:
         disc_debit = Decimal("0")
 
+    policy = await get_valuation_policy(db)
     cogs_total = Decimal("0")
-    for ln in lines:
-        uc = await get_unit_cost_for_sale(
-            db,
-            branch_id=branch_id,
-            product_id=ln.product_id,
-            variant_id=ln.variant_id,
-        )
-        cogs_total += q2(uc * Decimal(ln.qty))
+    if policy == "fifo":
+        for ln in lines:
+            consumed = await consume_layers_fifo(
+                db,
+                branch_id=branch_id,
+                product_id=ln.product_id,
+                variant_id=ln.variant_id,
+                qty_to_consume=Decimal(ln.qty),
+            )
+            for take, uc in consumed:
+                cogs_total += q2(take * uc)
+    else:
+        for ln in lines:
+            uc = await get_unit_cost_for_sale(
+                db,
+                branch_id=branch_id,
+                product_id=ln.product_id,
+                variant_id=ln.variant_id,
+            )
+            cogs_total += q2(uc * Decimal(ln.qty))
 
     async def post_revenue_and_cash() -> None:
         if invoice.customer_id is None:

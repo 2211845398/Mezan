@@ -166,7 +166,7 @@ def _build_messages(facts: dict[str, Any], max_suggestions: int) -> list[dict[st
     ]
 
 
-async def _call_llm(messages: list[dict[str, str]]) -> _LLMAdvisoryEnvelope:
+async def _call_llm(messages: list[dict[str, str]]) -> tuple[_LLMAdvisoryEnvelope, dict[str, int] | None]:
     if not settings.OPENAI_API_KEY:
         raise ExternalServiceError("OPENAI_API_KEY is not configured", http_status=503)
 
@@ -192,7 +192,17 @@ async def _call_llm(messages: list[dict[str, str]]) -> _LLMAdvisoryEnvelope:
         body = response.json()
         content = body["choices"][0]["message"]["content"]
         parsed = json.loads(content)
-        return _LLMAdvisoryEnvelope.model_validate(parsed)
+        usage_raw = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+        usage_out: dict[str, int] | None = None
+        if usage_raw:
+            pt = usage_raw.get("prompt_tokens")
+            ct = usage_raw.get("completion_tokens")
+            if isinstance(pt, int) or isinstance(ct, int):
+                usage_out = {
+                    "prompt_tokens": int(pt) if isinstance(pt, int) else 0,
+                    "completion_tokens": int(ct) if isinstance(ct, int) else 0,
+                }
+        return _LLMAdvisoryEnvelope.model_validate(parsed), usage_out
     except PydanticValidationError as exc:
         raise ExternalServiceError(
             "AI response schema validation failed",
@@ -209,7 +219,7 @@ async def _call_llm(messages: list[dict[str, str]]) -> _LLMAdvisoryEnvelope:
 
 async def generate_marketing_advisory(
     db: AsyncSession, *, payload: MarketingAdvisoryRequest
-) -> MarketingAdvisoryResponse:
+) -> tuple[MarketingAdvisoryResponse, dict[str, int] | None]:
     top_products = await get_top_selling_products(db, limit=payload.top_products_limit)
     slow_products = await get_slow_moving_products(
         db, threshold_qty=5, limit=payload.top_products_limit
@@ -230,15 +240,20 @@ async def generate_marketing_advisory(
         "co_bought_pairs": co_bought_pairs,
         "generated_at": datetime.now(UTC).isoformat(),
     }
+    llm_usage: dict[str, int] | None = None
     try:
-        envelope = await _call_llm(_build_messages(facts, payload.max_suggestions))
+        envelope, llm_usage = await _call_llm(_build_messages(facts, payload.max_suggestions))
         suggestions = envelope.suggestions[: payload.max_suggestions]
     except ExternalServiceError:
         suggestions = _build_fallback_suggestions(facts, payload.max_suggestions)
+        llm_usage = None
 
-    return MarketingAdvisoryResponse(
-        model=settings.OPENAI_MODEL if settings.OPENAI_API_KEY else "deterministic_fallback",
-        generated_at=datetime.now(UTC),
-        facts_used=facts,
-        suggestions=suggestions,
+    return (
+        MarketingAdvisoryResponse(
+            model=settings.OPENAI_MODEL if settings.OPENAI_API_KEY else "deterministic_fallback",
+            generated_at=datetime.now(UTC),
+            facts_used=facts,
+            suggestions=suggestions,
+        ),
+        llm_usage,
     )

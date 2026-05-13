@@ -8,6 +8,13 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
+class BomPatchRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    version: str | None = Field(default=None, max_length=32)
+    notes: str | None = Field(default=None, max_length=1000)
+    is_active: bool | None = None
+
+
 class BomLineRead(BaseModel):
     id: int
     component_product_id: int

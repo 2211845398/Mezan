@@ -23,6 +23,7 @@ class CustomerMetricsRead(BaseModel):
     lifetime_value: Decimal
     loyalty_points_balance: int
     open_debt: Decimal
+    exchanges_last_90_days: int = 0
 
 
 class CustomerVisitsRead(BaseModel):

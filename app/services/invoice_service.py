@@ -5,11 +5,14 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
 from app.models.ar_open_item import ArOpenItem
+from app.models.category import Category
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
 from app.models.pos_shift import PosCashEvent
@@ -31,6 +34,7 @@ from app.services.accounting_governance_service import (
 from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.inventory_service import apply_stock_movement
 from app.services.catalog_service import resolve_default_variant_id
+from app.services.loyalty_dsl_service import calculate_loyalty_for_purchase
 from app.services.loyalty_service import adjust_points
 from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
@@ -156,54 +160,43 @@ async def finalize_paid_cart(
     )
     await post_sales_invoice_gl(db, invoice=invoice, lines=list(sil_res.scalars().all()))
 
-    # Epic 21.9: Loyalty purchase accrual (hardcoded rules per user decision)
     if cart.customer_id:
-        await _accrue_loyalty_for_purchase(
-            db,
-            customer_id=cart.customer_id,
-            invoice_total=invoice.total,
-            invoice_id=invoice.id,
-            user_id=user_id,
+        category_codes: list[str] = []
+        if lines:
+            pids = [ln.product_id for ln in lines]
+            cat_stmt = (
+                select(Category.slug)
+                .join(Product, Product.category_id == Category.id)
+                .where(Product.id.in_(pids))
+                .distinct()
+            )
+            crows = await db.execute(cat_stmt)
+            category_codes = sorted(
+                {(str(row[0]).strip().upper()) for row in crows.all() if row[0]}
+            )
+        calc = calculate_loyalty_for_purchase(
+            cart_total=invoice.total,
+            category_codes=category_codes,
+            is_weekend=issued_at.weekday() >= 5,
         )
+        points = int(calc["calculation"]["total_points"])
+        if points > 0:
+            await adjust_points(
+                db,
+                customer_id=cart.customer_id,
+                points=points,
+                entry_type=LedgerEntryType.CREDIT,
+                reason_code=LedgerReasonCode.PURCHASE,
+                auditor_id=user_id,
+                reference_id=f"INV-{invoice.id}",
+                note=f"Purchase loyalty: {points} points",
+            )
 
     cart.status = "paid"
     cart.paid_at = issued_at
     await db.commit()
     await db.refresh(invoice)
     return invoice
-
-
-async def _accrue_loyalty_for_purchase(
-    db: AsyncSession,
-    *,
-    customer_id: int,
-    invoice_total: Decimal,
-    invoice_id: int,
-    user_id: int,
-) -> None:
-    """Hardcoded loyalty rules (Epic 21.9):
-    - 10 points for every purchase
-    - 50 points for invoices over 1000 (in addition to base 10)
-    """
-    from decimal import Decimal
-
-    points = 10  # Base points for any purchase
-
-    # Bonus for high-value invoices (using 1000 threshold as per requirements)
-    if invoice_total > Decimal("1000"):
-        points += 50
-
-    if points > 0:
-        await adjust_points(
-            db,
-            customer_id=customer_id,
-            points=points,
-            entry_type=LedgerEntryType.CREDIT,
-            reason_code=LedgerReasonCode.PURCHASE,
-            auditor_id=user_id,
-            reference_id=f"INV-{invoice_id}",
-            note=f"Purchase loyalty: {points} points",
-        )
 
 
 def _within_void_time_window(created_at: datetime, *, now: datetime) -> bool:
