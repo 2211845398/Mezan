@@ -220,17 +220,22 @@ async def reverse_journal_entry(
     await db.flush()
 
     for line in original.lines:
-        db.add(
-            JournalEntryLine(
-                journal_entry_id=reversal.id,
-                line_no=line.line_no,
-                account_id=line.account_id,
-                branch_id=line.branch_id,
-                debit=line.credit,
-                credit=line.debit,
-                memo=f"Reversal of line {line.line_no}",
-            )
-        )
+        line_kw: dict = {
+            "journal_entry_id": reversal.id,
+            "line_no": line.line_no,
+            "account_id": line.account_id,
+            "branch_id": line.branch_id,
+            "debit": line.credit,
+            "credit": line.debit,
+            "memo": f"Reversal of line {line.line_no}",
+        }
+        if getattr(line, "currency_code", None):
+            line_kw["currency_code"] = line.currency_code[:3]
+        if getattr(line, "transaction_amount", None) is not None:
+            line_kw["transaction_amount"] = line.transaction_amount
+        if getattr(line, "fx_rate", None) is not None:
+            line_kw["fx_rate"] = line.fx_rate
+        db.add(JournalEntryLine(**line_kw))
 
     await db.flush()
     await db.refresh(reversal)

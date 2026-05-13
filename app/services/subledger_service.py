@@ -14,8 +14,7 @@ from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
 from app.models.ar_payment_application import ArPaymentApplication
-from app.services.document_posting_service import post_ar_cash_receipt_gl
-from app.services.voucher_service import post_payment_voucher
+from app.services.document_posting_service import post_ap_payment_gl, post_ar_cash_receipt_gl
 
 
 def _d(value: Decimal | int | str) -> Decimal:
@@ -217,17 +216,12 @@ async def apply_ap_payment(
     db.add(application)
     await db.flush()
 
-    # Post GL: Dr AP, Cr Cash (payment reduces liability and cash)
-    await post_payment_voucher(
+    await post_ap_payment_gl(
         db,
-        supplier_id=item.supplier_id,
-        cash_account_id=None,  # Use default from settings
-        amount=amt,
-        entry_date=application.applied_at.date(),
-        description=f"AP Payment for {item.source_type} {item.source_id}",
-        reference=reference or f"AP-PAY-{application.id}",
         branch_id=item.branch_id,
-        memo=note or f"Payment application {application.id}",
+        amount=amt,
+        application_id=application.id,
+        entry_date=application.applied_at.date(),
     )
 
     await db.refresh(application)

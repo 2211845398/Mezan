@@ -1,7 +1,8 @@
 """FX revaluation service for multi-currency accounting (Epic 20.2).
 
-Revalues open AR, AP, and bank balances at period close;
-posts Dr/Cr FX Gain/Loss to adjust to current exchange rates.
+Revalues open AR and AP at period close using current ``Currency.exchange_rate_to_base``;
+posts Dr/Cr FX Gain/Loss via :func:`post_journal_entry` so fiscal period linkage and
+CoA validation apply consistently.
 """
 
 from __future__ import annotations
@@ -18,9 +19,9 @@ from app.models.accounting_settings import AccountingSettings
 from app.models.ap_open_item import ApOpenItem
 from app.models.ar_open_item import ArOpenItem
 from app.models.currency import Currency
-from app.models.journal_entries import JournalEntry, JournalEntryLine
+from app.models.journal_entries import JournalEntry
 from app.services.accounting_governance_service import ensure_period_open
-from app.services.accounting_service import get_accounting_settings
+from app.services.accounting_service import get_accounting_settings, post_journal_entry
 from app.utils.money import q2
 
 _FX_QUANT = Decimal("0.00000001")
@@ -68,6 +69,7 @@ async def preview_fx_revaluation(
     branch_id: int | None = None,
 ) -> FxRevaluationPreviewResult:
     """Read-only AR/AP FX exposure: same valuation math as run, without period checks or JEs."""
+    _ = as_of_date
     settings = await get_accounting_settings(db)
     base_currency = await _base_currency_code(db, settings)
 
@@ -153,13 +155,10 @@ async def run_fx_revaluation(
     branch_id: int | None = None,
     created_by_user_id: int | None = None,
 ) -> list[JournalEntry]:
-    """Run FX revaluation for open AR/AP items and bank accounts.
+    """Run FX revaluation for open AR/AP items in foreign currencies.
 
-    For each foreign-currency denominated open item:
-    - Calculate difference between booked value and current value at today's rate
-    - Post FX gain/loss entry to adjust to current rate
-
-    Returns list of created journal entries. Does not commit; caller commits.
+    Uses ``post_journal_entry`` for each non-zero delta (period lock + CoA rules).
+    Does not commit; caller commits.
     """
     _ = created_by_user_id
     await ensure_period_open(db, entry_date=revaluation_date)
@@ -169,17 +168,15 @@ async def run_fx_revaluation(
 
     entries: list[JournalEntry] = []
 
-    # Get all active foreign currencies
     curr_res = await db.execute(select(Currency).where(Currency.code != base_currency))
     currencies = {c.code: c for c in curr_res.scalars().all()}
 
     for curr_code, currency in currencies.items():
         if currency.exchange_rate_to_base is None or currency.exchange_rate_to_base <= 0:
-            continue  # Skip if no valid rate
+            continue
 
         current_rate = currency.exchange_rate_to_base.quantize(_FX_QUANT, rounding=ROUND_HALF_UP)
 
-        # Revalue AR open items in this currency
         ar_entries = await _revalue_ar_items(
             db,
             currency_code=curr_code,
@@ -191,7 +188,6 @@ async def run_fx_revaluation(
         )
         entries.extend(ar_entries)
 
-        # Revalue AP open items in this currency
         ap_entries = await _revalue_ap_items(
             db,
             currency_code=curr_code,
@@ -219,7 +215,6 @@ async def _revalue_ar_items(
     """Revalue AR open items and return any created journal entries."""
     entries: list[JournalEntry] = []
 
-    # Find open AR items with foreign currency
     ar_res = await db.execute(
         select(ArOpenItem).where(
             ArOpenItem.amount_open > 0,
@@ -242,29 +237,13 @@ async def _revalue_ar_items(
         if diff == 0:
             continue
 
-        # Determine FX gain/loss accounts
         if diff > 0:
-            # AR increased = FX loss (debit) for us
             fx_loss_account = int(
                 getattr(settings, "default_fx_loss_account_id", None)
                 or settings.default_other_expenses_account_id
                 or settings.default_cogs_account_id
             )
-            fx_gain_account = None
-        else:
-            # AR decreased = FX gain (credit)
-            fx_gain_account = int(
-                getattr(settings, "default_fx_gain_account_id", None)
-                or settings.default_sales_revenue_account_id
-            )
-            fx_loss_account = None
-
-        ar_account = settings.default_ar_account_id
-
-        # Create revaluation entry
-        lines: list[dict] = []
-        if diff > 0:
-            # Loss: Dr FX Loss, Cr AR
+            ar_account = settings.default_ar_account_id
             lines = [
                 {
                     "account_id": fx_loss_account,
@@ -284,7 +263,11 @@ async def _revalue_ar_items(
                 },
             ]
         else:
-            # Gain: Dr AR, Cr FX Gain (diff is negative, so flip signs)
+            fx_gain_account = int(
+                getattr(settings, "default_fx_gain_account_id", None)
+                or settings.default_sales_revenue_account_id
+            )
+            ar_account = settings.default_ar_account_id
             gain_amt = abs(diff)
             lines = [
                 {
@@ -305,16 +288,17 @@ async def _revalue_ar_items(
                 },
             ]
 
-        entry = JournalEntry(
+        je = await post_journal_entry(
+            db,
             entry_date=revaluation_date,
             description=f"FX Revaluation {currency_code} AR - {item.source_type} {item.source_id}",
             source_type="fx_revaluation",
-            source_id=f"{item.id}",
+            source_id=str(item.id),
             idempotency_key=f"fx_reval:ar:{item.id}:{revaluation_date.isoformat()}",
-            lines=[JournalEntryLine(**ln, line_no=i + 1) for i, ln in enumerate(lines)],
+            lines=lines,
         )
-        db.add(entry)
-        entries.append(entry)
+        if je is not None:
+            entries.append(je)
 
     return entries
 
@@ -332,7 +316,6 @@ async def _revalue_ap_items(
     """Revalue AP open items and return any created journal entries."""
     entries: list[JournalEntry] = []
 
-    # Find open AP items with foreign currency
     ap_res = await db.execute(
         select(ApOpenItem).where(
             ApOpenItem.amount_open > 0,
@@ -355,28 +338,14 @@ async def _revalue_ap_items(
         if diff == 0:
             continue
 
-        # For AP (liability):
-        # If rate increases (we owe more in base currency) = FX loss
-        # If rate decreases (we owe less) = FX gain
+        ap_account = settings.default_ap_account_id
+
         if diff > 0:
             fx_loss_account = int(
                 getattr(settings, "default_fx_loss_account_id", None)
                 or settings.default_other_expenses_account_id
                 or settings.default_cogs_account_id
             )
-            fx_gain_account = None
-        else:
-            fx_gain_account = int(
-                getattr(settings, "default_fx_gain_account_id", None)
-                or settings.default_sales_revenue_account_id
-            )
-            fx_loss_account = None
-
-        ap_account = settings.default_ap_account_id
-
-        lines: list[dict] = []
-        if diff > 0:
-            # Loss: Dr FX Loss, Cr AP (increase liability)
             lines = [
                 {
                     "account_id": fx_loss_account,
@@ -396,7 +365,10 @@ async def _revalue_ap_items(
                 },
             ]
         else:
-            # Gain: Dr AP, Cr FX Gain (decrease liability)
+            fx_gain_account = int(
+                getattr(settings, "default_fx_gain_account_id", None)
+                or settings.default_sales_revenue_account_id
+            )
             gain_amt = abs(diff)
             lines = [
                 {
@@ -417,15 +389,16 @@ async def _revalue_ap_items(
                 },
             ]
 
-        entry = JournalEntry(
+        je = await post_journal_entry(
+            db,
             entry_date=revaluation_date,
             description=f"FX Revaluation {currency_code} AP - {item.source_type} {item.source_id}",
             source_type="fx_revaluation",
-            source_id=f"{item.id}",
+            source_id=str(item.id),
             idempotency_key=f"fx_reval:ap:{item.id}:{revaluation_date.isoformat()}",
-            lines=[JournalEntryLine(**ln, line_no=i + 1) for i, ln in enumerate(lines)],
+            lines=lines,
         )
-        db.add(entry)
-        entries.append(entry)
+        if je is not None:
+            entries.append(je)
 
     return entries

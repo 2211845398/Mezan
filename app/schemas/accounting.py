@@ -315,3 +315,25 @@ class BalanceSheetRead(BaseModel):
     equity_lines: list[StatementAccountLineRead] = Field(default_factory=list)
 
     model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class BranchFinancialSnapshotRead(BaseModel):
+    """Epic 19.7: branch-scoped TB roll-up plus optional P&L + balance sheet window."""
+
+    branch_id: int
+    as_of: str
+    trial_balance_accounts: int
+    rolled_debit: Decimal
+    rolled_credit: Decimal
+    rolled_net: Decimal
+    period_start: str | None = None
+    period_end: str | None = None
+    net_income: Decimal | None = None
+    total_revenue: Decimal | None = None
+    total_expense: Decimal | None = None
+    total_assets: Decimal | None = None
+    total_liabilities: Decimal | None = None
+    total_equity: Decimal | None = None
+    assets_minus_liabilities_equity: Decimal | None = None
+
+    model_config = ConfigDict(json_encoders={Decimal: str})

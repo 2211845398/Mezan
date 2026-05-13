@@ -1,6 +1,6 @@
 ---
 name: Mezan System Restructure
-overview: "Reorganize and document the Mezan system requirements into a single coherent plan covering UI reference pages, POS screen details, catalog, inventory, purchasing, CRM and AI, the accounting core, a three-phase roadmap, and architectural improvement suggestions."
+overview: Reorganize and document the Mezan system requirements into a single coherent plan covering UI reference pages, POS screen details, catalog, inventory, purchasing, CRM and AI, the accounting core, a three-phase roadmap, and architectural improvement suggestions.
 todos:
   - id: phase-1-audit
     content: "Phase 1: Comprehensive source-code audit, produce numbered GAP_REPORT, and update PROJECT_STATE.md §4."
@@ -35,6 +35,7 @@ todos:
   - id: phase-3e-crm-ai-ui
     content: "Phase 3: Customer performance page + simplified card-based UI for AI Marketing and HR Anomalies."
     status: pending
+isProject: false
 ---
 
 # Mezan System Restructuring Plan

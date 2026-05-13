@@ -399,6 +399,66 @@ async def get_chart_account_tree_for_branch(
     return [enrich(n) for n in tree]
 
 
+async def validate_accounts_for_journal_posting(
+    db: AsyncSession, *, account_ids: list[int]
+) -> None:
+    """Strict CoA checks before GL posting (Epic 19.2).
+
+    Ensures each account exists, is active, is not a control-only node, sits within
+    max depth, and has a type-consistent ancestor chain.
+    """
+    unique_ids = sorted({int(x) for x in account_ids if x is not None})
+    for aid in unique_ids:
+        account = await _get_account_with_parents(db, aid)
+        if account is None:
+            raise ValidationError(
+                "Unknown chart account for journal line",
+                details={"account_id": aid},
+            )
+        if not account.active:
+            raise ValidationError(
+                "Cannot post to an inactive chart account",
+                details={"account_id": aid},
+            )
+        if account.is_control:
+            raise ValidationError(
+                "Cannot post to a control (summary) account; use a leaf/posting account",
+                details={"account_id": aid},
+            )
+
+        depth = await _calculate_depth(db, account.parent_id)
+        if depth > MAX_COA_DEPTH:
+            raise ValidationError(
+                f"Chart account exceeds maximum depth ({MAX_COA_DEPTH})",
+                details={"account_id": aid, "depth": depth},
+            )
+
+        leaf_type = account.account_type
+        current_id: int | None = account.id
+        visited: set[int] = set()
+        while current_id is not None:
+            if current_id in visited:
+                raise ValidationError(
+                    "Circular reference detected in chart hierarchy",
+                    details={"account_id": aid},
+                )
+            visited.add(current_id)
+            cur = await _get_account_with_parents(db, current_id)
+            if cur is None:
+                break
+            if cur.account_type != leaf_type:
+                raise ValidationError(
+                    "Account type does not match ancestor chain (CoA type consistency)",
+                    details={
+                        "account_id": aid,
+                        "expected_type": leaf_type.value,
+                        "ancestor_id": cur.id,
+                        "ancestor_type": cur.account_type.value,
+                    },
+                )
+            current_id = cur.parent_id
+
+
 async def delete_chart_account(db: AsyncSession, *, account_id: int) -> bool:
     """Delete a Chart of Accounts entry if possible.
 

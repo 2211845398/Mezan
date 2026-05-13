@@ -16,6 +16,7 @@ from app.schemas.accounting import (
     ApOpenItemCreate,
     ArOpenItemCreate,
     BalanceSheetRead,
+    BranchFinancialSnapshotRead,
     ChartAccountRead,
     FiscalPeriodRead,
     FiscalPeriodStatusUpdate,
@@ -47,13 +48,12 @@ from app.services.accounting_governance_service import (
     set_period_status,
 )
 from app.services.accounting_service import get_journal_by_idempotency, post_journal_entry
+from app.services.branch_reporting_service import branch_financial_snapshot
 from app.services.financial_reports_service import (
     balance_sheet,
+    general_ledger_lines as gl_lines_svc,
     income_statement,
     trial_balance,
-)
-from app.services.financial_reports_service import (
-    general_ledger_lines as gl_lines_svc,
 )
 from app.services.journal_inquiry_service import (
     JournalEntryDetail,
@@ -150,6 +150,39 @@ async def balance_sheet_endpoint(
 ) -> BalanceSheetRead:
     data = await balance_sheet(db, as_of=as_of, branch_id=branch_id)
     return BalanceSheetRead.model_validate(data)
+
+
+@router.get(
+    "/accounting/reports/branches/{branch_id}/financial-snapshot",
+    response_model=BranchFinancialSnapshotRead,
+)
+async def branch_financial_snapshot_endpoint(
+    branch_id: int,
+    as_of: date = Query(...),
+    period_start: date | None = Query(default=None),
+    period_end: date | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> BranchFinancialSnapshotRead:
+    if (period_start is None) ^ (period_end is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide both period_start and period_end, or omit both",
+        )
+    if period_start is not None and period_end is not None and period_end < period_start:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="period_end must be on or after period_start",
+        )
+    data = await branch_financial_snapshot(
+        db,
+        branch_id=branch_id,
+        as_of=as_of,
+        period_start=period_start,
+        period_end=period_end,
+    )
+    return BranchFinancialSnapshotRead.model_validate(data)
 
 
 @router.get("/accounting/fiscal-periods", response_model=list[FiscalPeriodRead])

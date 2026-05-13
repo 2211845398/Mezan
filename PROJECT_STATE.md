@@ -54,7 +54,7 @@
 | 12 | In Progress | Offline POS sync (backend contracts defined) |
 | 13 | In Progress | Notifications (models complete, FCM hardening pending) |
 | 14 | Completed | AI advisors: usage logging, per-user rate limits, response cache, LLM `usage` tokens |
-| 15-17 | Planned | Security hardening, multi-currency, cash flow statement |
+| 15-17 | Planned | Security hardening, multi-currency statements (16.2 pending), cash flow statement |
 
 ### Web Frontend Status
 | Epic | Status | Key Deliverables |
@@ -240,7 +240,7 @@
 | **CORS `*` with credentials in dev** | Active | Medium | Explicit trusted origins per environment |
 | **Default `SECRET_KEY` in Compose** | Active | Medium | Fail-fast in prod if default detected |
 | **No FIFO/LIFO cost layers** | Accepted | Low | Weighted-average is sufficient for v1 |
-| **No multi-currency GL** | Planned | Medium | Epic 16 |
+| **No multi-currency GL** | Addressed (Epic 20.1–20.2); AR/AP revaluation posts via `post_journal_entry` |
 | **No cash flow statement** | Planned | Low | Epic 17 |
 
 ### Web Frontend Gaps
@@ -269,8 +269,8 @@
 | **D-6** | Effective permissions client-computed | Optional read-only endpoint | Backend |
 | **D-7** | No `product_variants` model — color/size variants conflated under one product | Epic 18 (Variants & Catalog Restructure) | Backend |
 | **D-8** | Money type system still has `Mapped[float]` in some models — accounting precision risk | Epic 19.1 (Money → Decimal pass) | Backend |
-| **D-9** | Chart of Accounts has no enforced depth limit (spec asks for 5 levels) | Epic 19.2 (Accounting Core Hardening) | Backend |
-| **D-10** | Branch chart inheritance is implicit via `branch_id` on journal lines; not surfaced in reports | Epic 19.6 (Branch-aware CoA reports) | Backend + Web |
+| **D-9** | Chart of Accounts has no enforced depth limit (spec asks for 5 levels) | Closed via Epic 19.2 posting + tree validation | Backend |
+| **D-10** | Branch chart inheritance is implicit via `branch_id` on journal lines; not surfaced in reports | Closed via Epic 19.7 branch TB/IS/BS + snapshot API + CoA-by-branch | Backend + Web |
 | **D-11** | `subledger_service._d()` accepts `float` — boundary parsing risk | Epic 19.1 (Money type system) | Backend |
 
 See [GAP_REPORT.md](GAP_REPORT.md) for the full numbered gap list (67 findings across 7 modules).
@@ -331,7 +331,7 @@ Pattern: offline queue with idempotent server reconciliation.
 - [ ] **15.4** Per-IP adaptive rate limits for authentication.
 
 #### Epic 16 — Multi-Currency Accounting
-- [ ] **16.1** FX revaluation at period close (AR/AP/bank).
+- [x] **16.1** FX revaluation at period close (AR/AP) — implemented as Epic **20.2** (`fx_revaluation_service`, `/accounting/fx-revaluation/*`).
 - [ ] **16.2** Translated income statement and balance sheet.
 
 #### Epic 17 — Cash Flow Statement
@@ -356,21 +356,21 @@ Resolves `D-7`, `GAP-CAT-005..007`, `GAP-INV-007`. Blocking dependency for Epic 
 Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The largest backend epic of Phase 2.
 
 - [x] **19.1** Money → Decimal pass — tighten `subledger_service._d` signature to reject `float`; remove `float(sell_price)` cast in `catalog_service._sync_compat_price`. SQLAlchemy models and Pydantic schemas already use `Decimal`. See commit log for Epic 19.1.
-- [ ] **19.2** CoA hardening: enforce 5-level depth, parent/child type consistency, account-id existence/active/postable validation in `post_journal_entry` (`GAP-ACC-001..002, 005..006`).
+- [x] **19.2** CoA hardening: enforce 5-level depth, parent/child type consistency, account-id existence/active/postable validation in `post_journal_entry` (`GAP-ACC-001..002, 005..006`).
 - [x] **19.3** Opening balance GL `post_opening_balance_gl` in [`opening_balance_service.py`](app/services/opening_balance_service.py); APIs `POST /accounting/opening-balance`, `.../capital-injection`, `.../initial-inventory` (`GAP-ACC-007`).
 - [x] **19.4** Generic Voucher service [`post_voucher_gl()`](app/services/voucher_service.py) + entity resolution (Customer→AR, Supplier→AP, Cash, Expense) + schemas [`vouchers.py`](app/schemas/vouchers.py). API endpoints and UI forms pending (W-13.2).
 - [x] **19.4b** Phase 2 Workstream C (vouchers & GL hygiene): voucher wrappers forward `idempotency_key` / `user_id`; API passes `expense_account_id` and transfer `from_cash_account_id` / `to_cash_account_id`; `post_journal_entry` persists optional `currency_code` / `transaction_amount` / `fx_rate` on lines; `post_voucher_gl` forwards FX fields; POS expenses use `shift_service.add_cash_event`, resolved expense account, no service-level commit; inventory adjustment GL routes shortage/damaged/count_loss and gain via new nullable settings FKs; FX revaluation loss account chain uses `default_other_expenses_account_id` (no invalid `default_other_income` default).
-- [ ] **19.5** AP payment GL `post_ap_payment_gl` symmetric to AR (`GAP-ACC-009`).
-- [ ] **19.6** Inventory adjustment GL `post_inventory_adjustment_gl` driven by WAVG/FIFO (`GAP-INV-005`, `GAP-ACC-010`).
-- [ ] **19.7** Branch-aware reports — surface roll-up/roll-down by branch in trial balance, income statement, balance sheet (`D-10`).
+- [x] **19.5** AP payment GL `post_ap_payment_gl` symmetric to AR (`GAP-ACC-009`).
+- [x] **19.6** Inventory adjustment GL `post_inventory_adjustment_gl` driven by WAVG/FIFO (`GAP-INV-005`, `GAP-ACC-010`).
+- [x] **19.7** Branch-aware reports — surface roll-up/roll-down by branch in trial balance, income statement, balance sheet (`D-10`).
 - [x] **19.7a** CoA tree annotated with branch balances: `GET /accounting/chart-accounts/by-branch/{branch_id}` (partial `D-10` surfacing).
 - [x] **19.8** Soft-close fiscal period state machine: `open → soft_closed → closed` (and `soft_closed → open`); `ensure_period_open` blocks normal GL in `soft_closed`; journal reversals use `allow_in_soft_close` (`GAP-ACC-013`).
 - [x] **19.9** Chart of Accounts admin backend: tree editor API (`/accounting/chart-accounts/tree`), CRUD endpoints, drag-drop move support, depth/type validation (`GAP-ACC-003`).
 - [ ] **19.10** Frontend AP/AR drawers (frontend task); backend GL posting confirmed working via `voucher_service.py`.
 
 #### Epic 20 — Multi-Currency, Production Orders, FIFO
-- [ ] **20.1** Multi-currency journal lines: add `currency_code`, `transaction_amount`, `fx_rate` columns (`GAP-ACC-012`).
-- [ ] **20.2** FX revaluation service at period close — revalue open AR, AP, bank balances; post Dr/Cr FX Gain/Loss (`GAP-ACC-011`, supersedes original Epic 16.1).
+- [x] **20.1** Multi-currency journal lines: add `currency_code`, `transaction_amount`, `fx_rate` columns (`GAP-ACC-012`).
+- [x] **20.2** FX revaluation service at period close — revalue open AR, AP, bank balances; post Dr/Cr FX Gain/Loss (`GAP-ACC-011`, supersedes original Epic 16.1).
 - [ ] **20.3** Bill of Materials + Production Orders module (`GAP-ACC-014`):
   - `bill_of_materials(id, finished_variant_id, revision, name, status, ...)`
   - `bom_component(id, bom_id, component_variant_id, qty_per, scrap_pct, seq)`

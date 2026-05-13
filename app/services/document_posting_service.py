@@ -399,6 +399,45 @@ async def post_ar_cash_receipt_gl(
     )
 
 
+async def post_ap_payment_gl(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    amount: Decimal,
+    application_id: int,
+    entry_date: date,
+) -> None:
+    """Dr AP, Cr Cash when an AP open item is paid. Symmetric to :func:`post_ar_cash_receipt_gl`."""
+    settings = await get_accounting_settings(db)
+    amt = q2(amount)
+    if amt <= 0:
+        return
+    await post_journal_entry(
+        db,
+        entry_date=entry_date,
+        description=f"AP supplier payment (application {application_id})",
+        source_type="ap_payment_application",
+        source_id=str(application_id),
+        idempotency_key=f"ap_payment_application:{application_id}",
+        lines=[
+            {
+                "account_id": settings.default_ap_account_id,
+                "branch_id": branch_id,
+                "debit": amt,
+                "credit": Decimal("0"),
+                "memo": "Clear AP",
+            },
+            {
+                "account_id": settings.default_cash_account_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": amt,
+                "memo": "Cash/bank payment to supplier",
+            },
+        ],
+    )
+
+
 async def post_transfer_batch_receive_gl(db: AsyncSession, *, batch: TransferBatch) -> None:
     """On inter-branch receive: Dr inventory @ destination, Cr @ source at source WAVG × qty.
 
