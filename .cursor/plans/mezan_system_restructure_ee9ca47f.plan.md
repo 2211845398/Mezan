@@ -22,19 +22,19 @@ todos:
     status: pending
   - id: phase-3a-pos-overhaul
     content: "Phase 3: Rebuild the POS screen (full top bar, product grid, color-shifted return mode, real parked-invoices modal)."
-    status: pending
+    status: completed
   - id: phase-3b-transfers-kanban
     content: "Phase 3: Three-column Kanban board for inventory transfers with separated sender/receiver approval permissions."
-    status: pending
+    status: completed
   - id: phase-3c-purchasing
     content: "Phase 3: Price-less Purchase Order flow → Purchase Invoice with prices, plus ProductForm without cost/sell_price fields."
-    status: pending
+    status: completed
   - id: phase-3d-accounting-ui
     content: "Phase 3: Rework accounting screens to match Odoo/Manager.io UX (tree, journal entry, reports, currencies)."
-    status: pending
+    status: completed
   - id: phase-3e-crm-ai-ui
     content: "Phase 3: Customer performance page + simplified card-based UI for AI Marketing and HR Anomalies."
-    status: pending
+    status: completed
 isProject: false
 ---
 

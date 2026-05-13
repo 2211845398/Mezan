@@ -1,39 +1,56 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { AsyncSelect, type SelectOption } from '@/components/shared/form/Select';
+import { listCustomers } from '@/features/crm/api';
+import { crmKeys } from '@/features/crm/queries';
+import { notify } from '@/lib/toast';
 
-/**
- * W-5.1: attaching a customer mid-cart is not exposed in the POS cart API;
- * this is a read-only walk-in label until a dedicated customer endpoint lands.
- */
-export function CustomerPicker() {
-  const { t } = useTranslation('pos');
-  const [open, setOpen] = useState(false);
+export type CustomerPickerProps = {
+  value?: number | null;
+  disabled?: boolean;
+  onChange: (customerId: number | null) => Promise<void>;
+};
+
+export function CustomerPicker({ value, disabled, onChange }: CustomerPickerProps) {
+  const [q, setQ] = useState('');
+  const { data, isFetching } = useQuery({
+    queryKey: crmKeys.customersPosPickerSearch(q),
+    queryFn: () => {
+      const search = q.trim();
+      return listCustomers({
+        ...(search ? { search } : {}),
+        limit: 20,
+        offset: 0,
+      });
+    },
+    enabled: !disabled,
+  });
+
+  const options: SelectOption[] = useMemo(
+    () =>
+      (data?.items ?? []).map((customer) => ({
+        value: String(customer.id),
+        label: `${customer.full_name || customer.phone} · ${customer.phone}`,
+      })),
+    [data],
+  );
+
   return (
-    <>
-      <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/10 px-3 py-2 text-sm">
-        <span className="text-muted-foreground">{t('customer.walk_in')}</span>
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-          {t('customer.add')}
-        </Button>
-      </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="overflow-hidden p-0 sm:max-w-md">
-          <DialogHeader className="border-b px-6 pt-6 pb-4">
-            <DialogTitle>{t('customer.add')}</DialogTitle>
-            <DialogDescription>{t('customer.unsupported')}</DialogDescription>
-          </DialogHeader>
-          <div className="px-6 pb-6 text-sm text-muted-foreground">{t('customer.walk_in')}</div>
-        </DialogContent>
-      </Dialog>
-    </>
+    <AsyncSelect
+      value={value != null ? String(value) : undefined}
+      onChange={(next) => {
+        const customerId = next ? Number(next) : null;
+        void onChange(customerId).catch((error) => notify.error(error instanceof Error ? error.message : String(error)));
+      }}
+      options={options}
+      onSearch={setQ}
+      placeholder="عميل نقدي / اختر عميل"
+      searchPlaceholder="ابحث عن عميل"
+      emptyLabel="لا يوجد عملاء"
+      isLoading={isFetching}
+      disabled={disabled ?? false}
+      className="min-h-11"
+    />
   );
 }

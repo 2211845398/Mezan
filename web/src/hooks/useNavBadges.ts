@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { adminKeys } from '@/features/admin/queries';
+import type { NavBadgeKind } from '@/config/navigation';
 import { listPendingOnboarding } from '@/features/admin/api';
+import { adminKeys } from '@/features/admin/queries';
 import { leaveListQueryOptions } from '@/features/hr/queries';
 import { useUnreadNotificationCount } from '@/features/notifications/queries';
-import type { NavBadgeKind } from '@/config/navigation';
 
 import { usePermission } from './usePermission';
 

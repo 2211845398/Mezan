@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { NavItem, NavSection } from '@/config/navigation';
-import { navBadgeCount, useNavBadges, type NavBadgeCounts } from '@/hooks/useNavBadges';
+import { navBadgeCount, type NavBadgeCounts,useNavBadges } from '@/hooks/useNavBadges';
 import { cn } from '@/lib/utils';
 
 import { NavAttentionBadge } from './NavAttentionBadge';

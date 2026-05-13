@@ -25,19 +25,8 @@ import type { BranchRead } from '@/features/admin/types';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
 import { type GoodsReceiptRead, type PurchaseOrderRead,receiveGoodsForPurchaseOrder } from '../../api';
+import { aggregateReceivedQtyByPoLine } from '../../lib/aggregateReceivedQtyByPoLine';
 import { purchasingKeys } from '../../queries';
-
-export function aggregateReceivedQtyByPoLine(receipts: GoodsReceiptRead[]): Record<number, number> {
-  const m: Record<number, number> = {};
-  for (const r of receipts) {
-    for (const ln of r.lines ?? []) {
-      const polId = ln.purchase_order_line_id;
-      if (polId == null) continue;
-      m[polId] = (m[polId] ?? 0) + ln.qty;
-    }
-  }
-  return m;
-}
 
 type Props = {
   open: boolean;

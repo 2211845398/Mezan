@@ -91,17 +91,18 @@ export function leaveListQueryOptions(params: {
   limit?: number;
 } = {}) {
   const limit = params.limit ?? 200;
+  const keyFilters = {
+    ...(params.status !== undefined ? { status: params.status } : {}),
+    ...(params.employee_profile_id !== undefined
+      ? { employee_profile_id: params.employee_profile_id }
+      : {}),
+    limit,
+  };
   return queryOptions({
-    queryKey: hrKeys.leaveList({
-      status: params.status,
-      employee_profile_id: params.employee_profile_id,
-      limit,
-    }),
+    queryKey: hrKeys.leaveList(keyFilters),
     queryFn: () =>
       api.listLeaveRequestsGlobal({
-        status: params.status,
-        employee_profile_id: params.employee_profile_id,
-        limit,
+        ...keyFilters,
         offset: 0,
       }),
   });

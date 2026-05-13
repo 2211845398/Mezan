@@ -319,6 +319,13 @@ export const navigation: NavItem[] = [
         href: '/accounting/fiscal-periods',
         permission: { resource: 'accounting', action: 'update' },
       },
+      {
+        key: 'accounting-operations',
+        labelKey: 'nav.accounting_operations',
+        icon: Calculator,
+        href: '/accounting/operations',
+        permission: { resource: 'accounting', action: 'create' },
+      },
     ],
   },
   {

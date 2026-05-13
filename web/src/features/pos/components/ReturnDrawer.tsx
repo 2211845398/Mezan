@@ -23,6 +23,7 @@ export type ReturnDrawerProps = {
   onOpenChange: (open: boolean) => void;
   branchLabel: string;
   currency: string;
+  exchangeCartId?: number | null;
   onCredit: (model: ThermalReceiptModel) => void;
 };
 
@@ -31,6 +32,7 @@ export function ReturnDrawer({
   onOpenChange,
   branchLabel,
   currency,
+  exchangeCartId,
   onCredit,
 }: ReturnDrawerProps) {
   const { t } = useTranslation('pos');
@@ -73,7 +75,7 @@ export function ReturnDrawer({
         invoice_barcode: lookup.invoice_barcode,
         reason: reason.trim() || null,
         lines: linesPayload,
-        exchange_cart_id: null,
+        exchange_cart_id: exchangeCartId ?? null,
       });
       const model = thermalModelFromCreditNote({
         branchLabel,

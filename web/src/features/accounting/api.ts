@@ -18,6 +18,18 @@ export type ManualJournalCreate = components['schemas']['ManualJournalCreate'];
 export type PaymentApplicationCreate = components['schemas']['PaymentApplicationCreate'];
 export type PaymentApplicationRead = components['schemas']['PaymentApplicationRead'];
 
+export type AccountingPostResult = {
+  status?: string;
+  message?: string;
+  journal_entry_id?: number | null;
+  idempotency_key?: string | null;
+  total_amount?: string | null;
+};
+
+export type ChartAccountTreeNode = ChartAccountRead & {
+  children?: ChartAccountTreeNode[];
+};
+
 export async function listJournalEntries(params: {
   date_from: string;
   date_to: string;
@@ -41,6 +53,11 @@ export async function listChartAccounts(includeInactive = false): Promise<ChartA
   const { data } = await apiClient.get<ChartAccountRead[]>('/accounting/chart-accounts', {
     params: { include_inactive: includeInactive },
   });
+  return data;
+}
+
+export async function listChartAccountsTree(): Promise<ChartAccountTreeNode[]> {
+  const { data } = await apiClient.get<ChartAccountTreeNode[]>('/accounting/chart-accounts/tree');
   return data;
 }
 
@@ -158,5 +175,55 @@ export async function createManualJournal(
   const { data } = await apiClient.post<JournalEntryDetailRead>('/accounting/journal-entries', body, {
     headers: { 'Idempotency-Key': idempotencyKey },
   });
+  return data;
+}
+
+export async function postReceiptVoucher(
+  body: Record<string, unknown>,
+  idempotencyKey: string,
+): Promise<AccountingPostResult> {
+  const { data } = await apiClient.post<AccountingPostResult>('/accounting/vouchers/receipt', body, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
+  return data;
+}
+
+export async function postPaymentVoucher(
+  body: Record<string, unknown>,
+  idempotencyKey: string,
+): Promise<AccountingPostResult> {
+  const { data } = await apiClient.post<AccountingPostResult>('/accounting/vouchers/payment', body, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
+  return data;
+}
+
+export async function postOpeningBalance(
+  body: Record<string, unknown>,
+  idempotencyKey: string,
+): Promise<AccountingPostResult> {
+  const { data } = await apiClient.post<AccountingPostResult>('/accounting/opening-balance', body, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
+  return data;
+}
+
+export async function previewFxRevaluation(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const { data } = await apiClient.post<Record<string, unknown>>('/accounting/fx-revaluation/preview', body);
+  return data;
+}
+
+export async function runFxRevaluation(
+  body: Record<string, unknown>,
+  idempotencyKey: string,
+): Promise<Record<string, unknown>> {
+  const { data } = await apiClient.post<Record<string, unknown>>('/accounting/fx-revaluation/run', body, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
+  return data;
+}
+
+export async function listBoms(): Promise<Array<Record<string, unknown>>> {
+  const { data } = await apiClient.get<Array<Record<string, unknown>>>('/production/boms');
   return data;
 }

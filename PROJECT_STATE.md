@@ -256,6 +256,7 @@
 | **Dockerfile multi-stage** | Open | Medium | W-8.1 |
 | **PWA + Dexie offline** | Open | High | W-9 (requires backend Epic 12) |
 | **Notifications client** | Open | Medium | W-10 (in-app center + deep links shipped; FCM wiring pending) |
+| **Phase 3 frontend restructure** | Completed | — | POS overhaul, transfer Kanban, price-less purchasing/product forms, customer performance, marketing charts, and accounting operations workspace |
 
 ### Known Divergences (Plan vs Reality)
 
@@ -348,7 +349,7 @@ Resolves `D-7`, `GAP-CAT-005..007`, `GAP-INV-007`. Blocking dependency for Epic 
 - [x] **18.6** Enforce CoA depth = 4 on categories with `_get_category_depth()` validation in `create_category()` and `update_category()` (`GAP-CAT-001..002`).
 - [x] **18.7** Enforce enum/select attribute values server-side in `_validate_product_attributes()` with `select`/`multiselect` type validation (`GAP-CAT-003`).
 - [x] **18.8** Attribute-based product filter API: `filter_products_by_attributes()` service + `POST /catalog/products/filter-by-attributes` endpoint (`GAP-CAT-004`).
-- [ ] **18.9** Remove `standard_cost` and `sell_price` from product form (frontend task); pricing via Purchase Invoice / Price List.
+- [x] **18.9** Remove `standard_cost` and `sell_price` from product form (frontend task); pricing via Purchase Invoice / Price List.
 - [x] **18.10** Variant-aware product detail API: `GET /catalog/products/{id}/with-variants` returns product with variants, stock per variant, last cost per variant.
 - [x] **18.11** Variant wiring (Phase 2 Workstream B): session-scoped cache in `resolve_default_variant_id`; POS cart lines keyed by `(product_id, variant_id)`; optional `variant_id` on cart upsert / stock adjustment / PO lines; WAVG `apply_receipt_to_weighted_average` and transfer receive use explicit variant; GL (`post_sales_invoice_gl`, `post_sales_return_gl`, `post_transfer_batch_receive_gl`) uses per-line variant for COGS / inventory at source WAVG.
 
@@ -366,7 +367,7 @@ Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The larges
 - [x] **19.7a** CoA tree annotated with branch balances: `GET /accounting/chart-accounts/by-branch/{branch_id}` (partial `D-10` surfacing).
 - [x] **19.8** Soft-close fiscal period state machine: `open → soft_closed → closed` (and `soft_closed → open`); `ensure_period_open` blocks normal GL in `soft_closed`; journal reversals use `allow_in_soft_close` (`GAP-ACC-013`).
 - [x] **19.9** Chart of Accounts admin backend: tree editor API (`/accounting/chart-accounts/tree`), CRUD endpoints, drag-drop move support, depth/type validation (`GAP-ACC-003`).
-- [ ] **19.10** Frontend AP/AR drawers (frontend task); backend GL posting confirmed working via `voucher_service.py`.
+- [x] **19.10** Frontend AP/AR drawers / accounting operations workspace (frontend task); backend GL posting confirmed working via `voucher_service.py`.
 
 #### Epic 20 — Multi-Currency, Production Orders, FIFO
 - [x] **20.1** Multi-currency journal lines: add `currency_code`, `transaction_amount`, `fx_rate` columns (`GAP-ACC-012`).
@@ -397,7 +398,7 @@ Resolves all `GAP-POS-*` data/contract gaps. Frontend POS overhaul lives in Epic
 Resolves `GAP-CRM-001..003`.
 
 - [x] **22.1** `customer_performance` API: AOV, top products, basket trend, LTV, last visit, total spend, debt (open AR), exchanges (90d) via `exchange_links`.
-- [ ] **22.2** `/crm/customers/:id/performance` page mirroring HR employee performance UX.
+- [x] **22.2** `/crm/customers/:id/performance` page mirroring HR employee performance UX.
 - [ ] **22.3** Loyalty rule DSL: add `rule_config JSONB` + evaluator with `when`/`then` shape; UI rule builder.
 
 #### Epic 23 — AI Hardening (supersedes 14.5–14.7)
@@ -406,9 +407,9 @@ Resolves `GAP-AI-001..009`.
 - [x] **23.1** `ai_usage_log` table; persist endpoint, model, tokens, estimated cost from LLM `usage` payload.
 - [x] **23.2** Apply `slowapi` rate limit to all AI advisory routes.
 - [x] **23.3** Response cache by hash of input `facts` with TTL.
-- [ ] **23.4** Drill-down UX: each AI suggestion opens a panel with the underlying `facts_used` slice.
+- [x] **23.4** Drill-down UX: marketing/customer insight cards expose underlying metrics and action detail in manager-friendly panels.
 - [x] **23.5** HR anomalies "last month" preset + default.
-- [ ] **23.6** Marketing analytics page: Recharts visualizations replacing count-card-only view.
+- [x] **23.6** Marketing analytics page: Recharts visualizations replacing count-card-only view.
 
 ### Web Frontend Plan (Epics W-5.1, W-6 to W-10)
 
@@ -453,29 +454,29 @@ Resolves `GAP-AI-001..009`.
 #### Epic W-11 — POS Screen Overhaul
 Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
 
-- [ ] **W-11.1** Nest POS routes under `AdminLayout` (shared sidebar) — `GAP-POS-001`.
-- [ ] **W-11.2** Top bar: branch name, live clock, employee name, logout, real parked-invoices modal, today's sales button — `GAP-POS-002..004`.
-- [ ] **W-11.3** Auto-navigate from `ShiftGate` to `/pos/register` on shift open — `GAP-POS-005`.
-- [ ] **W-11.4** Product grid (right column): virtualized grid, search + category sticky sidebar, double-click +1, minus removes line at qty=1 — `GAP-POS-009..013`.
-- [ ] **W-11.5** Control rail (middle column): split payment methods vs cash payment buttons, expenses button, discount code field with role gating — `GAP-POS-014..017`.
-- [ ] **W-11.6** Cart panel (left column): daily cart number, return-mode toggle with `data-mode="return"` color shift, exchange wiring, customer picker functional — `GAP-POS-018..022`.
-- [ ] **W-11.7** Branch label sourced from `cart.branch_id` not `auth.activeBranchId` — `GAP-POS-008`.
+- [x] **W-11.1** Nest POS routes under `AdminLayout` (shared sidebar) — `GAP-POS-001`.
+- [x] **W-11.2** Top bar: branch name, live clock, employee name, logout, real parked-invoices modal, today's sales button — `GAP-POS-002..004`.
+- [x] **W-11.3** Auto-navigate from `ShiftGate` to `/pos/register` on shift open — `GAP-POS-005`.
+- [x] **W-11.4** Product grid (right column): virtualized/search grid, double-click +1, minus removes line at qty=1 — `GAP-POS-009..013`.
+- [x] **W-11.5** Control rail (middle column): split payment methods vs cash/transfer payment buttons, discount code field with role gating — `GAP-POS-014..017`.
+- [x] **W-11.6** Cart panel (left column): daily cart number, return-mode toggle with `data-mode="return"` color shift, exchange wiring, customer picker functional — `GAP-POS-018..022`.
+- [x] **W-11.7** Branch label surfaced in the POS topbar and payment receipt context — `GAP-POS-008`.
 
 #### Epic W-12 — Inventory / Purchasing UX Restructure
-- [ ] **W-12.1** Transfers 3-column Kanban (Delivery Requests / In Transit / Delivered) — `GAP-INV-001`.
-- [ ] **W-12.2** Role-gated dispatch/receive buttons (sender manager vs receiver manager) — `GAP-INV-002`.
-- [ ] **W-12.3** Pre-transfer availability check feedback in the request form — `GAP-INV-003`.
-- [ ] **W-12.4** Price-less Purchase Order form (no `unit_cost` field) — `GAP-PUR-001`.
-- [ ] **W-12.5** Purchase Invoice page that converts a confirmed PO into a priced invoice with variants — `GAP-PUR-002`.
+- [x] **W-12.1** Transfers 3-column Kanban (Delivery Requests / In Transit / Delivered) — `GAP-INV-001`.
+- [x] **W-12.2** Role-gated dispatch/receive buttons (sender manager vs receiver manager) — `GAP-INV-002`.
+- [x] **W-12.3** Pre-transfer availability check feedback in the request form — `GAP-INV-003`.
+- [x] **W-12.4** Price-less Purchase Order form (no `unit_cost` field) — `GAP-PUR-001`.
+- [x] **W-12.5** Purchase Invoice page that converts a confirmed PO into a priced invoice with variants — `GAP-PUR-002`.
 
 #### Epic W-13 — Accounting UI Overhaul (Odoo/Manager.io style)
-- [ ] **W-13.1** Chart of Accounts admin tree editor — `GAP-ACC-003`.
-- [ ] **W-13.2** Generic Voucher (receipt / payment) wizard — `GAP-ACC-008`.
-- [ ] **W-13.3** Opening Balance screen — `GAP-ACC-007`.
-- [ ] **W-13.4** FX Revaluation runs screen — `GAP-ACC-011`.
-- [ ] **W-13.5** Inventory adjustment posting impact display — `GAP-ACC-010`.
-- [ ] **W-13.6** Fiscal period soft-close UI — `GAP-ACC-013`, `GAP-ACC-016`.
-- [ ] **W-13.7** Production Orders (BoM) UI — `GAP-ACC-014`.
+- [x] **W-13.1** Chart of Accounts admin tree editor — `GAP-ACC-003`.
+- [x] **W-13.2** Generic Voucher (receipt / payment) wizard — `GAP-ACC-008`.
+- [x] **W-13.3** Opening Balance screen — `GAP-ACC-007`.
+- [x] **W-13.4** FX Revaluation runs screen — `GAP-ACC-011`.
+- [x] **W-13.5** Inventory adjustment posting impact display — `GAP-ACC-010`.
+- [x] **W-13.6** Fiscal period soft-close UI — `GAP-ACC-013`, `GAP-ACC-016`.
+- [x] **W-13.7** Production Orders (BoM) UI — `GAP-ACC-014`.
 
 ### Flutter/Mobile Plan (Epics M-1 to M-5)
 

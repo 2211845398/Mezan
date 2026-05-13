@@ -7,6 +7,8 @@ export const crmKeys = {
   customers: (q: { limit: number; offset: number; search?: string }) =>
     [...crmKeys.root, 'customers', q] as const,
   customer: (id: number) => [...crmKeys.root, 'customer', id] as const,
+  customerPerformance: (id: number, daysBack: number) =>
+    [...crmKeys.root, 'customer', id, 'performance', daysBack] as const,
   customerInvoices: (id: number, q: { limit: number; offset: number }) =>
     [...crmKeys.root, 'customer', id, 'invoices', q] as const,
   loyaltyRules: () => [...crmKeys.root, 'loyalty', 'rules'] as const,
@@ -16,6 +18,9 @@ export const crmKeys = {
   discounts: (q: { status?: string; limit: number; offset: number }) =>
     [...crmKeys.root, 'discounts', q] as const,
   discount: (id: number) => [...crmKeys.root, 'discount', id] as const,
+  /** POS customer picker: keyed by debounced search string. */
+  customersPosPickerSearch: (search: string) =>
+    [...crmKeys.root, 'customers', 'pos-picker', search] as const,
 };
 
 export function customersListQueryOptions(args: {
@@ -44,6 +49,14 @@ export function customerInvoicesQueryOptions(
   return queryOptions({
     queryKey: crmKeys.customerInvoices(customerId, args),
     queryFn: () => api.listCustomerSalesInvoices(customerId, args),
+    enabled: customerId > 0,
+  });
+}
+
+export function customerPerformanceQueryOptions(customerId: number, daysBack: number) {
+  return queryOptions({
+    queryKey: crmKeys.customerPerformance(customerId, daysBack),
+    queryFn: () => api.getCustomerPerformance(customerId, { days_back: daysBack }),
     enabled: customerId > 0,
   });
 }

@@ -8,6 +8,35 @@ export type CustomerCreateStaff = components['schemas']['CustomerCreateStaff'];
 export type CustomerUpdate = components['schemas']['CustomerUpdate'];
 export type CustomerSalesInvoiceListResponse = components['schemas']['CustomerSalesInvoiceListResponse'];
 
+export type CustomerPerformanceRead = {
+  customer_id: number;
+  customer_name: string;
+  period_days: number;
+  metrics: {
+    total_spend_period: string;
+    total_spend_lifetime: string;
+    purchase_count: number;
+    average_order_value: string;
+    lifetime_value: string;
+    loyalty_points_balance: number;
+    open_debt: string;
+    exchanges_last_90_days: number;
+  };
+  visits: {
+    last_visit: string | null;
+    first_visit: string | null;
+    visit_trend: string;
+    visits_last_90_days: number;
+    visits_previous_90_days: number;
+  };
+  top_products: Array<{
+    product_id: number;
+    product_name: string;
+    total_qty: number;
+    total_spend: string;
+  }>;
+};
+
 export type AccrualRuleRead = components['schemas']['AccrualRuleRead'];
 export type AccrualRuleCreate = components['schemas']['AccrualRuleCreate'];
 export type AccrualRuleUpdate = components['schemas']['AccrualRuleUpdate'];
@@ -49,6 +78,17 @@ export async function listCustomerSalesInvoices(
 ): Promise<CustomerSalesInvoiceListResponse> {
   const { data } = await apiClient.get<CustomerSalesInvoiceListResponse>(
     `/customers/${customerId}/sales-invoices`,
+    { params },
+  );
+  return data;
+}
+
+export async function getCustomerPerformance(
+  customerId: number,
+  params?: { days_back?: number },
+): Promise<CustomerPerformanceRead> {
+  const { data } = await apiClient.get<CustomerPerformanceRead>(
+    `/crm/customers/${customerId}/performance`,
     { params },
   );
   return data;

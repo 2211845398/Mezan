@@ -16,7 +16,18 @@ import { useOnline } from '@/hooks/useOnline';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { notify } from '@/lib/toast';
 
-import type { CartRead, SalesInvoiceRead } from '../api';
+import type { CartRead, PaymentCaptureBody, SalesInvoiceRead } from '../api';
+import type { CaptureFinalizePayload } from '../offline/queue';
+
+type TenderUiMethod = 'cash' | 'card' | 'transfer' | 'other';
+
+function captureMethodFromUi(m: TenderUiMethod): PaymentCaptureBody['method'] {
+  return m === 'transfer' ? 'other' : m;
+}
+
+function offlineCaptureMethodFromUi(m: TenderUiMethod): CaptureFinalizePayload['method'] {
+  return m === 'transfer' ? 'other' : m;
+}
 import { getOfflineQueue } from '../offline';
 import { thermalModelFromCart, tmpWatermarkFromClientUuid } from '../print/mapModel';
 import type { ThermalReceiptModel } from '../print/types';
@@ -51,7 +62,7 @@ export function TenderDrawer({
   const { t } = useTranslation('pos');
   const online = useOnline();
   const idemRef = useRef<string | null>(null);
-  const [method, setMethod] = useState<'cash' | 'card' | 'other'>('cash');
+  const [method, setMethod] = useState<TenderUiMethod>('cash');
   const [reference, setReference] = useState('');
   const [cardLast4, setCardLast4] = useState('');
   const [tendered, setTendered] = useState('');
@@ -99,7 +110,7 @@ export function TenderDrawer({
       await capture.mutateAsync({
         payment_intent_id: intentId,
         idempotency_key: idem,
-        method,
+        method: captureMethodFromUi(method),
         reference: reference.trim() || null,
         card_last4: cardLast4.trim() || null,
       });
@@ -137,7 +148,7 @@ export function TenderDrawer({
             cartId: cart.id,
             paymentIntentId: intentId,
             idempotencyKey: idem,
-            method,
+            method: offlineCaptureMethodFromUi(method),
             reference: reference.trim() || null,
             cardLast4: cardLast4.trim() || null,
           },
@@ -181,7 +192,7 @@ export function TenderDrawer({
         </DialogHeader>
         <div className="grid max-h-[calc(100dvh-14rem)] gap-4 overflow-y-auto px-6 py-4">
           <div className="flex flex-wrap gap-2">
-            {(['cash', 'card', 'other'] as const).map((m) => (
+            {(['cash', 'card', 'transfer', 'other'] as const).map((m) => (
               <Button
                 key={m}
                 type="button"

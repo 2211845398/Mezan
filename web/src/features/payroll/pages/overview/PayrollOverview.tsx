@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
 import { Download, Eye, Play, RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,8 +9,8 @@ import { toast } from 'sonner';
 import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { MonthYearField } from '@/components/shared/form';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -48,10 +49,7 @@ function defaultYearMonth(): { year: number; month: number } {
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
-function payslipStatusLabel(
-  status: string,
-  t: (key: string, opts?: { defaultValue?: string }) => string,
-): string {
+function payslipStatusLabel(status: string, t: TFunction): string {
   if (status === 'no_payslip') return t('overview.payslip_status.no_payslip');
   if (status === 'draft') return t('overview.payslip_status.draft');
   if (status === 'approved') return t('overview.payslip_status.approved');

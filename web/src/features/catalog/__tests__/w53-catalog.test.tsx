@@ -36,10 +36,10 @@ describe('W-5.3 catalog API wiring', () => {
 
   it('listProducts forwards category_include_descendants', async () => {
     const mod = await import('../api');
-    let seen: URL | null = null;
+    const captured: { requestUrl: string | null } = { requestUrl: null };
     server.use(
       http.get(`${API}/products`, ({ request }) => {
-        seen = new URL(request.url);
+        captured.requestUrl = request.url;
         return HttpResponse.json([]);
       }),
     );
@@ -49,7 +49,10 @@ describe('W-5.3 catalog API wiring', () => {
       category_id: 5,
       category_include_descendants: true,
     });
-    expect(seen?.searchParams.get('category_include_descendants')).toBe('true');
+    expect(captured.requestUrl).toBeTruthy();
+    expect(new URL(captured.requestUrl!).searchParams.get('category_include_descendants')).toBe(
+      'true',
+    );
   });
 
   it('ProductCategoryChips shows primary and tag labels', async () => {

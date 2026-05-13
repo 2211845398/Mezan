@@ -9,8 +9,8 @@ import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
 import { env } from '@/config/env';
-import AuthBoundary from '@/providers/AuthBoundary';
 import AppErrorBoundary from '@/providers/AppErrorBoundary';
+import AuthBoundary from '@/providers/AuthBoundary';
 import I18nProvider from '@/providers/I18nProvider';
 import QueryProvider from '@/providers/QueryProvider';
 import ThemeProvider from '@/providers/ThemeProvider';

@@ -17,9 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { lastCalendarDayOfMonth } from '@/lib/date';
 
 import type { PayslipRead } from '../../api';
-import { payslipsQueryOptions, type PayslipListFilters } from '../../queries';
+import { type PayslipListFilters,payslipsQueryOptions } from '../../queries';
 
 function statusLabel(s: string, t: (k: string) => string): string {
   if (s === 'draft') return t('status.calculated');
@@ -54,7 +55,7 @@ function calendarMonthToPeriod(ym: string): { period_start: string; period_end: 
   if (!y || m < 1 || m > 12) return null;
   const padM = String(m).padStart(2, '0');
   const period_start = `${y}-${padM}-01`;
-  const lastDay = new Date(y, m, 0).getDate();
+  const lastDay = lastCalendarDayOfMonth(y, m);
   const period_end = `${y}-${padM}-${String(lastDay).padStart(2, '0')}`;
   return { period_start, period_end };
 }

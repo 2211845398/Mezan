@@ -1,9 +1,9 @@
 export { DateField } from './DateField';
-export { MonthYearField } from './MonthYearField';
-export type { MonthYearFieldProps, MonthYearValue } from './MonthYearField';
 export { Form } from './Form';
 export { applyBackendFieldErrors, handleFormApiError } from './formFieldErrors';
 export { MoneyInput } from './MoneyInput';
+export type { MonthYearFieldProps, MonthYearValue } from './MonthYearField';
+export { MonthYearField } from './MonthYearField';
 export type { AsyncSelectProps, SelectOption, SelectProps } from './Select';
 export { AsyncSelect, Select } from './Select';
 export { UnsavedChangesPrompt } from './UnsavedChangesPrompt';
@@ -18,5 +18,5 @@ export {
   FormItem,
   FormLabel,
   FormMessage,
-  useFormField,
 } from '@/components/ui/form';
+export { useFormField } from '@/components/ui/use-form-field';

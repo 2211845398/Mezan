@@ -3,17 +3,20 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
+import { SectionCard } from '@/components/shared/ContentSurface';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePermission } from '@/hooks/usePermission';
+import { formatCurrency } from '@/lib/format';
 
 import type { CustomerSalesInvoiceListResponse, LedgerEntryRead } from '../../api';
 import {
   customerDetailQueryOptions,
   customerInvoicesQueryOptions,
+  customerPerformanceQueryOptions,
   loyaltyLedgerQueryOptions,
 } from '../../queries';
 import ManualAdjustmentDrawer from './ManualAdjustmentDrawer';
@@ -41,6 +44,10 @@ export default function CustomerDetail() {
   const { data: ledger = [], isLoading: ledLoading } = useQuery({
     ...loyaltyLedgerQueryOptions(cid, { limit: 50, offset: 0 }),
     enabled: !Number.isNaN(cid) && cid > 0 && canReadLoyalty,
+  });
+  const { data: performance, isLoading: perfLoading } = useQuery({
+    ...customerPerformanceQueryOptions(cid, 365),
+    enabled: !Number.isNaN(cid) && cid > 0,
   });
 
   const invRows = (invData as CustomerSalesInvoiceListResponse | undefined)?.items ?? [];
@@ -102,6 +109,7 @@ export default function CustomerDetail() {
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">{t('customers.tab_profile')}</TabsTrigger>
+          <TabsTrigger value="performance">الأداء</TabsTrigger>
           <TabsTrigger value="purchases">{t('customers.tab_purchases')}</TabsTrigger>
           {canReadLoyalty ? (
             <TabsTrigger value="loyalty">{t('customers.tab_loyalty')}</TabsTrigger>
@@ -129,6 +137,63 @@ export default function CustomerDetail() {
               </TableRow>
             </TableBody>
           </Table>
+        </TabsContent>
+        <TabsContent value="performance" className="mt-4">
+          {perfLoading || !performance ? (
+            <div className="rounded-xl border p-6 text-sm text-muted-foreground">...</div>
+          ) : (
+            <div className="grid gap-4">
+              <div className="grid gap-3 md:grid-cols-4">
+                {[
+                  {
+                    label: 'متوسط السلة',
+                    value: formatCurrency(Number(performance.metrics.average_order_value), 'USD'),
+                  },
+                  {
+                    label: 'قيمة العميل',
+                    value: formatCurrency(Number(performance.metrics.lifetime_value), 'USD'),
+                  },
+                  { label: 'عدد المشتريات', value: String(performance.metrics.purchase_count) },
+                  {
+                    label: 'ديون مفتوحة',
+                    value: formatCurrency(Number(performance.metrics.open_debt), 'USD'),
+                  },
+                ].map((metric) => (
+                  <SectionCard key={metric.label} contentClassName="p-4">
+                    <p className="text-xs text-muted-foreground">{metric.label}</p>
+                    <p className="mt-1 text-2xl font-semibold">{metric.value}</p>
+                  </SectionCard>
+                ))}
+              </div>
+              <SectionCard title="أفضل المنتجات">
+                <div className="space-y-3">
+                  {performance.top_products.map((product) => {
+                    const max = Math.max(
+                      ...performance.top_products.map((item) => Number(item.total_spend) || 0),
+                      1,
+                    );
+                    const width = `${Math.round(((Number(product.total_spend) || 0) / max) * 100)}%`;
+                    return (
+                      <div key={product.product_id} className="space-y-1">
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span className="font-medium">{product.product_name}</span>
+                          <span className="text-muted-foreground">
+                            {product.total_qty} × {formatCurrency(Number(product.total_spend), 'USD')}
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-primary" style={{ width }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {!performance.top_products.length ? (
+                    <p className="text-sm text-muted-foreground">لا توجد مشتريات كافية بعد.</p>
+                  ) : null}
+                </div>
+              </SectionCard>
+            </div>
+          )}
         </TabsContent>
         <TabsContent value="purchases" className="mt-4">
           <DataTable

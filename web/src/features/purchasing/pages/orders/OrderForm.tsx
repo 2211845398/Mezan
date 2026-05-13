@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Decimal from 'decimal.js';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +7,6 @@ import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { DateField } from '@/components/shared/form/DateField';
-import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,11 +39,10 @@ type LineDraft = {
   key: string;
   product_id: number;
   qty: number;
-  unit_cost: string;
 };
 
 function newLine(): LineDraft {
-  return { key: crypto.randomUUID(), product_id: 0, qty: 1, unit_cost: '0' };
+  return { key: crypto.randomUUID(), product_id: 0, qty: 1 };
 }
 
 type ReorderLocationState = {
@@ -101,7 +98,6 @@ export default function OrderForm() {
         key: crypto.randomUUID(),
         product_id: ln.product_id,
         qty: ln.qty,
-        unit_cost: ln.unit_cost && ln.unit_cost.length > 0 ? ln.unit_cost : '0',
       })),
     );
     navigate('.', { replace: true, state: {} });
@@ -121,7 +117,6 @@ export default function OrderForm() {
         key: String(ln.id),
         product_id: ln.product_id,
         qty: ln.qty,
-        unit_cost: String(ln.unit_cost),
       })),
     );
   }, [existing]);
@@ -136,16 +131,6 @@ export default function OrderForm() {
     }
   }, [supplierId, suppliers]);
 
-  const footerTotal = useMemo(() => {
-    let total = new Decimal(0);
-    for (const ln of lines) {
-      if (ln.product_id && ln.qty > 0) {
-        total = total.plus(new Decimal(ln.unit_cost || 0).mul(ln.qty));
-      }
-    }
-    return total.toFixed(2);
-  }, [lines]);
-
   const supplierCurrencyId = useMemo(() => {
     if (!supplierId) return null;
     return suppliers.find((s) => s.id === Number(supplierId))?.currency_id ?? null;
@@ -154,10 +139,10 @@ export default function OrderForm() {
   const buildPayloadLines = (): PurchaseOrderLineCreate[] =>
     lines
       .filter((l) => l.product_id > 0 && l.qty > 0)
-      .map(({ product_id, qty, unit_cost }) => ({
+      .map(({ product_id, qty }) => ({
         product_id,
         qty,
-        unit_cost: unit_cost as PurchaseOrderLineCreate['unit_cost'],
+        unit_cost: '0' as PurchaseOrderLineCreate['unit_cost'],
       }));
 
   const saveDraft = useMutation({
@@ -204,7 +189,7 @@ export default function OrderForm() {
         id: prev.lines?.[i]?.id ?? -(i + 1),
         product_id: pl.product_id,
         qty: pl.qty,
-        unit_cost: String(pl.unit_cost),
+        unit_cost: '0',
       }));
       const optimistic: PurchaseOrderRead = {
         ...prev,
@@ -327,7 +312,7 @@ export default function OrderForm() {
           <div className="font-medium">{t('orders.form.lines')}</div>
           {lines.map((ln, idx) => (
             <div key={ln.key} className="grid gap-2 rounded-md border p-3 md:grid-cols-12 md:items-end">
-              <div className="md:col-span-4">
+              <div className="md:col-span-7">
                 <Label>{t('orders.form.product')}</Label>
                 <Select
                   value={ln.product_id ? String(ln.product_id) : '__none'}
@@ -349,7 +334,7 @@ export default function OrderForm() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="md:col-span-2">
+              <div className="md:col-span-3">
                 <Label>{t('orders.form.qty')}</Label>
                 <Input
                   type="number"
@@ -361,23 +346,6 @@ export default function OrderForm() {
                     )
                   }
                 />
-              </div>
-              <div className="md:col-span-3">
-                <Label>{t('orders.form.unit_cost')}</Label>
-                <MoneyInput
-                  value={ln.unit_cost}
-                  onChange={(v) =>
-                    setLines((prev) => prev.map((x, i) => (i === idx ? { ...x, unit_cost: v } : x)))
-                  }
-                />
-              </div>
-              <div className="md:col-span-2 text-sm text-muted-foreground">
-                <div>{t('orders.form.line_total')}</div>
-                <div>
-                  {ln.product_id
-                    ? new Decimal(ln.unit_cost || 0).mul(ln.qty).toFixed(2)
-                    : '—'}
-                </div>
               </div>
               <div className="md:col-span-1">
                 <Button
@@ -403,9 +371,9 @@ export default function OrderForm() {
           </Button>
         </div>
 
-        <div className="flex justify-end text-sm font-medium">
-          {t('orders.form.footer_total')}: {footerTotal}
-        </div>
+        <p className="rounded-md border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
+          أمر الشراء يسجل الكميات فقط. الأسعار النهائية تسجل عند تحويله إلى فاتورة شراء أو سند استلام مسعر.
+        </p>
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={() => saveDraft.mutate()} disabled={saveDraft.isPending}>

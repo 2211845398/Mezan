@@ -1,18 +1,16 @@
-import { Package } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 
 import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 
-import type { PosShiftOpen } from '../api';
+import { changeCartState, type PosShiftOpen } from '../api';
 import { CustomerPicker } from '../components/CustomerPicker';
-import { ProductSearch } from '../components/ProductSearch';
+import { ProductGrid } from '../components/ProductGrid';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { RegisterCartColumn } from '../components/RegisterCartColumn';
 import { RegisterToolbar } from '../components/RegisterToolbar';
@@ -29,6 +27,7 @@ import {
   useLockCart,
   useParkCart,
   useResumeCart,
+  useUpdateCartCustomer,
   useUpdateLineQty,
 } from '../queries';
 import { usePosRegisterStore } from '../stores/posRegisterStore';
@@ -65,9 +64,8 @@ function RegisterSession({
   const canPay = canPayCreate && canPayCapture;
   const canInvoice = usePermission('sales_invoices', 'create');
 
-  const [productPick, setProductPick] = useState<string | undefined>();
-  const [lineQty, setLineQty] = useState(1);
   const [tenderOpen, setTenderOpen] = useState(false);
+  const [returnMode, setReturnMode] = useState(false);
 
   const addLine = useAddLine(cartId);
   const updateQty = useUpdateLineQty(cartId);
@@ -75,18 +73,17 @@ function RegisterSession({
   const park = useParkCart(cartId);
   const resume = useResumeCart(cartId);
   const lock = useLockCart(cartId);
+  const updateCustomer = useUpdateCartCustomer(cartId);
 
   useEffect(() => {
     if (cartError) onCartMissing();
   }, [cartError, onCartMissing]);
 
-  async function onAddLine() {
-    if (!productPick) return;
-    const pid = Number.parseInt(productPick, 10);
+  async function onAddLine(productId: number, qty = 1) {
+    const pid = productId;
+    if (!Number.isFinite(pid)) return;
     try {
-      await addLine.mutateAsync({ product_id: pid, qty: lineQty });
-      setProductPick(undefined);
-      setLineQty(1);
+      await addLine.mutateAsync({ product_id: pid, qty });
     } catch (e) {
       notify.error(getApiErrorMessage(e));
     }
@@ -110,6 +107,8 @@ function RegisterSession({
           cart={cart}
           editable={editable}
           isLocked={isLocked}
+          returnMode={returnMode}
+          onReturnModeChange={setReturnMode}
           onQtyChange={(productId, qty) => {
             void updateQty
               .mutateAsync({ product_id: productId, qty })
@@ -142,46 +141,20 @@ function RegisterSession({
           onCheckout={() => setTenderOpen(true)}
           onNewSale={onNewSale}
         />
-        <section className="flex min-h-0 flex-col gap-3 overflow-hidden rounded-2xl border bg-card p-3 shadow-sm">
-          <div className="grid gap-2">
-            <ProductSearch
-              value={productPick}
-              onChange={(id) => setProductPick(id != null ? String(id) : undefined)}
-              disabled={!editable}
-            />
-            <CustomerPicker />
-            <div className="grid gap-2 sm:grid-cols-[6rem_1fr]">
-              <div>
-                <label className="text-xs text-muted-foreground">{t('register.qty')}</label>
-                <Input
-                  type="number"
-                  min={1}
-                  className="min-h-11"
-                  value={lineQty}
-                  disabled={!editable}
-                  onChange={(e) => setLineQty(Number.parseInt(e.target.value, 10) || 1)}
-                />
-              </div>
-              <Button
-                type="button"
-                className="min-h-11 self-end"
-                onClick={() => void onAddLine()}
-                disabled={!editable || !productPick}
-              >
-                {t('register.add_product')}
-              </Button>
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl bg-muted/10 p-6 text-center text-sm text-muted-foreground">
-            <div className="grid justify-items-center gap-2">
-              <span className="rounded-full bg-muted/40 p-3">
-                <Package className="size-8 opacity-45" />
-              </span>
-              <p className="font-medium">{t('register.products_empty')}</p>
-              <p className="text-xs">{t('register.products_empty_hint')}</p>
-            </div>
-          </div>
-        </section>
+        <div className="flex min-h-0 flex-col gap-3">
+          <CustomerPicker
+            value={(cart as typeof cart & { customer_id?: number | null }).customer_id ?? null}
+            disabled={!editable}
+            onChange={async (customerId) => {
+              await updateCustomer.mutateAsync(customerId);
+            }}
+          />
+          <ProductGrid
+            disabled={!editable}
+            currency={POS_CURRENCY}
+            onAddProduct={(productId, qty) => void onAddLine(productId, qty)}
+          />
+        </div>
       </div>
 
       <TenderDrawer
@@ -296,7 +269,23 @@ export default function PosRegister() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 bg-[#f8f7f4] p-3">
-      <RegisterToolbar onReturnOpen={() => setReturnOpen(true)} />
+      <RegisterToolbar
+        onReturnOpen={() => setReturnOpen(true)}
+        terminalId={terminalId}
+        branchLabel={branchLabel}
+        currency={POS_CURRENCY}
+        activeCartId={activeCartId}
+        onParkCurrent={async () => {
+          if (activeCartId == null) return;
+          await changeCartState(activeCartId, { action: 'park' });
+          setActiveCartId(null);
+        }}
+        onResumeCart={(cartId) => {
+          void changeCartState(cartId, { action: 'resume' })
+            .then((cart) => setActiveCartId(cart.id))
+            .catch((error) => notifyApiError(error));
+        }}
+      />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {activeCartId && shift ? (
@@ -336,6 +325,7 @@ export default function PosRegister() {
         onOpenChange={setReturnOpen}
         branchLabel={branchLabel}
         currency={POS_CURRENCY}
+        exchangeCartId={activeCartId}
         onCredit={(model) => {
           setReceiptModel(model);
           setReceiptCredit(true);
