@@ -117,13 +117,14 @@ async def receive_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
         )
     for i, ln in enumerate(batch.lines):
         unit_cost = await get_unit_cost_for_sale(
-            db, branch_id=batch.from_branch_id, product_id=ln.product_id
+            db, branch_id=batch.from_branch_id, product_id=ln.product_id, variant_id=ln.variant_id
         )
         sl_res = await db.execute(
             select(StockLevel.on_hand).where(
                 and_(
                     StockLevel.branch_id == batch.to_branch_id,
                     StockLevel.product_id == ln.product_id,
+                    StockLevel.variant_id == ln.variant_id,
                 )
             )
         )
@@ -146,6 +147,7 @@ async def receive_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
             qty_in=ln.qty,
             unit_cost=unit_cost,
             qty_on_hand_before=qty_on_hand_before,
+            variant_id=ln.variant_id,
         )
 
     batch.status = "received"

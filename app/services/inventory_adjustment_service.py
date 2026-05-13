@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ValidationError
 from app.models.branch_product_costs import BranchProductCost
+from app.models.product import Product
 from app.models.stock_movement import StockMovement
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
 from app.utils.money import q2
@@ -55,12 +56,13 @@ async def post_stock_movement_gl(
     settings = await get_accounting_settings(db)
     mv_date = entry_date or (movement.created_at.date() if movement.created_at else date.today())
 
-    # Get unit cost for the variant at this branch
+    # Unit cost for this branch / product / variant
     unit_cost = Decimal("0")
     result = await db.execute(
         select(BranchProductCost)
         .where(
             BranchProductCost.branch_id == movement.branch_id,
+            BranchProductCost.product_id == movement.product_id,
             BranchProductCost.variant_id == movement.variant_id,
         )
     )
@@ -68,18 +70,13 @@ async def post_stock_movement_gl(
     if cost_record:
         unit_cost = cost_record.average_unit_cost
 
-    # Fallback: use product-level cost if variant cost not found
     if unit_cost == 0 and movement.product_id:
         result = await db.execute(
-            select(BranchProductCost)
-            .where(
-                BranchProductCost.branch_id == movement.branch_id,
-                BranchProductCost.product_id == movement.product_id,
-            )
+            select(Product.standard_cost).where(Product.id == movement.product_id)
         )
-        cost_record = result.scalar_one_or_none()
-        if cost_record:
-            unit_cost = cost_record.average_unit_cost
+        sc = result.scalar_one_or_none()
+        if sc is not None:
+            unit_cost = Decimal(str(sc))
 
     ext_cost = q2(unit_cost * Decimal(abs(movement.qty_delta)))
 

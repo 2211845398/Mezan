@@ -208,6 +208,14 @@ async def test_sales_return_debits_output_vat_payable(db_session) -> None:
     )
     db_session.add(product)
     await db_session.flush()
+    pv = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv)
+    await db_session.flush()
     invoice = SalesInvoice(
         invoice_number=f"INVR-{uuid.uuid4().hex[:8]}",
         invoice_barcode=f"BCR-{uuid.uuid4().hex[:8]}",
@@ -231,7 +239,7 @@ async def test_sales_return_debits_output_vat_payable(db_session) -> None:
         credit_total=Decimal("115.00"),
         sales_invoice_id=invoice.id,
         sales_return_id=ret_id,
-        lines=[(product.id, 1, Decimal("115.00"))],
+        lines=[(product.id, 1, Decimal("115.00"), pv.id)],
     )
     await db_session.commit()
 

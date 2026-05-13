@@ -840,7 +840,14 @@ async def unarchive_product(db: AsyncSession, *, product_id: int) -> Product:
 
 
 async def resolve_default_variant_id(db: AsyncSession, *, product_id: int) -> int:
-    """Return the preferred stock-keeping variant for a product (active, lowest id)."""
+    """Return the preferred stock-keeping variant for a product (active, lowest id).
+
+    Caches per DB session (``session.info``) to avoid repeated lookups in one request.
+    """
+    cache: dict[int, int] = db.info.setdefault("default_variant_id_cache", {})
+    if product_id in cache:
+        return cache[product_id]
+
     res = await db.execute(
         select(ProductVariant.id)
         .where(ProductVariant.product_id == product_id, ProductVariant.active.is_(True))
@@ -849,7 +856,9 @@ async def resolve_default_variant_id(db: AsyncSession, *, product_id: int) -> in
     )
     vid = res.scalar_one_or_none()
     if vid is not None:
-        return int(vid)
+        out = int(vid)
+        cache[product_id] = out
+        return out
     res2 = await db.execute(
         select(ProductVariant.id)
         .where(ProductVariant.product_id == product_id)
@@ -858,7 +867,9 @@ async def resolve_default_variant_id(db: AsyncSession, *, product_id: int) -> in
     )
     vid2 = res2.scalar_one_or_none()
     if vid2 is not None:
-        return int(vid2)
+        out = int(vid2)
+        cache[product_id] = out
+        return out
     raise ValidationError(
         "No product variant for product",
         details={"product_id": product_id},

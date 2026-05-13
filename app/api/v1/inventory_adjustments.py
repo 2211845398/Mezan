@@ -35,6 +35,7 @@ async def create_stock_adjustment(
         reason=body.reason,
         ref_type="manual_adjustment",
         ref_id=str(current_user.id),
+        variant_id=body.variant_id,
     )
 
     # Post GL for the adjustment (Epic 19.6)
@@ -74,6 +75,7 @@ async def list_stock_movements(
             "id": r.id,
             "branch_id": r.branch_id,
             "product_id": r.product_id,
+            "variant_id": r.variant_id,
             "qty_delta": r.qty_delta,
             "reason": r.reason,
             "ref_type": r.ref_type,

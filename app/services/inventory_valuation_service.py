@@ -19,10 +19,33 @@ def _q4(value: Decimal) -> Decimal:
     return value.quantize(COST_Q)
 
 
-async def get_unit_cost_for_sale(db: AsyncSession, *, branch_id: int, product_id: int) -> Decimal:
+async def get_unit_cost_for_sale(
+    db: AsyncSession, *, branch_id: int, product_id: int, variant_id: int | None = None
+) -> Decimal:
     """Return WAVG from branch_product_costs, else product.standard_cost, else 0."""
-    costs = await get_unit_costs_for_sale(db, branch_id=branch_id, product_ids=[product_id])
-    return costs.get(product_id, _q4(Decimal("0")))
+    vid = (
+        variant_id
+        if variant_id is not None
+        else await resolve_default_variant_id(db, product_id=product_id)
+    )
+    cost_res = await db.execute(
+        select(BranchProductCost.average_unit_cost).where(
+            and_(
+                BranchProductCost.branch_id == branch_id,
+                BranchProductCost.product_id == product_id,
+                BranchProductCost.variant_id == vid,
+            )
+        )
+    )
+    row_avg = cost_res.scalar_one_or_none()
+    if row_avg is not None:
+        return _q4(Decimal(str(row_avg)))
+
+    product_res = await db.execute(select(Product.standard_cost).where(Product.id == product_id))
+    sc = product_res.scalar_one_or_none()
+    if sc is not None:
+        return _q4(Decimal(str(sc)))
+    return _q4(Decimal("0"))
 
 
 async def get_unit_costs_for_sale(
@@ -76,6 +99,7 @@ async def apply_receipt_to_weighted_average(
     qty_in: int,
     unit_cost: Decimal,
     qty_on_hand_before: int,
+    variant_id: int | None = None,
 ) -> None:
     """Update rolling WAVG after a goods receipt. Call after stock is increased."""
     if qty_in <= 0:
@@ -83,13 +107,17 @@ async def apply_receipt_to_weighted_average(
 
     uc = _q4(unit_cost)
     qb = max(qty_on_hand_before, 0)
-    variant_id = await resolve_default_variant_id(db, product_id=product_id)
+    resolved_variant_id = (
+        variant_id
+        if variant_id is not None
+        else await resolve_default_variant_id(db, product_id=product_id)
+    )
     res = await db.execute(
         select(BranchProductCost).where(
             and_(
                 BranchProductCost.branch_id == branch_id,
                 BranchProductCost.product_id == product_id,
-                BranchProductCost.variant_id == variant_id,
+                BranchProductCost.variant_id == resolved_variant_id,
             )
         )
     )
@@ -119,7 +147,7 @@ async def apply_receipt_to_weighted_average(
             BranchProductCost(
                 branch_id=branch_id,
                 product_id=product_id,
-                variant_id=variant_id,
+                variant_id=resolved_variant_id,
                 average_unit_cost=new_avg,
             )
         )

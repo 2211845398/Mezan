@@ -79,6 +79,7 @@ async def upsert_line_endpoint(
         product_id=body.product_id,
         qty=body.qty,
         created_by_user_id=current_user.id,
+        variant_id=body.variant_id,
     )
     await audit_service.log(
         session=db,

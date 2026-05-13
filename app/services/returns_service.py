@@ -50,7 +50,7 @@ async def create_return_and_credit(
     db.add(ret)
     await db.flush()
     total_refund = Decimal("0.00")
-    gl_lines: list[tuple[int, int, Decimal]] = []
+    gl_lines: list[tuple[int, int, Decimal, int]] = []
     for idx, item in enumerate(lines):
         inv_line = inv_lines.get(item["sales_invoice_line_id"])
         if not inv_line:
@@ -61,7 +61,7 @@ async def create_return_and_credit(
         line_gross = q2(inv_line.line_total + inv_line.line_tax_amount)
         refund = q2(line_gross * Decimal(qty) / Decimal(inv_line.qty))
         total_refund += refund
-        gl_lines.append((inv_line.product_id, qty, refund))
+        gl_lines.append((inv_line.product_id, qty, refund, inv_line.variant_id))
         db.add(
             SalesReturnLine(
                 sales_return_id=ret.id,

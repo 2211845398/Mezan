@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class PurchaseOrderLineBase(BaseModel):
     product_id: int
+    variant_id: int | None = None
     qty: int = Field(gt=0)
     unit_cost: Decimal = Field(gt=0)
 

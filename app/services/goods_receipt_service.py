@@ -195,6 +195,7 @@ async def receive_goods_for_purchase_order(
             qty_in=qty,
             unit_cost=unit_cost,
             qty_on_hand_before=qty_on_hand_before,
+            variant_id=line_variant_id,
         )
 
     await post_goods_receipt_gl(db, receipt=receipt)

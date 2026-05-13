@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
@@ -170,9 +170,19 @@ async def _recalc_totals(db: AsyncSession, cart: PosCart) -> None:
 
 
 async def upsert_line(
-    db: AsyncSession, *, cart_id: int, product_id: int, qty: int, created_by_user_id: int
+    db: AsyncSession,
+    *,
+    cart_id: int,
+    product_id: int,
+    qty: int,
+    created_by_user_id: int,
+    variant_id: int | None = None,
 ) -> PosCart:
-    """Add, update, or delete cart line. qty=0 deletes the line (Epic 21.8)."""
+    """Add, update, or delete cart line. qty=0 deletes the line (Epic 21.8).
+
+    ``variant_id`` defaults to the product's primary active variant when omitted.
+    Lines are keyed by (cart, product, variant).
+    """
     c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
     cart = c_res.scalar_one_or_none()
     if not cart:
@@ -184,9 +194,19 @@ async def upsert_line(
     if not product:
         raise ValidationError("Product not found")
 
+    resolved_variant_id = (
+        variant_id
+        if variant_id is not None
+        else await resolve_default_variant_id(db, product_id=product_id)
+    )
+
     line_res = await db.execute(
         select(PosCartLine).where(
-            PosCartLine.cart_id == cart.id, PosCartLine.product_id == product_id
+            and_(
+                PosCartLine.cart_id == cart.id,
+                PosCartLine.product_id == product_id,
+                PosCartLine.variant_id == resolved_variant_id,
+            )
         )
     )
     line = line_res.scalar_one_or_none()
@@ -199,7 +219,10 @@ async def upsert_line(
                 PosCartEvent(
                     cart_id=cart.id,
                     event_type="line_deleted",
-                    payload={"product_id": product_id},
+                    payload={
+                        "product_id": product_id,
+                        "variant_id": resolved_variant_id,
+                    },
                     created_by_user_id=created_by_user_id,
                 )
             )
@@ -221,12 +244,11 @@ async def upsert_line(
         line.line_total = q2(unit_price * qty)
         line.line_tax_amount = Decimal("0.00")
     else:
-        variant_id = await resolve_default_variant_id(db, product_id=product_id)
         db.add(
             PosCartLine(
                 cart_id=cart.id,
                 product_id=product_id,
-                variant_id=variant_id,
+                variant_id=resolved_variant_id,
                 qty=qty,
                 unit_price=unit_price,
                 line_total=q2(unit_price * qty),
@@ -238,7 +260,11 @@ async def upsert_line(
         PosCartEvent(
             cart_id=cart.id,
             event_type="line_upserted",
-            payload={"product_id": product_id, "qty": qty},
+            payload={
+                "product_id": product_id,
+                "variant_id": resolved_variant_id,
+                "qty": qty,
+            },
             created_by_user_id=created_by_user_id,
         )
     )
@@ -320,6 +346,7 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
             CartLineRead(
                 id=ln.id,
                 product_id=ln.product_id,
+                variant_id=ln.variant_id,
                 product_name=p.name if p else "",
                 product_sku=p.sku if p else "",
                 barcode=p.barcode if p else None,

@@ -324,6 +324,7 @@ async def validate_scan_and_receive_goods(
             qty_in=qty,
             unit_cost=unit_cost,
             qty_on_hand_before=qty_on_hand_before,
+            variant_id=vid,
         )
 
     await post_goods_receipt_gl(db, receipt=receipt)

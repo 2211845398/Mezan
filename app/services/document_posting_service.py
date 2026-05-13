@@ -16,7 +16,7 @@ from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceL
 from app.models.suppliers import Supplier
 from app.models.transfer_batch import TransferBatch
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
-from app.services.inventory_valuation_service import get_unit_costs_for_sale
+from app.services.inventory_valuation_service import get_unit_cost_for_sale
 from app.utils.money import q2
 
 
@@ -67,13 +67,13 @@ async def post_sales_invoice_gl(
         disc_debit = Decimal("0")
 
     cogs_total = Decimal("0")
-    unit_costs = await get_unit_costs_for_sale(
-        db,
-        branch_id=branch_id,
-        product_ids=[ln.product_id for ln in lines],
-    )
     for ln in lines:
-        uc = unit_costs.get(ln.product_id, Decimal("0"))
+        uc = await get_unit_cost_for_sale(
+            db,
+            branch_id=branch_id,
+            product_id=ln.product_id,
+            variant_id=ln.variant_id,
+        )
         cogs_total += q2(uc * Decimal(ln.qty))
 
     async def post_revenue_and_cash() -> None:
@@ -228,9 +228,12 @@ async def post_sales_return_gl(
     credit_total: Decimal,
     sales_invoice_id: int,
     sales_return_id: int,
-    lines: list[tuple[int, int, Decimal]],
+    lines: list[tuple[int, int, Decimal, int]],
 ) -> None:
-    """Reverse revenue/discount and credit original settlement for a processed return."""
+    """Reverse revenue/discount and credit original settlement for a processed return.
+
+    ``lines`` entries are ``(product_id, qty, refund, variant_id)``.
+    """
     if credit_total <= 0:
         return
     settings = await get_accounting_settings(db)
@@ -238,13 +241,10 @@ async def post_sales_return_gl(
     total = q2(credit_total)
 
     cogs_back = Decimal("0")
-    unit_costs = await get_unit_costs_for_sale(
-        db,
-        branch_id=branch_id,
-        product_ids=[product_id for product_id, _qty, _ref in lines],
-    )
-    for product_id, qty, _ref in lines:
-        uc = unit_costs.get(product_id, Decimal("0"))
+    for product_id, qty, _ref, variant_id in lines:
+        uc = await get_unit_cost_for_sale(
+            db, branch_id=branch_id, product_id=product_id, variant_id=variant_id
+        )
         cogs_back += q2(uc * Decimal(qty))
 
     inv_res = await db.execute(select(SalesInvoice).where(SalesInvoice.id == sales_invoice_id))
@@ -395,14 +395,14 @@ async def post_transfer_batch_receive_gl(db: AsyncSession, *, batch: TransferBat
     if not lines:
         return
 
-    unit_costs = await get_unit_costs_for_sale(
-        db,
-        branch_id=batch.from_branch_id,
-        product_ids=[ln.product_id for ln in lines],
-    )
     payload: list[dict] = []
     for ln in lines:
-        uc = unit_costs.get(ln.product_id, Decimal("0"))
+        uc = await get_unit_cost_for_sale(
+            db,
+            branch_id=batch.from_branch_id,
+            product_id=ln.product_id,
+            variant_id=ln.variant_id,
+        )
         amt = q2(uc * Decimal(ln.qty))
         if amt <= 0:
             continue

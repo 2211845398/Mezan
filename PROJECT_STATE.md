@@ -350,6 +350,7 @@ Resolves `D-7`, `GAP-CAT-005..007`, `GAP-INV-007`. Blocking dependency for Epic 
 - [x] **18.8** Attribute-based product filter API: `filter_products_by_attributes()` service + `POST /catalog/products/filter-by-attributes` endpoint (`GAP-CAT-004`).
 - [ ] **18.9** Remove `standard_cost` and `sell_price` from product form (frontend task); pricing via Purchase Invoice / Price List.
 - [x] **18.10** Variant-aware product detail API: `GET /catalog/products/{id}/with-variants` returns product with variants, stock per variant, last cost per variant.
+- [x] **18.11** Variant wiring (Phase 2 Workstream B): session-scoped cache in `resolve_default_variant_id`; POS cart lines keyed by `(product_id, variant_id)`; optional `variant_id` on cart upsert / stock adjustment / PO lines; WAVG `apply_receipt_to_weighted_average` and transfer receive use explicit variant; GL (`post_sales_invoice_gl`, `post_sales_return_gl`, `post_transfer_batch_receive_gl`) uses per-line variant for COGS / inventory at source WAVG.
 
 #### Epic 19 — Accounting Core Hardening
 Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The largest backend epic of Phase 2.
