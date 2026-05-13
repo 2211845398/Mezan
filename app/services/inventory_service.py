@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, ValidationError
 from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
+from app.services.catalog_service import resolve_default_variant_id
 
 
 def _is_retryable_inventory_integrity_error(error: IntegrityError) -> bool:
@@ -18,6 +19,7 @@ def _is_retryable_inventory_integrity_error(error: IntegrityError) -> bool:
         for constraint in (
             "uq_stock_movements_idempotency_key",
             "uq_stock_levels_branch_product",
+            "uq_stock_levels_branch_product_variant",
         )
     )
 
@@ -32,9 +34,14 @@ async def apply_stock_movement(
     reason: str,
     ref_type: str | None = None,
     ref_id: str | None = None,
+    variant_id: int | None = None,
 ) -> StockMovement:
     if qty_delta == 0:
         raise ValidationError("qty_delta cannot be zero")
+
+    resolved_variant_id = (
+        variant_id if variant_id is not None else await resolve_default_variant_id(db, product_id=product_id)
+    )
 
     for attempt in range(2):
         # Idempotency: if movement exists, return it.
@@ -51,7 +58,11 @@ async def apply_stock_movement(
             async with db.begin_nested():
                 res = await db.execute(
                     select(StockLevel).where(
-                        and_(StockLevel.branch_id == branch_id, StockLevel.product_id == product_id)
+                        and_(
+                            StockLevel.branch_id == branch_id,
+                            StockLevel.product_id == product_id,
+                            StockLevel.variant_id == resolved_variant_id,
+                        )
                     )
                 )
                 level = res.scalar_one_or_none()
@@ -59,6 +70,7 @@ async def apply_stock_movement(
                     level = StockLevel(
                         branch_id=branch_id,
                         product_id=product_id,
+                        variant_id=resolved_variant_id,
                         on_hand=0,
                         reserved=0,
                     )
@@ -81,13 +93,18 @@ async def apply_stock_movement(
                 if upd.scalar_one_or_none() is None:
                     raise ConflictError(
                         "Stock update conflict",
-                        details={"branch_id": branch_id, "product_id": product_id},
+                        details={
+                            "branch_id": branch_id,
+                            "product_id": product_id,
+                            "variant_id": resolved_variant_id,
+                        },
                     )
 
                 movement = StockMovement(
                     idempotency_key=idempotency_key,
                     branch_id=branch_id,
                     product_id=product_id,
+                    variant_id=resolved_variant_id,
                     qty_delta=qty_delta,
                     reason=reason,
                     ref_type=ref_type,

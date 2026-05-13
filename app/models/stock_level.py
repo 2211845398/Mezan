@@ -23,8 +23,8 @@ class StockLevel(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    variant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=True, index=True
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=False, index=True
     )
     on_hand: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     reserved: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

@@ -17,9 +17,10 @@ class InventoryCostLayer(Base):
     __tablename__ = "inventory_cost_layers"
     __table_args__ = (
         Index(
-            "ix_inventory_cost_layers_branch_product_received",
+            "ix_inventory_cost_layers_branch_product_variant_received",
             "branch_id",
             "product_id",
+            "variant_id",
             "received_at",
         ),
     )

@@ -15,6 +15,7 @@ from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.schemas.pos_cart import CartDiscountRead, CartLineRead, CartRead
 from app.services.branch_scope import require_branch_open_for_operations
+from app.services.catalog_service import resolve_default_variant_id
 from app.services.pricing_service import get_active_sell_price
 from app.utils.money import q2
 
@@ -220,10 +221,12 @@ async def upsert_line(
         line.line_total = q2(unit_price * qty)
         line.line_tax_amount = Decimal("0.00")
     else:
+        variant_id = await resolve_default_variant_id(db, product_id=product_id)
         db.add(
             PosCartLine(
                 cart_id=cart.id,
                 product_id=product_id,
+                variant_id=variant_id,
                 qty=qty,
                 unit_price=unit_price,
                 line_total=q2(unit_price * qty),

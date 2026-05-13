@@ -27,6 +27,7 @@ class ApOpenItem(Base):
     document_date: Mapped[date] = mapped_column(Date, nullable=False)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     currency_code: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
+    fx_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
     amount_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     amount_open: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     status: Mapped[str] = mapped_column(

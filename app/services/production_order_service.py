@@ -17,6 +17,7 @@ from app.core.errors import NotFoundError, StateTransitionError, ValidationError
 from app.models.bom import BillOfMaterials, BomLine, ProductionOrder, ProductionOrderIssue, ProductionOrderReceipt
 from app.models.product import Product
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
+from app.services.catalog_service import resolve_default_variant_id
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
 from app.utils.money import q2
@@ -99,10 +100,11 @@ async def issue_materials(
         unit_cost = unit_costs.get(bom_line.component_product_id, Decimal("0"))
         line_cost = q2(Decimal(qty_int) * unit_cost)
 
+        comp_variant_id = await resolve_default_variant_id(db, product_id=bom_line.component_product_id)
         issue = ProductionOrderIssue(
             production_order_id=order.id,
             product_id=bom_line.component_product_id,
-            variant_id=None,
+            variant_id=comp_variant_id,
             qty_issued=Decimal(qty_int),
             unit_cost=unit_cost,
             total_cost=line_cost,
@@ -119,6 +121,7 @@ async def issue_materials(
             reason="production_issue",
             ref_type="production_order",
             ref_id=str(order.id),
+            variant_id=comp_variant_id,
         )
         total_issued += line_cost
 
@@ -178,10 +181,11 @@ async def receive_finished_goods(
     unit_cost = q2(issued / Decimal(qty_int)) if issued > 0 else Decimal("0")
     total_value = issued
 
+    finished_variant_id = await resolve_default_variant_id(db, product_id=bom.finished_product_id)
     receipt = ProductionOrderReceipt(
         production_order_id=order.id,
         product_id=bom.finished_product_id,
-        variant_id=None,
+        variant_id=finished_variant_id,
         qty_received=Decimal(qty_int),
         unit_cost=unit_cost,
         total_cost=total_value,
@@ -198,6 +202,7 @@ async def receive_finished_goods(
         reason="production_receipt",
         ref_type="production_order",
         ref_id=str(order.id),
+        variant_id=finished_variant_id,
     )
 
     settings = await get_accounting_settings(db)

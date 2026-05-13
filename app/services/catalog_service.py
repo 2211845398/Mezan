@@ -18,6 +18,7 @@ from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.product_category import ProductCategory
 from app.schemas.catalog import CategoryTreeNode, ProductRead
 from app.services.pricing_service import set_product_sell_price
@@ -836,6 +837,32 @@ async def archive_product(db: AsyncSession, *, product_id: int) -> Product:
 
 async def unarchive_product(db: AsyncSession, *, product_id: int) -> Product:
     return await update_product(db, product_id=product_id, data={"status": "active"})
+
+
+async def resolve_default_variant_id(db: AsyncSession, *, product_id: int) -> int:
+    """Return the preferred stock-keeping variant for a product (active, lowest id)."""
+    res = await db.execute(
+        select(ProductVariant.id)
+        .where(ProductVariant.product_id == product_id, ProductVariant.active.is_(True))
+        .order_by(ProductVariant.id.asc())
+        .limit(1)
+    )
+    vid = res.scalar_one_or_none()
+    if vid is not None:
+        return int(vid)
+    res2 = await db.execute(
+        select(ProductVariant.id)
+        .where(ProductVariant.product_id == product_id)
+        .order_by(ProductVariant.id.asc())
+        .limit(1)
+    )
+    vid2 = res2.scalar_one_or_none()
+    if vid2 is not None:
+        return int(vid2)
+    raise ValidationError(
+        "No product variant for product",
+        details={"product_id": product_id},
+    )
 
 
 async def generate_product_barcode(db: AsyncSession, *, product_id: int) -> Product:

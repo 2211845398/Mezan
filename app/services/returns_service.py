@@ -67,6 +67,7 @@ async def create_return_and_credit(
                 sales_return_id=ret.id,
                 sales_invoice_line_id=inv_line.id,
                 product_id=inv_line.product_id,
+                variant_id=inv_line.variant_id,
                 qty=qty,
                 refund_amount=refund,
             )
@@ -80,6 +81,7 @@ async def create_return_and_credit(
             reason="return",
             ref_type="sales_return",
             ref_id=str(ret.id),
+            variant_id=inv_line.variant_id,
         )
     credit = CreditNote(
         sales_return_id=ret.id,

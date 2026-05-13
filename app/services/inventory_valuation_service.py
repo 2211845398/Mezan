@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.branch_product_costs import BranchProductCost
 from app.models.product import Product
+from app.services.catalog_service import resolve_default_variant_id
 
 COST_Q = Decimal("0.0001")
 
@@ -35,19 +36,23 @@ async def get_unit_costs_for_sale(
     if not unique_product_ids:
         return {}
 
-    cost_res = await db.execute(
-        select(BranchProductCost.product_id, BranchProductCost.average_unit_cost).where(
-            and_(
-                BranchProductCost.branch_id == branch_id,
-                BranchProductCost.product_id.in_(unique_product_ids),
+    costs: dict[int, Decimal] = {}
+    for pid in unique_product_ids:
+        vid = await resolve_default_variant_id(db, product_id=pid)
+        cost_res = await db.execute(
+            select(BranchProductCost.average_unit_cost).where(
+                and_(
+                    BranchProductCost.branch_id == branch_id,
+                    BranchProductCost.product_id == pid,
+                    BranchProductCost.variant_id == vid,
+                )
             )
         )
-    )
-    costs = {product_id: _q4(Decimal(str(avg_cost))) for product_id, avg_cost in cost_res.all()}
+        row_avg = cost_res.scalar_one_or_none()
+        if row_avg is not None:
+            costs[pid] = _q4(Decimal(str(row_avg)))
 
-    missing_product_ids = [
-        product_id for product_id in unique_product_ids if product_id not in costs
-    ]
+    missing_product_ids = [product_id for product_id in unique_product_ids if product_id not in costs]
     if missing_product_ids:
         product_res = await db.execute(
             select(Product.id, Product.standard_cost).where(Product.id.in_(missing_product_ids))
@@ -78,11 +83,13 @@ async def apply_receipt_to_weighted_average(
 
     uc = _q4(unit_cost)
     qb = max(qty_on_hand_before, 0)
+    variant_id = await resolve_default_variant_id(db, product_id=product_id)
     res = await db.execute(
         select(BranchProductCost).where(
             and_(
                 BranchProductCost.branch_id == branch_id,
                 BranchProductCost.product_id == product_id,
+                BranchProductCost.variant_id == variant_id,
             )
         )
     )
@@ -112,6 +119,7 @@ async def apply_receipt_to_weighted_average(
             BranchProductCost(
                 branch_id=branch_id,
                 product_id=product_id,
+                variant_id=variant_id,
                 average_unit_cost=new_avg,
             )
         )

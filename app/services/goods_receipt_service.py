@@ -156,18 +156,24 @@ async def receive_goods_for_purchase_order(
     await db.flush()
 
     for i, (pol_id, qty, unit_cost, pol) in enumerate(receipt_lines_payload):
+        line_variant_id = pol.variant_id
         db.add(
             GoodsReceiptLine(
                 goods_receipt_id=receipt.id,
                 purchase_order_line_id=pol_id,
                 product_id=pol.product_id,
+                variant_id=line_variant_id,
                 qty=qty,
                 unit_cost=unit_cost,
             )
         )
         sl_res = await db.execute(
             select(StockLevel.on_hand).where(
-                and_(StockLevel.branch_id == branch_id, StockLevel.product_id == pol.product_id)
+                and_(
+                    StockLevel.branch_id == branch_id,
+                    StockLevel.product_id == pol.product_id,
+                    StockLevel.variant_id == line_variant_id,
+                )
             )
         )
         qty_on_hand_before = int(sl_res.scalar_one_or_none() or 0)
@@ -180,6 +186,7 @@ async def receive_goods_for_purchase_order(
             reason="goods_receipt",
             ref_type="goods_receipt",
             ref_id=str(receipt.id),
+            variant_id=line_variant_id,
         )
         await apply_receipt_to_weighted_average(
             db,

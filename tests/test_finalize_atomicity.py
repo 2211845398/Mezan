@@ -14,6 +14,7 @@ from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import SalesInvoice
 from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
@@ -73,6 +74,20 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
     )
     db_session.add_all([product_one, product_two, terminal])
     await db_session.flush()
+    v_one = ProductVariant(
+        product_id=product_one.id,
+        sku=f"{product_one.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    v_two = ProductVariant(
+        product_id=product_two.id,
+        sku=f"{product_two.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add_all([v_one, v_two])
+    await db_session.flush()
     branch_id = branch.id
     user_id = user.id
     product_one_id = product_one.id
@@ -108,6 +123,7 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
             PosCartLine(
                 cart_id=cart_id,
                 product_id=product_one_id,
+                variant_id=v_one.id,
                 qty=2,
                 unit_price=Decimal("25.00"),
                 line_total=Decimal("50.00"),
@@ -115,6 +131,7 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
             PosCartLine(
                 cart_id=cart_id,
                 product_id=product_two_id,
+                variant_id=v_two.id,
                 qty=1,
                 unit_price=Decimal("30.00"),
                 line_total=Decimal("30.00"),
@@ -122,6 +139,7 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
             StockLevel(
                 branch_id=branch_id,
                 product_id=product_one_id,
+                variant_id=v_one.id,
                 on_hand=10,
                 reserved=0,
                 version=0,
@@ -129,6 +147,7 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
             StockLevel(
                 branch_id=branch_id,
                 product_id=product_two_id,
+                variant_id=v_two.id,
                 on_hand=8,
                 reserved=0,
                 version=0,

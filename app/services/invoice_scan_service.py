@@ -17,6 +17,7 @@ from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
 from app.models.stock_level import StockLevel
 from app.services.branch_scope import require_branch_open_for_operations
+from app.services.catalog_service import resolve_default_variant_id
 from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
@@ -285,17 +286,23 @@ async def validate_scan_and_receive_goods(
                 "Line item must include unit_cost(number>0)",
                 details={"index": i},
             )
+        vid = await resolve_default_variant_id(db, product_id=product_id)
         db.add(
             GoodsReceiptLine(
                 goods_receipt_id=receipt.id,
                 product_id=product_id,
+                variant_id=vid,
                 qty=qty,
                 unit_cost=unit_cost,
             )
         )
         sl_res = await db.execute(
             select(StockLevel.on_hand).where(
-                and_(StockLevel.branch_id == branch_id, StockLevel.product_id == product_id)
+                and_(
+                    StockLevel.branch_id == branch_id,
+                    StockLevel.product_id == product_id,
+                    StockLevel.variant_id == vid,
+                )
             )
         )
         qty_on_hand_before = int(sl_res.scalar_one_or_none() or 0)
@@ -308,6 +315,7 @@ async def validate_scan_and_receive_goods(
             reason="goods_receipt",
             ref_type="goods_receipt",
             ref_id=str(receipt.id),
+            variant_id=vid,
         )
         await apply_receipt_to_weighted_average(
             db,

@@ -109,8 +109,8 @@ class ProductionOrderIssue(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    variant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=True, index=True
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     qty_issued: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
@@ -135,8 +135,8 @@ class ProductionOrderReceipt(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    variant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=True, index=True
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     qty_received: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)  # Calculated from total WIP cost

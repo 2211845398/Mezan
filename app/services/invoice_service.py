@@ -30,6 +30,7 @@ from app.services.accounting_governance_service import (
 )
 from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.inventory_service import apply_stock_movement
+from app.services.catalog_service import resolve_default_variant_id
 from app.services.loyalty_service import adjust_points
 from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
@@ -113,10 +114,16 @@ async def finalize_paid_cart(
         )
 
     for idx, ln in enumerate(lines):
+        variant_id = (
+            ln.variant_id
+            if ln.variant_id is not None
+            else await resolve_default_variant_id(db, product_id=ln.product_id)
+        )
         db.add(
             SalesInvoiceLine(
                 sales_invoice_id=invoice.id,
                 product_id=ln.product_id,
+                variant_id=variant_id,
                 qty=ln.qty,
                 unit_price=ln.unit_price,
                 line_total=ln.line_total,
@@ -133,6 +140,7 @@ async def finalize_paid_cart(
             reason="sale",
             ref_type="sales_invoice",
             ref_id=str(invoice.id),
+            variant_id=variant_id,
         )
     db.add(
         InvoicePayment(
@@ -278,6 +286,7 @@ async def void_sales_invoice(
             reason="void_invoice",
             ref_type="sales_invoice_void",
             ref_id=str(invoice.id),
+            variant_id=ln.variant_id,
         )
 
     reversal_date = now.date()

@@ -26,8 +26,8 @@ class BranchProductCost(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    variant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=True, index=True
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=False, index=True
     )
     average_unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

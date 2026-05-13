@@ -14,6 +14,7 @@ from app.models.stock_level import StockLevel
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
 from app.services.branch_scope import require_branch_open_for_operations
+from app.services.catalog_service import resolve_default_variant_id
 from app.services.document_posting_service import post_transfer_batch_receive_gl
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import (
@@ -51,7 +52,10 @@ async def create_batch(
     db.add(batch)
     await db.flush()
     for ln in lines:
-        line_obj = TransferLine(**ln, transfer_batch_id=batch.id)
+        row = dict(ln)
+        if not row.get("variant_id"):
+            row["variant_id"] = await resolve_default_variant_id(db, product_id=row["product_id"])
+        line_obj = TransferLine(**row, transfer_batch_id=batch.id)
         db.add(line_obj)
     await db.commit()
     return await _get_batch(db, batch.id)
@@ -95,6 +99,7 @@ async def dispatch_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
             reason="transfer_dispatch",
             ref_type="transfer_batch",
             ref_id=str(batch.id),
+            variant_id=ln.variant_id,
         )
 
     batch.status = "in_transit"
@@ -132,6 +137,7 @@ async def receive_batch(db: AsyncSession, *, batch_id: int) -> TransferBatch:
             reason="transfer_receive",
             ref_type="transfer_batch",
             ref_id=str(batch.id),
+            variant_id=ln.variant_id,
         )
         await apply_receipt_to_weighted_average(
             db,

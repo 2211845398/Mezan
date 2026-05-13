@@ -41,8 +41,8 @@ class SalesReturnLine(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    variant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=True, index=True
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
     refund_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
