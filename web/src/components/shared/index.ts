@@ -24,8 +24,8 @@ export {
   FormItem,
   FormLabel,
   FormMessage,
-  useFormField,
 } from '@/components/ui/form';
+export { useFormField } from '@/components/ui/use-form-field';
 
 // DataTable
 export type { DataTableColumn,DataTableProps } from './DataTable';
@@ -35,7 +35,7 @@ export { defineColumns } from './DataTable/columns';
 // Shared UI patterns
 export type { ContentSurfaceProps, FormContainerProps,SectionCardProps } from './ContentSurface';
 export { ContentSurface, FormContainer,SectionCard } from './ContentSurface';
-export type { FloatingFormActionsProps,FloatingFormDialogProps } from './FloatingFormDialog';
+export type { FloatingFormActionsProps, FloatingFormDialogProps } from './FloatingFormDialog';
 export {
   FloatingFormActions,
   floatingFormApproveButtonClassName,

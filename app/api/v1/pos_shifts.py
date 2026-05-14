@@ -1,6 +1,10 @@
 """POS shift management APIs."""
 
+from datetime import datetime
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, Query, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
@@ -13,6 +17,7 @@ from app.schemas.pos_shift import (
     PosShiftRead,
 )
 from app.services import audit_service
+from app.services.pos_expense_service import record_pos_expense
 from app.services.shift_service import (
     add_cash_event,
     close_shift,
@@ -113,3 +118,52 @@ async def close_shift_endpoint(
     )
     await db.commit()
     return PosShiftRead.model_validate(shift)
+
+
+
+class PosExpenseCreate(BaseModel):
+    shift_id: int
+    expense_category: str = Field(..., description='Category: cleaning, lunch, other')
+    amount: Decimal = Field(..., gt=0)
+    description: str | None = Field(None, max_length=255)
+
+
+class PosExpenseRead(BaseModel):
+    id: int
+    shift_id: int
+    branch_id: int
+    expense_category: str
+    amount: Decimal
+    description: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@router.post('/pos/expenses', response_model=PosExpenseRead, status_code=status.HTTP_201_CREATED)
+async def create_pos_expense_endpoint(
+    body: PosExpenseCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission('pos_shifts', 'update'),
+) -> PosExpenseRead:
+    expense = await record_pos_expense(
+        db,
+        shift_id=body.shift_id,
+        expense_category=body.expense_category,
+        amount=body.amount,
+        description=body.description,
+        user_id=current_user.id,
+    )
+    await audit_service.log(
+        session=db,
+        action='pos_expense.created',
+        resource_type='pos_expense',
+        resource_id=str(expense.id),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return PosExpenseRead.model_validate(expense)

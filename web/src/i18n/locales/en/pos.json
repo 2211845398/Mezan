@@ -70,6 +70,7 @@
     "method": "Method",
     "cash": "Cash",
     "card": "Card",
+    "transfer": "Transfer",
     "other": "Other",
     "reference": "Reference",
     "card_last4": "Last 4 digits",

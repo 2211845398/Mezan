@@ -6,5 +6,5 @@ export {
   FormLabel,
   FormMessage,
   Form as FormRoot,
-  useFormField,
 } from '@/components/ui/form';
+export { useFormField } from '@/components/ui/use-form-field';

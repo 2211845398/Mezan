@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
+<<<<<<< HEAD:web/src/components/shared/FloatingFormDialog.tsx
 /** Save / Approve — white label on primary (green) */
 export const floatingFormApproveButtonClassName = cn(
   'h-11 min-h-11 rounded-xl px-7 font-medium shadow-sm',
@@ -55,6 +54,13 @@ export type FloatingFormDialogProps = {
   footer?: ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
 };
+=======
+import {
+  floatingFormApproveButtonClassName,
+  floatingFormCloseButtonClassName,
+} from './styles';
+import type { FloatingFormActionsProps, FloatingFormDialogProps } from './types';
+>>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915:web/src/components/shared/FloatingFormDialog/FormDialog.tsx
 
 const maxWidthClasses = {
   sm: 'max-w-sm',
@@ -108,14 +114,6 @@ export function FloatingFormDialog({
     </Dialog>
   );
 }
-
-export type FloatingFormActionsProps = {
-  submitLabel: string;
-  cancelLabel: string;
-  onCancel: () => void;
-  isSubmitting?: boolean;
-  submitDisabled?: boolean;
-};
 
 /**
  * Standard footer actions for floating form dialogs.

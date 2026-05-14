@@ -94,7 +94,7 @@ class FiscalPeriodRead(BaseModel):
     period_key: str
     period_start: date
     period_end: date
-    status: Literal["open", "closed"]
+    status: Literal["open", "soft_closed", "closed"]
     closed_at: datetime | None = None
     closed_by_user_id: int | None = None
 
@@ -102,7 +102,7 @@ class FiscalPeriodRead(BaseModel):
 
 
 class FiscalPeriodStatusUpdate(BaseModel):
-    status: Literal["open", "closed"]
+    status: Literal["open", "soft_closed", "closed"]
 
 
 class JournalReversalRequest(BaseModel):
@@ -126,6 +126,10 @@ class ArOpenItemCreate(BaseModel):
     document_date: date
     due_date: date | None = None
     currency_code: str = "USD"
+    fx_rate: Decimal | None = Field(
+        default=None,
+        description="Functional rate at posting; defaults from currency master vs base",
+    )
     amount_total: Decimal = Field(gt=0)
 
 
@@ -138,6 +142,10 @@ class ApOpenItemCreate(BaseModel):
     document_date: date
     due_date: date | None = None
     currency_code: str = "USD"
+    fx_rate: Decimal | None = Field(
+        default=None,
+        description="Functional rate at posting; defaults from currency master vs base",
+    )
     amount_total: Decimal = Field(gt=0)
 
 
@@ -150,6 +158,7 @@ class OpenItemRead(BaseModel):
     document_date: date
     due_date: date | None = None
     currency_code: str
+    fx_rate: Decimal | None = None
     amount_total: Decimal
     amount_open: Decimal
     status: str
@@ -304,5 +313,27 @@ class BalanceSheetRead(BaseModel):
     asset_lines: list[StatementAccountLineRead] = Field(default_factory=list)
     liability_lines: list[StatementAccountLineRead] = Field(default_factory=list)
     equity_lines: list[StatementAccountLineRead] = Field(default_factory=list)
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class BranchFinancialSnapshotRead(BaseModel):
+    """Epic 19.7: branch-scoped TB roll-up plus optional P&L + balance sheet window."""
+
+    branch_id: int
+    as_of: str
+    trial_balance_accounts: int
+    rolled_debit: Decimal
+    rolled_credit: Decimal
+    rolled_net: Decimal
+    period_start: str | None = None
+    period_end: str | None = None
+    net_income: Decimal | None = None
+    total_revenue: Decimal | None = None
+    total_expense: Decimal | None = None
+    total_assets: Decimal | None = None
+    total_liabilities: Decimal | None = None
+    total_equity: Decimal | None = None
+    assets_minus_liabilities_equity: Decimal | None = None
 
     model_config = ConfigDict(json_encoders={Decimal: str})

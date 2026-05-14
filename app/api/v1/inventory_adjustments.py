@@ -10,8 +10,12 @@ from app.schemas.inventory_adjustments import StockAdjustmentRequest
 from app.schemas.inventory_human_movement import HumanInventoryMovementCreate, HumanInventoryMovementResponse
 from app.services import audit_service
 from app.services.branch_scope import require_branch_open_for_operations
+<<<<<<< HEAD
 from app.services.inventory_human_movement_service import apply_human_inventory_movement
 from app.services.inventory_reporting_service import list_stock_movements_with_names
+=======
+from app.services.inventory_adjustment_service import post_stock_movement_gl
+>>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915
 from app.services.inventory_service import apply_stock_movement
 
 router = APIRouter()
@@ -35,7 +39,12 @@ async def create_stock_adjustment(
         reason=body.reason,
         ref_type="manual_adjustment",
         ref_id=str(current_user.id),
+        variant_id=body.variant_id,
     )
+
+    # Post GL for the adjustment (Epic 19.6)
+    gl_result = await post_stock_movement_gl(db, movement=mv)
+
     await audit_service.log(
         session=db,
         action="stock.adjusted",
@@ -45,7 +54,7 @@ async def create_stock_adjustment(
         request=request,
     )
     await db.commit()
-    return {"movement_id": mv.id}
+    return {"movement_id": mv.id, "gl_posting": gl_result}
 
 
 @router.post("/inventory/movements", response_model=HumanInventoryMovementResponse)
@@ -92,6 +101,7 @@ async def list_stock_movements(
     _: None = Depends(get_current_user),
     __: None = require_permission("stock_adjustments", "read"),
 ) -> list[dict]:
+<<<<<<< HEAD
     return await list_stock_movements_with_names(
         db,
         branch_id=branch_id,
@@ -99,3 +109,26 @@ async def list_stock_movements(
         limit=limit,
         offset=offset,
     )
+=======
+    q = select(StockMovement).order_by(StockMovement.id.desc()).limit(limit).offset(offset)
+    if branch_id is not None:
+        q = q.where(StockMovement.branch_id == branch_id)
+    if product_id is not None:
+        q = q.where(StockMovement.product_id == product_id)
+    res = await db.execute(q)
+    rows = res.scalars().all()
+    return [
+        {
+            "id": r.id,
+            "branch_id": r.branch_id,
+            "product_id": r.product_id,
+            "variant_id": r.variant_id,
+            "qty_delta": r.qty_delta,
+            "reason": r.reason,
+            "ref_type": r.ref_type,
+            "ref_id": r.ref_id,
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]
+>>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915

@@ -17,7 +17,9 @@ class FiscalPeriod(Base):
     period_key: Mapped[str] = mapped_column(String(7), nullable=False, unique=True, index=True)
     period_start: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
     period_end: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")  # open, closed
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="open"
+    )  # open, soft_closed, closed
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True

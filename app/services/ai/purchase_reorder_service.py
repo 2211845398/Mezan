@@ -183,7 +183,7 @@ def _deterministic_suggestions(
 
 async def generate_purchase_reorder(
     db: AsyncSession, *, payload: PurchaseReorderRequest
-) -> PurchaseReorderResponse:
+) -> tuple[PurchaseReorderResponse, dict[str, int] | None]:
     velocity = await _get_sales_velocity(
         db, lookback_days=payload.lookback_days, branch_id=payload.branch_id
     )
@@ -210,9 +210,10 @@ async def generate_purchase_reorder(
 
     model_name = "deterministic_fallback"
     suggestions = deterministic
+    llm_usage: dict[str, int] | None = None
     if settings.OPENAI_API_KEY and deterministic:
         try:
-            envelope = await call_llm_json(
+            envelope, llm_usage = await call_llm_json(
                 system_prompt=_SYSTEM_PROMPT,
                 user_payload={
                     "request": payload.model_dump(),
@@ -232,10 +233,14 @@ async def generate_purchase_reorder(
                 model_name = settings.OPENAI_MODEL
         except ExternalServiceError:
             suggestions = deterministic
+            llm_usage = None
 
-    return PurchaseReorderResponse(
-        model=model_name,
-        generated_at=datetime.now(UTC),
-        facts_used=facts,
-        suggestions=suggestions,
+    return (
+        PurchaseReorderResponse(
+            model=model_name,
+            generated_at=datetime.now(UTC),
+            facts_used=facts,
+            suggestions=suggestions,
+        ),
+        llm_usage,
     )

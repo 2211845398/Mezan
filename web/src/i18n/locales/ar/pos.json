@@ -70,6 +70,7 @@
     "method": "طريقة الدفع",
     "cash": "نقدي",
     "card": "بطاقة",
+    "transfer": "تحويل",
     "other": "أخرى",
     "reference": "مرجع",
     "card_last4": "آخر 4 أرقام",

@@ -9,7 +9,6 @@ import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { FormContainer, SectionCard } from '@/components/shared/ContentSurface';
-import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -28,7 +27,6 @@ import { cn } from '@/lib/utils';
 
 import {
   createProduct,
-  getDisplayPrice,
   postGenerateBarcode,
   type ProductRead,
   updateProduct,
@@ -64,9 +62,7 @@ function buildProductFormSchema(isNew: boolean) {
     sku: isNew ? z.string().max(128) : z.string().min(1).max(128),
     barcode: z.string().optional().nullable(),
     image_url: z.string().optional().nullable(),
-    standard_cost: z.string().optional().nullable(),
     output_vat_rate: z.string(),
-    sell_price: z.string().optional().nullable(),
     attributes: z.record(z.unknown()).optional(),
     isActive: z.boolean(),
   });
@@ -84,9 +80,15 @@ export default function ProductFormPage() {
   const canUpdate = usePermission('catalog', 'update');
 
   const isNew = /\/products\/new\/?$/.test(location.pathname);
+<<<<<<< HEAD
   const rawProductId = isNew ? null : Number(params.productId);
   const productIdValid =
     !isNew && rawProductId !== null && !Number.isNaN(rawProductId) && rawProductId > 0;
+=======
+  const productId = isNew ? null : Number(params.productId);
+  const productIdValid =
+    !isNew && productId != null && !Number.isNaN(productId) && productId > 0;
+>>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915
 
   const formSchema = useMemo(() => buildProductFormSchema(isNew), [isNew]);
 
@@ -107,9 +109,7 @@ export default function ProductFormPage() {
       sku: '',
       barcode: '',
       image_url: '',
-      standard_cost: '',
       output_vat_rate: '0',
-      sell_price: '',
       attributes: {},
       isActive: true,
     },
@@ -126,8 +126,6 @@ export default function ProductFormPage() {
     if (!product) {
       return;
     }
-    const fromAttrs = product.attributes as { price?: number } | undefined;
-    const priceFromAttrs = fromAttrs && typeof fromAttrs.price === 'number' ? String(fromAttrs.price) : '';
     const linked = product.category_ids ?? [product.category_id];
     const tags = linked.filter((id) => id !== product.category_id);
     form.reset({
@@ -137,9 +135,7 @@ export default function ProductFormPage() {
       sku: product.sku,
       barcode: product.barcode ?? '',
       image_url: product.image_url ?? '',
-      standard_cost: product.standard_cost != null && product.standard_cost !== '' ? String(product.standard_cost) : '',
       output_vat_rate: String(product.output_vat_rate ?? '0'),
-      sell_price: priceFromAttrs || (getDisplayPrice(product) === '—' ? '' : getDisplayPrice(product)),
       attributes: (product.attributes as Record<string, unknown>) ?? {},
       isActive: product.status !== 'archived',
     });
@@ -163,11 +159,7 @@ export default function ProductFormPage() {
     mutationFn: async (v: ProductFormValues) => {
       const extraTags = v.tag_category_ids.filter((id) => id !== v.category_id);
       const attrs: Record<string, unknown> = { ...(v.attributes as Record<string, unknown> | undefined) };
-      if (v.sell_price && v.sell_price !== '') {
-        attrs.price = Number(v.sell_price);
-      }
       const imageTrimmed = v.image_url?.trim() ?? '';
-      const costTrimmed = v.standard_cost?.trim() ?? '';
 
       if (isNew) {
         const body: Parameters<typeof createProduct>[0] = {
@@ -181,11 +173,9 @@ export default function ProductFormPage() {
           sell_price_currency_id: null,
           category_ids: extraTags,
           image_url: imageTrimmed === '' ? null : imageTrimmed,
-          standard_cost: costTrimmed === '' ? null : costTrimmed,
+          standard_cost: null,
+          sell_price: null,
         };
-        if (v.sell_price && v.sell_price !== '') {
-          body.sell_price = v.sell_price;
-        }
         return createProduct(body);
       }
       if (!product) {
@@ -202,13 +192,9 @@ export default function ProductFormPage() {
         sell_price_currency_id: null,
         category_ids: extraTags,
         image_url: imageTrimmed === '' ? null : imageTrimmed,
-        standard_cost: costTrimmed === '' ? null : costTrimmed,
+        standard_cost: null,
+        sell_price: null,
       };
-      if (v.sell_price && v.sell_price !== '') {
-        ubody.sell_price = v.sell_price;
-      } else {
-        ubody.sell_price = null;
-      }
       return updateProduct(product.id, ubody);
     },
     onSuccess: () => {
@@ -301,40 +287,12 @@ export default function ProductFormPage() {
                       {isNew ? (
                         <p className="text-muted-foreground text-xs sm:col-span-2">{t('products.sku_auto_hint')}</p>
                       ) : null}
-                      <FormField
-                        control={form.control}
-                        name="standard_cost"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm">{t('products.field.standard_cost')}</FormLabel>
-                            <FormControl>
-                              <MoneyInput
-                                value={field.value ?? ''}
-                                onChange={field.onChange}
-                                className="h-8 text-sm"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="sell_price"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm">{t('products.field.sell_price')}</FormLabel>
-                            <FormControl>
-                              <MoneyInput
-                                value={field.value ?? ''}
-                                onChange={field.onChange}
-                                className="h-8 text-sm"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="rounded-md border border-dashed bg-muted/15 p-3 sm:col-span-2">
+                        <p className="text-sm font-medium">التسعير والتكلفة</p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          لا يتم إدخال تكلفة المنتج أو سعر البيع هنا. التكلفة تأتي من فاتورة الشراء، وسعر البيع من قوائم الأسعار.
+                        </p>
+                      </div>
                       <div className="rounded-md border border-dashed bg-muted/15 p-3 sm:col-span-2">
                         <p className="text-sm font-medium">{t('products.tax.title')}</p>
                         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('products.tax.future_hint')}</p>

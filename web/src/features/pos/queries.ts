@@ -21,6 +21,7 @@ import {
   getCart,
   getCurrentShift,
   getSalesInvoice,
+  listCarts,
   listSalesInvoices,
   listTerminals,
   lookupReturnInvoice,
@@ -30,6 +31,7 @@ import {
   type PaymentIntentBody,
   type ReturnBody,
   submitReturn,
+  updateCartCustomer,
   voidSale,
   type VoidSaleBody,
 } from './api';
@@ -42,6 +44,7 @@ export const shiftKeys = {
 export const cartKeys = {
   all: ['pos', 'carts'] as const,
   detail: (cartId: number) => [...cartKeys.all, 'detail', cartId] as const,
+  list: (q: Record<string, unknown>) => [...cartKeys.all, 'list', q] as const,
 } as const;
 
 export const invoiceKeys = {
@@ -87,6 +90,24 @@ export function useCart(cartId: number | null) {
     enabled: cartId != null,
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: false,
+  });
+}
+
+export function useParkedCarts(terminalId: number | null) {
+  const listParams: Record<string, unknown> =
+    terminalId != null
+      ? { status: 'parked' as const, terminal_id: terminalId }
+      : { status: 'parked' as const };
+  return useQuery({
+    queryKey: cartKeys.list(listParams),
+    queryFn: () => {
+      if (terminalId == null) {
+        throw new Error('useParkedCarts requires terminalId');
+      }
+      return listCarts({ status: 'parked', terminal_id: terminalId });
+    },
+    enabled: terminalId != null,
+    staleTime: 15_000,
   });
 }
 
@@ -257,6 +278,16 @@ export function useResumeCart(cartId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => changeCartState(cartId, { action: 'resume' }),
+    onSuccess: (data) => {
+      qc.setQueryData(cartKeys.detail(cartId), data);
+    },
+  });
+}
+
+export function useUpdateCartCustomer(cartId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (customerId: number | null) => updateCartCustomer(cartId, customerId),
     onSuccess: (data) => {
       qc.setQueryData(cartKeys.detail(cartId), data);
     },

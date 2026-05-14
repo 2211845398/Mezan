@@ -36,3 +36,4 @@ class BranchRead(BaseModel):
     timezone: str
     is_active: bool
     archived_at: datetime | None
+    accounting_chart_provisioned_at: datetime | None = None

@@ -2,6 +2,7 @@ import { ShoppingCart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useOnline } from '@/hooks/useOnline';
+import { cn } from '@/lib/utils';
 
 import type { CartRead } from '../api';
 import { CartLineRow } from './CartLineRow';
@@ -12,6 +13,8 @@ export type RegisterCartColumnProps = {
   isLocked: boolean;
   onQtyChange: (productId: number, qty: number) => void;
   currency: string;
+  returnMode?: boolean;
+  onReturnModeChange?: (enabled: boolean) => void;
 };
 
 export function RegisterCartColumn({
@@ -20,23 +23,49 @@ export function RegisterCartColumn({
   isLocked,
   onQtyChange,
   currency,
+  returnMode = false,
+  onReturnModeChange,
 }: RegisterCartColumnProps) {
   const { t } = useTranslation('pos');
   const online = useOnline();
 
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:min-h-[12rem]">
+    <div
+      className={cn(
+        'flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:min-h-[12rem]',
+        returnMode && 'border-rose-300 bg-rose-50/70 dark:bg-rose-950/20',
+      )}
+      data-mode={returnMode ? 'return' : 'sale'}
+    >
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <ShoppingCart className="size-4" aria-hidden />
             {t('register.cart')}
           </h2>
-          <p className="text-xs text-muted-foreground">{t('register.cart_hint')}</p>
+          <p className="text-xs text-muted-foreground">
+            {t('register.cart_hint')} · #{(cart as CartRead & { daily_cart_number?: number }).daily_cart_number ?? cart.id}
+          </p>
         </div>
-        <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-          {cart.lines?.length ?? 0}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+            {cart.lines?.length ?? 0}
+          </span>
+          {onReturnModeChange ? (
+            <button
+              type="button"
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                returnMode
+                  ? 'border-rose-300 bg-rose-100 text-rose-800'
+                  : 'border-border bg-background text-muted-foreground hover:bg-muted',
+              )}
+              onClick={() => onReturnModeChange(!returnMode)}
+            >
+              {returnMode ? 'وضع الإرجاع' : 'بيع عادي'}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {!online ? (

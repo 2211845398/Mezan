@@ -18,6 +18,7 @@ from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.category import Category
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.product_category import ProductCategory
 from app.schemas.catalog import CategoryTreeNode, ProductRead
 from app.services.pricing_service import set_product_sell_price
@@ -122,10 +123,39 @@ async def list_category_tree(db: AsyncSession) -> list[CategoryTreeNode]:
     return build_category_tree_nodes(cats, direct_product_counts=counts)
 
 
+async def _get_category_depth(db: AsyncSession, category_id: int | None) -> int:
+    """Calculate depth of category (0 = root, 1 = first child, etc.)."""
+    if category_id is None:
+        return 0
+    depth = 0
+    current_id = category_id
+    visited: set[int] = set()
+    while current_id is not None and current_id not in visited:
+        visited.add(current_id)
+        depth += 1
+        res = await db.execute(select(Category).where(Category.id == current_id))
+        cat = res.scalar_one_or_none()
+        if not cat:
+            break
+        current_id = cat.parent_id
+    return depth
+
+
+MAX_CATEGORY_DEPTH = 4
+
+
 async def create_category(db: AsyncSession, *, data: dict[str, Any]) -> Category:
+    """Create category with depth validation (Epic 18.6: max 4 levels)."""
     parent_id = data.get("parent_id")
     if parent_id is not None:
         await get_category(db, parent_id)
+        # Epic 18.6: Check depth limit
+        parent_depth = await _get_category_depth(db, parent_id)
+        if parent_depth >= MAX_CATEGORY_DEPTH:
+            raise ValidationError(
+                f"Maximum category depth is {MAX_CATEGORY_DEPTH} levels",
+                details={"parent_depth": parent_depth, "max_depth": MAX_CATEGORY_DEPTH},
+            )
     category = Category(**data)
     db.add(category)
     try:
@@ -138,6 +168,7 @@ async def create_category(db: AsyncSession, *, data: dict[str, Any]) -> Category
 
 
 async def update_category(db: AsyncSession, *, category_id: int, data: dict[str, Any]) -> Category:
+    """Update category with depth validation (Epic 18.6: max 4 levels)."""
     category = await get_category(db, category_id)
     if "parent_id" in data:
         new_parent_id = data["parent_id"]
@@ -145,6 +176,14 @@ async def update_category(db: AsyncSession, *, category_id: int, data: dict[str,
             raise ValidationError("Category cannot be its own parent")
         if new_parent_id is not None:
             await get_category(db, new_parent_id)
+            # Epic 18.6: Check depth limit when reparenting
+            parent_depth = await _get_category_depth(db, new_parent_id)
+            # Add 1 for this category itself
+            if parent_depth + 1 > MAX_CATEGORY_DEPTH:
+                raise ValidationError(
+                    f"Maximum category depth is {MAX_CATEGORY_DEPTH} levels",
+                    details={"parent_depth": parent_depth, "max_depth": MAX_CATEGORY_DEPTH},
+                )
     for k, v in data.items():
         setattr(category, k, v)
     try:
@@ -402,6 +441,7 @@ async def _load_merged_attr_defs_for_category(
 def _validate_product_attributes(
     *, attrs: dict[str, Any], defs: list[CategoryAttributeDef]
 ) -> dict[str, Any]:
+    """Validate product attributes against category definitions (Epic 18.7: enum/select validation)."""
     allowed = {d.key: d for d in defs}
     unknown_keys = sorted([k for k in attrs.keys() if k not in allowed and k != PRICE_COMPAT_KEY])
     if unknown_keys:
@@ -424,9 +464,33 @@ def _validate_product_attributes(
                     "Invalid attribute type", details={"key": key, "expected": "float"}
                 )
             continue
-        spec = allowed[key].type.lower()
+        def_spec = allowed[key]
+        spec = def_spec.type.lower()
         if value is None:
             continue
+
+        # Epic 18.7: Enum/select validation
+        if spec in {"select", "enum", "dropdown"}:
+            options = (def_spec.options or {}).get("values", [])
+            if options and value not in options:
+                raise ValidationError(
+                    "Invalid enum value",
+                    details={"key": key, "value": value, "allowed": options},
+                )
+            continue
+
+        # Epic 18.7: Multi-select validation
+        if spec in {"multiselect", "multi_select", "tags"}:
+            options = (def_spec.options or {}).get("values", [])
+            if isinstance(value, list) and options:
+                invalid = [v for v in value if v not in options]
+                if invalid:
+                    raise ValidationError(
+                        "Invalid multi-select values",
+                        details={"key": key, "invalid": invalid, "allowed": options},
+                    )
+            continue
+
         if spec in {"text", "string"} and not isinstance(value, str):
             raise ValidationError(
                 "Invalid attribute type", details={"key": key, "expected": "string"}
@@ -464,7 +528,7 @@ def _derive_sell_price(*, attrs: dict[str, Any], sell_price_value: Any) -> Decim
 def _sync_compat_price(attrs: dict[str, Any], *, sell_price: Decimal | None) -> dict[str, Any]:
     synced = dict(attrs)
     if sell_price is not None:
-        synced[PRICE_COMPAT_KEY] = float(sell_price)
+        synced[PRICE_COMPAT_KEY] = sell_price  # Keep as Decimal for JSON serialization
     return synced
 
 
@@ -565,9 +629,12 @@ async def list_products(
     category_id: int | None = None,
     category_include_descendants: bool = False,
     status: str | None = None,
+    # Epic 18.8: Attribute-based filtering
+    attributes_filter: dict[str, Any] | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Product]:
+    """List products with optional attribute-based filtering (Epic 18.8)."""
     stmt: Select[tuple[Product]] = select(Product)
     if q:
         like = f"%{q.strip()}%"
@@ -587,7 +654,49 @@ async def list_products(
         stmt = stmt.where(or_(Product.category_id.in_(id_list), tag_match))
     if status is not None:
         stmt = stmt.where(Product.status == status)
+
+    # Epic 18.8: Attribute-based filtering using JSONB containment
+    if attributes_filter:
+        from sqlalchemy.dialects.postgresql import JSONB
+        for attr_key, attr_value in attributes_filter.items():
+            # Use JSONB containment for exact match on single attribute
+            filter_json = {attr_key: attr_value}
+            stmt = stmt.where(Product.attributes.contains(filter_json))
+
     stmt = stmt.order_by(Product.id.desc()).limit(limit).offset(offset)
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def filter_products_by_attributes(
+    db: AsyncSession,
+    *,
+    category_id: int | None = None,
+    attributes_filter: dict[str, Any],
+    limit: int = 50,
+    offset: int = 0,
+) -> list[Product]:
+    """Filter products by category and multiple attributes (Epic 18.8).
+
+    Example: {"color": "red", "size": "L"} finds products with both attributes.
+    """
+    stmt: Select[tuple[Product]] = select(Product)
+
+    if category_id is not None:
+        scope_ids = await _category_descendant_ids(db, category_id)
+        id_list = list(scope_ids)
+        tag_match = exists().where(
+            and_(ProductCategory.product_id == Product.id, ProductCategory.category_id.in_(id_list))
+        )
+        stmt = stmt.where(or_(Product.category_id.in_(id_list), tag_match))
+
+    # Apply JSONB containment for each attribute
+    if attributes_filter:
+        for attr_key, attr_value in attributes_filter.items():
+            filter_json = {attr_key: attr_value}
+            stmt = stmt.where(Product.attributes.contains(filter_json))
+
+    stmt = stmt.where(Product.status == "active").order_by(Product.name.asc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -728,6 +837,43 @@ async def archive_product(db: AsyncSession, *, product_id: int) -> Product:
 
 async def unarchive_product(db: AsyncSession, *, product_id: int) -> Product:
     return await update_product(db, product_id=product_id, data={"status": "active"})
+
+
+async def resolve_default_variant_id(db: AsyncSession, *, product_id: int) -> int:
+    """Return the preferred stock-keeping variant for a product (active, lowest id).
+
+    Caches per DB session (``session.info``) to avoid repeated lookups in one request.
+    """
+    cache: dict[int, int] = db.info.setdefault("default_variant_id_cache", {})
+    if product_id in cache:
+        return cache[product_id]
+
+    res = await db.execute(
+        select(ProductVariant.id)
+        .where(ProductVariant.product_id == product_id, ProductVariant.active.is_(True))
+        .order_by(ProductVariant.id.asc())
+        .limit(1)
+    )
+    vid = res.scalar_one_or_none()
+    if vid is not None:
+        out = int(vid)
+        cache[product_id] = out
+        return out
+    res2 = await db.execute(
+        select(ProductVariant.id)
+        .where(ProductVariant.product_id == product_id)
+        .order_by(ProductVariant.id.asc())
+        .limit(1)
+    )
+    vid2 = res2.scalar_one_or_none()
+    if vid2 is not None:
+        out = int(vid2)
+        cache[product_id] = out
+        return out
+    raise ValidationError(
+        "No product variant for product",
+        details={"product_id": product_id},
+    )
 
 
 async def generate_product_barcode(db: AsyncSession, *, product_id: int) -> Product:

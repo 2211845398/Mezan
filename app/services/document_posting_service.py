@@ -16,19 +16,24 @@ from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceL
 from app.models.suppliers import Supplier
 from app.models.transfer_batch import TransferBatch
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
-from app.services.inventory_valuation_service import get_unit_costs_for_sale
+from app.services.fifo_valuation_service import consume_layers_fifo, get_valuation_policy
+from app.services.inventory_valuation_service import get_unit_cost_for_sale
 from app.utils.money import q2
 
 
 def _normalize_tender(method: str | None) -> str:
-    if method in ("cash", "card", "other"):
+    # Epic 21.6: Add transfer tender method
+    if method in ("cash", "card", "transfer", "other"):
         return method
     return "cash"
 
 
 def _settlement_account_id(settings, tender: str) -> int:
+    # Epic 21.6: Add transfer tender method with clearing account routing
     if tender == "card":
         return settings.default_card_clearing_account_id
+    if tender == "transfer":
+        return getattr(settings, "default_bank_transfer_account_id", settings.default_cash_account_id)
     if tender == "other":
         return settings.default_other_clearing_account_id
     return settings.default_cash_account_id
@@ -62,15 +67,28 @@ async def post_sales_invoice_gl(
     if disc_debit < 0:
         disc_debit = Decimal("0")
 
+    policy = await get_valuation_policy(db)
     cogs_total = Decimal("0")
-    unit_costs = await get_unit_costs_for_sale(
-        db,
-        branch_id=branch_id,
-        product_ids=[ln.product_id for ln in lines],
-    )
-    for ln in lines:
-        uc = unit_costs.get(ln.product_id, Decimal("0"))
-        cogs_total += q2(uc * Decimal(ln.qty))
+    if policy == "fifo":
+        for ln in lines:
+            consumed = await consume_layers_fifo(
+                db,
+                branch_id=branch_id,
+                product_id=ln.product_id,
+                variant_id=ln.variant_id,
+                qty_to_consume=Decimal(ln.qty),
+            )
+            for take, uc in consumed:
+                cogs_total += q2(take * uc)
+    else:
+        for ln in lines:
+            uc = await get_unit_cost_for_sale(
+                db,
+                branch_id=branch_id,
+                product_id=ln.product_id,
+                variant_id=ln.variant_id,
+            )
+            cogs_total += q2(uc * Decimal(ln.qty))
 
     async def post_revenue_and_cash() -> None:
         if invoice.customer_id is None:
@@ -224,9 +242,12 @@ async def post_sales_return_gl(
     credit_total: Decimal,
     sales_invoice_id: int,
     sales_return_id: int,
-    lines: list[tuple[int, int, Decimal]],
+    lines: list[tuple[int, int, Decimal, int]],
 ) -> None:
-    """Reverse revenue/discount and credit original settlement for a processed return."""
+    """Reverse revenue/discount and credit original settlement for a processed return.
+
+    ``lines`` entries are ``(product_id, qty, refund, variant_id)``.
+    """
     if credit_total <= 0:
         return
     settings = await get_accounting_settings(db)
@@ -234,13 +255,10 @@ async def post_sales_return_gl(
     total = q2(credit_total)
 
     cogs_back = Decimal("0")
-    unit_costs = await get_unit_costs_for_sale(
-        db,
-        branch_id=branch_id,
-        product_ids=[product_id for product_id, _qty, _ref in lines],
-    )
-    for product_id, qty, _ref in lines:
-        uc = unit_costs.get(product_id, Decimal("0"))
+    for product_id, qty, _ref, variant_id in lines:
+        uc = await get_unit_cost_for_sale(
+            db, branch_id=branch_id, product_id=product_id, variant_id=variant_id
+        )
         cogs_back += q2(uc * Decimal(qty))
 
     inv_res = await db.execute(select(SalesInvoice).where(SalesInvoice.id == sales_invoice_id))
@@ -381,6 +399,45 @@ async def post_ar_cash_receipt_gl(
     )
 
 
+async def post_ap_payment_gl(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    amount: Decimal,
+    application_id: int,
+    entry_date: date,
+) -> None:
+    """Dr AP, Cr Cash when an AP open item is paid. Symmetric to :func:`post_ar_cash_receipt_gl`."""
+    settings = await get_accounting_settings(db)
+    amt = q2(amount)
+    if amt <= 0:
+        return
+    await post_journal_entry(
+        db,
+        entry_date=entry_date,
+        description=f"AP supplier payment (application {application_id})",
+        source_type="ap_payment_application",
+        source_id=str(application_id),
+        idempotency_key=f"ap_payment_application:{application_id}",
+        lines=[
+            {
+                "account_id": settings.default_ap_account_id,
+                "branch_id": branch_id,
+                "debit": amt,
+                "credit": Decimal("0"),
+                "memo": "Clear AP",
+            },
+            {
+                "account_id": settings.default_cash_account_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": amt,
+                "memo": "Cash/bank payment to supplier",
+            },
+        ],
+    )
+
+
 async def post_transfer_batch_receive_gl(db: AsyncSession, *, batch: TransferBatch) -> None:
     """On inter-branch receive: Dr inventory @ destination, Cr @ source at source WAVG × qty.
 
@@ -391,14 +448,14 @@ async def post_transfer_batch_receive_gl(db: AsyncSession, *, batch: TransferBat
     if not lines:
         return
 
-    unit_costs = await get_unit_costs_for_sale(
-        db,
-        branch_id=batch.from_branch_id,
-        product_ids=[ln.product_id for ln in lines],
-    )
     payload: list[dict] = []
     for ln in lines:
-        uc = unit_costs.get(ln.product_id, Decimal("0"))
+        uc = await get_unit_cost_for_sale(
+            db,
+            branch_id=batch.from_branch_id,
+            product_id=ln.product_id,
+            variant_id=ln.variant_id,
+        )
         amt = q2(uc * Decimal(ln.qty))
         if amt <= 0:
             continue

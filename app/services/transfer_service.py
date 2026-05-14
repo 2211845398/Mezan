@@ -14,6 +14,7 @@ from app.models.stock_level import StockLevel
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
 from app.services.branch_scope import require_branch_open_for_operations
+from app.services.catalog_service import resolve_default_variant_id
 from app.services.document_posting_service import post_transfer_batch_receive_gl
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import (
@@ -51,7 +52,10 @@ async def create_batch(
     db.add(batch)
     await db.flush()
     for ln in lines:
-        line_obj = TransferLine(**ln, transfer_batch_id=batch.id)
+        row = dict(ln)
+        if not row.get("variant_id"):
+            row["variant_id"] = await resolve_default_variant_id(db, product_id=row["product_id"])
+        line_obj = TransferLine(**row, transfer_batch_id=batch.id)
         db.add(line_obj)
     await db.commit()
     return await _get_batch(db, batch.id)
@@ -105,6 +109,7 @@ async def dispatch_batch(
             reason="transfer_dispatch",
             ref_type="transfer_batch",
             ref_id=str(batch.id),
+            variant_id=ln.variant_id,
         )
 
     batch.status = "in_transit"
@@ -132,13 +137,14 @@ async def receive_batch(
         )
     for i, ln in enumerate(batch.lines):
         unit_cost = await get_unit_cost_for_sale(
-            db, branch_id=batch.from_branch_id, product_id=ln.product_id
+            db, branch_id=batch.from_branch_id, product_id=ln.product_id, variant_id=ln.variant_id
         )
         sl_res = await db.execute(
             select(StockLevel.on_hand).where(
                 and_(
                     StockLevel.branch_id == batch.to_branch_id,
                     StockLevel.product_id == ln.product_id,
+                    StockLevel.variant_id == ln.variant_id,
                 )
             )
         )
@@ -152,6 +158,7 @@ async def receive_batch(
             reason="transfer_receive",
             ref_type="transfer_batch",
             ref_id=str(batch.id),
+            variant_id=ln.variant_id,
         )
         await apply_receipt_to_weighted_average(
             db,
@@ -160,6 +167,7 @@ async def receive_batch(
             qty_in=ln.qty,
             unit_cost=unit_cost,
             qty_on_hand_before=qty_on_hand_before,
+            variant_id=ln.variant_id,
         )
 
     batch.status = "received"

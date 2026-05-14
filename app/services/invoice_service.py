@@ -5,13 +5,17 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
 from app.models.ar_open_item import ArOpenItem
+from app.models.category import Category
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
+from app.models.pos_shift import PosCashEvent
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
@@ -29,6 +33,10 @@ from app.services.accounting_governance_service import (
 )
 from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.inventory_service import apply_stock_movement
+from app.services.catalog_service import resolve_default_variant_id
+from app.services.loyalty_dsl_service import calculate_loyalty_for_purchase
+from app.services.loyalty_service import adjust_points
+from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
 
 VOID_INVOICE_MAX_AGE_HOURS = 48
@@ -96,11 +104,30 @@ async def finalize_paid_cart(
     receipt = rec_res.scalar_one_or_none()
     tender_method = receipt.method if receipt else "cash"
 
+    # Epic 21.3: Record PosCashEvent on cash tender
+    # Epic 21.6: Handle transfer tender method with clearing account
+    if tender_method == "cash" and cart.shift_id:
+        db.add(
+            PosCashEvent(
+                shift_id=cart.shift_id,
+                event_type="sale",
+                amount=payment_intent.amount,
+                note=f"Cart {cart.id} invoice {invoice.id}",
+                created_by_user_id=user_id,
+            )
+        )
+
     for idx, ln in enumerate(lines):
+        variant_id = (
+            ln.variant_id
+            if ln.variant_id is not None
+            else await resolve_default_variant_id(db, product_id=ln.product_id)
+        )
         db.add(
             SalesInvoiceLine(
                 sales_invoice_id=invoice.id,
                 product_id=ln.product_id,
+                variant_id=variant_id,
                 qty=ln.qty,
                 unit_price=ln.unit_price,
                 line_total=ln.line_total,
@@ -117,6 +144,7 @@ async def finalize_paid_cart(
             reason="sale",
             ref_type="sales_invoice",
             ref_id=str(invoice.id),
+            variant_id=variant_id,
         )
     db.add(
         InvoicePayment(
@@ -131,6 +159,39 @@ async def finalize_paid_cart(
         select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
     )
     await post_sales_invoice_gl(db, invoice=invoice, lines=list(sil_res.scalars().all()))
+
+    if cart.customer_id:
+        category_codes: list[str] = []
+        if lines:
+            pids = [ln.product_id for ln in lines]
+            cat_stmt = (
+                select(Category.slug)
+                .join(Product, Product.category_id == Category.id)
+                .where(Product.id.in_(pids))
+                .distinct()
+            )
+            crows = await db.execute(cat_stmt)
+            category_codes = sorted(
+                {(str(row[0]).strip().upper()) for row in crows.all() if row[0]}
+            )
+        calc = calculate_loyalty_for_purchase(
+            cart_total=invoice.total,
+            category_codes=category_codes,
+            is_weekend=issued_at.weekday() >= 5,
+        )
+        points = int(calc["calculation"]["total_points"])
+        if points > 0:
+            await adjust_points(
+                db,
+                customer_id=cart.customer_id,
+                points=points,
+                entry_type=LedgerEntryType.CREDIT,
+                reason_code=LedgerReasonCode.PURCHASE,
+                auditor_id=user_id,
+                reference_id=f"INV-{invoice.id}",
+                note=f"Purchase loyalty: {points} points",
+            )
+
     cart.status = "paid"
     cart.paid_at = issued_at
     await db.commit()
@@ -218,6 +279,7 @@ async def void_sales_invoice(
             reason="void_invoice",
             ref_type="sales_invoice_void",
             ref_id=str(invoice.id),
+            variant_id=ln.variant_id,
         )
 
     reversal_date = now.date()

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { subDays } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,52 @@ export default function Analytics() {
       {top.isError || slow.isError || alerts.isError || promos.isError ? (
         <p className="text-sm text-destructive">{t('analytics.load_error')}</p>
       ) : null}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">أفضل المنتجات مبيعاً</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={(top.data?.items ?? []).map((item) => {
+                const row = item as Record<string, unknown>;
+                return {
+                  name: String(row.product_name ?? row.name ?? `#${row.product_id ?? ''}`),
+                  value: Number(row.total_qty ?? row.qty ?? row.quantity ?? 0),
+                };
+              })}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">أداء العروض</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={(promos.data?.items ?? []).map((item) => {
+                const row = item as Record<string, unknown>;
+                return {
+                  name: String(row.code ?? row.name ?? row.discount_name ?? `#${row.id ?? ''}`),
+                  value: Number(row.redemptions ?? row.usage_count ?? row.count ?? 0),
+                };
+              })}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#82a2f7" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

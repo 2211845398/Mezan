@@ -12,6 +12,7 @@ from app.models.branch import Branch
 from app.models.users import User
 from app.schemas.branch import BranchCreate, BranchRead, BranchUpdate
 from app.services import audit_service
+from app.services.branch_accounting_service import provision_branch_accounting
 
 router = APIRouter()
 
@@ -52,6 +53,8 @@ async def create_branch(
         timezone=body.timezone,
     )
     db.add(branch)
+    await db.flush()
+    await provision_branch_accounting(db, branch_id=branch.id)
     await db.commit()
     await db.refresh(branch)
     await audit_service.log(

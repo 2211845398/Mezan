@@ -14,6 +14,7 @@ from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.pos_cart import PosCart
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.models.users import User
 from app.services.accounting_service import get_accounting_settings
@@ -83,6 +84,14 @@ async def test_walk_in_sale_posts_credit_to_output_vat_payable(db_session) -> No
     )
     db_session.add(product)
     await db_session.flush()
+    pv = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv)
+    await db_session.flush()
 
     invoice = SalesInvoice(
         invoice_number=f"INV-{uuid.uuid4().hex[:8]}",
@@ -103,6 +112,7 @@ async def test_walk_in_sale_posts_credit_to_output_vat_payable(db_session) -> No
     line = SalesInvoiceLine(
         sales_invoice_id=invoice.id,
         product_id=product.id,
+        variant_id=pv.id,
         qty=1,
         unit_price=Decimal("100.00"),
         line_total=Decimal("100.00"),
@@ -198,6 +208,14 @@ async def test_sales_return_debits_output_vat_payable(db_session) -> None:
     )
     db_session.add(product)
     await db_session.flush()
+    pv = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv)
+    await db_session.flush()
     invoice = SalesInvoice(
         invoice_number=f"INVR-{uuid.uuid4().hex[:8]}",
         invoice_barcode=f"BCR-{uuid.uuid4().hex[:8]}",
@@ -221,7 +239,7 @@ async def test_sales_return_debits_output_vat_payable(db_session) -> None:
         credit_total=Decimal("115.00"),
         sales_invoice_id=invoice.id,
         sales_return_id=ret_id,
-        lines=[(product.id, 1, Decimal("115.00"))],
+        lines=[(product.id, 1, Decimal("115.00"), pv.id)],
     )
     await db_session.commit()
 

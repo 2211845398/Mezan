@@ -37,3 +37,15 @@ class SalesInvoiceReturnLookupRead(BaseModel):
     lines: list[ReturnEligibleLineRead]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ExchangeLinkDetailRead(BaseModel):
+    """Resolved exchange link for a processed return (reads ``exchange_links``)."""
+
+    sales_return_id: int
+    new_cart_id: int
+    original_sales_invoice_id: int
+    original_invoice_number: str
+    original_invoice_barcode: str
+    branch_id: int
+    original_cart_id: int

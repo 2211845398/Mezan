@@ -34,6 +34,7 @@
     "accounting_ar": "Accounts receivable",
     "accounting_ap": "Accounts payable",
     "accounting_fiscal_periods": "Fiscal periods",
+    "accounting_operations": "Accounting operations",
     "crm": "CRM",
     "crm_customers": "Customers",
     "crm_loyalty": "Loyalty",

@@ -5,6 +5,8 @@
 **Related operational docs** (kept standalone):
 - [README.md](README.md) — Quick start and setup instructions
 - [web/SECURITY.md](web/SECURITY.md) — Frontend security notes
+- [GAP_REPORT.md](GAP_REPORT.md) — Phase 1 audit findings with numbered gap IDs (`GAP-POS-*`, `GAP-CAT-*`, `GAP-INV-*`, `GAP-PUR-*`, `GAP-ACC-*`, `GAP-CRM-*`, `GAP-AI-*`)
+- [.cursor/plans/mezan_system_restructure_ee9ca47f.plan.md](.cursor/plans/mezan_system_restructure_ee9ca47f.plan.md) — Active restructure plan (3 phases + recommendations)
 
 ---
 
@@ -51,8 +53,8 @@
 | 0-11 | Completed | Infrastructure, Identity, Catalog, POS, HR/Payroll, Accounting, CRM, AI Advisory, Backups |
 | 12 | In Progress | Offline POS sync (backend contracts defined) |
 | 13 | In Progress | Notifications (models complete, FCM hardening pending) |
-| 14 | In Progress | AI expansion (4 advisors shipped, logging/rate-limit pending) |
-| 15-17 | Planned | Security hardening, multi-currency, cash flow statement |
+| 14 | Completed | AI advisors: usage logging, per-user rate limits, response cache, LLM `usage` tokens |
+| 15-17 | Planned | Security hardening, multi-currency statements (16.2 pending), cash flow statement |
 
 ### Web Frontend Status
 | Epic | Status | Key Deliverables |
@@ -242,7 +244,7 @@
 | **CORS `*` with credentials in dev** | Active | Medium | Explicit trusted origins per environment |
 | **Default `SECRET_KEY` in Compose** | Active | Medium | Fail-fast in prod if default detected |
 | **No FIFO/LIFO cost layers** | Accepted | Low | Weighted-average is sufficient for v1 |
-| **No multi-currency GL** | Planned | Medium | Epic 16 |
+| **No multi-currency GL** | Addressed (Epic 20.1–20.2); AR/AP revaluation posts via `post_journal_entry` |
 | **No cash flow statement** | Planned | Low | Epic 17 |
 
 ### Web Frontend Gaps
@@ -258,6 +260,7 @@
 | **Dockerfile multi-stage** | Open | Medium | W-8.1 |
 | **PWA + Dexie offline** | Open | High | W-9 (requires backend Epic 12) |
 | **Notifications client** | Open | Medium | W-10 (in-app center + deep links shipped; FCM wiring pending) |
+| **Phase 3 frontend restructure** | Completed | — | POS overhaul, transfer Kanban, price-less purchasing/product forms, customer performance, marketing charts, and accounting operations workspace |
 
 ### Known Divergences (Plan vs Reality)
 
@@ -269,6 +272,13 @@
 | **D-4** | AI advisory idempotency: client header only | Add Redis/DB idempotency store | Backend |
 | **D-5** | Branch admin fields match model only | Extend model + migration if needed | Backend |
 | **D-6** | Effective permissions client-computed | Optional read-only endpoint | Backend |
+| **D-7** | No `product_variants` model — color/size variants conflated under one product | Epic 18 (Variants & Catalog Restructure) | Backend |
+| **D-8** | Money type system still has `Mapped[float]` in some models — accounting precision risk | Epic 19.1 (Money → Decimal pass) | Backend |
+| **D-9** | Chart of Accounts has no enforced depth limit (spec asks for 5 levels) | Closed via Epic 19.2 posting + tree validation | Backend |
+| **D-10** | Branch chart inheritance is implicit via `branch_id` on journal lines; not surfaced in reports | Closed via Epic 19.7 branch TB/IS/BS + snapshot API + CoA-by-branch | Backend + Web |
+| **D-11** | `subledger_service._d()` accepts `float` — boundary parsing risk | Epic 19.1 (Money type system) | Backend |
+
+See [GAP_REPORT.md](GAP_REPORT.md) for the full numbered gap list (67 findings across 7 modules).
 
 ### System Review Risks (from SYSTEM_REVIEW.md)
 
@@ -315,9 +325,9 @@ Pattern: offline queue with idempotent server reconciliation.
 
 #### Epic 14 — AI Advisory Expansion
 - [x] **14.1-14.4** Purchase reorder, HR anomalies, marketing campaign, invoice-to-catalog matcher.
-- [ ] **14.5** AI usage log and cost tracker.
-- [ ] **14.6** Rate limiting on AI endpoints.
-- [ ] **14.7** Response cache by facts-hash with TTL.
+- [x] **14.5** AI usage log and cost tracker.
+- [x] **14.6** Rate limiting on AI endpoints.
+- [x] **14.7** Response cache by facts-hash with TTL.
 
 #### Epic 15 — Security Hardening
 - [ ] **15.1** CSP / security headers middleware.
@@ -326,11 +336,84 @@ Pattern: offline queue with idempotent server reconciliation.
 - [ ] **15.4** Per-IP adaptive rate limits for authentication.
 
 #### Epic 16 — Multi-Currency Accounting
-- [ ] **16.1** FX revaluation at period close (AR/AP/bank).
+- [x] **16.1** FX revaluation at period close (AR/AP) — implemented as Epic **20.2** (`fx_revaluation_service`, `/accounting/fx-revaluation/*`).
 - [ ] **16.2** Translated income statement and balance sheet.
 
 #### Epic 17 — Cash Flow Statement
 - [ ] **17.1** Indirect cash flow report from GL movements.
+
+#### Epic 18 — Product Variants & Catalog Restructure
+Resolves `D-7`, `GAP-CAT-005..007`, `GAP-INV-007`. Blocking dependency for Epic 19 GL accuracy on multi-variant items.
+
+- [x] **18.1** New `product_variants` model: `(id, product_id, sku UNIQUE, barcode, attribute_values JSONB, active, created_at, updated_at)`.
+- [x] **18.2** Phased Alembic migration: add nullable `variant_id` to `stock_movement`, `stock_level`, `branch_product_costs`, `pos_cart_line`, `sales_invoice_line`, `purchase_order_line`, `goods_receipt_line`, `transfer_line`, `sales_return_line`.
+- [x] **18.3** Backfill script [`backfill_product_variants.py`](app/scripts/backfill_product_variants.py): creates one variant per existing product, points all movement rows to it. Idempotent — safe to run multiple times.
+- [x] **18.4** Run backfill script in production; verify counts match (2 variants created for 2 products).
+- [x] **18.5** NOT NULL migration created: [`7e8d9f2a3b4c_make_variant_id_not_null.py`](alembic/versions/7e8d9f2a3b4c_make_variant_id_not_null.py). **Apply with:** `uv run alembic upgrade head`
+- [x] **18.6** Enforce CoA depth = 4 on categories with `_get_category_depth()` validation in `create_category()` and `update_category()` (`GAP-CAT-001..002`).
+- [x] **18.7** Enforce enum/select attribute values server-side in `_validate_product_attributes()` with `select`/`multiselect` type validation (`GAP-CAT-003`).
+- [x] **18.8** Attribute-based product filter API: `filter_products_by_attributes()` service + `POST /catalog/products/filter-by-attributes` endpoint (`GAP-CAT-004`).
+- [x] **18.9** Remove `standard_cost` and `sell_price` from product form (frontend task); pricing via Purchase Invoice / Price List.
+- [x] **18.10** Variant-aware product detail API: `GET /catalog/products/{id}/with-variants` returns product with variants, stock per variant, last cost per variant.
+- [x] **18.11** Variant wiring (Phase 2 Workstream B): session-scoped cache in `resolve_default_variant_id`; POS cart lines keyed by `(product_id, variant_id)`; optional `variant_id` on cart upsert / stock adjustment / PO lines; WAVG `apply_receipt_to_weighted_average` and transfer receive use explicit variant; GL (`post_sales_invoice_gl`, `post_sales_return_gl`, `post_transfer_batch_receive_gl`) uses per-line variant for COGS / inventory at source WAVG.
+
+#### Epic 19 — Accounting Core Hardening
+Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The largest backend epic of Phase 2.
+
+- [x] **19.1** Money → Decimal pass — tighten `subledger_service._d` signature to reject `float`; remove `float(sell_price)` cast in `catalog_service._sync_compat_price`. SQLAlchemy models and Pydantic schemas already use `Decimal`. See commit log for Epic 19.1.
+- [x] **19.2** CoA hardening: enforce 5-level depth, parent/child type consistency, account-id existence/active/postable validation in `post_journal_entry` (`GAP-ACC-001..002, 005..006`).
+- [x] **19.3** Opening balance GL `post_opening_balance_gl` in [`opening_balance_service.py`](app/services/opening_balance_service.py); APIs `POST /accounting/opening-balance`, `.../capital-injection`, `.../initial-inventory` (`GAP-ACC-007`).
+- [x] **19.4** Generic Voucher service [`post_voucher_gl()`](app/services/voucher_service.py) + entity resolution (Customer→AR, Supplier→AP, Cash, Expense) + schemas [`vouchers.py`](app/schemas/vouchers.py). API endpoints and UI forms pending (W-13.2).
+- [x] **19.4b** Phase 2 Workstream C (vouchers & GL hygiene): voucher wrappers forward `idempotency_key` / `user_id`; API passes `expense_account_id` and transfer `from_cash_account_id` / `to_cash_account_id`; `post_journal_entry` persists optional `currency_code` / `transaction_amount` / `fx_rate` on lines; `post_voucher_gl` forwards FX fields; POS expenses use `shift_service.add_cash_event`, resolved expense account, no service-level commit; inventory adjustment GL routes shortage/damaged/count_loss and gain via new nullable settings FKs; FX revaluation loss account chain uses `default_other_expenses_account_id` (no invalid `default_other_income` default).
+- [x] **19.5** AP payment GL `post_ap_payment_gl` symmetric to AR (`GAP-ACC-009`).
+- [x] **19.6** Inventory adjustment GL `post_inventory_adjustment_gl` driven by WAVG/FIFO (`GAP-INV-005`, `GAP-ACC-010`).
+- [x] **19.7** Branch-aware reports — surface roll-up/roll-down by branch in trial balance, income statement, balance sheet (`D-10`).
+- [x] **19.7a** CoA tree annotated with branch balances: `GET /accounting/chart-accounts/by-branch/{branch_id}` (partial `D-10` surfacing).
+- [x] **19.8** Soft-close fiscal period state machine: `open → soft_closed → closed` (and `soft_closed → open`); `ensure_period_open` blocks normal GL in `soft_closed`; journal reversals use `allow_in_soft_close` (`GAP-ACC-013`).
+- [x] **19.9** Chart of Accounts admin backend: tree editor API (`/accounting/chart-accounts/tree`), CRUD endpoints, drag-drop move support, depth/type validation (`GAP-ACC-003`).
+- [x] **19.10** Frontend AP/AR drawers / accounting operations workspace (frontend task); backend GL posting confirmed working via `voucher_service.py`.
+
+#### Epic 20 — Multi-Currency, Production Orders, FIFO
+- [x] **20.1** Multi-currency journal lines: add `currency_code`, `transaction_amount`, `fx_rate` columns (`GAP-ACC-012`).
+- [x] **20.2** FX revaluation service at period close — revalue open AR, AP, bank balances; post Dr/Cr FX Gain/Loss (`GAP-ACC-011`, supersedes original Epic 16.1).
+- [ ] **20.3** Bill of Materials + Production Orders module (`GAP-ACC-014`):
+  - `bill_of_materials(id, finished_variant_id, revision, name, status, ...)`
+  - `bom_component(id, bom_id, component_variant_id, qty_per, scrap_pct, seq)`
+  - `production_order(id, bom_id, branch_id, qty, status, posted_at, ...)`
+  - Cost rollup: Σ(component_qty × current_cost) → finished `unit_cost`.
+  - GL: Dr WIP / Cr Inventory at issue; Dr Finished / Cr WIP at completion.
+- [x] **20.3a** BoM REST CRUD: `POST/GET/PATCH/DELETE /production/boms`, `POST .../boms/{id}/lines` ([`bom_service.py`](app/services/bom_service.py), [`production_orders.py`](app/api/v1/production_orders.py)); WIP GL uses `default_wip_account_id` when set.
+- [x] **20.4** FIFO cost layers (`GAP-INV-006`): `inventory_cost_layers` + `inventory_valuation_policy` in settings; GR creates layers when policy=`fifo`; POS COGS consumes FIFO layers when policy=`fifo`; WAVG path unchanged.
+
+#### Epic 21 — POS Data & Workflow Hardening
+Resolves all `GAP-POS-*` data/contract gaps. Frontend POS overhaul lives in Epic W-11.
+
+- [x] **21.1** `pos_carts.daily_cart_number` column + per-branch-per-day sequence in `create_cart` (`GAP-POS-018..019`).
+- [x] **21.2** Validate `shift_id` belongs to terminal and is open in `create_cart` (`GAP-POS-007`).
+- [x] **21.3** Record `PosCashEvent` of type `sale` on every cash tender (`GAP-POS-006`).
+- [x] **21.4** `pos_expenses` table + API + GL posting (Dr Other Expenses / Cr Cash) for shift expenses (`GAP-POS-016`).
+- [x] **21.5** `PATCH /pos/carts/{id}` to set `customer_id` for receivables tracking (`GAP-POS-022`).
+- [x] **21.6** New tender method `transfer` + clearing-account routing in `post_sales_invoice_gl` (`GAP-POS-015`).
+- [x] **21.7** Parked carts listing endpoint `GET /pos/carts?status=parked&terminal_id=...` (`GAP-POS-003`).
+- [x] **21.8** Cart line delete endpoint (or accept `qty=0`) to support minus-at-qty-1 removal (`GAP-POS-013`).
+- [x] **21.9** Loyalty purchase accrual in `finalize_paid_cart` via `loyalty_dsl_service` (category slugs + weekend flag) (`GAP-CRM-004`).
+
+#### Epic 22 — CRM Performance & Loyalty DSL
+Resolves `GAP-CRM-001..003`.
+
+- [x] **22.1** `customer_performance` API: AOV, top products, basket trend, LTV, last visit, total spend, debt (open AR), exchanges (90d) via `exchange_links`.
+- [x] **22.2** `/crm/customers/:id/performance` page mirroring HR employee performance UX.
+- [ ] **22.3** Loyalty rule DSL: add `rule_config JSONB` + evaluator with `when`/`then` shape; UI rule builder.
+
+#### Epic 23 — AI Hardening (supersedes 14.5–14.7)
+Resolves `GAP-AI-001..009`.
+
+- [x] **23.1** `ai_usage_log` table; persist endpoint, model, tokens, estimated cost from LLM `usage` payload.
+- [x] **23.2** Apply `slowapi` rate limit to all AI advisory routes.
+- [x] **23.3** Response cache by hash of input `facts` with TTL.
+- [x] **23.4** Drill-down UX: marketing/customer insight cards expose underlying metrics and action detail in manager-friendly panels.
+- [x] **23.5** HR anomalies "last month" preset + default.
+- [x] **23.6** Marketing analytics page: Recharts visualizations replacing count-card-only view.
 
 ### Web Frontend Plan (Epics W-5.1, W-6 to W-10)
 
@@ -371,6 +454,33 @@ Pattern: offline queue with idempotent server reconciliation.
 - [ ] **W-10.1** Firebase web SDK wiring (FCM only, no Firestore).
 - [ ] **W-10.2** Device token registration on login; revocation on logout.
 - [x] **W-10.3** In-app notification center.
+
+#### Epic W-11 — POS Screen Overhaul
+Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
+
+- [x] **W-11.1** Nest POS routes under `AdminLayout` (shared sidebar) — `GAP-POS-001`.
+- [x] **W-11.2** Top bar: branch name, live clock, employee name, logout, real parked-invoices modal, today's sales button — `GAP-POS-002..004`.
+- [x] **W-11.3** Auto-navigate from `ShiftGate` to `/pos/register` on shift open — `GAP-POS-005`.
+- [x] **W-11.4** Product grid (right column): virtualized/search grid, double-click +1, minus removes line at qty=1 — `GAP-POS-009..013`.
+- [x] **W-11.5** Control rail (middle column): split payment methods vs cash/transfer payment buttons, discount code field with role gating — `GAP-POS-014..017`.
+- [x] **W-11.6** Cart panel (left column): daily cart number, return-mode toggle with `data-mode="return"` color shift, exchange wiring, customer picker functional — `GAP-POS-018..022`.
+- [x] **W-11.7** Branch label surfaced in the POS topbar and payment receipt context — `GAP-POS-008`.
+
+#### Epic W-12 — Inventory / Purchasing UX Restructure
+- [x] **W-12.1** Transfers 3-column Kanban (Delivery Requests / In Transit / Delivered) — `GAP-INV-001`.
+- [x] **W-12.2** Role-gated dispatch/receive buttons (sender manager vs receiver manager) — `GAP-INV-002`.
+- [x] **W-12.3** Pre-transfer availability check feedback in the request form — `GAP-INV-003`.
+- [x] **W-12.4** Price-less Purchase Order form (no `unit_cost` field) — `GAP-PUR-001`.
+- [x] **W-12.5** Purchase Invoice page that converts a confirmed PO into a priced invoice with variants — `GAP-PUR-002`.
+
+#### Epic W-13 — Accounting UI Overhaul (Odoo/Manager.io style)
+- [x] **W-13.1** Chart of Accounts admin tree editor — `GAP-ACC-003`.
+- [x] **W-13.2** Generic Voucher (receipt / payment) wizard — `GAP-ACC-008`.
+- [x] **W-13.3** Opening Balance screen — `GAP-ACC-007`.
+- [x] **W-13.4** FX Revaluation runs screen — `GAP-ACC-011`.
+- [x] **W-13.5** Inventory adjustment posting impact display — `GAP-ACC-010`.
+- [x] **W-13.6** Fiscal period soft-close UI — `GAP-ACC-013`, `GAP-ACC-016`.
+- [x] **W-13.7** Production Orders (BoM) UI — `GAP-ACC-014`.
 
 ### Flutter/Mobile Plan (Epics M-1 to M-5)
 

@@ -173,16 +173,22 @@ def _deterministic_anomalies(logs: list[dict]) -> list[HrAnomaly]:
     return out
 
 
-async def detect_hr_anomalies(db: AsyncSession, *, payload: HrAnomalyRequest) -> HrAnomalyResponse:
+async def detect_hr_anomalies(
+    db: AsyncSession, *, payload: HrAnomalyRequest
+) -> tuple[HrAnomalyResponse, dict[str, int] | None]:
+    # Epic 23.5: Support presets for lookback period
+    lookback_days = payload.get_lookback_days()
+
     logs = await _load_attendance(
         db,
-        lookback_days=payload.lookback_days,
+        lookback_days=lookback_days,
         branch_id=payload.branch_id,
         employee_ids=payload.employee_ids,
     )
 
     facts = {
-        "lookback_days": payload.lookback_days,
+        "preset": payload.preset,
+        "lookback_days": lookback_days,
         "log_count": len(logs),
         "logs_sample": logs[:200],
         "generated_at": datetime.now(UTC).isoformat(),
@@ -192,9 +198,10 @@ async def detect_hr_anomalies(db: AsyncSession, *, payload: HrAnomalyRequest) ->
 
     model_name = "deterministic_fallback"
     anomalies = deterministic
+    llm_usage: dict[str, int] | None = None
     if settings.OPENAI_API_KEY and deterministic:
         try:
-            envelope = await call_llm_json(
+            envelope, llm_usage = await call_llm_json(
                 system_prompt=_SYSTEM_PROMPT,
                 user_payload={
                     "request": payload.model_dump(),
@@ -215,10 +222,14 @@ async def detect_hr_anomalies(db: AsyncSession, *, payload: HrAnomalyRequest) ->
                 model_name = settings.OPENAI_MODEL
         except ExternalServiceError:
             anomalies = deterministic
+            llm_usage = None
 
-    return HrAnomalyResponse(
-        model=model_name,
-        generated_at=datetime.now(UTC),
-        facts_used=facts,
-        anomalies=anomalies,
+    return (
+        HrAnomalyResponse(
+            model=model_name,
+            generated_at=datetime.now(UTC),
+            facts_used=facts,
+            anomalies=anomalies,
+        ),
+        llm_usage,
     )

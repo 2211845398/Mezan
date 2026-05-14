@@ -1,6 +1,8 @@
 """ORM models package."""
 
 from app.models.accounting_settings import AccountingSettings
+from app.models.ai_usage_log import AIUsageLog
+from app.models.bom import BillOfMaterials, BomLine, ProductionOrder, ProductionOrderIssue, ProductionOrderReceipt
 from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
@@ -21,6 +23,7 @@ from app.models.employee_profile import EmployeeProfile
 from app.models.example import Example
 from app.models.fiscal_period import FiscalPeriod
 from app.models.global_config import GlobalConfig
+from app.models.inventory_cost_layer import InventoryCostLayer
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.inventory_policy import InventoryPolicy
@@ -41,13 +44,15 @@ from app.models.notifications import (
 from app.models.password_reset_token import PasswordResetToken
 from app.models.payslip import Payslip, PayslipStatus
 from app.models.permission import Permission
-from app.models.pos_cart import PosCart, PosCartDiscount, PosCartEvent, PosCartLine
+from app.models.pos_cart import CartDaySequence, PosCart, PosCartDiscount, PosCartEvent, PosCartLine
+from app.models.pos_expense import PosExpense
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
 from app.models.price_list import PriceList, PriceListBranch, PriceListLine
 from app.models.product import Product
 from app.models.product_category import ProductCategory
+from app.models.product_variant import ProductVariant
 from app.models.product_price import ProductPrice
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
@@ -70,6 +75,7 @@ from app.models.weekly_schedule import WeeklySchedule
 __all__ = [
     "AccountingSettings",
     "AccountType",
+    "AIUsageLog",
     "ApOpenItem",
     "ApPaymentApplication",
     "ArOpenItem",
@@ -78,6 +84,8 @@ __all__ = [
     "AttendanceLog",
     "AttendancePayrollPolicy",
     "AttendancePolicyCategory",
+    "BillOfMaterials",
+    "BomLine",
     "Branch",
     "BranchSequence",
     "BranchProductCost",
@@ -111,12 +119,15 @@ __all__ = [
     "Payslip",
     "PayslipStatus",
     "GlobalConfig",
+    "InventoryCostLayer",
     "InvoiceScan",
     "JournalEntry",
     "JournalEntryLine",
     "PasswordResetToken",
     "Permission",
     "POSTerminal",
+    "CartDaySequence",
+    "PosExpense",
     "PosCart",
     "PosCartDiscount",
     "PosCartEvent",
@@ -130,6 +141,9 @@ __all__ = [
     "PosCashEvent",
     "PosShift",
     "ZReport",
+    "ProductionOrder",
+    "ProductionOrderIssue",
+    "ProductionOrderReceipt",
     "RefreshToken",
     "Role",
     "RolePermission",
@@ -143,6 +157,7 @@ __all__ = [
     "Product",
     "ProductCategory",
     "ProductPrice",
+    "ProductVariant",
     "PurchaseOrder",
     "PurchaseOrderLine",
     "StockLevel",

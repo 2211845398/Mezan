@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Select, type SelectOption } from '@/components/shared/form/Select';
@@ -16,6 +16,7 @@ import { usePosTerminalStore } from '../stores/posTerminalStore';
 
 export default function ShiftGate() {
   const { t } = useTranslation('pos');
+  const navigate = useNavigate();
   const branchId = useAuthStore((s) => s.activeBranchId);
   const canReadShift = usePermission('pos_shifts', 'read');
   const canOpen = usePermission('pos_shifts', 'open');
@@ -50,6 +51,7 @@ export default function ShiftGate() {
         opening_float: openingFloat || '0',
       });
       notify.success(t('gate.shift_open'));
+      navigate('/pos/register');
     } catch (e) {
       notify.error(e instanceof Error ? e.message : String(e));
     }

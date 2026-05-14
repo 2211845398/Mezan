@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Decimal from 'decimal.js';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
@@ -27,12 +26,9 @@ import {
   sendPurchaseOrder,
   trackPurchaseOrder,
 } from '../../api';
+import { aggregateReceivedQtyByPoLine } from '../../lib/aggregateReceivedQtyByPoLine';
 import { goodsReceiptsQueryOptions, purchaseOrderQueryOptions, purchasingKeys } from '../../queries';
-import GoodsReceiptForm, { aggregateReceivedQtyByPoLine } from '../receipts/GoodsReceiptForm';
-
-function lineTotal(unit: string, qty: number): string {
-  return new Decimal(unit || 0).mul(qty).toFixed(2);
-}
+import GoodsReceiptForm from '../receipts/GoodsReceiptForm';
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -199,8 +195,6 @@ export default function OrderDetail() {
               <TableHead>{t('orders.form.qty')}</TableHead>
               <TableHead>{t('orders.detail_page.received_col')}</TableHead>
               <TableHead>{t('orders.detail_page.remaining')}</TableHead>
-              <TableHead>{t('orders.form.unit_cost')}</TableHead>
-              <TableHead>{t('orders.form.line_total')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -214,8 +208,6 @@ export default function OrderDetail() {
                   <TableCell>{ln.qty}</TableCell>
                   <TableCell>{got}</TableCell>
                   <TableCell>{rem}</TableCell>
-                  <TableCell>{ln.unit_cost}</TableCell>
-                  <TableCell>{lineTotal(String(ln.unit_cost), ln.qty)}</TableCell>
                 </TableRow>
               );
             })}
@@ -224,7 +216,10 @@ export default function OrderDetail() {
       </section>
 
       <section>
-        <h2 className="mb-2 font-medium">{t('orders.detail_page.receipts')}</h2>
+        <h2 className="mb-2 font-medium">فواتير الشراء / سندات الاستلام المسعرة</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          أمر الشراء يبقى بدون أسعار. عند الاستلام يتم إدخال تكلفة كل بند هنا لتحديث المخزون والتكلفة.
+        </p>
         {receipts.length === 0 ? (
           <p className="text-sm text-muted-foreground">—</p>
         ) : (

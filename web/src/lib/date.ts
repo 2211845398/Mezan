@@ -1,7 +1,9 @@
 import {
   addDays,
   differenceInCalendarDays,
+  endOfMonth,
   format as dfFormat,
+  getDate,
   parseISO as dfParseISO,
 } from 'date-fns';
 import type { Locale } from 'date-fns/locale';
@@ -22,6 +24,12 @@ export function now(): Date {
 /** UTC `YYYY-MM-DD` for API query params (matches backend calendar-day filtering). */
 export function utcCalendarDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+/** Last calendar day (1–31) for a month in the local calendar (used for `YYYY-MM-DD` period ends). */
+export function lastCalendarDayOfMonth(year: number, month1Based: number): number {
+  const first = dfParseISO(`${year}-${String(month1Based).padStart(2, '0')}-01`);
+  return getDate(endOfMonth(first));
 }
 
 /** Serialize an instant as ISO-8601 UTC (e.g. for JSON metadata). */

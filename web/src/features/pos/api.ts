@@ -139,6 +139,22 @@ export async function changeCartState(cartId: number, body: CartStateBody): Prom
   return data;
 }
 
+export async function listCarts(params?: {
+  status?: 'parked' | 'active' | 'checkout_locked' | 'paid' | 'cancelled';
+  terminal_id?: number;
+  branch_id?: number;
+}): Promise<CartRead[]> {
+  const { data } = await apiClient.get<CartRead[]>('/pos/carts', { params });
+  return data;
+}
+
+export async function updateCartCustomer(cartId: number, customerId: number | null): Promise<CartRead> {
+  const { data } = await apiClient.patch<CartRead>(`/pos/carts/${cartId}`, {
+    customer_id: customerId,
+  });
+  return data;
+}
+
 export async function createPaymentIntent(body: PaymentIntentBody): Promise<PaymentIntentRead> {
   const { data } = await apiClient.post<PaymentIntentRead>('/pos/payments/intents', body);
   return data;

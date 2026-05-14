@@ -17,8 +17,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
 import { createCategory } from '../api';
-import { CategoryImageUploadField } from './CategoryImageUploadField';
 import { catalogKeys } from '../queries';
+import { CategoryImageUploadField } from './CategoryImageUploadField';
 
 type CategoryCreateDialogProps = {
   open: boolean;

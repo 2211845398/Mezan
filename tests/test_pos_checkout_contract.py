@@ -15,6 +15,7 @@ from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.users import User
 from app.services import invoice_service, payment_service
 from app.services.seed_service import seed_accounting_defaults
@@ -61,6 +62,14 @@ async def test_payment_intent_rejected_when_cart_not_locked(db_session, monkeypa
     )
     db_session.add_all([product, terminal])
     await db_session.flush()
+    pv = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv)
+    await db_session.flush()
     cart = PosCart(
         terminal_id=terminal.id,
         branch_id=branch.id,
@@ -77,6 +86,7 @@ async def test_payment_intent_rejected_when_cart_not_locked(db_session, monkeypa
         PosCartLine(
             cart_id=cart.id,
             product_id=product.id,
+            variant_id=pv.id,
             qty=1,
             unit_price=Decimal("10.00"),
             line_total=Decimal("10.00"),
@@ -136,6 +146,14 @@ async def test_finalize_rejected_when_cart_not_locked(db_session, monkeypatch) -
     )
     db_session.add_all([product, terminal])
     await db_session.flush()
+    pv_fin = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv_fin)
+    await db_session.flush()
     cart = PosCart(
         terminal_id=terminal.id,
         branch_id=branch.id,
@@ -152,6 +170,7 @@ async def test_finalize_rejected_when_cart_not_locked(db_session, monkeypatch) -
         PosCartLine(
             cart_id=cart.id,
             product_id=product.id,
+            variant_id=pv_fin.id,
             qty=1,
             unit_price=Decimal("5.00"),
             line_total=Decimal("5.00"),
@@ -358,6 +377,14 @@ async def test_payment_intent_rejects_non_base_currency_without_fx_rate(db_sessi
     )
     db_session.add_all([product, terminal])
     await db_session.flush()
+    pv_fxm = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv_fxm)
+    await db_session.flush()
     db_session.add(
         Currency(
             code="GBP",
@@ -385,6 +412,7 @@ async def test_payment_intent_rejects_non_base_currency_without_fx_rate(db_sessi
         PosCartLine(
             cart_id=cart.id,
             product_id=product.id,
+            variant_id=pv_fxm.id,
             qty=1,
             unit_price=Decimal("10.00"),
             line_total=Decimal("10.00"),
@@ -440,6 +468,14 @@ async def test_payment_intent_snapshots_exchange_rate_for_non_base(db_session) -
     )
     db_session.add_all([product, terminal])
     await db_session.flush()
+    pv_fxs = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv_fxs)
+    await db_session.flush()
     db_session.add(
         Currency(
             code="EUR",
@@ -467,6 +503,7 @@ async def test_payment_intent_snapshots_exchange_rate_for_non_base(db_session) -
         PosCartLine(
             cart_id=cart.id,
             product_id=product.id,
+            variant_id=pv_fxs.id,
             qty=1,
             unit_price=Decimal("10.00"),
             line_total=Decimal("10.00"),

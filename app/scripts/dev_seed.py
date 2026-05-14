@@ -32,6 +32,7 @@ from app.models.category import Category
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.product_price import ProductPrice
+from app.models.product_variant import ProductVariant
 from app.models.role import Role
 from app.models.stock_level import StockLevel
 from app.models.user_role import UserRole
@@ -281,12 +282,27 @@ async def _ensure_products_prices_stock_terminals(
             )
             await db.flush()
 
+        res_pv = await db.execute(
+            select(ProductVariant).where(ProductVariant.product_id == product.id).limit(1)
+        )
+        pv = res_pv.scalar_one_or_none()
+        if pv is None:
+            pv = ProductVariant(
+                product_id=product.id,
+                sku=f"{product.sku}-DEFAULT",
+                attribute_values={},
+                active=True,
+            )
+            db.add(pv)
+            await db.flush()
+
         for code, branch in branch_by_code.items():
             on_hand = stock_map.get(code, 0)
             res_s = await db.execute(
                 select(StockLevel).where(
                     StockLevel.branch_id == branch.id,
                     StockLevel.product_id == product.id,
+                    StockLevel.variant_id == pv.id,
                 )
             )
             sl = res_s.scalar_one_or_none()
@@ -295,6 +311,7 @@ async def _ensure_products_prices_stock_terminals(
                     StockLevel(
                         branch_id=branch.id,
                         product_id=product.id,
+                        variant_id=pv.id,
                         on_hand=on_hand,
                         reserved=0,
                         damaged=0,

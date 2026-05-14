@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/format';
 
@@ -23,19 +24,39 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
           {formatCurrency(Number.parseFloat(line.unit_price), currency)} × {line.qty}
         </div>
       </div>
-      <div className="w-24">
+      <div className="grid w-28 grid-cols-[2rem_1fr_2rem] overflow-hidden rounded-md border">
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-11 rounded-none px-0"
+          disabled={!editable}
+          onClick={() => onQtyChange(line.product_id, Math.max(0, Number(line.qty) - 1))}
+          aria-label="decrease"
+        >
+          -
+        </Button>
         <Input
           type="number"
-          min={1}
-          className="min-h-11"
+          min={0}
+          className="min-h-11 rounded-none border-y-0 px-1 text-center"
           value={line.qty}
           disabled={!editable}
           aria-label={t('register.qty')}
           onChange={(e) => {
             const n = Number.parseInt(e.target.value, 10);
-            if (Number.isFinite(n) && n >= 1) onQtyChange(line.product_id, n);
+            if (Number.isFinite(n) && n >= 0) onQtyChange(line.product_id, n);
           }}
         />
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-11 rounded-none px-0"
+          disabled={!editable}
+          onClick={() => onQtyChange(line.product_id, Number(line.qty) + 1)}
+          aria-label="increase"
+        >
+          +
+        </Button>
       </div>
       <div className="w-28 text-end font-medium" dir="ltr">
         {formatCurrency(Number.parseFloat(line.line_total), currency)}

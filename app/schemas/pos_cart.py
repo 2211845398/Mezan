@@ -16,7 +16,8 @@ class CartCreateRequest(BaseModel):
 
 class CartLineUpsertRequest(BaseModel):
     product_id: int
-    qty: int = Field(gt=0)
+    variant_id: int | None = None
+    qty: int = Field(ge=0)  # 0 removes the line for this product+variant (Epic 21.8)
 
 
 class CartDiscountRequest(BaseModel):
@@ -31,6 +32,7 @@ class CartStateRequest(BaseModel):
 class CartLineRead(BaseModel):
     id: int
     product_id: int
+    variant_id: int
     product_name: str
     product_sku: str
     barcode: str | None = None

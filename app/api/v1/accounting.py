@@ -16,6 +16,7 @@ from app.schemas.accounting import (
     ApOpenItemCreate,
     ArOpenItemCreate,
     BalanceSheetRead,
+    BranchFinancialSnapshotRead,
     ChartAccountRead,
     FiscalPeriodRead,
     FiscalPeriodStatusUpdate,
@@ -33,6 +34,13 @@ from app.schemas.accounting import (
     PaymentApplicationRead,
     TrialBalanceRow,
 )
+from app.schemas.opening_balance import (
+    CapitalInjectionCreate,
+    InitialInventoryCreate,
+    OpeningBalanceCreate,
+    OpeningBalanceLineIn,
+    OpeningBalancePostResult,
+)
 from app.services import audit_service
 from app.services.accounting_governance_service import (
     list_periods,
@@ -40,19 +48,24 @@ from app.services.accounting_governance_service import (
     set_period_status,
 )
 from app.services.accounting_service import get_journal_by_idempotency, post_journal_entry
+from app.services.branch_reporting_service import branch_financial_snapshot
 from app.services.financial_reports_service import (
     balance_sheet,
+    general_ledger_lines as gl_lines_svc,
     income_statement,
     trial_balance,
-)
-from app.services.financial_reports_service import (
-    general_ledger_lines as gl_lines_svc,
 )
 from app.services.journal_inquiry_service import (
     JournalEntryDetail,
     get_journal_entry_detail,
     list_chart_accounts,
     list_journal_entries,
+)
+from app.services.opening_balance_service import (
+    OpeningBalanceLine,
+    post_capital_injection,
+    post_initial_inventory,
+    post_opening_balance_gl,
 )
 from app.services.subledger_service import (
     apply_ap_payment,
@@ -66,6 +79,24 @@ from app.services.subledger_service import (
 )
 
 router = APIRouter()
+
+
+def _opening_line_to_service(ln: OpeningBalanceLineIn) -> OpeningBalanceLine:
+    if ln.debit > 0:
+        return OpeningBalanceLine(
+            account_id=ln.account_id,
+            amount=ln.debit,
+            line_type="debit",
+            memo=(ln.memo or "").strip(),
+            branch_id=ln.branch_id,
+        )
+    return OpeningBalanceLine(
+        account_id=ln.account_id,
+        amount=ln.credit,
+        line_type="credit",
+        memo=(ln.memo or "").strip(),
+        branch_id=ln.branch_id,
+    )
 
 
 @router.get("/accounting/trial-balance", response_model=list[TrialBalanceRow])
@@ -121,6 +152,39 @@ async def balance_sheet_endpoint(
     return BalanceSheetRead.model_validate(data)
 
 
+@router.get(
+    "/accounting/reports/branches/{branch_id}/financial-snapshot",
+    response_model=BranchFinancialSnapshotRead,
+)
+async def branch_financial_snapshot_endpoint(
+    branch_id: int,
+    as_of: date = Query(...),
+    period_start: date | None = Query(default=None),
+    period_end: date | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> BranchFinancialSnapshotRead:
+    if (period_start is None) ^ (period_end is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide both period_start and period_end, or omit both",
+        )
+    if period_start is not None and period_end is not None and period_end < period_start:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="period_end must be on or after period_start",
+        )
+    data = await branch_financial_snapshot(
+        db,
+        branch_id=branch_id,
+        as_of=as_of,
+        period_start=period_start,
+        period_end=period_end,
+    )
+    return BranchFinancialSnapshotRead.model_validate(data)
+
+
 @router.get("/accounting/fiscal-periods", response_model=list[FiscalPeriodRead])
 async def list_fiscal_periods_endpoint(
     db: AsyncSession = Depends(get_db),
@@ -157,6 +221,119 @@ async def update_fiscal_period_status_endpoint(
     )
     await db.commit()
     return FiscalPeriodRead.model_validate(row)
+
+
+@router.post(
+    "/accounting/opening-balance",
+    response_model=OpeningBalancePostResult,
+    status_code=status.HTTP_201_CREATED,
+)
+async def post_opening_balance_endpoint(
+    body: OpeningBalanceCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("accounting", "create"),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> OpeningBalancePostResult:
+    ikey = (idempotency_key or "").strip() or None
+    lines_gl = [_opening_line_to_service(ln) for ln in body.lines]
+    result = await post_opening_balance_gl(
+        db,
+        entry_date=body.entry_date,
+        description=body.description,
+        lines=lines_gl,
+        reference=body.reference,
+        default_branch_id=body.branch_id,
+        idempotency_key=ikey,
+    )
+    await audit_service.log(
+        session=db,
+        action="opening_balance.posted",
+        resource_type="journal_entry",
+        resource_id=str(result.get("journal_entry_id") or ""),
+        new_value=result,
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return OpeningBalancePostResult.model_validate(result)
+
+
+@router.post(
+    "/accounting/opening-balance/capital-injection",
+    response_model=OpeningBalancePostResult,
+    status_code=status.HTTP_201_CREATED,
+)
+async def post_capital_injection_endpoint(
+    body: CapitalInjectionCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("accounting", "create"),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> OpeningBalancePostResult:
+    ikey = (idempotency_key or "").strip() or None
+    result = await post_capital_injection(
+        db,
+        entry_date=body.entry_date,
+        cash_amount=body.cash_amount,
+        equity_account_id=body.equity_account_id,
+        description=body.description,
+        reference=body.reference,
+        branch_id=body.branch_id,
+        cash_account_id=body.cash_account_id,
+        idempotency_key=ikey,
+    )
+    await audit_service.log(
+        session=db,
+        action="opening_balance.capital_injection",
+        resource_type="journal_entry",
+        resource_id=str(result.get("journal_entry_id") or ""),
+        new_value=result,
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return OpeningBalancePostResult.model_validate(result)
+
+
+@router.post(
+    "/accounting/opening-balance/initial-inventory",
+    response_model=OpeningBalancePostResult,
+    status_code=status.HTTP_201_CREATED,
+)
+async def post_initial_inventory_endpoint(
+    body: InitialInventoryCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("accounting", "create"),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> OpeningBalancePostResult:
+    ikey = (idempotency_key or "").strip() or None
+    result = await post_initial_inventory(
+        db,
+        entry_date=body.entry_date,
+        inventory_amount=body.inventory_amount,
+        source_account_id=body.source_account_id,
+        description=body.description,
+        reference=body.reference,
+        branch_id=body.branch_id,
+        inventory_account_id=body.inventory_account_id,
+        idempotency_key=ikey,
+    )
+    await audit_service.log(
+        session=db,
+        action="opening_balance.initial_inventory",
+        resource_type="journal_entry",
+        resource_id=str(result.get("journal_entry_id") or ""),
+        new_value=result,
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return OpeningBalancePostResult.model_validate(result)
 
 
 @router.post(

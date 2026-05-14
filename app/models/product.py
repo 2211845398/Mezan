@@ -53,3 +53,9 @@ class Product(Base):
         back_populates="product",
         cascade="all, delete-orphan",
     )
+    variants = relationship(
+        "ProductVariant",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )

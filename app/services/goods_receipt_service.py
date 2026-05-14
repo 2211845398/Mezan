@@ -19,6 +19,7 @@ from app.models.stock_level import StockLevel
 from app.models.suppliers import Supplier
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.document_posting_service import post_goods_receipt_gl
+from app.services.fifo_valuation_service import create_cost_layer, get_valuation_policy
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
 
@@ -155,19 +156,27 @@ async def receive_goods_for_purchase_order(
     db.add(receipt)
     await db.flush()
 
+    valuation_pol = await get_valuation_policy(db)
+
     for i, (pol_id, qty, unit_cost, pol) in enumerate(receipt_lines_payload):
+        line_variant_id = pol.variant_id
         db.add(
             GoodsReceiptLine(
                 goods_receipt_id=receipt.id,
                 purchase_order_line_id=pol_id,
                 product_id=pol.product_id,
+                variant_id=line_variant_id,
                 qty=qty,
                 unit_cost=unit_cost,
             )
         )
         sl_res = await db.execute(
             select(StockLevel.on_hand).where(
-                and_(StockLevel.branch_id == branch_id, StockLevel.product_id == pol.product_id)
+                and_(
+                    StockLevel.branch_id == branch_id,
+                    StockLevel.product_id == pol.product_id,
+                    StockLevel.variant_id == line_variant_id,
+                )
             )
         )
         qty_on_hand_before = int(sl_res.scalar_one_or_none() or 0)
@@ -180,6 +189,7 @@ async def receive_goods_for_purchase_order(
             reason="goods_receipt",
             ref_type="goods_receipt",
             ref_id=str(receipt.id),
+            variant_id=line_variant_id,
         )
         await apply_receipt_to_weighted_average(
             db,
@@ -188,7 +198,19 @@ async def receive_goods_for_purchase_order(
             qty_in=qty,
             unit_cost=unit_cost,
             qty_on_hand_before=qty_on_hand_before,
+            variant_id=line_variant_id,
         )
+        if valuation_pol == "fifo":
+            await create_cost_layer(
+                db,
+                branch_id=branch_id,
+                product_id=pol.product_id,
+                variant_id=line_variant_id,
+                source_type="goods_receipt",
+                source_id=f"{receipt.id}:{i}",
+                qty=Decimal(qty),
+                unit_cost=unit_cost,
+            )
 
     await post_goods_receipt_gl(db, receipt=receipt)
     await db.commit()

@@ -31,6 +31,8 @@ export const accountingKeys = {
   apOpen: (p: { branch_id?: number; status?: string }) =>
     [...accountingKeys.root, 'ap', p] as const,
   fiscal: () => [...accountingKeys.root, 'fiscal'] as const,
+  chartAccountsTree: () => [...accountingKeys.root, 'chart-accounts', 'tree'] as const,
+  boms: () => [...accountingKeys.root, 'boms'] as const,
 };
 
 export function journalListQueryOptions(args: {

@@ -14,6 +14,7 @@ from app.core.errors import ConflictError, NotFoundError, StateTransitionError, 
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
+from app.services.catalog_service import resolve_default_variant_id
 
 TERMINAL_STATUSES = frozenset({"closed", "cancelled"})
 
@@ -64,7 +65,10 @@ async def create_po(
     product_ids = {ln["product_id"] for ln in lines}
     await _ensure_products_exist(db, product_ids)
     for ln in lines:
-        db.add(PurchaseOrderLine(purchase_order_id=po.id, **ln))
+        row = dict(ln)
+        if row.get("variant_id") is None:
+            row["variant_id"] = await resolve_default_variant_id(db, product_id=row["product_id"])
+        db.add(PurchaseOrderLine(purchase_order_id=po.id, **row))
 
     try:
         await db.commit()
@@ -114,7 +118,10 @@ async def update_po(db: AsyncSession, *, po_id: int, data: dict[str, Any]) -> Pu
         po.lines.clear()
         await db.flush()
         for ln in lines:
-            po.lines.append(PurchaseOrderLine(**ln))
+            row = dict(ln)
+            if row.get("variant_id") is None:
+                row["variant_id"] = await resolve_default_variant_id(db, product_id=row["product_id"])
+            po.lines.append(PurchaseOrderLine(**row))
 
     await db.commit()
     return await _get_po(db, po.id)

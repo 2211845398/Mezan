@@ -9,8 +9,8 @@ import { RequirePermission } from '@/routes/guards';
 import { server } from '@/test/msw/server';
 import { renderWithProviders, screen, userEvent } from '@/test/utils';
 
+import { aggregateReceivedQtyByPoLine } from '../lib/aggregateReceivedQtyByPoLine';
 import type { GoodsReceiptRead } from '../api';
-import { aggregateReceivedQtyByPoLine } from '../pages/receipts/GoodsReceiptForm';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string) || '/api/v1';
 

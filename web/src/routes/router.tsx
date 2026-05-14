@@ -3,7 +3,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import AdminLayoutOutlet from '@/components/layout/AdminLayoutOutlet';
 import AuthLayoutOutlet from '@/components/layout/AuthLayoutOutlet';
-import PosLayout from '@/components/layout/PosLayout';
 
 import { RequireAuth, RequireBranchContext, RequireOrgNotificationManager, RequirePermission } from './guards';
 import RouteErrorBoundary from './RouteErrorBoundary';
@@ -113,6 +112,7 @@ const AccountingApOpenItems = lazy(() => import('@/features/accounting/pages/ap/
 const AccountingFiscalPeriodsList = lazy(
   () => import('@/features/accounting/pages/fiscal-periods/FiscalPeriodsList'),
 );
+const AccountingOperations = lazy(() => import('@/features/accounting/pages/operations/AccountingOperations'));
 
 const CrmCustomersList = lazy(() => import('@/features/crm/pages/customers/CustomersList'));
 const CrmCustomerForm = lazy(() => import('@/features/crm/pages/customers/CustomerForm'));
@@ -175,58 +175,6 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Authenticated POS runs in its own layout (Plan §4.2)
-  {
-    element: <RequireAuth />,
-    errorElement: <RouteErrorBoundary />,
-    children: [
-      {
-        path: 'pos',
-        element: (
-          <RequireBranchContext>
-            <Suspense fallback={<RouteLoader />}>
-              <PosLayout />
-            </Suspense>
-          </RequireBranchContext>
-        ),
-        children: [
-          {
-            index: true,
-            element: (
-              <RequirePermission resource="pos_shifts" action="read">
-                {withSuspense(ShiftGatePage)}
-              </RequirePermission>
-            ),
-          },
-          {
-            path: 'register',
-            element: (
-              <RequirePermission resource="pos_carts" action="update">
-                {withSuspense(PosRegisterPage)}
-              </RequirePermission>
-            ),
-          },
-          {
-            path: 'close',
-            element: (
-              <RequirePermission resource="pos_shifts" action="close">
-                {withSuspense(ShiftClosePage)}
-              </RequirePermission>
-            ),
-          },
-          {
-            path: 'invoices',
-            element: (
-              <RequirePermission resource="sales_invoices" action="read">
-                {withSuspense(InvoiceLookupPage)}
-              </RequirePermission>
-            ),
-          },
-        ],
-      },
-    ],
-  },
-
   // Branch-picker stub (used by RequireBranchContext)
   {
     path: '/select-branch',
@@ -264,6 +212,53 @@ export const router = createBrowserRouter([
           {
             path: '/dashboard',
             element: withSuspense(DashboardPage),
+          },
+
+          // POS
+          {
+            path: '/pos',
+            children: [
+              {
+                index: true,
+                element: (
+                  <RequireBranchContext>
+                    <RequirePermission resource="pos_shifts" action="read">
+                      {withSuspense(ShiftGatePage)}
+                    </RequirePermission>
+                  </RequireBranchContext>
+                ),
+              },
+              {
+                path: 'register',
+                element: (
+                  <RequireBranchContext>
+                    <RequirePermission resource="pos_carts" action="update">
+                      {withSuspense(PosRegisterPage)}
+                    </RequirePermission>
+                  </RequireBranchContext>
+                ),
+              },
+              {
+                path: 'close',
+                element: (
+                  <RequireBranchContext>
+                    <RequirePermission resource="pos_shifts" action="close">
+                      {withSuspense(ShiftClosePage)}
+                    </RequirePermission>
+                  </RequireBranchContext>
+                ),
+              },
+              {
+                path: 'invoices',
+                element: (
+                  <RequireBranchContext>
+                    <RequirePermission resource="sales_invoices" action="read">
+                      {withSuspense(InvoiceLookupPage)}
+                    </RequirePermission>
+                  </RequireBranchContext>
+                ),
+              },
+            ],
           },
 
           // Catalog
@@ -813,6 +808,14 @@ export const router = createBrowserRouter([
                 element: (
                   <RequirePermission resource="accounting" action="update">
                     {withSuspense(AccountingFiscalPeriodsList)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'operations',
+                element: (
+                  <RequirePermission resource="accounting" action="create">
+                    {withSuspense(AccountingOperations)}
                   </RequirePermission>
                 ),
               },
