@@ -101,57 +101,59 @@ export default function CategoriesTree() {
       <PageHeader
         title={t('categories.title')}
         actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Switch id="show-hidden" checked={showHidden} onCheckedChange={setShowHidden} />
-              <Label htmlFor="show-hidden" className="text-sm font-normal">
-                {t('categories.show_hidden')}
-              </Label>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
             {canCreate ? (
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
-                  {t('actions.refresh')}
-                </Button>
-                <Button type="button" onClick={openCreateFromHeader}>
-                  <Plus className="me-1 size-4" />
-                  {currentParentId == null ? t('categories.add_root') : t('categories.child')}
-                </Button>
-              </div>
+              <Button type="button" onClick={openCreateFromHeader}>
+                <Plus className="me-1 size-4" />
+                {currentParentId == null ? t('categories.add_root') : t('categories.child')}
+              </Button>
             ) : null}
+            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+              {t('actions.refresh')}
+            </Button>
           </div>
         }
       />
       <p className="text-sm text-muted-foreground">{t('categories.browse_lead')}</p>
 
-      <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-1 text-sm">
-        {breadcrumbs.map((crumb, idx) => (
-          <span key={crumb.id ?? 'root'} className="flex items-center gap-1">
-            {idx > 0 ? <ChevronRight className="size-4 text-muted-foreground" aria-hidden /> : null}
-            <button
-              type="button"
-              className={cn(
-                'rounded-md px-2 py-1 font-medium transition-colors hover:bg-muted',
-                idx === breadcrumbs.length - 1 ? 'text-foreground' : 'text-muted-foreground',
-              )}
-              onClick={() => goToCrumb(idx)}
-            >
-              {crumb.name}
-            </button>
-          </span>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav aria-label="breadcrumb" className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm">
+          {breadcrumbs.map((crumb, idx) => (
+            <span key={crumb.id ?? 'root'} className="flex items-center gap-1">
+              {idx > 0 ? <ChevronRight className="size-4 text-muted-foreground" aria-hidden /> : null}
+              <button
+                type="button"
+                className={cn(
+                  'rounded-md px-2 py-1 font-medium transition-colors hover:bg-muted',
+                  idx === breadcrumbs.length - 1 ? 'text-foreground' : 'text-muted-foreground',
+                )}
+                onClick={() => goToCrumb(idx)}
+              >
+                {crumb.name}
+              </button>
+            </span>
+          ))}
+        </nav>
+        <div className="flex shrink-0 items-center gap-2">
+          <Switch id="show-hidden" checked={showHidden} onCheckedChange={setShowHidden} />
+          <Label htmlFor="show-hidden" className="shrink-0 text-sm font-normal whitespace-nowrap">
+            {t('categories.show_hidden')}
+          </Label>
+        </div>
+      </div>
 
       {isLoading ? <p className="text-sm text-muted-foreground">{t('loading')}</p> : null}
 
       {!isLoading && currentChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-muted/20 p-8 text-center">
-          <p className="text-sm text-muted-foreground">{t('categories.browse_empty')}</p>
+          <p className="text-sm text-muted-foreground">
+            {currentParentId == null ? t('categories.browse_empty_root') : t('categories.browse_empty')}
+          </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {canCreate ? (
               <Button type="button" variant="outline" size="sm" className="h-8" onClick={openCreateFromHeader}>
                 <Plus className="me-1 size-3" />
-                {t('categories.child')}
+                {currentParentId == null ? t('categories.add_root') : t('categories.child')}
               </Button>
             ) : null}
             {currentParentId != null ? (

@@ -287,10 +287,12 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="supplier_name">{t('orders.form.supplier_name')}</Label>
-          <Input id="supplier_name" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
-        </div>
+        {!supplierId ? (
+          <div className="grid gap-2">
+            <Label htmlFor="supplier_name">{t('orders.form.supplier_name')}</Label>
+            <Input id="supplier_name" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
+          </div>
+        ) : null}
         {supplierCurrencyId != null ? (
           <p className="text-sm text-muted-foreground">
             {t('orders.form.supplier_currency')}: {supplierCurrencyId}
@@ -315,10 +317,6 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
         <div className="grid gap-2">
           <Label>{t('orders.form.expected_date')}</Label>
           <DateField value={expectedDate} onChange={setExpectedDate} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="notes">{t('orders.form.notes')}</Label>
-          <Textarea id="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
         <div className="space-y-2">
@@ -384,9 +382,10 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
           </Button>
         </div>
 
-        <p className="rounded-md border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
-          أمر الشراء يسجل الكميات فقط. الأسعار النهائية تسجل عند تحويله إلى فاتورة شراء أو سند استلام مسعر.
-        </p>
+        <div className="grid gap-2">
+          <Label htmlFor="notes">{t('orders.form.notes')}</Label>
+          <Textarea id="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={() => saveDraft.mutate()} disabled={saveDraft.isPending}>

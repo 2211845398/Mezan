@@ -28,7 +28,7 @@ type CategoryCreateDialogProps = {
 };
 
 export function CategoryCreateDialog({ open, onOpenChange, parentId }: CategoryCreateDialogProps) {
-  const { t } = useTranslation('catalog');
+  const { t, i18n } = useTranslation('catalog');
   const qc = useQueryClient();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -66,7 +66,7 @@ export function CategoryCreateDialog({ open, onOpenChange, parentId }: CategoryC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent dir={i18n.dir()}>
         <DialogHeader>
           <DialogTitle>{t('categories.new')}</DialogTitle>
         </DialogHeader>
@@ -84,12 +84,30 @@ export function CategoryCreateDialog({ open, onOpenChange, parentId }: CategoryC
             onChange={setImageUrl}
             inputId={parentId == null ? 'category-create-root' : `category-create-${parentId}`}
           />
-          <div className="flex items-center justify-between gap-3 rounded-md border p-3">
-            <div>
-              <p className="text-sm font-medium">{t('categories.field.active')}</p>
-              <p className="text-xs text-muted-foreground">{t('categories.field.active_help')}</p>
-            </div>
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
+          <div className="flex items-center gap-2">
+            {i18n.dir() === 'rtl' ? (
+              <>
+                <Switch
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                  aria-labelledby="category-create-active-label"
+                />
+                <span className="shrink-0 text-sm font-medium" id="category-create-active-label">
+                  {isActive ? t('categories.field.active_state_on') : t('categories.field.active_state_off')}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="shrink-0 text-sm font-medium" id="category-create-active-label">
+                  {isActive ? t('categories.field.active_state_on') : t('categories.field.active_state_off')}
+                </span>
+                <Switch
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                  aria-labelledby="category-create-active-label"
+                />
+              </>
+            )}
           </div>
         </div>
         <DialogFooter>

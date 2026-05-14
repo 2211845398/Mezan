@@ -35,7 +35,7 @@ type TabId = 'overview' | 'children' | 'attributes';
 
 export default function CategoryPropertiesPage() {
   const { categoryId: categoryIdParam } = useParams<{ categoryId: string }>();
-  const { t } = useTranslation('catalog');
+  const { t, i18n } = useTranslation('catalog');
   const qc = useQueryClient();
   const canRead = usePermission('catalog', 'read');
   const canUpdate = usePermission('catalog', 'update');
@@ -165,12 +165,32 @@ export default function CategoryPropertiesPage() {
                 disabled={!canUpdate}
                 inputId="category-detail-image"
               />
-              <div className="flex items-center justify-between gap-3 rounded-md border p-3">
-                <div>
-                  <p className="text-sm font-medium">{t('categories.field.active')}</p>
-                  <p className="text-xs text-muted-foreground">{t('categories.field.active_help')}</p>
-                </div>
-                <Switch checked={isActive} onCheckedChange={setIsActive} disabled={!canUpdate} />
+              <div className="flex items-center gap-2">
+                {i18n.dir() === 'rtl' ? (
+                  <>
+                    <Switch
+                      checked={isActive}
+                      onCheckedChange={setIsActive}
+                      disabled={!canUpdate}
+                      aria-labelledby="category-detail-active-label"
+                    />
+                    <span className="shrink-0 text-sm font-medium" id="category-detail-active-label">
+                      {isActive ? t('categories.field.active_state_on') : t('categories.field.active_state_off')}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="shrink-0 text-sm font-medium" id="category-detail-active-label">
+                      {isActive ? t('categories.field.active_state_on') : t('categories.field.active_state_off')}
+                    </span>
+                    <Switch
+                      checked={isActive}
+                      onCheckedChange={setIsActive}
+                      disabled={!canUpdate}
+                      aria-labelledby="category-detail-active-label"
+                    />
+                  </>
+                )}
               </div>
               {canUpdate ? (
                 <Button type="button" onClick={() => void saveMeta.mutate()} disabled={saveMeta.isPending}>

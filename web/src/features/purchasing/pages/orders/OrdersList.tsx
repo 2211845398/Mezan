@@ -6,8 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
-import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -22,12 +20,6 @@ import { usePermission } from '@/hooks/usePermission';
 
 import type { PurchaseOrderRead } from '../../api';
 import { purchaseOrdersQueryOptions } from '../../queries';
-import {
-  PurchasingInvoiceScanUploadButton,
-  PurchasingPendingInvoiceScansSection,
-} from '../../components/PurchasingInvoiceScanIntake';
-
-import OrderForm from './OrderForm';
 
 function poTotal(po: PurchaseOrderRead): string {
   let t = new Decimal(0);
@@ -45,8 +37,6 @@ export default function OrdersList() {
   const canScanCreate = usePermission('invoice_scans', 'create');
   const canScanRead = usePermission('invoice_scans', 'read');
   const [status, setStatus] = useState<string>('');
-  const [newOrderOpen, setNewOrderOpen] = useState(false);
-  const [newOrderFormKey, setNewOrderFormKey] = useState(0);
   const { data: rows = [], isLoading, isError, refetch } = useQuery(
     purchaseOrdersQueryOptions(status || undefined),
   );
@@ -105,17 +95,12 @@ export default function OrdersList() {
         title={t('orders.title')}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {canScanCreate ? <PurchasingInvoiceScanUploadButton /> : null}
             {canCreate ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  setNewOrderFormKey((k) => k + 1);
-                  setNewOrderOpen(true);
-                }}
-              >
-                <Plus className="me-2 size-4" />
-                {t('orders.new')}
+              <Button type="button" asChild>
+                <Link to="/purchasing/orders/new">
+                  <Plus className="me-2 size-4" />
+                  {t('orders.new')}
+                </Link>
               </Button>
             ) : null}
           </div>
@@ -137,7 +122,6 @@ export default function OrdersList() {
           </SelectContent>
         </Select>
       </div>
-      {canScanRead ? <PurchasingPendingInvoiceScansSection /> : null}
       <DataTable
         mode="client"
         columns={columns}
@@ -146,21 +130,6 @@ export default function OrdersList() {
         isError={isError}
         onRetry={() => void refetch()}
       />
-
-      <FloatingFormDialog
-        open={newOrderOpen}
-        onOpenChange={setNewOrderOpen}
-        title={t('orders.new')}
-        maxWidth="3xl"
-      >
-        {newOrderOpen ? (
-          <OrderForm
-            key={newOrderFormKey}
-            variant="dialog"
-            onDismiss={() => setNewOrderOpen(false)}
-          />
-        ) : null}
-      </FloatingFormDialog>
     </div>
   );
 }

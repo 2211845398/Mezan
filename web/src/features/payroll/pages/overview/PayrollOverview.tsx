@@ -51,11 +51,7 @@ function defaultYearMonth(): { year: number; month: number } {
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
-<<<<<<< HEAD
 function payslipStatusLabel(status: string, t: TFunction<'payroll'>): string {
-=======
-function payslipStatusLabel(status: string, t: TFunction): string {
->>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915
   if (status === 'no_payslip') return t('overview.payslip_status.no_payslip');
   if (status === 'draft') return t('overview.payslip_status.draft');
   if (status === 'approved') return t('overview.payslip_status.approved');

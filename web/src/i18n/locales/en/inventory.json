@@ -15,7 +15,7 @@
     "wavg_note": "Unit cost is weighted-average (display only).",
     "po_created": "Created {{count}} draft purchase order(s).",
     "action": {
-      "movement": "New movement",
+      "movement": "Record movement",
       "transfer": "New transfer",
       "create_po_alerts": "Create POs from alerts"
     },

@@ -80,15 +80,9 @@ export default function ProductFormPage() {
   const canUpdate = usePermission('catalog', 'update');
 
   const isNew = /\/products\/new\/?$/.test(location.pathname);
-<<<<<<< HEAD
   const rawProductId = isNew ? null : Number(params.productId);
   const productIdValid =
     !isNew && rawProductId !== null && !Number.isNaN(rawProductId) && rawProductId > 0;
-=======
-  const productId = isNew ? null : Number(params.productId);
-  const productIdValid =
-    !isNew && productId != null && !Number.isNaN(productId) && productId > 0;
->>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915
 
   const formSchema = useMemo(() => buildProductFormSchema(isNew), [isNew]);
 
@@ -284,15 +278,6 @@ export default function ProductFormPage() {
                           </FormItem>
                         )}
                       />
-                      {isNew ? (
-                        <p className="text-muted-foreground text-xs sm:col-span-2">{t('products.sku_auto_hint')}</p>
-                      ) : null}
-                      <div className="rounded-md border border-dashed bg-muted/15 p-3 sm:col-span-2">
-                        <p className="text-sm font-medium">التسعير والتكلفة</p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                          لا يتم إدخال تكلفة المنتج أو سعر البيع هنا. التكلفة تأتي من فاتورة الشراء، وسعر البيع من قوائم الأسعار.
-                        </p>
-                      </div>
                       <div className="rounded-md border border-dashed bg-muted/15 p-3 sm:col-span-2">
                         <p className="text-sm font-medium">{t('products.tax.title')}</p>
                         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('products.tax.future_hint')}</p>
@@ -305,8 +290,26 @@ export default function ProductFormPage() {
                   </SectionCard>
 
                   <SectionCard title={t('products.section.attributes')}>
-                    <AttributeFieldset defs={defs} categoryId={categoryForAttrs} compact />
-                    {!defs?.length ? (
+                    {isNew ? (
+                      <div className="rounded-md border border-dashed bg-muted/15 p-3">
+                        <p className="text-sm font-medium">سمات المتغيرات / القطع</p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          تُحدد قيم هذه السمات (مثل اللون والمقاس) عند استلام البضائع الفعلية ولا تُدخل على مستوى المنتج الأساسي.
+                        </p>
+                        {defs && defs.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {defs.map((d) => (
+                              <span key={d.id} className="rounded-full bg-background px-2.5 py-0.5 text-xs border border-border/60">
+                                {d.label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <AttributeFieldset defs={defs} categoryId={categoryForAttrs} compact />
+                    )}
+                    {!defs?.length && !isNew ? (
                       <p className="text-sm text-muted-foreground">{t('products.attributes_empty')}</p>
                     ) : null}
                   </SectionCard>
@@ -388,14 +391,16 @@ export default function ProductFormPage() {
                           </FormItem>
                         )}
                       />
-                      <div>
-                        <BarcodeRepeater
-                          value={form.watch('barcode') ?? ''}
-                          onChange={(b) => form.setValue('barcode', b)}
-                          {...(!isNew && product ? { onGenerate: () => genBar.mutate(product) } : {})}
-                        />
-                        <p className="mt-1 text-xs text-muted-foreground">{t('barcode.hint')}</p>
-                      </div>
+                      {!isNew ? (
+                        <div>
+                          <BarcodeRepeater
+                            value={form.watch('barcode') ?? ''}
+                            onChange={(b) => form.setValue('barcode', b)}
+                            {...(product ? { onGenerate: () => genBar.mutate(product) } : {})}
+                          />
+                          <p className="mt-1 text-xs text-muted-foreground">{t('barcode.hint')}</p>
+                        </div>
+                      ) : null}
                       <FormField
                         control={form.control}
                         name="isActive"

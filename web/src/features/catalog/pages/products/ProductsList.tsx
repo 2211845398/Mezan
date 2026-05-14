@@ -149,26 +149,6 @@ export default function ProductsList() {
           ),
         },
         {
-          id: 'standard_cost',
-          header: t('products.col.cost'),
-          cell: ({ row }) => {
-            const v = row.original.standard_cost;
-            const d = formatCatalogTableDecimals(v);
-            return d != null ? (
-              <span className="num-latin tabular-nums" dir="ltr">
-                {d}
-              </span>
-            ) : (
-              '—'
-            );
-          },
-        },
-        {
-          id: 'default_price',
-          header: t('products.col.default_price'),
-          cell: ({ row }) => getDisplayPrice(row.original),
-        },
-        {
           id: 'status',
           header: t('products.col.status'),
           cell: ({ row }) => t(`products.status.${row.original.status === 'archived' ? 'archived' : 'active'}`),
@@ -301,6 +281,7 @@ export default function ProductsList() {
       </div>
       <DataTable
         mode="client"
+        showSearch={false}
         columns={columns}
         data={rows}
         isLoading={isLoading}

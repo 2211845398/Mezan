@@ -57,13 +57,10 @@ async def apply_stock_movement_extended(
     reason: str,
     ref_type: str | None = None,
     ref_id: str | None = None,
-<<<<<<< HEAD
+    variant_id: int | None = None,
     movement_kind: str | None = None,
     notes: str | None = None,
     user_id: int | None = None,
-=======
-    variant_id: int | None = None,
->>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915
 ) -> StockMovement:
     if on_hand_delta == 0 and reserved_delta == 0 and damaged_delta == 0:
         raise ValidationError("At least one of on_hand_delta, reserved_delta, damaged_delta must be non-zero")
@@ -140,12 +137,8 @@ async def apply_stock_movement_extended(
                     idempotency_key=idempotency_key,
                     branch_id=branch_id,
                     product_id=product_id,
-<<<<<<< HEAD
-                    qty_delta=on_hand_delta,
-=======
                     variant_id=resolved_variant_id,
-                    qty_delta=qty_delta,
->>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915
+                    qty_delta=on_hand_delta,
                     reason=reason,
                     ref_type=ref_type,
                     ref_id=ref_id,
@@ -186,6 +179,7 @@ async def apply_stock_movement(
     reason: str,
     ref_type: str | None = None,
     ref_id: str | None = None,
+    variant_id: int | None = None,
 ) -> StockMovement:
     if qty_delta == 0:
         raise ValidationError("qty_delta cannot be zero")
@@ -200,6 +194,7 @@ async def apply_stock_movement(
         reason=reason,
         ref_type=ref_type,
         ref_id=ref_id,
+        variant_id=variant_id,
         movement_kind=None,
         notes=None,
         user_id=None,

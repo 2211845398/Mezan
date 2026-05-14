@@ -145,13 +145,11 @@ export default function DiscountForm() {
       <div className="grid gap-1">
         <Label>{t('discounts.col.type')}</Label>
         <Select value={discountType} onValueChange={(v) => setDiscountType(v as typeof discountType)}>
-          <SelectTrigger>
+          <SelectTrigger disabled>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="percentage">{t('discounts.type.percentage')}</SelectItem>
-            <SelectItem value="flat">{t('discounts.type.flat')}</SelectItem>
-            <SelectItem value="bogo">{t('discounts.type.bogo')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -178,6 +176,7 @@ export default function DiscountForm() {
           value={targetProducts}
           onChange={(e) => setTargetProducts(e.target.value)}
         />
+        <p className="text-xs text-muted-foreground">Category-scoped discounts are currently not supported by the backend API.</p>
       </div>
       <div className="grid gap-1">
         <Label>{t('discounts.start')}</Label>

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { FileDrop } from '@/components/shared/FileDrop';
+import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,7 @@ export default function InvoiceScanQueue() {
   const canCreate = usePermission('invoice_scans', 'create');
   const [status, setStatus] = useState<string>(canValidate ? 'needs_review' : 'all');
   const statusParam = status === 'all' ? undefined : status;
+  const [openUpload, setOpenUpload] = useState(false);
 
   const { data: rows = [], isLoading, isError, refetch } = useQuery(
     invoiceScansListQueryOptions({
@@ -68,6 +70,7 @@ export default function InvoiceScanQueue() {
     onSuccess: (s) => {
       void qc.invalidateQueries({ queryKey: invoiceScanKeys.root });
       toast.success(t('detail.reuploaded'));
+      setOpenUpload(false);
       navigate(`/purchasing/invoice-match/${s.id}`);
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
@@ -117,14 +120,32 @@ export default function InvoiceScanQueue() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{t('queue.title')}</h1>
         {canCreate ? (
-          <div className="flex min-w-[200px] max-w-sm flex-1 flex-col gap-1">
-            <span className="text-xs text-muted-foreground">{t('queue.upload_hint')}</span>
-            <FileDrop
-              onFile={(f) => void createScan.mutate(f)}
-              aria-label={t('queue.new_document')}
-              disabled={createScan.isPending}
-            />
-          </div>
+          <>
+            <Button type="button" onClick={() => setOpenUpload(true)}>
+              {t('queue.new_document', 'رفع إيصال / فاتورة')}
+            </Button>
+            <FloatingFormDialog
+              open={openUpload}
+              onOpenChange={setOpenUpload}
+              title={t('queue.new_document', 'رفع إيصال / فاتورة')}
+              maxWidth="lg"
+            >
+              {openUpload ? (
+                <div className="flex min-h-[200px] flex-col gap-3">
+                  <FileDrop
+                    accept="image/*"
+                    onFile={(f) => void createScan.mutate(f)}
+                    disabled={createScan.isPending}
+                    className="min-h-[180px]"
+                  />
+                  {createScan.isPending ? (
+                    <p className="text-center text-sm text-muted-foreground">{t('queue.uploading', 'جارٍ الرفع...')}</p>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground">{t('queue.upload_hint')}</p>
+                </div>
+              ) : null}
+            </FloatingFormDialog>
+          </>
         ) : null}
       </div>
 

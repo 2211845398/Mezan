@@ -7,7 +7,7 @@ export type FloatingFormDialogProps = {
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
 };
 
 export type FloatingFormActionsProps = {

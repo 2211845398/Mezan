@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { CreateButton,PageHeader } from '@/components/shared/PageHeader';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,11 +15,16 @@ import { usePermission } from '@/hooks/usePermission';
 import type { CustomerListItemRead } from '../../api';
 import { customersListQueryOptions } from '../../queries';
 
+import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import CustomerForm from './CustomerForm';
+
 export default function CustomersList() {
   const { t } = useTranslation('crm');
   const [search, setSearch] = useState('');
   const [applied, setApplied] = useState('');
   const [page, setPage] = useState(0);
+  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+  const [formKey, setFormKey] = useState(0);
   const pageSize = 30;
   const canCreate = usePermission('customers', 'create');
   const listArgs = useMemo(() => {
@@ -70,7 +75,17 @@ export default function CustomersList() {
       <PageHeader
         title={t('customers.title')}
         actions={
-          <CreateButton to="/crm/customers/new" label={t('customers.new')} visible={canCreate} />
+          canCreate ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setFormKey((k) => k + 1);
+                setNewCustomerOpen(true);
+              }}
+            >
+              {t('customers.new')}
+            </Button>
+          ) : null
         }
       />
       <div className="flex flex-wrap items-end gap-3">
@@ -92,6 +107,7 @@ export default function CustomersList() {
       <p className="text-sm text-muted-foreground">{t('customers.total', { total })}</p>
       <DataTable
         mode="client"
+        showSearch={false}
         columns={columns}
         data={rows}
         isLoading={isLoading}
@@ -113,6 +129,17 @@ export default function CustomersList() {
           </Button>
         </div>
       ) : null}
+
+      <FloatingFormDialog
+        open={newCustomerOpen}
+        onOpenChange={setNewCustomerOpen}
+        title={t('customers.new')}
+        maxWidth="lg"
+      >
+        {newCustomerOpen ? (
+          <CustomerForm key={formKey} variant="dialog" onDismiss={() => setNewCustomerOpen(false)} />
+        ) : null}
+      </FloatingFormDialog>
     </div>
   );
 }

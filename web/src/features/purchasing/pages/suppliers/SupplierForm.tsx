@@ -13,6 +13,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { chartAccountsQueryOptions } from '@/features/accounting/queries';
 
 import { createSupplier, updateSupplier } from '../../api';
 import { purchasingKeys, supplierQueryOptions } from '../../queries';
@@ -50,10 +58,12 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
     enabled: !isNew && !Number.isNaN(supplierId),
   });
 
+  const { data: accounts = [] } = useQuery(chartAccountsQueryOptions());
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      code: '',
+      code: isNew ? `SUP-${Math.floor(Date.now() / 1000)}` : '',
       name: '',
       currency_id: 1,
       payables_account_id: '',
@@ -139,6 +149,9 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
         <div className="grid gap-2">
           <Label htmlFor="code">{t('suppliers.form.code')}</Label>
           <Input id="code" disabled={!isNew} {...form.register('code')} />
+          {isNew ? (
+            <p className="text-xs text-muted-foreground">Auto-generated fallback. Proper code generation requires backend update.</p>
+          ) : null}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="name">{t('suppliers.form.name')}</Label>
@@ -154,7 +167,22 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
         </div>
         <div className="grid gap-2">
           <Label htmlFor="payment_terms">{t('suppliers.form.payment_terms')}</Label>
-          <Textarea id="payment_terms" rows={2} {...form.register('payment_terms')} />
+          <Select
+            value={form.watch('payment_terms') || '__none'}
+            onValueChange={(v) => form.setValue('payment_terms', v === '__none' ? '' : v, { shouldDirty: true, shouldValidate: true })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none">—</SelectItem>
+              <SelectItem value="Net 0">Net 0 (Due on receipt)</SelectItem>
+              <SelectItem value="Net 15">Net 15</SelectItem>
+              <SelectItem value="Net 30">Net 30</SelectItem>
+              <SelectItem value="Net 45">Net 45</SelectItem>
+              <SelectItem value="Net 60">Net 60</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="contact_phone">{t('suppliers.form.contact_phone')}</Label>
@@ -166,7 +194,22 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
         </div>
         <div className="grid gap-2">
           <Label htmlFor="payables_account_id">{t('suppliers.form.payables_account_id')}</Label>
-          <Input id="payables_account_id" type="number" {...form.register('payables_account_id')} />
+          <Select
+            value={form.watch('payables_account_id') || '__none'}
+            onValueChange={(v) => form.setValue('payables_account_id', v === '__none' ? '' : v, { shouldDirty: true, shouldValidate: true })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none">—</SelectItem>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={String(a.id)}>
+                  {a.code} - {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={save.isPending}>

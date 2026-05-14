@@ -334,6 +334,7 @@ export default function StockOnHand() {
 
       <DataTable
         mode="client"
+        showSearch={false}
         columns={columns}
         data={rows}
         isLoading={isLoading}

@@ -106,10 +106,10 @@ export default function CustomerDetail() {
         })}
       </p>
 
-      <Tabs defaultValue="profile">
+      <Tabs defaultValue="performance">
         <TabsList>
-          <TabsTrigger value="profile">{t('customers.tab_profile')}</TabsTrigger>
           <TabsTrigger value="performance">الأداء</TabsTrigger>
+          <TabsTrigger value="profile">{t('customers.tab_profile')}</TabsTrigger>
           <TabsTrigger value="purchases">{t('customers.tab_purchases')}</TabsTrigger>
           {canReadLoyalty ? (
             <TabsTrigger value="loyalty">{t('customers.tab_loyalty')}</TabsTrigger>

@@ -101,30 +101,15 @@ export function leaveListQueryOptions(params: {
 } = {}) {
   const limit = params.limit ?? 200;
   const keyFilters = {
-    ...(params.status !== undefined ? { status: params.status } : {}),
-    ...(params.employee_profile_id !== undefined
-      ? { employee_profile_id: params.employee_profile_id }
-      : {}),
+    ...(params.status !== undefined && params.status !== '' ? { status: params.status } : {}),
+    ...(params.employee_profile_id !== undefined ? { employee_profile_id: params.employee_profile_id } : {}),
     limit,
   };
   return queryOptions({
-<<<<<<< HEAD
-    queryKey: hrKeys.leaveList({
-      ...(params.status !== undefined && params.status !== '' ? { status: params.status } : {}),
-      ...(params.employee_profile_id !== undefined ? { employee_profile_id: params.employee_profile_id } : {}),
-      limit,
-    }),
-    queryFn: () =>
-      api.listLeaveRequestsGlobal({
-        ...(params.status !== undefined && params.status !== '' ? { status: params.status } : {}),
-        ...(params.employee_profile_id !== undefined ? { employee_profile_id: params.employee_profile_id } : {}),
-        limit,
-=======
     queryKey: hrKeys.leaveList(keyFilters),
     queryFn: () =>
       api.listLeaveRequestsGlobal({
         ...keyFilters,
->>>>>>> e2f16e40c4347e52c0d01e289337a3c8c209c915
         offset: 0,
       }),
   });

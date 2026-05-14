@@ -217,9 +217,6 @@ export default function OrderDetail() {
 
       <section>
         <h2 className="mb-2 font-medium">فواتير الشراء / سندات الاستلام المسعرة</h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          أمر الشراء يبقى بدون أسعار. عند الاستلام يتم إدخال تكلفة كل بند هنا لتحديث المخزون والتكلفة.
-        </p>
         {receipts.length === 0 ? (
           <p className="text-sm text-muted-foreground">—</p>
         ) : (
