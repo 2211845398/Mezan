@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -20,13 +22,15 @@ class SalesReturnRequest(BaseModel):
 class ReturnEligibleLineRead(BaseModel):
     sales_invoice_line_id: int
     product_id: int
+    variant_id: int
     product_name: str
     product_sku: str
+    unit_price: Decimal
     qty_sold: int
     qty_already_returned: int
     qty_remaining: int
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
 
 class SalesInvoiceReturnLookupRead(BaseModel):

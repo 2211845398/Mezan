@@ -73,7 +73,7 @@ export function RegisterCartColumn({
         ) : (
           cart.lines.map((ln) => (
             <CartLineRow
-              key={`${ln.id}-${ln.product_id}`}
+              key={`${ln.id}-${ln.product_id}-${ln.variant_id ?? 0}`}
               line={ln}
               currency={currency}
               editable={!!editable}

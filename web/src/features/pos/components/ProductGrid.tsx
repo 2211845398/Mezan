@@ -56,7 +56,7 @@ const ProductTile = memo(function ProductTile({
           onAddProduct(product.id, 1);
         }, 280);
       }}
-      className="group flex min-h-0 flex-col overflow-hidden rounded-xl border bg-[#fcfbf8] text-start shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
+      className="group flex min-h-0 flex-col overflow-hidden rounded-xl border bg-[#fcfbf8] text-start text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
     >
       <div className="aspect-[3/2] w-full shrink-0 overflow-hidden bg-muted">
         {imgSrc ? (
@@ -72,7 +72,7 @@ const ProductTile = memo(function ProductTile({
           </div>
         )}
       </div>
-      <p className="line-clamp-2 px-2 py-1.5 text-center text-xs font-semibold leading-snug sm:text-sm">
+      <p className="line-clamp-2 px-2 py-1.5 text-center text-xs font-semibold leading-snug text-foreground sm:text-sm">
         {product.name}
       </p>
     </button>

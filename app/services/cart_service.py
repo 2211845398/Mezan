@@ -486,3 +486,91 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
         lines=line_reads,
         discounts=disc_reads,
     )
+
+
+async def deduct_exchange_cart_for_return(
+    db: AsyncSession,
+    *,
+    cart_id: int,
+    deductions: list[tuple[int, int, int]],
+    created_by_user_id: int,
+) -> None:
+    """Subtract returned quantities from a linked exchange cart (same DB session, no commit)."""
+    if not deductions:
+        return
+    c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
+    cart = c_res.scalar_one_or_none()
+    if not cart:
+        raise ValidationError("Exchange cart not found")
+    if cart.status != "active":
+        raise ValidationError("Exchange cart must be active to apply return deductions")
+
+    for product_id, variant_id, deduct_qty in deductions:
+        if deduct_qty <= 0:
+            continue
+        line_res = await db.execute(
+            select(PosCartLine).where(
+                PosCartLine.cart_id == cart_id,
+                PosCartLine.product_id == product_id,
+                PosCartLine.variant_id == variant_id,
+            )
+        )
+        line = line_res.scalar_one_or_none()
+        if not line:
+            raise ValidationError(
+                "Exchange cart is missing a line required for this return",
+                details={"product_id": product_id, "variant_id": variant_id},
+            )
+        if line.qty < deduct_qty:
+            raise ValidationError(
+                "Exchange cart does not contain enough quantity for this return",
+                details={
+                    "product_id": product_id,
+                    "variant_id": variant_id,
+                    "cart_qty": line.qty,
+                    "deduct": deduct_qty,
+                },
+            )
+        new_qty = line.qty - deduct_qty
+        if new_qty <= 0:
+            await db.delete(line)
+            db.add(
+                PosCartEvent(
+                    cart_id=cart.id,
+                    event_type="line_deleted",
+                    payload={
+                        "product_id": product_id,
+                        "variant_id": variant_id,
+                        "reason": "return_exchange",
+                    },
+                    created_by_user_id=created_by_user_id,
+                )
+            )
+        else:
+            line.qty = new_qty
+            unit_price = await get_active_sell_price(db, product_id=product_id)
+            p_res = await db.execute(select(Product).where(Product.id == product_id))
+            product = p_res.scalar_one_or_none()
+            rate = product.output_vat_rate if product and product.output_vat_rate is not None else Decimal("0")
+            if rate < 0:
+                rate = Decimal("0")
+            if rate > Decimal("1"):
+                rate = Decimal("1")
+            line.unit_price = unit_price
+            line.tax_rate = rate
+            line.line_total = q2(unit_price * new_qty)
+            line.line_tax_amount = Decimal("0.00")
+            db.add(
+                PosCartEvent(
+                    cart_id=cart.id,
+                    event_type="line_upserted",
+                    payload={
+                        "product_id": product_id,
+                        "variant_id": variant_id,
+                        "qty": new_qty,
+                        "reason": "return_exchange",
+                    },
+                    created_by_user_id=created_by_user_id,
+                )
+            )
+    await _recalc_totals(db, cart)

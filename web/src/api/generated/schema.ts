@@ -3613,6 +3613,8 @@ export interface components {
         CartLineUpsertRequest: {
             /** Product Id */
             product_id: number;
+            /** Variant Id */
+            variant_id?: number | null;
             /** Qty */
             qty: number;
         };
@@ -6124,10 +6126,14 @@ export interface components {
             sales_invoice_line_id: number;
             /** Product Id */
             product_id: number;
+            /** Variant Id */
+            variant_id: number;
             /** Product Name */
             product_name: string;
             /** Product Sku */
             product_sku: string;
+            /** Unit Price */
+            unit_price: string;
             /** Qty Sold */
             qty_sold: number;
             /** Qty Already Returned */

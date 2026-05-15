@@ -23,6 +23,8 @@ import { ShiftCloseForm } from './ShiftCloseForm';
 
 export type RegisterToolbarProps = {
   onReturnOpen: () => void;
+  /** When set, register is in return-exchange flow for this invoice number (display only). */
+  returnInvoiceNumber?: string | null;
   terminalId: number;
   branchLabel: string;
   currency: string;
@@ -37,6 +39,7 @@ export type RegisterToolbarProps = {
 /** Top toolbar for the register route. */
 export function RegisterToolbar({
   onReturnOpen,
+  returnInvoiceNumber,
   terminalId,
   branchLabel,
   currency,
@@ -84,6 +87,14 @@ export function RegisterToolbar({
         <div className="min-w-0 shrink">
           <p className="text-sm font-semibold leading-tight">{t('shell.title')}</p>
           <p className="text-xs text-muted-foreground">{branchLabel || `Terminal #${terminalId}`}</p>
+          {returnInvoiceNumber ? (
+            <p
+              className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+              dir="ltr"
+            >
+              {t('return.mode_banner', { number: returnInvoiceNumber })}
+            </p>
+          ) : null}
         </div>
         <span
           className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground"
@@ -124,7 +135,7 @@ export function RegisterToolbar({
         <Button
           type="button"
           variant="outline"
-          className="min-h-9 gap-2 border-orange-300 text-orange-700 hover:bg-muted hover:text-orange-800"
+          className="min-h-9 gap-2 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
           onClick={() => onReturnOpen()}
         >
           <RotateCcw className="size-4" aria-hidden />

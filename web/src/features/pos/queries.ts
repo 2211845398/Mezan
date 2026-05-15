@@ -421,6 +421,7 @@ export function useSubmitReturnMutation() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: invoiceKeys.all });
       void qc.invalidateQueries({ queryKey: returnKeys.all });
+      void qc.invalidateQueries({ queryKey: cartKeys.all });
     },
   });
 }

@@ -292,8 +292,10 @@ export const posHandlers = [
         {
           sales_invoice_line_id: 1,
           product_id: 42,
+          variant_id: 1,
           product_name: 'Product 42',
           product_sku: 'SKU-42',
+          unit_price: '10.00',
           qty_sold: 1,
           qty_already_returned: 0,
           qty_remaining: 1,

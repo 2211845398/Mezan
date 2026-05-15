@@ -17,7 +17,7 @@ import { ReceiptModal } from '../components/ReceiptModal';
 import { RegisterCartColumn } from '../components/RegisterCartColumn';
 import { RegisterToolbar } from '../components/RegisterToolbar';
 import { RegisterTotalsColumn } from '../components/RegisterTotalsColumn';
-import { ReturnDrawer } from '../components/ReturnDrawer';
+import { ReturnDrawer, type ReturnExchangeSession } from '../components/ReturnDrawer';
 import { type TenderDone, TenderDrawer } from '../components/TenderDrawer';
 import type { ThermalReceiptModel } from '../print/types';
 import {
@@ -172,7 +172,7 @@ function RegisterSession({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(22rem,2fr)_minmax(17rem,1.55fr)_minmax(0,2.95fr)] xl:grid-rows-1 xl:gap-4 xl:overflow-hidden">
+      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(calc(24rem_-_50px),2.35fr)_minmax(calc(13rem_+_50px),1.32fr)_minmax(0,2.85fr)] xl:grid-rows-1 xl:gap-4 xl:overflow-hidden">
         <RegisterCartColumn
           cart={cart}
           editable={editable}
@@ -292,6 +292,7 @@ export default function PosRegister() {
   const [receiptModel, setReceiptModel] = useState<ThermalReceiptModel | null>(null);
   const [receiptCredit, setReceiptCredit] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [returnExchangeSession, setReturnExchangeSession] = useState<ReturnExchangeSession | null>(null);
   const [cartCreateError, setCartCreateError] = useState<string | null>(null);
   const [cartRetryNonce, setCartRetryNonce] = useState(0);
 
@@ -305,6 +306,10 @@ export default function PosRegister() {
   // Active cart (cached by TanStack Query — no extra network round-trip)
   const { data: activeCart } = useCart(activeCartId);
   const activeCartHasLines = (activeCart?.lines?.length ?? 0) > 0;
+
+  useEffect(() => {
+    setReturnExchangeSession(null);
+  }, [activeCartId]);
 
   useEffect(() => {
     if (!shift?.id || !terminalId) return;
@@ -403,9 +408,17 @@ export default function PosRegister() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 bg-[#f8f7f4] p-3">
+    <div
+      data-return-mode={returnExchangeSession ? 'exchange' : undefined}
+      className={`flex h-full min-h-0 flex-col gap-3 p-3 transition-colors duration-200 ${
+        returnExchangeSession
+          ? 'bg-primary/5 ring-1 ring-primary/15 dark:bg-primary/10 dark:ring-primary/25'
+          : 'bg-[#f8f7f4]'
+      }`}
+    >
       <RegisterToolbar
         onReturnOpen={() => setReturnOpen(true)}
+        returnInvoiceNumber={returnExchangeSession?.invoiceNumber ?? null}
         terminalId={terminalId}
         branchLabel={branchLabel}
         currency={POS_CURRENCY}
@@ -458,6 +471,8 @@ export default function PosRegister() {
         branchLabel={branchLabel}
         currency={POS_CURRENCY}
         exchangeCartId={activeCartId}
+        exchangeSession={returnExchangeSession}
+        onExchangeSessionChange={setReturnExchangeSession}
         onCredit={(model) => {
           setReceiptModel(model);
           setReceiptCredit(true);

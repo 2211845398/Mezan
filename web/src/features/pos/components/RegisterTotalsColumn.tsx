@@ -61,7 +61,7 @@ export function RegisterTotalsColumn({
   const canCancel = cart.status === 'active' || cart.status === 'parked' || cart.status === 'checkout_locked';
 
   return (
-    <aside className="flex min-h-0 w-full min-w-0 flex-col gap-3 overflow-y-auto rounded-xl border bg-card p-3 shadow-sm lg:max-h-full">
+    <aside className="flex min-h-0 w-full min-w-0 flex-col gap-2.5 overflow-y-auto rounded-xl border bg-card p-2.5 shadow-sm lg:max-h-full">
       <CartTotals cart={cart} currency={currency} />
 
       <div className="flex flex-col gap-2">
