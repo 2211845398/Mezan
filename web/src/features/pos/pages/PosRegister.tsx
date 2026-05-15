@@ -4,11 +4,12 @@ import { Link, Navigate } from 'react-router-dom';
 
 import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
+import { useBranch } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 
-import { changeCartState, type PosShiftOpen } from '../api';
+import { changeCartState } from '../api';
 import { CustomerPicker } from '../components/CustomerPicker';
 import { ProductGrid } from '../components/ProductGrid';
 import { ReceiptModal } from '../components/ReceiptModal';
@@ -25,8 +26,6 @@ import {
   useCreateCart,
   useCurrentShift,
   useLockCart,
-  useParkCart,
-  useResumeCart,
   useUpdateCartCustomer,
   useUpdateLineQty,
 } from '../queries';
@@ -37,7 +36,6 @@ const POS_CURRENCY = 'USD';
 
 type RegisterSessionProps = {
   cartId: number;
-  shift: PosShiftOpen;
   terminalId: number;
   branchLabel: string;
   onNewSale: () => void;
@@ -47,7 +45,6 @@ type RegisterSessionProps = {
 
 function RegisterSession({
   cartId,
-  shift,
   terminalId,
   branchLabel,
   onNewSale,
@@ -70,8 +67,6 @@ function RegisterSession({
   const addLine = useAddLine(cartId);
   const updateQty = useUpdateLineQty(cartId);
   const applyDisc = useApplyDiscount(cartId);
-  const park = useParkCart(cartId);
-  const resume = useResumeCart(cartId);
   const lock = useLockCart(cartId);
   const updateCustomer = useUpdateCartCustomer(cartId);
 
@@ -100,9 +95,21 @@ function RegisterSession({
   const editable = cart.status === 'active' && canUpdateCart;
   const isLocked = cart.status === 'checkout_locked';
 
+  async function openCheckout() {
+    if (cart.status === 'active' && canUpdateCart) {
+      try {
+        await lock.mutateAsync();
+      } catch (error) {
+        notifyApiError(error);
+        return;
+      }
+    }
+    setTenderOpen(true);
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(18rem,0.92fr)_15rem_minmax(28rem,1.65fr)] xl:grid-rows-1 xl:gap-4 xl:overflow-hidden">
+      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[2fr_1fr_3fr] xl:grid-rows-1 xl:gap-4 xl:overflow-hidden">
         <RegisterCartColumn
           cart={cart}
           editable={editable}
@@ -119,9 +126,6 @@ function RegisterSession({
         <RegisterTotalsColumn
           cart={cart}
           currency={POS_CURRENCY}
-          shift={shift}
-          terminalId={terminalId}
-          cartId={cartId}
           canDiscount={canDiscount}
           canUpdateCart={canUpdateCart}
           canPay={canPay}
@@ -135,13 +139,10 @@ function RegisterSession({
               notifyApiError(error);
             }
           }}
-          onPark={() => park.mutateAsync().catch((error) => notifyApiError(error))}
-          onResume={() => resume.mutateAsync().catch((error) => notifyApiError(error))}
-          onLock={() => lock.mutateAsync().catch((error) => notifyApiError(error))}
-          onCheckout={() => setTenderOpen(true)}
+          onCheckout={() => void openCheckout()}
           onNewSale={onNewSale}
         />
-        <div className="flex min-h-0 flex-col gap-3">
+        <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <CustomerPicker
             value={(cart as typeof cart & { customer_id?: number | null }).customer_id ?? null}
             disabled={!editable}
@@ -171,14 +172,22 @@ function RegisterSession({
 
 export default function PosRegister() {
   const { t } = useTranslation('pos');
-  const branchId = useAuthStore((s) => s.activeBranchId) ?? 0;
-  const branchLabel = branchId ? `Branch #${branchId}` : '';
+  const { t: tc } = useTranslation('common');
+  const activeBranchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
+  const { data: activeBranch } = useBranch(activeBranchId ?? 0, {
+    enabled: activeBranchId != null && activeBranchId > 0,
+  });
+  const branchLabel =
+    activeBranch?.name?.trim() ||
+    (activeBranchId != null ? tc('layout.branch_context', { id: activeBranchId }) : '');
 
   const { activeTerminalId: terminalId } = usePosTerminalStore();
   const { data: shift, isError: shiftError, isLoading: shiftLoading } = useCurrentShift(terminalId);
   const { activeCartId, setActiveCartId } = usePosRegisterStore();
 
   const createCartMut = useCreateCart();
+  const createCartMutRef = useRef(createCartMut);
+  createCartMutRef.current = createCartMut;
   const creatingCartRef = useRef(false);
 
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -196,7 +205,7 @@ export default function PosRegister() {
     creatingCartRef.current = true;
     void (async () => {
       try {
-        const c = await createCartMut.mutateAsync({
+        const c = await createCartMutRef.current.mutateAsync({
           terminal_id: terminalId,
           shift_id: shift.id,
           customer_id: null,
@@ -219,7 +228,6 @@ export default function PosRegister() {
     activeCartId,
     cartCreateError,
     cartRetryNonce,
-    createCartMut,
     setActiveCartId,
   ]);
 
@@ -291,7 +299,6 @@ export default function PosRegister() {
         {activeCartId && shift ? (
           <RegisterSession
             cartId={activeCartId}
-            shift={shift}
             terminalId={terminalId}
             branchLabel={branchLabel}
             onNewSale={resetCartAndRetry}

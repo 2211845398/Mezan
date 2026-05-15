@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getHealth } from '@/api/health';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   useBackupStatus,
@@ -14,6 +13,7 @@ import {
 } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
 
+import { healthDashboardQueryOptions } from '../../queries';
 import { RoleDashboardShell } from './RoleDashboardShell';
 
 export default function ItAdminDashboard() {
@@ -24,11 +24,7 @@ export default function ItAdminDashboard() {
   const canBackups = usePermission('backups', 'read');
   const canNotif = usePermission('notifications', 'read');
 
-  const health = useQuery({
-    queryKey: ['health', 'dashboard'],
-    queryFn: getHealth,
-    staleTime: 60_000,
-  });
+  const health = useQuery(healthDashboardQueryOptions());
 
   const users = useUsersList({ enabled: canUsers });
   const roles = useRoles({ enabled: canRoles });

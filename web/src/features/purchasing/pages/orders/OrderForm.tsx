@@ -6,7 +6,6 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { cn } from '@/lib/utils';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +24,7 @@ import { listProducts } from '@/features/catalog/api';
 import { catalogKeys } from '@/features/catalog/queries';
 import { fromISO, toISOStringUtc } from '@/lib/date';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { cn } from '@/lib/utils';
 
 import {
   createPurchaseOrder,

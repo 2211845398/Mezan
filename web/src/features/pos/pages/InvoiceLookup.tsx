@@ -80,9 +80,6 @@ export default function InvoiceLookup() {
     <div className="flex h-full flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="outline" size="sm">
-          <Link to="/pos">{t('shell.nav_gate')}</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
           <Link to="/pos/register">{t('shell.nav_register')}</Link>
         </Button>
       </div>

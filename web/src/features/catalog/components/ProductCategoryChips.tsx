@@ -28,5 +28,7 @@ export function ProductCategoryChips({ product, nameById, className }: ProductCa
     labels.push(String(nameById.get(id) ?? id));
   }
 
-  return <TableCategoryTags tags={labels} title={fullListTitle} className={className} />;
+  return (
+    <TableCategoryTags tags={labels} title={fullListTitle} className={className ?? ''} />
+  );
 }

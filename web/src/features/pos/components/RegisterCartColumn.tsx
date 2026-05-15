@@ -28,41 +28,51 @@ export function RegisterCartColumn({
 }: RegisterCartColumnProps) {
   const { t } = useTranslation('pos');
   const online = useOnline();
+  const shiftCartNumber = cart.daily_cart_number ?? cart.id;
+  const statusLabel = t(`register.status_${cart.status}`, { defaultValue: cart.status });
 
   return (
     <div
       className={cn(
-        'flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:min-h-[12rem]',
+        'flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:min-h-[12rem]',
         returnMode && 'border-rose-300 bg-rose-50/70 dark:bg-rose-950/20',
       )}
       data-mode={returnMode ? 'return' : 'sale'}
     >
-      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-        <div>
+      <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
+        <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <ShoppingCart className="size-4" aria-hidden />
             {t('register.cart')}
           </h2>
-          <p className="text-xs text-muted-foreground">
-            {t('register.cart_hint')} · #{(cart as CartRead & { daily_cart_number?: number }).daily_cart_number ?? cart.id}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border bg-muted/30 px-2.5 py-1 text-muted-foreground">
+              {t('register.cart_unique_number', { id: cart.id })}
+            </span>
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+              {t('register.status')}: {statusLabel}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-            {cart.lines?.length ?? 0}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <span
+            className="flex size-9 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-sm font-bold text-primary"
+            title={t('register.shift_cart_number')}
+          >
+            {shiftCartNumber}
           </span>
           {onReturnModeChange ? (
             <button
               type="button"
               className={cn(
-                'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
                 returnMode
                   ? 'border-rose-300 bg-rose-100 text-rose-800'
-                  : 'border-border bg-background text-muted-foreground hover:bg-muted',
+                  : 'border-orange-300 bg-background text-orange-800 hover:bg-muted',
               )}
               onClick={() => onReturnModeChange(!returnMode)}
             >
-              {returnMode ? 'وضع الإرجاع' : 'بيع عادي'}
+              {returnMode ? t('register.leave_return_mode') : t('return.title')}
             </button>
           ) : null}
         </div>

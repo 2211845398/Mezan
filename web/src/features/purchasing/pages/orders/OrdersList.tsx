@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -34,8 +35,6 @@ const STATUSES = ['draft', 'sent', 'tracked', 'closed', 'cancelled'] as const;
 export default function OrdersList() {
   const { t } = useTranslation('purchasing');
   const canCreate = usePermission('purchase_orders', 'create');
-  const canScanCreate = usePermission('invoice_scans', 'create');
-  const canScanRead = usePermission('invoice_scans', 'read');
   const [status, setStatus] = useState<string>('');
   const { data: rows = [], isLoading, isError, refetch } = useQuery(
     purchaseOrdersQueryOptions(status || undefined),

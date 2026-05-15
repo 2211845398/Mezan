@@ -1,10 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, ChevronRight, Clock, Filter, RefreshCw, Truck } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import { PageHeader } from '@/components/shared/PageHeader';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,9 +19,6 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { DataTable } from '@/components/shared/DataTable';
-import { defineColumns } from '@/components/shared/DataTable/columns';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,11 +35,11 @@ import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
-import type { TransferRead } from '../../types';
 import { useTransfersListQuery } from '../../queries';
+import type { TransferRead } from '../../types';
 import TransferForm from './TransferForm';
 
-const BOARD_STATUSES = ['pending_dispatch', 'in_transit', 'received'] as const;
+type TransferBoardColumnStatus = 'pending_dispatch' | 'in_transit' | 'received';
 
 function totalQty(t: TransferRead): number {
   return (t.lines ?? []).reduce((a, l) => a + l.qty, 0);
@@ -60,7 +61,7 @@ function createdDateKey(iso: string): string {
 }
 
 type ColumnDef = {
-  status: (typeof BOARD_STATUSES)[number];
+  status: TransferBoardColumnStatus;
   titleKey: string;
   icon: typeof Clock;
   headerClass: string;
@@ -91,7 +92,7 @@ const COLUMNS: ColumnDef[] = [
   },
 ];
 
-function TransferBoardCard({ t, row }: { t: (k: string, o?: object) => string; row: TransferRead }) {
+function TransferBoardCard({ t, row }: { t: TFunction; row: TransferRead }) {
   const from = branchLabel(row, 'from');
   const to = branchLabel(row, 'to');
   const n = lineCount(row);
@@ -166,17 +167,18 @@ export default function TransfersList() {
   }, [rows, search, dateFrom, dateTo, fromBranchId, toBranchId]);
 
   const byStatus = useMemo(() => {
-    const map: Record<string, TransferRead[]> = {
+    const map: Record<TransferBoardColumnStatus, TransferRead[]> = {
       pending_dispatch: [],
       in_transit: [],
       received: [],
     };
     for (const r of filtered) {
-      if (map[r.status] != null) {
-        map[r.status].push(r);
+      const st = r.status;
+      if (st === 'pending_dispatch' || st === 'in_transit' || st === 'received') {
+        map[st].push(r);
       }
     }
-    for (const k of Object.keys(map)) {
+    for (const k of Object.keys(map) as TransferBoardColumnStatus[]) {
       map[k].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     }
     return map;

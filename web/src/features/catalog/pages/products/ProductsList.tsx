@@ -31,12 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { usePermission } from '@/hooks/usePermission';
 
-import {
-  getDisplayPrice,
-  postArchiveProduct,
-  postUnarchiveProduct,
-  type ProductRead,
-} from '../../api';
+import { postArchiveProduct, postUnarchiveProduct, type ProductRead } from '../../api';
 import { ProductCategoryChips } from '../../components/ProductCategoryChips';
 import { catalogKeys, useCategoryTreeQuery, useProductListQuery } from '../../queries';
 

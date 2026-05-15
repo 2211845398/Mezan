@@ -20,8 +20,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 import { previewQuietPanelClassName } from '@/lib/uiSurface';
+import { cn } from '@/lib/utils';
 
 import { BranchIdsMultiPicker } from '../../components/BranchIdsMultiPicker';
 import { RoleCodesMultiPicker } from '../../components/RoleCodesMultiPicker';

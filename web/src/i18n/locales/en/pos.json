@@ -7,7 +7,7 @@
     "offline": "Offline",
     "pending_sync": "Pending sync operations: {{count}}",
     "nav_gate": "Shift",
-    "nav_register": "Register",
+    "nav_register": "Point of sale",
     "nav_close": "Close shift",
     "nav_invoices": "Invoices",
     "change_terminal": "Change terminal"
@@ -35,6 +35,13 @@
     "retry_cart": "Retry",
     "new_cart": "New cart",
     "status": "Status",
+    "status_active": "Active",
+    "status_parked": "Parked",
+    "status_checkout_locked": "Locked for payment",
+    "status_paid": "Paid",
+    "status_cancelled": "Cancelled",
+    "cart_unique_number": "Cart #{{id}}",
+    "shift_cart_number": "Shift cart number",
     "subtotal": "Subtotal",
     "discount": "Discount",
     "tax": "Tax",
@@ -56,7 +63,10 @@
     "products_empty": "Search for a product to add it to the cart",
     "products_empty_hint": "Use the search field above to find products by name, SKU, or barcode.",
     "total_panel": "Total and payment",
-    "total_panel_hint": "Review the cart, then lock it before tender"
+    "total_panel_hint": "Review the cart, then lock it before tender",
+    "end_shift": "End shift",
+    "todays_sales": "Today's sales",
+    "leave_return_mode": "Back to sale"
   },
   "pending": {
     "title": "Pending invoices",
@@ -107,7 +117,7 @@
   },
   "close": {
     "title": "Close shift",
-    "declared": "Declared cash",
+    "declared": "Cash in drawer",
     "submit": "Close",
     "done": "Shift closed"
   },

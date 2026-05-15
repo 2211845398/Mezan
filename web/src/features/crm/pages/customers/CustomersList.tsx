@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +15,6 @@ import { usePermission } from '@/hooks/usePermission';
 
 import type { CustomerListItemRead } from '../../api';
 import { customersListQueryOptions } from '../../queries';
-
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import CustomerForm from './CustomerForm';
 
 export default function CustomersList() {

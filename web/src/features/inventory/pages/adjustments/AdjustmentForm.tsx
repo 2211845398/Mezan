@@ -66,7 +66,7 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
         branch_id: Number(branchId),
         product_id: productId,
         transaction_type: txn,
-        notes: notes.trim() || undefined,
+        notes: notes.trim() || '',
         reason: reasonSent,
       };
       if (txn === 'count_adjust') {

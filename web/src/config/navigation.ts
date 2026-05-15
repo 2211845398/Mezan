@@ -7,7 +7,6 @@ import {
   Bell,
   BookOpen,
   Boxes,
-  Brain,
   Building2,
   Calculator,
   CalendarCheck,

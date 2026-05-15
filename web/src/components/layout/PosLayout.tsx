@@ -1,4 +1,4 @@
-import { Clock3, Menu, ReceiptText } from 'lucide-react';
+import { Menu, ReceiptText } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router-dom';
@@ -45,16 +45,9 @@ export default function PosLayout() {
             className="flex items-center gap-1 rounded-lg bg-background"
             aria-label={t('shell.nav_label')}
           >
-            <NavLink to="/pos" end className={navClass}>
-              <Clock3 className="size-4" aria-hidden />
-              {t('shell.nav_gate')}
-            </NavLink>
             <NavLink to="/pos/register" className={navClass}>
               <ReceiptText className="size-4" aria-hidden />
               {t('shell.nav_register')}
-            </NavLink>
-            <NavLink to="/pos/close" className={navClass}>
-              {t('shell.nav_close')}
             </NavLink>
             <NavLink to="/pos/invoices" className={navClass}>
               {t('shell.nav_invoices')}

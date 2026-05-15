@@ -13,7 +13,6 @@ import { usePermission } from '@/hooks/usePermission';
 
 import type { SupplierRead } from '../../api';
 import { suppliersQueryOptions } from '../../queries';
-
 import SupplierForm from './SupplierForm';
 
 export default function SuppliersList() {

@@ -7,7 +7,7 @@
     "offline": "غير متصل",
     "pending_sync": "عمليات بانتظار المزامنة: {{count}}",
     "nav_gate": "الوردية",
-    "nav_register": "الكاشير",
+    "nav_register": "نقطة البيع",
     "nav_close": "إغلاق الوردية",
     "nav_invoices": "الفواتير",
     "change_terminal": "تغيير الطرفية"
@@ -35,6 +35,13 @@
     "retry_cart": "إعادة المحاولة",
     "new_cart": "سلة جديدة",
     "status": "الحالة",
+    "status_active": "نشطة",
+    "status_parked": "معلقة",
+    "status_checkout_locked": "مؤمنة للدفع",
+    "status_paid": "مدفوعة",
+    "status_cancelled": "ملغاة",
+    "cart_unique_number": "رقم السلة #{{id}}",
+    "shift_cart_number": "رقم السلة في الوردية",
     "subtotal": "المجموع قبل الضريبة",
     "discount": "الخصم",
     "tax": "الضريبة",
@@ -56,7 +63,10 @@
     "products_empty": "ابدأ بالبحث عن منتج لإضافته إلى السلة",
     "products_empty_hint": "استخدم حقل البحث بالأعلى للبحث بالاسم أو SKU أو الباركود.",
     "total_panel": "الإجمالي والدفع",
-    "total_panel_hint": "راجع السلة ثم أمّنها قبل التحصيل"
+    "total_panel_hint": "راجع السلة ثم أمّنها قبل التحصيل",
+    "end_shift": "إنهاء الوردية",
+    "todays_sales": "مبيعات اليوم",
+    "leave_return_mode": "العودة للبيع"
   },
   "pending": {
     "title": "الفواتير المعلقة",
@@ -107,7 +117,7 @@
   },
   "close": {
     "title": "إغلاق الوردية",
-    "declared": "النقد المصرح",
+    "declared": "النقد في الصندوق",
     "submit": "إغلاق",
     "done": "أُغلقت الوردية"
   },

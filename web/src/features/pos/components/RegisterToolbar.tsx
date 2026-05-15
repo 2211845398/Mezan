@@ -1,7 +1,7 @@
-import { Clock3, ListChecks, LogOut, ReceiptText, RotateCcw } from 'lucide-react';
+import { Clock3, ListChecks, ReceiptText, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import { OfflineBadge } from '@/components/shared/OfflineBadge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import { now } from '@/lib/date';
 import { formatCurrency, formatDateTime } from '@/lib/format';
 
 import { useParkedCarts } from '../queries';
-import { ShortcutsHelp } from './ShortcutsHelp';
+import { ShiftCloseForm } from './ShiftCloseForm';
 
 export type RegisterToolbarProps = {
   onReturnOpen: () => void;
@@ -41,11 +41,10 @@ export function RegisterToolbar({
   onResumeCart,
 }: RegisterToolbarProps) {
   const { t } = useTranslation('pos');
-  const navigate = useNavigate();
   const online = useOnline();
   const user = useAuthStore((s) => s.user);
-  const clearAuth = useAuthStore((s) => s.clear);
   const [pendingOpen, setPendingOpen] = useState(false);
+  const [endShiftOpen, setEndShiftOpen] = useState(false);
   const [clock, setClock] = useState(() => now());
   const parked = useParkedCarts(terminalId);
 
@@ -62,23 +61,43 @@ export function RegisterToolbar({
   }
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm">
+    <div className="flex w-full shrink-0 flex-wrap items-center gap-y-3 rounded-2xl border bg-card px-4 py-3 shadow-sm sm:gap-x-2">
+      {/*
+        One row: mirrors automatically between RTL and LTR (inline-start ↔ physical right in RTL).
+        Group 1 (inline-start): title + branch → clock → today’s sales → pending invoices.
+        Flexible gap, then group 2 (inline-end): offline → user → return → end shift.
+      */}
       <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">{t('shell.title')}</p>
+        <div className="min-w-0 shrink">
+          <p className="text-sm font-semibold leading-tight">{t('shell.title')}</p>
           <p className="text-xs text-muted-foreground">{branchLabel || `Terminal #${terminalId}`}</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground" dir="ltr">
+        <span
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground"
+          dir="ltr"
+        >
           <Clock3 className="size-3.5" aria-hidden />
           {formatDateTime(clock, 'HH:mm:ss')}
         </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <ShortcutsHelp />
+        <Button type="button" variant="outline" className="min-h-9 gap-2" asChild>
+          <Link to="/pos/invoices">
+            <ReceiptText className="size-4" aria-hidden />
+            {t('register.todays_sales')}
+          </Link>
+        </Button>
         <Button type="button" variant="outline" className="min-h-9 gap-2" onClick={() => setPendingOpen(true)}>
           <ListChecks className="size-4" aria-hidden />
           {t('pending.title')}
         </Button>
+      </div>
+
+      <div className="min-h-0 min-w-[1.5rem] flex-1 basis-0 max-sm:hidden" aria-hidden />
+
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-between">
+        <OfflineBadge online={online} />
+        <span className="max-w-[12rem] truncate text-xs text-muted-foreground">
+          {user?.full_name || user?.email}
+        </span>
         <Button
           type="button"
           variant="outline"
@@ -88,28 +107,24 @@ export function RegisterToolbar({
           <RotateCcw className="size-4" aria-hidden />
           {t('return.title')}
         </Button>
-        <Button type="button" variant="outline" className="min-h-9 gap-2" asChild>
-          <Link to="/pos/invoices">
-            <ReceiptText className="size-4" aria-hidden />
-            مبيعات اليوم
-          </Link>
-        </Button>
-        <OfflineBadge online={online} />
-        <span className="text-xs text-muted-foreground">{user?.full_name || user?.email}</span>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="gap-2"
-          onClick={() => {
-            clearAuth();
-            navigate('/login', { replace: true });
-          }}
+          className="min-h-9 shrink-0 gap-2"
+          onClick={() => setEndShiftOpen(true)}
         >
-          <LogOut className="size-4" aria-hidden />
-          خروج
+          {t('register.end_shift')}
         </Button>
       </div>
+      <Dialog open={endShiftOpen} onOpenChange={setEndShiftOpen}>
+        <DialogContent className="sm:max-w-md" dir="auto">
+          <DialogHeader>
+            <DialogTitle>{t('close.title')}</DialogTitle>
+          </DialogHeader>
+          <ShiftCloseForm onSuccess={() => setEndShiftOpen(false)} />
+        </DialogContent>
+      </Dialog>
       <Dialog open={pendingOpen} onOpenChange={setPendingOpen}>
         <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
           <DialogHeader className="border-b px-6 pt-6 pb-4">

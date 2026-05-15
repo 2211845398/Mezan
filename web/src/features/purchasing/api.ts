@@ -20,8 +20,8 @@ import {
 } from '@/features/invoice_scans/api';
 
 export type {
-  InvoiceScanApplyCatalogMatchesRequest,
   InvoiceMatchResponse,
+  InvoiceScanApplyCatalogMatchesRequest,
   InvoiceScanRead,
 } from '@/features/invoice_scans/api';
 export {

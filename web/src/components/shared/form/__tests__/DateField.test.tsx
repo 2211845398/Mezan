@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DateField } from '@/components/shared/form/DateField';
+import { fromISO } from '@/lib/date';
 import { renderWithProviders, screen, userEvent, waitFor } from '@/test/utils';
 
 function Harness({ initial }: { initial: string }) {
@@ -17,7 +18,7 @@ function Harness({ initial }: { initial: string }) {
 describe('DateField', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-04-10T12:00:00Z'));
+    vi.setSystemTime(fromISO('2026-04-10T12:00:00Z'));
   });
 
   afterEach(() => {

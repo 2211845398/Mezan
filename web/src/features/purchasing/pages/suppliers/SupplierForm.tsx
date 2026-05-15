@@ -8,11 +8,9 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -21,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { chartAccountsQueryOptions } from '@/features/accounting/queries';
+import { cn } from '@/lib/utils';
 
 import { createSupplier, updateSupplier } from '../../api';
 import { purchasingKeys, supplierQueryOptions } from '../../queries';

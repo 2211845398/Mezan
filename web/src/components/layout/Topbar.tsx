@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/sheet';
 import { useFilteredNavigation } from '@/config/navigationFilter';
 import { getTitleKeyForPath } from '@/config/routeTitle';
+import { useBranch } from '@/features/admin/queries';
 import { logout as logoutApi } from '@/features/auth/api';
 import { getRefreshTokenSync, useAuthStore } from '@/features/auth/stores/authStore';
 import { NotificationCenter } from '@/features/notifications/NotificationCenter';
@@ -26,6 +27,10 @@ export function Topbar() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
+  const branchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
+  const { data: branchRow } = useBranch(branchId ?? 0, {
+    enabled: branchId != null && branchId > 0,
+  });
   const visible = useFilteredNavigation();
   const mobileNavOpen = useShellStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useShellStore((s) => s.setMobileNavOpen);
@@ -66,9 +71,9 @@ export function Topbar() {
           </Button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-semibold leading-tight">{t(titleKey)}</h1>
-            {user?.branch_id != null ? (
+            {branchId != null ? (
               <p className="truncate text-xs text-muted-foreground">
-                {t('layout.branch_context', { id: user.branch_id })}
+                {branchRow?.name?.trim() || t('layout.branch_context', { id: branchId })}
               </p>
             ) : null}
           </div>

@@ -3622,6 +3622,8 @@ export interface components {
             terminal_id: number;
             /** Branch Id */
             branch_id: number;
+            /** Daily Cart Number */
+            daily_cart_number?: number | null;
             /** Shift Id */
             shift_id?: number | null;
             /** Customer Id */

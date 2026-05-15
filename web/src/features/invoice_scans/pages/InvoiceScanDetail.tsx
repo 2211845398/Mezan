@@ -37,7 +37,7 @@ import {
   postInvoiceScan,
   postValidateInvoiceScan,
 } from '../api';
-import { invoiceScanKeys, invoiceScanDetailQueryOptions } from '../queries';
+import { invoiceScanDetailQueryOptions,invoiceScanKeys } from '../queries';
 
 type LineMatch = InvoiceMatchResponse['line_matches'][number];
 

@@ -29,9 +29,6 @@ export function CartTotals({ cart, currency }: CartTotalsProps) {
       {row(t('register.tax'), cart.tax_total)}
       <div className="h-px bg-border" />
       {row(t('register.total'), cart.total, true)}
-      <div className="pt-1 text-[11px] text-muted-foreground">
-        {t('register.status')}: {cart.status}
-      </div>
     </div>
   );
 }

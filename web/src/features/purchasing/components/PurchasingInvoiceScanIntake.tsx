@@ -6,15 +6,14 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { FileDrop } from '@/components/shared/FileDrop';
-import { FloatingFormDialog, floatingFormCloseButtonSmClassName } from '@/components/shared/FloatingFormDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { FileDrop } from '@/components/shared/FileDrop';
+import { floatingFormCloseButtonSmClassName,FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { postInvoiceScan, type InvoiceScanRead } from '@/features/invoice_scans/api';
+import { type InvoiceScanRead,postInvoiceScan } from '@/features/invoice_scans/api';
 import { invoiceScanKeys, invoiceScansListQueryOptions } from '@/features/invoice_scans/queries';
-import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
 import { cn } from '@/lib/utils';
 

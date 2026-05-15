@@ -116,6 +116,7 @@ export function ReturnDrawer({
             <Label>{t('return.lookup')}</Label>
             <div className="flex gap-2">
               <Input
+                className="min-w-0 flex-1"
                 value={barcode}
                 onChange={(e) => {
                   setLookupOn(false);
@@ -123,7 +124,13 @@ export function ReturnDrawer({
                 }}
                 placeholder={t('return.scan_hint')}
               />
-              <Button type="button" variant="secondary" onClick={runLookup}>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 border-secondary/60 bg-background text-secondary hover:bg-muted hover:text-secondary"
+                onClick={runLookup}
+                disabled={isFetching}
+              >
                 {t('return.search')}
               </Button>
             </div>

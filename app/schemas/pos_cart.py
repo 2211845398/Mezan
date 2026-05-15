@@ -58,6 +58,7 @@ class CartRead(BaseModel):
     id: int
     terminal_id: int
     branch_id: int
+    daily_cart_number: int | None = None
     shift_id: int | None = None
     customer_id: int | None = None
     status: str
