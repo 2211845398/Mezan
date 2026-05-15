@@ -5400,11 +5400,13 @@ export interface components {
              * @default card
              * @enum {string}
              */
-            method: "cash" | "card" | "other";
+            method: "cash" | "card" | "transfer" | "other";
             /** Reference */
             reference?: string | null;
             /** Card Last4 */
             card_last4?: string | null;
+            /** Cash tendered amount (≤ intent); shortfall vs invoice total requires cart customer */
+            cash_tendered?: string | null;
         };
         /** PaymentIntentCreateRequest */
         PaymentIntentCreateRequest: {
@@ -5645,6 +5647,11 @@ export interface components {
             opened_at: string;
             /** Closed At */
             closed_at: string | null;
+            /**
+             * Transactions In Shift
+             * @description Count of completed, non-voided sales for carts on this shift.
+             */
+            transactions_in_shift?: number;
         };
         /** PriceListCreate */
         PriceListCreate: {

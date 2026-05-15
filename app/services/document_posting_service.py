@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ValidationError
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.payslip import Payslip
@@ -45,6 +46,16 @@ async def _first_invoice_payment_tender(db: AsyncSession, invoice_id: int) -> st
     )
     row = res.scalar_one_or_none()
     return _normalize_tender(row)
+
+
+async def _sum_invoice_payment_amounts(db: AsyncSession, invoice_id: int) -> Decimal:
+    res = await db.execute(
+        select(func.coalesce(func.sum(InvoicePayment.amount), 0)).where(
+            InvoicePayment.sales_invoice_id == invoice_id,
+        )
+    )
+    raw = res.scalar_one()
+    return q2(Decimal(str(raw)))
 
 
 async def post_sales_invoice_gl(
@@ -91,17 +102,12 @@ async def post_sales_invoice_gl(
             cogs_total += q2(uc * Decimal(ln.qty))
 
     async def post_revenue_and_cash() -> None:
-        if invoice.customer_id is None:
-            tender = await _first_invoice_payment_tender(db, invoice.id)
-            settle_id = _settlement_account_id(settings, tender)
-            lines_payload: list[dict] = [
-                {
-                    "account_id": settle_id,
-                    "branch_id": branch_id,
-                    "debit": total,
-                    "credit": Decimal("0"),
-                    "memo": f"POS sale ({tender})",
-                },
+        paid = await _sum_invoice_payment_amounts(db, invoice.id)
+        paid = q2(paid)
+        remainder = q2(total - paid)
+
+        def _revenue_discount_tax_lines() -> list[dict]:
+            payload: list[dict] = [
                 {
                     "account_id": settings.default_sales_revenue_account_id,
                     "branch_id": branch_id,
@@ -111,7 +117,7 @@ async def post_sales_invoice_gl(
                 },
             ]
             if disc_debit > 0:
-                lines_payload.append(
+                payload.append(
                     {
                         "account_id": settings.default_sales_discount_account_id,
                         "branch_id": branch_id,
@@ -121,7 +127,7 @@ async def post_sales_invoice_gl(
                     }
                 )
             if tax_amt > 0:
-                lines_payload.append(
+                payload.append(
                     {
                         "account_id": settings.default_output_tax_payable_account_id,
                         "branch_id": branch_id,
@@ -130,83 +136,11 @@ async def post_sales_invoice_gl(
                         "memo": "Output VAT",
                     }
                 )
-            if cogs_total > 0:
-                lines_payload.extend(
-                    [
-                        {
-                            "account_id": settings.default_cogs_account_id,
-                            "branch_id": branch_id,
-                            "debit": cogs_total,
-                            "credit": Decimal("0"),
-                            "memo": "COGS",
-                        },
-                        {
-                            "account_id": settings.default_inventory_account_id,
-                            "branch_id": branch_id,
-                            "debit": Decimal("0"),
-                            "credit": cogs_total,
-                            "memo": "Inventory",
-                        },
-                    ]
-                )
-            await post_journal_entry(
-                db,
-                entry_date=entry_date,
-                description=f"Sales invoice {invoice.invoice_number}",
-                source_type="sales_invoice",
-                source_id=str(invoice.id),
-                idempotency_key=f"sales_invoice:{invoice.id}:pos_cash",
-                lines=lines_payload,
-            )
-            return
+            return payload
 
-        ar_account = settings.default_ar_account_id
-        lines_payload = [
-            {
-                "account_id": ar_account,
-                "branch_id": branch_id,
-                "debit": total,
-                "credit": Decimal("0"),
-                "memo": "AR accrual",
-            },
-            {
-                "account_id": settings.default_sales_revenue_account_id,
-                "branch_id": branch_id,
-                "debit": Decimal("0"),
-                "credit": subtotal,
-                "memo": "Sales revenue",
-            },
-        ]
-        if disc_debit > 0:
-            lines_payload.append(
-                {
-                    "account_id": settings.default_sales_discount_account_id,
-                    "branch_id": branch_id,
-                    "debit": disc_debit,
-                    "credit": Decimal("0"),
-                    "memo": "Sales discounts",
-                }
-            )
-        if tax_amt > 0:
-            lines_payload.append(
-                {
-                    "account_id": settings.default_output_tax_payable_account_id,
-                    "branch_id": branch_id,
-                    "debit": Decimal("0"),
-                    "credit": tax_amt,
-                    "memo": "Output VAT",
-                }
-            )
-        await post_journal_entry(
-            db,
-            entry_date=entry_date,
-            description=f"Sales invoice {invoice.invoice_number} accrual",
-            source_type="sales_invoice",
-            source_id=str(invoice.id),
-            idempotency_key=f"sales_invoice:{invoice.id}:accrual",
-            lines=lines_payload,
-        )
-        if cogs_total > 0:
+        async def _post_cogs_if_needed() -> None:
+            if cogs_total <= 0:
+                return
             await post_journal_entry(
                 db,
                 entry_date=entry_date,
@@ -231,6 +165,93 @@ async def post_sales_invoice_gl(
                     },
                 ],
             )
+
+        async def _post_full_settlement(*, idempotency_key: str, description: str) -> None:
+            tender = await _first_invoice_payment_tender(db, invoice.id)
+            settle_id = _settlement_account_id(settings, tender)
+            lines_payload: list[dict] = [
+                {
+                    "account_id": settle_id,
+                    "branch_id": branch_id,
+                    "debit": total,
+                    "credit": Decimal("0"),
+                    "memo": f"POS sale ({tender})",
+                },
+                *_revenue_discount_tax_lines(),
+            ]
+            if cogs_total > 0:
+                lines_payload.extend(
+                    [
+                        {
+                            "account_id": settings.default_cogs_account_id,
+                            "branch_id": branch_id,
+                            "debit": cogs_total,
+                            "credit": Decimal("0"),
+                            "memo": "COGS",
+                        },
+                        {
+                            "account_id": settings.default_inventory_account_id,
+                            "branch_id": branch_id,
+                            "debit": Decimal("0"),
+                            "credit": cogs_total,
+                            "memo": "Inventory",
+                        },
+                    ]
+                )
+            await post_journal_entry(
+                db,
+                entry_date=entry_date,
+                description=description,
+                source_type="sales_invoice",
+                source_id=str(invoice.id),
+                idempotency_key=idempotency_key,
+                lines=lines_payload,
+            )
+
+        # Walk-in, or customer cart settled in full at the register → settlement accounts (not full AR accrual).
+        if invoice.customer_id is None or paid >= total or remainder <= Decimal("0"):
+            key = f"sales_invoice:{invoice.id}:pos_cash" if invoice.customer_id is None else f"sales_invoice:{invoice.id}:pos_settlement"
+            desc = (
+                f"Sales invoice {invoice.invoice_number}"
+                if invoice.customer_id is None
+                else f"Sales invoice {invoice.invoice_number} (settlement)"
+            )
+            await _post_full_settlement(idempotency_key=key, description=desc)
+            return
+
+        # Customer + partial tender: cash (or card/transfer clearing) + AR remainder
+        if paid <= Decimal("0"):
+            raise ValidationError("Recorded payments must be greater than zero for partial settlement")
+        tender = await _first_invoice_payment_tender(db, invoice.id)
+        settle_id = _settlement_account_id(settings, tender)
+        ar_account = settings.default_ar_account_id
+        lines_payload = [
+            {
+                "account_id": settle_id,
+                "branch_id": branch_id,
+                "debit": paid,
+                "credit": Decimal("0"),
+                "memo": f"POS tender ({tender})",
+            },
+            {
+                "account_id": ar_account,
+                "branch_id": branch_id,
+                "debit": remainder,
+                "credit": Decimal("0"),
+                "memo": "AR balance",
+            },
+            *_revenue_discount_tax_lines(),
+        ]
+        await post_journal_entry(
+            db,
+            entry_date=entry_date,
+            description=f"Sales invoice {invoice.invoice_number} accrual",
+            source_type="sales_invoice",
+            source_id=str(invoice.id),
+            idempotency_key=f"sales_invoice:{invoice.id}:accrual",
+            lines=lines_payload,
+        )
+        await _post_cogs_if_needed()
 
     await post_revenue_and_cash()
 

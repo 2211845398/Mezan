@@ -38,6 +38,7 @@ from app.services.loyalty_dsl_service import calculate_loyalty_for_purchase
 from app.services.loyalty_service import adjust_points
 from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
+from app.utils.money import q2
 
 VOID_INVOICE_MAX_AGE_HOURS = 48
 
@@ -67,10 +68,11 @@ async def finalize_paid_cart(
     payment_intent = pi_res.scalar_one_or_none()
     if not payment_intent or payment_intent.cart_id != cart.id:
         raise ConflictError("Payment intent does not belong to cart")
+    await db.refresh(payment_intent)
     if payment_intent.status != "succeeded":
         raise StateTransitionError("Payment is not completed")
     line_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
-    lines = line_res.scalars().all()
+    lines = [ln for ln in line_res.scalars().all() if int(ln.qty or 0) > 0]
     if not lines:
         raise ConflictError("Cannot finalize empty cart")
 
@@ -103,6 +105,7 @@ async def finalize_paid_cart(
     )
     receipt = rec_res.scalar_one_or_none()
     tender_method = receipt.method if receipt else "cash"
+    paid_amount = q2(receipt.amount) if receipt else q2(payment_intent.amount)
 
     # Epic 21.3: Record PosCashEvent on cash tender
     # Epic 21.6: Handle transfer tender method with clearing account
@@ -111,7 +114,7 @@ async def finalize_paid_cart(
             PosCashEvent(
                 shift_id=cart.shift_id,
                 event_type="sale",
-                amount=payment_intent.amount,
+                amount=paid_amount,
                 note=f"Cart {cart.id} invoice {invoice.id}",
                 created_by_user_id=user_id,
             )
@@ -150,7 +153,7 @@ async def finalize_paid_cart(
         InvoicePayment(
             sales_invoice_id=invoice.id,
             payment_intent_id=payment_intent.id,
-            amount=payment_intent.amount,
+            amount=paid_amount,
             method=tender_method,
             reference=receipt.reference if receipt else payment_intent.external_id,
         )

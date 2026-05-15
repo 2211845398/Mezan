@@ -10,15 +10,17 @@ export type CartTotalsProps = {
 };
 
 export function CartTotals({ cart, currency }: CartTotalsProps) {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
+  /** Arabic: label on the inline-start side (visually right), amounts on the left; English unchanged (label left, amount right). */
+  const summaryDir = i18n.language.startsWith('ar') ? 'rtl' : 'ltr';
 
   const row = (label: string, amount: string, bold?: boolean) => (
     <div
       className={`flex justify-between gap-4 ${bold ? 'text-2xl font-bold' : 'text-sm'}`}
-      dir="ltr"
+      dir={summaryDir}
     >
       <span className="text-muted-foreground">{label}</span>
-      <span>{formatCurrency(Number.parseFloat(amount), currency)}</span>
+      <span dir="ltr">{formatCurrency(Number.parseFloat(amount), currency)}</span>
     </div>
   );
 

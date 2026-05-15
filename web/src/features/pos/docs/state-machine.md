@@ -14,7 +14,7 @@ This document previously contained the cart state machine reference for POS. The
 | `active` | `park` | `parked` |
 | `parked` | `resume` | `active` |
 | `active` | `lock` | `checkout_locked` |
-| `checkout_locked` | `cancel` | `cancelled` |
+| `checkout_locked` | `cancel` | `active` (exit tender; clears lock) |
 
 ---
 

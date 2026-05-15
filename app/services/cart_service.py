@@ -25,7 +25,10 @@ def _assert_transition(current: str, action: str) -> str:
         ("active", "park"): "parked",
         ("parked", "resume"): "active",
         ("active", "lock"): "checkout_locked",
-        ("checkout_locked", "cancel"): "cancelled",
+        # Abandon tender / close payment UI: return to editing, do not void the cart.
+        ("checkout_locked", "cancel"): "active",
+        ("active", "cancel"): "cancelled",
+        ("parked", "cancel"): "cancelled",
     }
     nxt = transitions.get((current, action))
     if not nxt:
@@ -304,10 +307,24 @@ async def change_state(db: AsyncSession, *, cart_id: int, action: str, user_id: 
     cart = res.scalar_one_or_none()
     if not cart:
         raise NotFoundError("Cart not found")
+    if action in ("lock", "park"):
+        lines_chk = await db.execute(
+            select(PosCartLine.id).where(PosCartLine.cart_id == cart.id, PosCartLine.qty > 0).limit(1)
+        )
+        if lines_chk.scalar_one_or_none() is None:
+            msg = (
+                "Cannot lock checkout for an empty cart"
+                if action == "lock"
+                else "Cannot park an empty cart"
+            )
+            raise ValidationError(msg, details={"cart_id": cart.id, "action": action})
+    prev_status = cart.status
     new_status = _assert_transition(cart.status, action)
     cart.status = new_status
     if new_status == "checkout_locked":
         cart.locked_at = datetime.now(UTC)
+    elif prev_status == "checkout_locked" and new_status == "active":
+        cart.locked_at = None
     db.add(
         PosCartEvent(
             cart_id=cart.id,

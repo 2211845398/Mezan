@@ -10,7 +10,8 @@ export type CartLineRowProps = {
   line: NonNullable<CartRead['lines']>[number];
   currency: string;
   editable: boolean;
-  onQtyChange: (productId: number, qty: number) => void;
+  /** Prefer `lineId` so optimistic rows and duplicate SKUs do not cross-update. */
+  onQtyChange: (lineId: number, productId: number, qty: number) => void;
 };
 
 export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineRowProps) {
@@ -30,7 +31,7 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
           variant="ghost"
           className="h-11 rounded-none px-0"
           disabled={!editable}
-          onClick={() => onQtyChange(line.product_id, Math.max(0, Number(line.qty) - 1))}
+          onClick={() => onQtyChange(line.id, line.product_id, Math.max(0, Number(line.qty) - 1))}
           aria-label="decrease"
         >
           -
@@ -44,7 +45,7 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
           aria-label={t('register.qty')}
           onChange={(e) => {
             const n = Number.parseInt(e.target.value, 10);
-            if (Number.isFinite(n) && n >= 0) onQtyChange(line.product_id, n);
+            if (Number.isFinite(n) && n >= 0) onQtyChange(line.id, line.product_id, n);
           }}
         />
         <Button
@@ -52,7 +53,7 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
           variant="ghost"
           className="h-11 rounded-none px-0"
           disabled={!editable}
-          onClick={() => onQtyChange(line.product_id, Number(line.qty) + 1)}
+          onClick={() => onQtyChange(line.id, line.product_id, Number(line.qty) + 1)}
           aria-label="increase"
         >
           +

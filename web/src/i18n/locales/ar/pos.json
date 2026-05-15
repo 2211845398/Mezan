@@ -34,6 +34,7 @@
     "shift_error_title": "تعذر تحميل الوردية النشطة",
     "retry_cart": "إعادة المحاولة",
     "new_cart": "سلة جديدة",
+    "new_cart_park": "سلة جديدة (تعليق الحالية)",
     "status": "الحالة",
     "status_active": "نشطة",
     "status_parked": "معلقة",
@@ -41,7 +42,7 @@
     "status_paid": "مدفوعة",
     "status_cancelled": "ملغاة",
     "cart_unique_number": "رقم السلة #{{id}}",
-    "shift_cart_number": "رقم السلة في الوردية",
+    "shift_transaction_count": "عدد السلات المدفوعة في هذه الوردية (معاملات مكتملة)",
     "subtotal": "المجموع قبل الضريبة",
     "discount": "الخصم",
     "tax": "الضريبة",
@@ -66,7 +67,11 @@
     "total_panel_hint": "راجع السلة ثم أمّنها قبل التحصيل",
     "end_shift": "إنهاء الوردية",
     "todays_sales": "مبيعات اليوم",
-    "leave_return_mode": "العودة للبيع"
+    "leave_return_mode": "العودة للبيع",
+    "park_cart": "تعليق",
+    "cancel_cart": "حذف السلة",
+    "exit_checkout": "إلغاء الدفع والعودة للتعديل",
+    "view_parked": "عرض المعلقة"
   },
   "pending": {
     "title": "الفواتير المعلقة",
@@ -87,7 +92,10 @@
     "tendered": "المستلم",
     "change": "الباقي",
     "need_online_intent": "يلزم اتصال بالشبكة لإنشاء نية الدفع.",
-    "offline_queued": "أُضيفت العملية لقائمة الانتظار دون اتصال."
+    "offline_queued": "أُضيفت العملية لقائمة الانتظار دون اتصال.",
+    "shortfall_ar": "المتبقي {{amount}} يُسجَّل كذمم على العميل",
+    "partial_cash_needs_customer": "اختر عميلًا في السلة لتسجيل المتبقي كدين عند دفع نقدي أقل من الإجمالي.",
+    "transfer_ref_placeholder": "مرجع التحويل (اختياري)"
   },
   "receipt": {
     "title": "إيصال",

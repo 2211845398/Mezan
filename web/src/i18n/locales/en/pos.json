@@ -34,6 +34,7 @@
     "shift_error_title": "Could not load the active shift",
     "retry_cart": "Retry",
     "new_cart": "New cart",
+    "new_cart_park": "New cart (park current)",
     "status": "Status",
     "status_active": "Active",
     "status_parked": "Parked",
@@ -41,7 +42,7 @@
     "status_paid": "Paid",
     "status_cancelled": "Cancelled",
     "cart_unique_number": "Cart #{{id}}",
-    "shift_cart_number": "Shift cart number",
+    "shift_transaction_count": "Paid carts this shift (completed sales)",
     "subtotal": "Subtotal",
     "discount": "Discount",
     "tax": "Tax",
@@ -66,7 +67,11 @@
     "total_panel_hint": "Review the cart, then lock it before tender",
     "end_shift": "End shift",
     "todays_sales": "Today's sales",
-    "leave_return_mode": "Back to sale"
+    "leave_return_mode": "Back to sale",
+    "park_cart": "Park",
+    "cancel_cart": "Delete cart",
+    "exit_checkout": "Exit payment",
+    "view_parked": "View parked"
   },
   "pending": {
     "title": "Pending invoices",
@@ -87,7 +92,10 @@
     "tendered": "Tendered",
     "change": "Change",
     "need_online_intent": "Network is required to create a payment intent.",
-    "offline_queued": "Operation queued while offline."
+    "offline_queued": "Operation queued while offline.",
+    "shortfall_ar": "Remaining {{amount}} posts to customer receivables",
+    "partial_cash_needs_customer": "Assign a customer on the cart to record the shortfall as receivable when paying less than the total in cash.",
+    "transfer_ref_placeholder": "Transfer reference (optional)"
   },
   "receipt": {
     "title": "Receipt",

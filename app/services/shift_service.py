@@ -5,12 +5,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
+from app.models.pos_cart import PosCart
 from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
+from app.models.sales_invoice import SalesInvoice
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.document_posting_service import post_pos_shift_variance_gl
 from app.utils.money import q2
@@ -53,6 +55,18 @@ async def get_open_shift_for_terminal(db: AsyncSession, *, terminal_id: int) -> 
         select(PosShift).where(PosShift.terminal_id == terminal_id, PosShift.status == "open")
     )
     return existing.scalar_one_or_none()
+
+
+async def count_completed_sales_transactions_for_shift(db: AsyncSession, *, shift_id: int) -> int:
+    """Non-voided sales invoices whose originating cart belongs to this shift."""
+    stmt = (
+        select(func.count())
+        .select_from(SalesInvoice)
+        .join(PosCart, PosCart.id == SalesInvoice.cart_id)
+        .where(PosCart.shift_id == shift_id, SalesInvoice.voided_at.is_(None))
+    )
+    res = await db.execute(stmt)
+    return int(res.scalar_one() or 0)
 
 
 async def add_cash_event(

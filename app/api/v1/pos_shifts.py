@@ -21,6 +21,7 @@ from app.services.pos_expense_service import record_pos_expense
 from app.services.shift_service import (
     add_cash_event,
     close_shift,
+    count_completed_sales_transactions_for_shift,
     get_open_shift_for_terminal,
     open_shift,
 )
@@ -38,7 +39,8 @@ async def get_current_shift_endpoint(
     shift = await get_open_shift_for_terminal(db, terminal_id=terminal_id)
     if shift is None:
         return None
-    return PosShiftRead.model_validate(shift)
+    tx_count = await count_completed_sales_transactions_for_shift(db, shift_id=shift.id)
+    return PosShiftRead.model_validate(shift).model_copy(update={"transactions_in_shift": tx_count})
 
 
 @router.post("/pos/shifts/open", response_model=PosShiftRead, status_code=status.HTTP_201_CREATED)

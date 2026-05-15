@@ -1,4 +1,4 @@
-import { Clock3, ListChecks, ReceiptText, RotateCcw } from 'lucide-react';
+import { Clock3, ListChecks, ReceiptText, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -17,6 +17,7 @@ import { useOnline } from '@/hooks/useOnline';
 import { now } from '@/lib/date';
 import { formatCurrency, formatDateTime } from '@/lib/format';
 
+import { changeCartState } from '../api';
 import { useParkedCarts } from '../queries';
 import { ShiftCloseForm } from './ShiftCloseForm';
 
@@ -26,24 +27,29 @@ export type RegisterToolbarProps = {
   branchLabel: string;
   currency: string;
   activeCartId: number | null;
+  activeCartHasLines: boolean;
   onParkCurrent: () => Promise<unknown>;
   onResumeCart: (cartId: number) => void;
+  parkedOpen: boolean;
+  onParkedOpenChange: (open: boolean) => void;
 };
 
-/** Top actions on the register route (quick nav + return + shortcuts). */
+/** Top toolbar for the register route. */
 export function RegisterToolbar({
   onReturnOpen,
   terminalId,
   branchLabel,
   currency,
   activeCartId,
+  activeCartHasLines,
   onParkCurrent,
   onResumeCart,
+  parkedOpen,
+  onParkedOpenChange,
 }: RegisterToolbarProps) {
   const { t } = useTranslation('pos');
   const online = useOnline();
   const user = useAuthStore((s) => s.user);
-  const [pendingOpen, setPendingOpen] = useState(false);
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const [clock, setClock] = useState(() => now());
   const parked = useParkedCarts(terminalId);
@@ -53,18 +59,25 @@ export function RegisterToolbar({
     return () => window.clearInterval(id);
   }, []);
 
-  async function newInvoiceFromCurrent() {
-    if (activeCartId != null) {
+  async function handleResumeCart(cartId: number) {
+    // Auto-park the active cart (if it has lines) before resuming the selected one
+    if (activeCartId != null && activeCartHasLines) {
       await onParkCurrent();
     }
-    setPendingOpen(false);
+    onResumeCart(cartId);
+    onParkedOpenChange(false);
+  }
+
+  async function handleDeleteParked(cartId: number) {
+    await changeCartState(cartId, { action: 'cancel' });
+    void parked.refetch();
   }
 
   return (
     <div className="flex w-full shrink-0 flex-wrap items-center gap-y-3 rounded-2xl border bg-card px-4 py-3 shadow-sm sm:gap-x-2">
       {/*
-        One row: mirrors automatically between RTL and LTR (inline-start ↔ physical right in RTL).
-        Group 1 (inline-start): title + branch → clock → today’s sales → pending invoices.
+        One row: mirrors automatically between RTL and LTR.
+        Group 1 (inline-start): title + branch → clock → today's sales → pending invoices.
         Flexible gap, then group 2 (inline-end): offline → user → return → end shift.
       */}
       <div className="flex min-w-0 flex-wrap items-center gap-3">
@@ -85,9 +98,19 @@ export function RegisterToolbar({
             {t('register.todays_sales')}
           </Link>
         </Button>
-        <Button type="button" variant="outline" className="min-h-9 gap-2" onClick={() => setPendingOpen(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          className="relative min-h-9 gap-2"
+          onClick={() => onParkedOpenChange(true)}
+        >
           <ListChecks className="size-4" aria-hidden />
           {t('pending.title')}
+          {(parked.data?.length ?? 0) > 0 ? (
+            <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-black text-white">
+              {parked.data?.length}
+            </span>
+          ) : null}
         </Button>
       </div>
 
@@ -117,6 +140,8 @@ export function RegisterToolbar({
           {t('register.end_shift')}
         </Button>
       </div>
+
+      {/* End-shift dialog */}
       <Dialog open={endShiftOpen} onOpenChange={setEndShiftOpen}>
         <DialogContent className="sm:max-w-md" dir="auto">
           <DialogHeader>
@@ -125,47 +150,56 @@ export function RegisterToolbar({
           <ShiftCloseForm onSuccess={() => setEndShiftOpen(false)} />
         </DialogContent>
       </Dialog>
-      <Dialog open={pendingOpen} onOpenChange={setPendingOpen}>
-        <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
+
+      {/* Parked invoices dialog — controlled externally so totals column can also open it */}
+      <Dialog open={parkedOpen} onOpenChange={onParkedOpenChange}>
+        <DialogContent className="overflow-hidden p-0 sm:max-w-2xl">
           <DialogHeader className="border-b px-6 pt-6 pb-4">
             <DialogTitle>{t('pending.title')}</DialogTitle>
             <DialogDescription>{t('pending.description')}</DialogDescription>
           </DialogHeader>
           <div className="m-6 grid max-h-[calc(100dvh-14rem)] gap-3 overflow-y-auto">
-            <div className="flex items-center justify-between rounded-xl border bg-muted/20 p-3">
-              <div>
-                <p className="text-sm font-medium">فاتورة جديدة</p>
-                <p className="text-xs text-muted-foreground">يركن الفاتورة الحالية ثم يجهزك لفاتورة جديدة.</p>
-              </div>
-              <Button type="button" onClick={() => void newInvoiceFromCurrent()}>
-                فاتورة جديدة
-              </Button>
-            </div>
             {parked.data?.length ? (
               parked.data.map((cart) => (
-                <button
+                <div
                   key={cart.id}
-                  type="button"
-                  className="flex items-center justify-between rounded-xl border bg-background p-3 text-start transition hover:bg-muted/50"
-                  onClick={() => {
-                    onResumeCart(cart.id);
-                    setPendingOpen(false);
-                  }}
+                  className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3 transition hover:bg-muted/30"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium">
-                      فاتورة #{(cart as { daily_cart_number?: number }).daily_cart_number ?? cart.id}
+                      {t('register.cart_unique_number', {
+                        id: (cart as { daily_cart_number?: number }).daily_cart_number ?? cart.id,
+                      })}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {cart.lines?.length ?? 0} أصناف · {formatCurrency(Number(cart.total), currency)}
+                      {cart.lines?.length ?? 0} {t('register.qty')} ·{' '}
+                      {formatCurrency(Number(cart.total), currency)}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground">فتح</span>
-                </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void handleResumeCart(cart.id)}
+                    >
+                      {t('register.resume')}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => void handleDeleteParked(cart.id)}
+                      aria-label={t('register.cancel_cart')}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
               ))
             ) : (
               <div className="rounded-xl border border-dashed bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-                {parked.isLoading ? '...' : t('pending.empty')}
+                {parked.isLoading ? '…' : t('pending.empty')}
               </div>
             )}
           </div>

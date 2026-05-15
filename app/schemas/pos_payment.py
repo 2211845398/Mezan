@@ -25,9 +25,11 @@ class PaymentIntentCreateRequest(BaseModel):
 class PaymentCaptureRequest(BaseModel):
     payment_intent_id: int
     idempotency_key: str = Field(min_length=8, max_length=128)
-    method: Literal["cash", "card", "other"] = "card"
+    method: Literal["cash", "card", "transfer", "other"] = "card"
     reference: str | None = None
     card_last4: str | None = Field(default=None, pattern=r"^\d{4}$")
+    """When set for cash tenders, receipt amount (must be ≤ intent amount). Shortfall vs invoice requires a cart customer."""
+    cash_tendered: Decimal | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def validate_card_fields(self):

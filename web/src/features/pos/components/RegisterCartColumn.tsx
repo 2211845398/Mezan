@@ -2,7 +2,6 @@ import { ShoppingCart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useOnline } from '@/hooks/useOnline';
-import { cn } from '@/lib/utils';
 
 import type { CartRead } from '../api';
 import { CartLineRow } from './CartLineRow';
@@ -11,10 +10,10 @@ export type RegisterCartColumnProps = {
   cart: CartRead;
   editable: boolean;
   isLocked: boolean;
-  onQtyChange: (productId: number, qty: number) => void;
+  onQtyChange: (lineId: number, productId: number, qty: number) => void;
   currency: string;
-  returnMode?: boolean;
-  onReturnModeChange?: (enabled: boolean) => void;
+  /** Paid carts this shift: completed sales invoices from `/pos/shifts/current` (`transactions_in_shift`). */
+  transactionsInShift: number;
 };
 
 export function RegisterCartColumn({
@@ -23,21 +22,16 @@ export function RegisterCartColumn({
   isLocked,
   onQtyChange,
   currency,
-  returnMode = false,
-  onReturnModeChange,
+  transactionsInShift,
 }: RegisterCartColumnProps) {
   const { t } = useTranslation('pos');
   const online = useOnline();
-  const shiftCartNumber = cart.daily_cart_number ?? cart.id;
   const statusLabel = t(`register.status_${cart.status}`, { defaultValue: cart.status });
 
   return (
     <div
-      className={cn(
-        'flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:min-h-[12rem]',
-        returnMode && 'border-rose-300 bg-rose-50/70 dark:bg-rose-950/20',
-      )}
-      data-mode={returnMode ? 'return' : 'sale'}
+      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:min-h-[12rem]"
+      data-mode="sale"
     >
       <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
@@ -56,25 +50,11 @@ export function RegisterCartColumn({
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <span
-            className="flex size-9 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-sm font-bold text-primary"
-            title={t('register.shift_cart_number')}
+            className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-1.5 text-sm font-bold text-primary"
+            title={t('register.shift_transaction_count')}
           >
-            {shiftCartNumber}
+            {transactionsInShift}
           </span>
-          {onReturnModeChange ? (
-            <button
-              type="button"
-              className={cn(
-                'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-                returnMode
-                  ? 'border-rose-300 bg-rose-100 text-rose-800'
-                  : 'border-orange-300 bg-background text-orange-800 hover:bg-muted',
-              )}
-              onClick={() => onReturnModeChange(!returnMode)}
-            >
-              {returnMode ? t('register.leave_return_mode') : t('return.title')}
-            </button>
-          ) : null}
         </div>
       </div>
 
@@ -93,11 +73,13 @@ export function RegisterCartColumn({
         ) : (
           cart.lines.map((ln) => (
             <CartLineRow
-              key={ln.id}
+              key={`${ln.id}-${ln.product_id}`}
               line={ln}
               currency={currency}
               editable={!!editable}
-              onQtyChange={onQtyChange}
+              onQtyChange={(lineId, productId, qty) => {
+                onQtyChange(lineId, productId, qty);
+              }}
             />
           ))
         )}

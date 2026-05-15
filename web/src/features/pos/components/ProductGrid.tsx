@@ -1,26 +1,85 @@
-import { Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Package, Search } from 'lucide-react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { ProductRead } from '@/features/catalog/api';
 import { type ListProductsParams, useProducts } from '@/features/catalog/queries';
-import { formatCurrency } from '@/lib/format';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 export type ProductGridProps = {
   disabled?: boolean;
-  currency: string;
   onAddProduct: (productId: number, qty?: number) => void;
 };
 
-function productPrice(product: ProductRead): string | null {
-  const attrs = product.attributes as { price?: unknown } | null | undefined;
-  if (typeof attrs?.price === 'number') return String(attrs.price);
-  if (typeof attrs?.price === 'string') return attrs.price;
-  return null;
+function productImageSrc(product: ProductRead): string | null {
+  const raw = product.image_url?.trim();
+  if (!raw) return null;
+  return resolveMediaUrl(raw) ?? raw;
 }
 
-export function ProductGrid({ disabled, currency, onAddProduct }: ProductGridProps) {
+/** Single click = +1 after short delay; second click before delay = double-click → +2 total (POS convention). */
+const ProductTile = memo(function ProductTile({
+  product,
+  disabled,
+  onAddProduct,
+}: {
+  product: ProductRead;
+  disabled: boolean;
+  onAddProduct: (productId: number, qty?: number) => void;
+}) {
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (clickTimerRef.current != null) {
+        window.clearTimeout(clickTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const imgSrc = productImageSrc(product);
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => {
+        if (clickTimerRef.current != null) {
+          window.clearTimeout(clickTimerRef.current);
+          clickTimerRef.current = null;
+          onAddProduct(product.id, 2);
+          return;
+        }
+        clickTimerRef.current = window.setTimeout(() => {
+          clickTimerRef.current = null;
+          onAddProduct(product.id, 1);
+        }, 280);
+      }}
+      className="group flex min-h-0 flex-col overflow-hidden rounded-xl border bg-[#fcfbf8] text-start shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
+    >
+      <div className="aspect-[3/2] w-full shrink-0 overflow-hidden bg-muted">
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt=""
+            className="size-full object-cover transition group-hover:scale-[1.02]"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex size-full items-center justify-center text-muted-foreground/35">
+            <Package className="size-8" aria-hidden />
+          </div>
+        )}
+      </div>
+      <p className="line-clamp-2 px-2 py-1.5 text-center text-xs font-semibold leading-snug sm:text-sm">
+        {product.name}
+      </p>
+    </button>
+  );
+});
+
+export function ProductGrid({ disabled, onAddProduct }: ProductGridProps) {
   const [q, setQ] = useState('');
 
   const params = useMemo((): ListProductsParams => {
@@ -35,57 +94,25 @@ export function ProductGrid({ disabled, currency, onAddProduct }: ProductGridPro
   const { data: products = [], isFetching } = useProducts(params, { enabled: !disabled });
 
   return (
-    <section className="flex min-h-0 flex-col gap-3 overflow-hidden rounded-2xl border bg-card p-3 shadow-sm">
-      <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2">
-        <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <Input
-          value={q}
-          onChange={(event) => setQ(event.target.value)}
-          placeholder="ابحث بالاسم أو الكود أو الباركود"
-          className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-          disabled={disabled}
-        />
+    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="shrink-0">
+        <div className="flex items-center gap-2 overflow-hidden rounded-xl border bg-background px-3 py-2">
+          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <Input
+            value={q}
+            onChange={(event) => setQ(event.target.value)}
+            placeholder="ابحث بالاسم أو الكود أو الباركود"
+            className="h-9 border-0 bg-transparent px-0 shadow-none outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            disabled={disabled}
+          />
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 2xl:grid-cols-4">
-          {products.map((product) => {
-            const price = productPrice(product);
-            return (
-              <button
-                key={product.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => onAddProduct(product.id, 1)}
-                onDoubleClick={() => onAddProduct(product.id, 1)}
-                className="group flex min-h-32 flex-col justify-between rounded-xl border bg-[#fcfbf8] p-3 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
-              >
-                <div className="space-y-1">
-                  <p className="line-clamp-2 text-sm font-semibold">{product.name}</p>
-                  <p className="text-[11px] text-muted-foreground" dir="ltr">
-                    {product.sku}
-                  </p>
-                </div>
-                <div className="flex items-end justify-between gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {price ? formatCurrency(Number(price), currency) : '—'}
-                  </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 rounded-full px-3"
-                    disabled={disabled}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onAddProduct(product.id, 1);
-                    }}
-                  >
-                    +1
-                  </Button>
-                </div>
-              </button>
-            );
-          })}
+      <div className="min-h-0 flex-1 overflow-y-auto px-0.5 pt-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-4">
+          {products.map((product) => (
+            <ProductTile key={product.id} product={product} disabled={!!disabled} onAddProduct={onAddProduct} />
+          ))}
         </div>
         {!products.length ? (
           <div className="flex h-40 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">

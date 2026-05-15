@@ -35,6 +35,12 @@ import {
   voidSale,
   type VoidSaleBody,
 } from './api';
+import {
+  catalogListUnitPriceString,
+  findProductInCatalogCache,
+  pendingOptimisticLinesAfterMerge,
+  recalcApproxCartTotals,
+} from './cartTotalsApprox';
 
 export const shiftKeys = {
   all: ['pos', 'shifts'] as const,
@@ -63,6 +69,13 @@ export const terminalKeys = {
   all: ['terminals'] as const,
   branch: (branchId: number) => [...terminalKeys.all, 'branch', branchId] as const,
 } as const;
+
+/** Unique temp line ids so list keys never collide during optimistic add-line updates. */
+let optimisticCartLineIdSeq = 0;
+function nextOptimisticCartLineId(): number {
+  optimisticCartLineIdSeq -= 1;
+  return optimisticCartLineIdSeq;
+}
 
 export function useTerminalsForBranch(branchId: number | null) {
   return useQuery({
@@ -197,60 +210,101 @@ export function useCreateCart() {
 type LineVars = { product_id: number; qty: number };
 
 export function useAddLine(cartId: number) {
+  const qc = useQueryClient();
   return createOptimisticMutation<CartRead, LineVars, CartRead | undefined>({
-    mutationFn: async (variables) => addCartLine(cartId, variables),
+    /** Backend `upsert_line` treats `qty` as absolute, not a delta — read post-optimistic cart. */
+    mutationFn: async (variables, _idempotencyKey) => {
+      const cart = qc.getQueryData<CartRead>(cartKeys.detail(cartId));
+      const line = cart?.lines?.find((ln) => ln.product_id === variables.product_id);
+      const target = line != null ? Number(line.qty) : variables.qty;
+      const absQty = Math.max(
+        0,
+        Number.isFinite(target) ? Math.round(target) : Math.round(variables.qty),
+      );
+      return addCartLine(cartId, { product_id: variables.product_id, qty: absQty });
+    },
     getSnapshot: (client) => client.getQueryData(cartKeys.detail(cartId)),
     applyOptimistic: (client, variables) => {
       const prev = client.getQueryData<CartRead>(cartKeys.detail(cartId));
       if (!prev) return;
-      const synthetic: CartRead = {
-        ...prev,
-        lines: [
-          ...(prev.lines ?? []),
-          {
-            id: -1,
-            product_id: variables.product_id,
-            product_name: '',
-            product_sku: '',
-            barcode: null,
-            qty: variables.qty,
-            unit_price: '0',
-            line_total: '0',
-            tax_rate: '0',
-            line_tax_amount: '0',
-          },
-        ],
-      };
-      client.setQueryData(cartKeys.detail(cartId), synthetic);
+      const hit = findProductInCatalogCache(client, variables.product_id);
+      const unitPrice = hit ? catalogListUnitPriceString(hit) : '0.00';
+      const rateStr = hit ? String(hit.output_vat_rate ?? '0') : '0';
+      const prevLines = prev.lines ?? [];
+      const existingIdx = prevLines.findIndex((ln) => ln.product_id === variables.product_id);
+
+      let draftLines: NonNullable<CartRead['lines']>;
+      if (existingIdx >= 0) {
+        // Same as backend upsert_line: bump qty on existing row (avoids duplicate “ghost” card flash).
+        draftLines = prevLines.map((ln, i) =>
+          i === existingIdx ? { ...ln, qty: Number(ln.qty) + variables.qty } : ln,
+        );
+      } else {
+        const newLine = {
+          id: nextOptimisticCartLineId(),
+          product_id: variables.product_id,
+          product_name: hit?.name ?? '',
+          product_sku: hit?.sku ?? '',
+          barcode: hit?.barcode ?? null,
+          qty: variables.qty,
+          unit_price: unitPrice,
+          line_total: '0.00',
+          tax_rate: rateStr,
+          line_tax_amount: '0.00',
+        };
+        draftLines = [...prevLines, newLine];
+      }
+      const r = recalcApproxCartTotals(prev, draftLines);
+      client.setQueryData(cartKeys.detail(cartId), { ...prev, ...r });
     },
     rollback: (client, snap) => {
       if (snap !== undefined) client.setQueryData(cartKeys.detail(cartId), snap);
     },
-    invalidate: (client) => {
-      void client.invalidateQueries({ queryKey: cartKeys.detail(cartId) });
+  })({
+    onSuccess: (data) => {
+      qc.setQueryData(cartKeys.detail(cartId), (current: CartRead | undefined) => {
+        if (!current) return data;
+        const stillPending = pendingOptimisticLinesAfterMerge(current.lines, data.lines);
+        const mergedLines = [...(data.lines ?? []), ...stillPending].filter((l) => Number(l.qty) > 0);
+        const r = recalcApproxCartTotals(data, mergedLines);
+        const merged: CartRead = { ...data, ...r, lines: mergedLines };
+        return merged;
+      });
     },
-  })();
+  });
 }
 
+type LineQtyVars = { line_id: number; product_id: number; qty: number };
+
 export function useUpdateLineQty(cartId: number) {
-  return createOptimisticMutation<CartRead, LineVars, CartRead | undefined>({
-    mutationFn: async (variables) => addCartLine(cartId, variables),
+  const qc = useQueryClient();
+  return createOptimisticMutation<CartRead, LineQtyVars, CartRead | undefined>({
+    mutationFn: async (variables, _idempotencyKey) =>
+      addCartLine(cartId, { product_id: variables.product_id, qty: variables.qty }),
     getSnapshot: (client) => client.getQueryData(cartKeys.detail(cartId)),
     applyOptimistic: (client, variables) => {
       const prev = client.getQueryData<CartRead>(cartKeys.detail(cartId));
       if (!prev?.lines) return;
-      const lines = prev.lines.map((ln) =>
-        ln.product_id === variables.product_id ? { ...ln, qty: variables.qty } : ln,
-      );
-      client.setQueryData(cartKeys.detail(cartId), { ...prev, lines });
+      const linesAfterQty = prev.lines
+        .map((ln) => (ln.id === variables.line_id ? { ...ln, qty: variables.qty } : ln))
+        .filter((l) => Number(l.qty) > 0);
+      const r = recalcApproxCartTotals(prev, linesAfterQty);
+      client.setQueryData(cartKeys.detail(cartId), { ...prev, ...r });
     },
     rollback: (client, snap) => {
       if (snap !== undefined) client.setQueryData(cartKeys.detail(cartId), snap);
     },
-    invalidate: (client) => {
-      void client.invalidateQueries({ queryKey: cartKeys.detail(cartId) });
+  })({
+    onSuccess: (data) => {
+      qc.setQueryData(cartKeys.detail(cartId), (current: CartRead | undefined) => {
+        if (!current) return data;
+        const stillPending = pendingOptimisticLinesAfterMerge(current.lines, data.lines);
+        const mergedLines = [...(data.lines ?? []), ...stillPending].filter((l) => Number(l.qty) > 0);
+        const r = recalcApproxCartTotals(data, mergedLines);
+        return { ...data, ...r, lines: mergedLines };
+      });
     },
-  })();
+  });
 }
 
 export function useApplyDiscount(cartId: number) {
@@ -270,6 +324,28 @@ export function useParkCart(cartId: number) {
     mutationFn: () => changeCartState(cartId, { action: 'park' }),
     onSuccess: (data) => {
       qc.setQueryData(cartKeys.detail(cartId), data);
+      void qc.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === 'pos' && key[1] === 'carts' && key[2] === 'list';
+        },
+      });
+    },
+  });
+}
+
+export function useCancelCart(cartId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => changeCartState(cartId, { action: 'cancel' }),
+    onSuccess: (data) => {
+      qc.setQueryData(cartKeys.detail(cartId), data);
+      void qc.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === 'pos' && key[1] === 'carts' && key[2] === 'list';
+        },
+      });
     },
   });
 }
@@ -322,6 +398,7 @@ export function useFinalizeSaleMutation() {
     mutationFn: (body: FinalizeBody) => finalizeSale(body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      void qc.invalidateQueries({ queryKey: shiftKeys.all });
     },
   });
 }
@@ -333,6 +410,7 @@ export function useVoidSale() {
     onSuccess: (data) => {
       void qc.invalidateQueries({ queryKey: invoiceKeys.all });
       void qc.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) });
+      void qc.invalidateQueries({ queryKey: shiftKeys.all });
     },
   });
 }

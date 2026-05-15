@@ -127,9 +127,30 @@ export const posHandlers = [
     if (Number(params.cartId) !== cart.id) {
       return HttpResponse.json({ message: 'not found' }, { status: 404 });
     }
-    if (body.action === 'lock') cart = { ...cart, status: 'checkout_locked' };
-    if (body.action === 'park') cart = { ...cart, status: 'parked' };
+    if (body.action === 'lock') {
+      const hasLine =
+        Array.isArray(cart.lines) && cart.lines.some((ln: { qty?: number }) => (ln?.qty ?? 0) > 0);
+      if (!hasLine) {
+        return HttpResponse.json({ message: 'Cannot lock empty cart' }, { status: 422 });
+      }
+      cart = { ...cart, status: 'checkout_locked' };
+    }
+    if (body.action === 'park') {
+      const hasLine =
+        Array.isArray(cart.lines) && cart.lines.some((ln: { qty?: number }) => (ln?.qty ?? 0) > 0);
+      if (!hasLine) {
+        return HttpResponse.json({ message: 'Cannot park empty cart' }, { status: 422 });
+      }
+      cart = { ...cart, status: 'parked' };
+    }
     if (body.action === 'resume') cart = { ...cart, status: 'active' };
+    if (body.action === 'cancel') {
+      if (cart.status === 'checkout_locked') {
+        cart = { ...cart, status: 'active' };
+      } else {
+        cart = { ...cart, status: 'cancelled' };
+      }
+    }
     return HttpResponse.json(cart);
   }),
 

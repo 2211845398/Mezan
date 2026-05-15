@@ -9,7 +9,7 @@ export type CaptureFinalizePayload = {
   paymentIntentId: number;
   /** Shared across capture + finalize retries for this tender attempt. */
   idempotencyKey: string;
-  method: 'cash' | 'card' | 'other';
+  method: 'cash' | 'card' | 'transfer' | 'other';
   reference?: string | null;
   cardLast4?: string | null;
 };

@@ -34,5 +34,7 @@ class PosShiftRead(BaseModel):
     variance: Decimal | None
     opened_at: datetime
     closed_at: datetime | None
+    # Completed, non-voided sales invoices tied to carts on this shift (POS register counter).
+    transactions_in_shift: int = 0
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})

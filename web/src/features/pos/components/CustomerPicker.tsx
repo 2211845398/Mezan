@@ -45,7 +45,7 @@ export function CustomerPicker({ value, disabled, onChange }: CustomerPickerProp
       }}
       options={options}
       onSearch={setQ}
-      placeholder="عميل نقدي / اختر عميل"
+      placeholder="اختر عميل"
       searchPlaceholder="ابحث عن عميل"
       emptyLabel="لا يوجد عملاء"
       isLoading={isFetching}

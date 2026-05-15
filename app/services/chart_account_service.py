@@ -9,8 +9,6 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
 from app.core.errors import ValidationError
 from app.models.chart_accounts import AccountType, ChartAccount
 from app.utils.money import q2
@@ -22,12 +20,8 @@ MAX_COA_DEPTH = 5  # Root + 4 sub-levels per spec
 async def _get_account_with_parents(
     db: AsyncSession, account_id: int
 ) -> ChartAccount | None:
-    """Fetch account with parent chain loaded."""
-    result = await db.execute(
-        select(ChartAccount)
-        .where(ChartAccount.id == account_id)
-        .options(selectinload(ChartAccount.parent))
-    )
+    """Fetch a chart account (walkers use ``parent_id``; no ORM ``parent`` relationship)."""
+    result = await db.execute(select(ChartAccount).where(ChartAccount.id == account_id))
     return result.scalar_one_or_none()
 
 
