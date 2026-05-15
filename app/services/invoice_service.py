@@ -16,6 +16,7 @@ from app.models.category import Category
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
 from app.models.pos_shift import PosCashEvent
+from app.models.customer_profile import CustomerProfile
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
@@ -395,7 +396,8 @@ async def list_sales_invoices_for_terminal_window(
         raise NotFoundError("Terminal not found")
 
     inv_res = await db.execute(
-        select(SalesInvoice)
+        select(SalesInvoice, CustomerProfile)
+        .outerjoin(CustomerProfile, SalesInvoice.customer_id == CustomerProfile.id)
         .where(
             SalesInvoice.terminal_id == terminal_id,
             SalesInvoice.branch_id == terminal.branch_id,
@@ -405,20 +407,28 @@ async def list_sales_invoices_for_terminal_window(
         )
         .order_by(SalesInvoice.created_at.desc())
     )
-    invoices = list(inv_res.scalars().all())
-    return [
-        SalesInvoiceListItem(
-            id=inv.id,
-            invoice_number=inv.invoice_number,
-            invoice_barcode=inv.invoice_barcode,
-            cart_id=inv.cart_id,
-            terminal_id=inv.terminal_id,
-            branch_id=inv.branch_id,
-            subtotal=inv.subtotal,
-            discount_total=inv.discount_total,
-            tax_total=inv.tax_total,
-            total=inv.total,
-            created_at=inv.created_at,
+    rows = inv_res.all()
+    out: list[SalesInvoiceListItem] = []
+    for inv, cust in rows:
+        cust_disp: str | None = None
+        if cust is not None:
+            name = (cust.full_name or "").strip()
+            cust_disp = name or (cust.phone or "").strip() or None
+        out.append(
+            SalesInvoiceListItem(
+                id=inv.id,
+                invoice_number=inv.invoice_number,
+                invoice_barcode=inv.invoice_barcode,
+                cart_id=inv.cart_id,
+                terminal_id=inv.terminal_id,
+                branch_id=inv.branch_id,
+                customer_id=inv.customer_id,
+                customer_display=cust_disp,
+                subtotal=inv.subtotal,
+                discount_total=inv.discount_total,
+                tax_total=inv.tax_total,
+                total=inv.total,
+                created_at=inv.created_at,
+            )
         )
-        for inv in invoices
-    ]
+    return out

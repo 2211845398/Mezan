@@ -83,6 +83,10 @@ class SalesInvoiceListItem(BaseModel):
     cart_id: int
     terminal_id: int
     branch_id: int
+    customer_id: int | None = None
+    """Joined walk-in vs customer sale; ``customer_display`` is the label for lists."""
+    customer_display: str | None = None
+    """Prefer full name, else phone, when ``customer_id`` is set."""
     subtotal: Decimal
     discount_total: Decimal
     tax_total: Decimal

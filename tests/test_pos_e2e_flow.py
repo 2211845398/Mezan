@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -104,10 +105,24 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
         json={"product_id": product_id, "qty": 2},
     )
     assert line.status_code == 200, line.text
+    dr = await client.post(
+        "/api/v1/discounts",
+        headers=admin_auth_header,
+        json={
+            "name": "DISC10 flat",
+            "code": "DISC10",
+            "discount_type": "flat",
+            "value": 10,
+            "start_date": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+            "status": "active",
+            "stackable": False,
+        },
+    )
+    assert dr.status_code == 201, dr.text
     disc = await client.post(
         f"/api/v1/pos/carts/{cart_id}/discounts",
         headers=admin_auth_header,
-        json={"code": "DISC10", "amount": 10.0},
+        json={"code": "DISC10"},
     )
     assert disc.status_code == 200, disc.text
     park = await client.post(

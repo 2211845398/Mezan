@@ -3581,8 +3581,6 @@ export interface components {
         CartDiscountRequest: {
             /** Code */
             code: string;
-            /** Amount */
-            amount: number | string;
         };
         /** CartLineRead */
         CartLineRead: {
@@ -3590,12 +3588,16 @@ export interface components {
             id: number;
             /** Product Id */
             product_id: number;
+            /** Variant Id */
+            variant_id: number;
             /** Product Name */
             product_name: string;
             /** Product Sku */
             product_sku: string;
             /** Barcode */
             barcode?: string | null;
+            /** Product Image Url */
+            product_image_url?: string | null;
             /** Qty */
             qty: number;
             /** Unit Price */
@@ -6278,6 +6280,10 @@ export interface components {
             terminal_id: number;
             /** Branch Id */
             branch_id: number;
+            /** Customer Id */
+            customer_id?: number | null;
+            /** Customer Display */
+            customer_display?: string | null;
             /** Subtotal */
             subtotal: string;
             /** Discount Total */

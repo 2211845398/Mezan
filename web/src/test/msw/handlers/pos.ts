@@ -110,14 +110,16 @@ export const posHandlers = [
   }),
 
   http.post(`${BASE}/pos/carts/:cartId/discounts`, async ({ params, request }) => {
-    const body = (await request.json()) as { code: string; amount: string };
+    const body = (await request.json()) as { code: string };
     if (Number(params.cartId) !== cart.id) {
       return HttpResponse.json({ message: 'not found' }, { status: 404 });
     }
+    const sub = Number.parseFloat(String(cart.subtotal));
+    const disc = Math.min(10, sub * 0.1);
     cart = {
       ...cart,
-      discount_total: String(body.amount),
-      total: (Number.parseFloat(cart.subtotal) - Number.parseFloat(String(body.amount))).toFixed(2),
+      discount_total: disc.toFixed(2),
+      total: (sub - disc).toFixed(2),
     };
     return HttpResponse.json(cart);
   }),
@@ -231,6 +233,8 @@ export const posHandlers = [
         cart_id: cart.id,
         terminal_id: 10,
         branch_id: 1,
+        customer_id: null,
+        customer_display: null,
         subtotal: '10',
         discount_total: '0',
         tax_total: '0',
@@ -274,8 +278,12 @@ export const posHandlers = [
     }),
   ),
 
-  http.get(`${BASE}/pos/returns/invoice-lookup`, () =>
-    HttpResponse.json({
+  http.get(`${BASE}/pos/returns/invoice-lookup`, ({ request }) => {
+    const ref = new URL(request.url).searchParams.get('invoice_barcode')?.trim() ?? '';
+    if (ref !== 'INV-555' && ref !== 'BC555') {
+      return HttpResponse.json({ detail: 'Invoice not found' }, { status: 404 });
+    }
+    return HttpResponse.json({
       invoice_id: 555,
       invoice_number: 'INV-555',
       invoice_barcode: 'BC555',
@@ -291,8 +299,8 @@ export const posHandlers = [
           qty_remaining: 1,
         },
       ],
-    }),
-  ),
+    });
+  }),
 
   http.post(`${BASE}/pos/returns`, () =>
     HttpResponse.json({

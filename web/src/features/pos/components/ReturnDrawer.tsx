@@ -37,10 +37,10 @@ export function ReturnDrawer({
 }: ReturnDrawerProps) {
   const { t } = useTranslation('pos');
   const canReturn = usePermission('returns', 'create');
-  const [barcode, setBarcode] = useState('');
+  const [invoiceQuery, setInvoiceQuery] = useState('');
   const [reason, setReason] = useState('');
   const [lookupOn, setLookupOn] = useState(false);
-  const { data: lookup, isFetching } = useReturnLookup(barcode.trim() || null, lookupOn);
+  const { data: lookup, isFetching } = useReturnLookup(invoiceQuery.trim() || null, lookupOn);
   const submit = useSubmitReturnMutation();
 
   const [qtyByLine, setQtyByLine] = useState<Record<number, number>>({});
@@ -49,7 +49,7 @@ export function ReturnDrawer({
 
   useEffect(() => {
     if (!open) {
-      setBarcode('');
+      setInvoiceQuery('');
       setReason('');
       setLookupOn(false);
       setQtyByLine({});
@@ -57,7 +57,7 @@ export function ReturnDrawer({
   }, [open]);
 
   function runLookup() {
-    if (!barcode.trim()) return;
+    if (!invoiceQuery.trim()) return;
     setLookupOn(true);
   }
 
@@ -117,10 +117,10 @@ export function ReturnDrawer({
             <div className="flex gap-2">
               <Input
                 className="min-w-0 flex-1"
-                value={barcode}
+                value={invoiceQuery}
                 onChange={(e) => {
                   setLookupOn(false);
-                  setBarcode(e.target.value);
+                  setInvoiceQuery(e.target.value);
                 }}
                 placeholder={t('return.scan_hint')}
               />

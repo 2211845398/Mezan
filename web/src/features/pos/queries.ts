@@ -310,8 +310,7 @@ export function useUpdateLineQty(cartId: number) {
 export function useApplyDiscount(cartId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { code: string; amount: string }) =>
-      applyCartDiscount(cartId, { code: body.code, amount: body.amount }),
+    mutationFn: (body: { code: string }) => applyCartDiscount(cartId, body),
     onSuccess: (data) => {
       qc.setQueryData(cartKeys.detail(cartId), data);
     },

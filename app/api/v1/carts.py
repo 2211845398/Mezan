@@ -103,7 +103,7 @@ async def apply_discount_endpoint(
     _: None = require_permission("pos_carts", "discount"),
 ) -> CartRead:
     cart = await apply_discount(
-        db, cart_id=cart_id, code=body.code, amount=body.amount, created_by_user_id=current_user.id
+        db, cart_id=cart_id, code=body.code, created_by_user_id=current_user.id
     )
     await audit_service.log(
         session=db,

@@ -77,63 +77,128 @@ export default function InvoiceLookup() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link to="/pos/register">{t('shell.nav_register')}</Link>
+    <div className="flex h-full min-h-0 flex-col gap-4 p-4 sm:gap-5 sm:p-6">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <h1 className="min-w-0 text-xl font-semibold tracking-tight sm:text-2xl">{t('invoices.title')}</h1>
+        <Button
+          asChild
+          variant="outline"
+          className="h-10 shrink-0 whitespace-nowrap border-border/80 bg-background px-4 text-sm font-medium shadow-sm"
+        >
+          <Link to="/pos/register">{t('invoices.back_register')}</Link>
         </Button>
       </div>
-      <h1 className="text-lg font-semibold">{t('invoices.title')}</h1>
+
       {!terminalId ? (
-        <p className="text-sm text-destructive">{t('gate.select_terminal')}</p>
+        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {t('gate.select_terminal')}
+        </p>
       ) : isLoading ? (
-        <p className="text-sm text-muted-foreground">…</p>
+        <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-10 text-center text-sm text-muted-foreground">
+          …
+        </div>
       ) : !rows?.length ? (
-        <p className="text-sm text-muted-foreground">{t('invoices.empty')}</p>
+        <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-14 text-center">
+          <p className="text-sm font-medium text-muted-foreground">{t('invoices.empty')}</p>
+        </div>
       ) : (
-        <div className="overflow-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="p-2 text-start">#</th>
-                <th className="p-2 text-start">{t('receipt.invoice_no')}</th>
-                <th className="p-2 text-start">{t('register.total')}</th>
-                <th className="p-2 text-start"> </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t">
-                  <td className="p-2">{r.id}</td>
-                  <td className="p-2">{r.invoice_number}</td>
-                  <td className="p-2" dir="ltr">
-                    {formatCurrency(Number.parseFloat(r.total), POS_CURRENCY)}
-                  </td>
-                  <td className="p-2">
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" variant="secondary" onClick={() => setSelectedId(r.id)}>
-                        {t('invoices.reprint')}
-                      </Button>
-                      <Can resource="sales_invoices" action="void">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm">
+          <div className="max-h-full overflow-auto">
+            <table className="w-full table-fixed border-collapse text-sm">
+              <colgroup>
+                <col style={{ width: '3.5rem' }} />
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '11.5rem' }} />
+              </colgroup>
+              <thead className="sticky top-0 z-10 border-b border-border/60 bg-muted/55 backdrop-blur-sm supports-[backdrop-filter]:bg-muted/45">
+                <tr>
+                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    #
+                  </th>
+                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('receipt.invoice_no')}
+                  </th>
+                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('invoices.col_customer')}
+                  </th>
+                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('invoices.col_time')}
+                  </th>
+                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('register.total')}
+                  </th>
+                  <th className="px-3 py-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {' '}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const customerLabel =
+                    (r.customer_display && r.customer_display.trim()) ||
+                    (r.customer_id != null ? t('invoices.customer_missing') : t('invoices.walk_in'));
+                  return (
+                  <tr
+                    key={r.id}
+                    className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/20"
+                  >
+                    <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{r.id}</td>
+                    <td className="min-w-0 px-3 py-2.5">
+                      <span className="block truncate font-medium" title={r.invoice_number}>
+                        {r.invoice_number}
+                      </span>
+                    </td>
+                    <td className="min-w-0 px-3 py-2.5">
+                      <span className="block truncate text-muted-foreground" title={customerLabel}>
+                        {customerLabel}
+                      </span>
+                    </td>
+                    <td className="min-w-0 whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground">
+                      {formatDateTime(fromISO(r.created_at))}
+                    </td>
+                    <td className="px-3 py-2.5 text-start">
+                      <span
+                        dir="ltr"
+                        className="inline-block whitespace-nowrap font-semibold tabular-nums tracking-tight"
+                      >
+                        {formatCurrency(Number.parseFloat(r.total), POS_CURRENCY)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           type="button"
                           size="sm"
-                          variant="destructive"
-                          className="min-h-9"
-                          onClick={() => {
-                            setVoidTarget(r);
-                            setVoidReason('');
-                          }}
+                          className="min-h-9 bg-primary font-medium text-primary-foreground shadow-sm shadow-primary/15 hover:bg-primary/90"
+                          onClick={() => setSelectedId(r.id)}
                         >
-                          {t('invoices.void')}
+                          {t('invoices.reprint')}
                         </Button>
-                      </Can>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        <Can resource="sales_invoices" action="void">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="min-h-9"
+                            onClick={() => {
+                              setVoidTarget(r);
+                              setVoidReason('');
+                            }}
+                          >
+                            {t('invoices.void')}
+                          </Button>
+                        </Can>
+                      </div>
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

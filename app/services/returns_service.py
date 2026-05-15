@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
@@ -126,11 +126,20 @@ async def create_return_and_credit(
 
 
 async def lookup_sales_invoice_for_return(
-    db: AsyncSession, *, invoice_barcode: str
+    db: AsyncSession, *, invoice_ref: str
 ) -> SalesInvoiceReturnLookupRead:
-    """Return invoice header and per-line remaining returnable quantities."""
+    """Return invoice header and per-line remaining returnable quantities.
+
+    ``invoice_ref`` may be the immutable ``invoice_barcode`` or the human-facing
+    ``invoice_number`` (e.g. ``INV-MAIN-2026-000002``).
+    """
+    ref = invoice_ref.strip()
+    if not ref:
+        raise NotFoundError("Invoice not found")
     i_res = await db.execute(
-        select(SalesInvoice).where(SalesInvoice.invoice_barcode == invoice_barcode)
+        select(SalesInvoice).where(
+            or_(SalesInvoice.invoice_barcode == ref, SalesInvoice.invoice_number == ref)
+        )
     )
     invoice = i_res.scalar_one_or_none()
     if not invoice:

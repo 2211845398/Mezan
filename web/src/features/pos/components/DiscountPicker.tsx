@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,7 +15,7 @@ import { Label } from '@/components/ui/label';
 
 export type DiscountPickerProps = {
   disabled?: boolean;
-  onApply: (code: string, amount: string) => Promise<void> | void;
+  onApply: (code: string) => Promise<void> | void;
   /** Extra classes on the trigger button (e.g. touch target height). */
   triggerClassName?: string;
 };
@@ -25,16 +24,14 @@ export function DiscountPicker({ disabled, onApply, triggerClassName }: Discount
   const { t } = useTranslation('pos');
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState('');
-  const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function submit() {
     setBusy(true);
     try {
-      await onApply(code.trim(), amount);
+      await onApply(code.trim());
       setOpen(false);
       setCode('');
-      setAmount('');
     } finally {
       setBusy(false);
     }
@@ -59,18 +56,16 @@ export function DiscountPicker({ disabled, onApply, triggerClassName }: Discount
               value={code}
               onChange={(e) => setCode(e.target.value)}
               autoComplete="off"
+              placeholder={t('register.discount_code_placeholder')}
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="disc-amt">{t('register.discount_amount')}</Label>
-            <MoneyInput id="disc-amt" value={amount} onChange={setAmount} />
+            <p className="text-xs text-muted-foreground">{t('register.discount_code_hint')}</p>
           </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>
-          <Button type="button" onClick={() => void submit()} disabled={busy || !code || !amount}>
+          <Button type="button" onClick={() => void submit()} disabled={busy || !code.trim()}>
             {t('register.discount_apply')}
           </Button>
         </DialogFooter>

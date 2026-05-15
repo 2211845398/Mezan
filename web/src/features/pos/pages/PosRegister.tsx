@@ -172,7 +172,7 @@ function RegisterSession({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[2fr_1fr_3fr] xl:grid-rows-1 xl:gap-4 xl:overflow-hidden">
+      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(22rem,2fr)_minmax(17rem,1.55fr)_minmax(0,2.95fr)] xl:grid-rows-1 xl:gap-4 xl:overflow-hidden">
         <RegisterCartColumn
           cart={cart}
           editable={editable}
@@ -195,9 +195,9 @@ function RegisterSession({
           editable={editable}
           isLocked={isLocked}
           parkedCount={parkedCount}
-          onApplyDiscount={async (code, amount) => {
+          onApplyDiscount={async (code) => {
             try {
-              await applyDisc.mutateAsync({ code, amount });
+              await applyDisc.mutateAsync({ code });
             } catch (error) {
               notifyApiError(error);
             }

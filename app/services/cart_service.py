@@ -9,6 +9,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
+from app.models.discount import DiscountRule, DiscountType, DiscountUsageLog
 from app.models.pos_cart import CartDaySequence, PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_shift import PosShift
 from app.models.pos_terminal import POSTerminal
@@ -16,8 +17,42 @@ from app.models.product import Product
 from app.schemas.pos_cart import CartDiscountRead, CartLineRead, CartRead
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.catalog_service import resolve_default_variant_id
+from app.services.discount_service import get_discount_rule_by_code, validate_discount
 from app.services.pricing_service import get_active_sell_price
 from app.utils.money import q2
+
+
+def _discount_amount_from_rule(*, rule: DiscountRule, eligible_subtotal: Decimal) -> Decimal:
+    """Compute cart-level discount amount from an active rule and eligible line subtotal."""
+    if eligible_subtotal <= 0:
+        raise ValidationError(
+            "Cart has no eligible subtotal for this discount",
+            details={"eligible_subtotal": str(eligible_subtotal)},
+        )
+    if rule.min_order_amount is not None and eligible_subtotal < q2(rule.min_order_amount):
+        raise ValidationError(
+            "Order subtotal is below the minimum for this discount",
+            details={
+                "min_order_amount": str(rule.min_order_amount),
+                "eligible_subtotal": str(eligible_subtotal),
+            },
+        )
+    dt = rule.discount_type
+    if dt == DiscountType.PERCENTAGE:
+        raw = q2(eligible_subtotal * (rule.value / Decimal("100")))
+    elif dt == DiscountType.FLAT:
+        raw = q2(min(rule.value, eligible_subtotal))
+    else:
+        raise ValidationError(
+            "This promotion type cannot be applied with a checkout discount code",
+            details={"discount_type": dt.value},
+        )
+    if rule.max_discount_amount is not None:
+        raw = min(raw, q2(rule.max_discount_amount))
+    raw = q2(raw)
+    if raw <= 0:
+        raise ValidationError("Calculated discount amount is zero")
+    return raw
 
 
 def _assert_transition(current: str, action: str) -> str:
@@ -278,7 +313,7 @@ async def upsert_line(
 
 
 async def apply_discount(
-    db: AsyncSession, *, cart_id: int, code: str, amount: Decimal, created_by_user_id: int
+    db: AsyncSession, *, cart_id: int, code: str, created_by_user_id: int
 ) -> PosCart:
     res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
     cart = res.scalar_one_or_none()
@@ -286,16 +321,72 @@ async def apply_discount(
         raise NotFoundError("Cart not found")
     if cart.status != "active":
         raise StateTransitionError("Cart is not active")
-    discount_amount = q2(amount)
-    db.add(PosCartDiscount(cart_id=cart.id, code=code, amount=discount_amount))
+
+    trimmed = code.strip()
+    dup = await db.execute(
+        select(PosCartDiscount.id)
+        .where(PosCartDiscount.cart_id == cart.id, PosCartDiscount.code == trimmed)
+        .limit(1)
+    )
+    if dup.scalar_one_or_none() is not None:
+        raise ValidationError(
+            "This discount code is already applied to the cart",
+            details={"code": trimmed},
+        )
+
+    rule = await get_discount_rule_by_code(db, code=trimmed)
+    rule = await validate_discount(db, rule_id=rule.id)
+
+    lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
+    lines = list(lines_res.scalars().all())
+    positive_lines = [ln for ln in lines if int(ln.qty or 0) > 0]
+
+    targets = rule.target_product_ids or []
+    if targets:
+        tset = {int(x) for x in targets}
+        eligible = q2(
+            sum(
+                q2(ln.unit_price * Decimal(int(ln.qty)))
+                for ln in positive_lines
+                if ln.product_id in tset
+            )
+        )
+        if eligible <= 0:
+            raise ValidationError(
+                "This discount applies only to specific products that are not in the cart",
+                details={"target_product_ids": list(targets)},
+            )
+    else:
+        eligible = q2(
+            sum(q2(ln.unit_price * Decimal(int(ln.qty))) for ln in positive_lines)
+        )
+
+    discount_amount = _discount_amount_from_rule(rule=rule, eligible_subtotal=eligible)
+
+    db.add(PosCartDiscount(cart_id=cart.id, code=trimmed, amount=discount_amount))
     db.add(
         PosCartEvent(
             cart_id=cart.id,
             event_type="discount_applied",
-            payload={"code": code, "amount": str(discount_amount)},
+            payload={
+                "code": trimmed,
+                "amount": str(discount_amount),
+                "discount_rule_id": rule.id,
+            },
             created_by_user_id=created_by_user_id,
         )
     )
+    rule.usage_count = int(rule.usage_count) + 1
+    db.add(
+        DiscountUsageLog(
+            discount_rule_id=rule.id,
+            cart_id=cart.id,
+            customer_id=cart.customer_id,
+            discount_amount=discount_amount,
+            applied_by_user_id=created_by_user_id,
+        )
+    )
+    await db.flush()
     await _recalc_totals(db, cart)
     await db.commit()
     await db.refresh(cart)
@@ -367,6 +458,7 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
                 product_name=p.name if p else "",
                 product_sku=p.sku if p else "",
                 barcode=p.barcode if p else None,
+                product_image_url=p.image_url if p else None,
                 qty=ln.qty,
                 unit_price=ln.unit_price,
                 line_total=ln.line_total,

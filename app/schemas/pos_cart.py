@@ -21,8 +21,7 @@ class CartLineUpsertRequest(BaseModel):
 
 
 class CartDiscountRequest(BaseModel):
-    code: str
-    amount: Decimal = Field(gt=0)
+    code: str = Field(min_length=1, max_length=64)
 
 
 class CartStateRequest(BaseModel):
@@ -36,6 +35,7 @@ class CartLineRead(BaseModel):
     product_name: str
     product_sku: str
     barcode: str | None = None
+    product_image_url: str | None = None
     qty: int
     unit_price: Decimal
     line_total: Decimal

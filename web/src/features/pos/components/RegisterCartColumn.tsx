@@ -64,7 +64,7 @@ export function RegisterCartColumn({
         </p>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[#fcfbf8] p-3">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg border border-border/40 bg-muted/15 p-2 sm:p-2.5">
         {!cart.lines?.length ? (
           <div className="flex h-full min-h-44 flex-col items-center justify-center text-center text-muted-foreground">
             <ShoppingCart className="size-16 opacity-25" />

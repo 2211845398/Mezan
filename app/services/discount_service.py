@@ -18,6 +18,18 @@ from app.models.discount import DiscountRule, DiscountStatus
 from app.schemas.ai_discount import AIAutoDiscountRequest
 
 
+async def get_discount_rule_by_code(db: AsyncSession, *, code: str) -> DiscountRule:
+    """Resolve a discount rule by its unique coupon ``code`` (trimmed, exact match)."""
+    c = code.strip()
+    if not c:
+        raise ValidationError("Discount code is required")
+    result = await db.execute(select(DiscountRule).where(DiscountRule.code == c))
+    rule = result.scalar_one_or_none()
+    if rule is None:
+        raise NotFoundError("Unknown discount code", details={"code": c})
+    return rule
+
+
 async def get_discount_rule(db: AsyncSession, rule_id: int) -> DiscountRule:
     result = await db.execute(select(DiscountRule).where(DiscountRule.id == rule_id))
     rule = result.scalar_one_or_none()

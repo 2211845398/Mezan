@@ -322,11 +322,26 @@ async def test_happy_user_journey(
     assert line_res.status_code == 200, line_res.text
     assert Decimal(str(line_res.json()["subtotal"])) == Decimal("100.00")
 
-    # Apply $10 manual discount → total $90.
+    dr = await client.post(
+        "/api/v1/discounts",
+        headers=headers,
+        json={
+            "name": "WELCOME10 flat",
+            "code": "WELCOME10",
+            "discount_type": "flat",
+            "value": 10,
+            "start_date": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+            "status": "active",
+            "stackable": False,
+        },
+    )
+    assert dr.status_code == 201, dr.text
+
+    # Apply rule-backed flat discount ($10) → total $90.
     disc = await client.post(
         f"/api/v1/pos/carts/{cart_id}/discounts",
         headers=headers,
-        json={"code": "WELCOME10", "amount": 10.0},
+        json={"code": "WELCOME10"},
     )
     assert disc.status_code == 200, disc.text
     cart_after_disc = disc.json()

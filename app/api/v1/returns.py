@@ -23,12 +23,16 @@ router = APIRouter()
 
 @router.get("/pos/returns/invoice-lookup", response_model=SalesInvoiceReturnLookupRead)
 async def lookup_return_invoice_endpoint(
-    invoice_barcode: str = Query(..., min_length=1),
+    invoice_barcode: str = Query(
+        ...,
+        min_length=1,
+        description="Invoice barcode or printed invoice number (e.g. INV-…).",
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("returns", "create"),
 ) -> SalesInvoiceReturnLookupRead:
-    return await lookup_sales_invoice_for_return(db, invoice_barcode=invoice_barcode)
+    return await lookup_sales_invoice_for_return(db, invoice_ref=invoice_barcode)
 
 
 @router.get("/pos/returns/{return_id}/exchange-link", response_model=ExchangeLinkDetailRead)

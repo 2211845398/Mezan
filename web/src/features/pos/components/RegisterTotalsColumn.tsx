@@ -18,7 +18,7 @@ export type RegisterTotalsColumnProps = {
   editable: boolean;
   isLocked: boolean;
   parkedCount: number;
-  onApplyDiscount: (code: string, amount: string) => Promise<void>;
+  onApplyDiscount: (code: string) => Promise<void>;
   onCheckout: () => void | Promise<void>;
   onPark: () => void | Promise<void>;
   /** Park current sale and open a new empty cart (same as toolbar park + new). */
