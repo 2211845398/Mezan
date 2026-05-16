@@ -182,6 +182,7 @@
     "validation_required": "This field is required.",
     "validation_generic": "Invalid input. Please check the value and try again.",
     "request_failed": "Request failed. Please review the details and try again.",
+    "request_timeout": "The server took too long to respond. Check your connection and try again.",
     "try_again": "Please try again."
   },
   "apiErrors": {

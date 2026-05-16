@@ -120,7 +120,7 @@ const CrmCustomerDetail = lazy(() => import('@/features/crm/pages/customers/Cust
 const CrmAccrualRulesList = lazy(() => import('@/features/crm/pages/loyalty/AccrualRulesList'));
 const CrmAccrualRuleForm = lazy(() => import('@/features/crm/pages/loyalty/AccrualRuleForm'));
 const CrmDiscountsList = lazy(() => import('@/features/crm/pages/discounts/DiscountsList'));
-const CrmDiscountForm = lazy(() => import('@/features/crm/pages/discounts/DiscountForm'));
+const CrmDiscountsQueryRedirect = lazy(() => import('@/features/crm/pages/discounts/DiscountsQueryRedirect'));
 
 const MarketingAnalytics = lazy(() => import('@/features/marketing/pages/analytics/Analytics'));
 const MarketingAdvisoryPage = lazy(() => import('@/features/marketing/pages/advisory/MarketingAdvisory'));
@@ -908,7 +908,7 @@ export const router = createBrowserRouter([
                     path: 'new',
                     element: (
                       <RequirePermission resource="discounts" action="create">
-                        {withSuspense(CrmDiscountForm)}
+                        {withSuspense(CrmDiscountsQueryRedirect)}
                       </RequirePermission>
                     ),
                   },
@@ -916,7 +916,7 @@ export const router = createBrowserRouter([
                     path: ':discountId/edit',
                     element: (
                       <RequirePermission resource="discounts" action="update">
-                        {withSuspense(CrmDiscountForm)}
+                        {withSuspense(CrmDiscountsQueryRedirect)}
                       </RequirePermission>
                     ),
                   },

@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { NavItem, NavSection } from '@/config/navigation';
-import { navBadgeCount, type NavBadgeCounts,useNavBadges } from '@/hooks/useNavBadges';
+import { navBadgeCount, type NavBadgeCounts, useNavBadges } from '@/hooks/useNavBadges';
 import { cn } from '@/lib/utils';
 
 import { NavAttentionBadge } from './NavAttentionBadge';
@@ -188,18 +188,16 @@ function NavRowCollapsed({
             activeClassName="bg-sidebar-primary text-sidebar-primary-foreground"
           >
             {({ isActive }) => (
-              <>
-                <Icon className="size-5 shrink-0" />
-                {n > 0 ? (
-                  <span className="absolute end-0 top-0 z-[3] -translate-y-1/2 translate-x-1/4">
-                    <NavAttentionBadge
-                      count={n}
-                      navItemActive={isActive}
-                      className="h-4 min-w-4 px-1 text-[9px]"
-                    />
-                  </span>
-                ) : null}
-              </>
+              <span className="relative inline-flex size-9 shrink-0 items-center justify-center">
+                <Icon className="size-5 shrink-0" aria-hidden />
+                <NavAttentionBadge
+                  count={n}
+                  navItemActive={isActive}
+                  className={cn(
+                    'absolute z-20 h-4 min-w-4 px-1 text-[9px] -end-1 -top-1',
+                  )}
+                />
+              </span>
             )}
           </NavLeafLink>
         </TooltipTrigger>
@@ -222,16 +220,16 @@ function NavRowCollapsed({
           aria-label={label}
           title={label}
         >
-          <Icon className="size-5 shrink-0" />
-          {navBadgeCount(badges, item.badge) > 0 ? (
-            <span className="absolute end-0 top-0 z-[3] -translate-y-1/2 translate-x-1/4">
-              <NavAttentionBadge
-                count={navBadgeCount(badges, item.badge)}
-                navItemActive={active}
-                className="h-4 min-w-4 px-1 text-[9px]"
-              />
-            </span>
-          ) : null}
+          <span className="relative inline-flex size-9 shrink-0 items-center justify-center">
+            <Icon className="size-5 shrink-0" aria-hidden />
+            <NavAttentionBadge
+              count={navBadgeCount(badges, item.badge)}
+              navItemActive={active}
+              className={cn(
+                'absolute z-20 h-4 min-w-4 px-1 text-[9px] -end-1 -top-1',
+              )}
+            />
+          </span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start" side="bottom" sideOffset={6}>

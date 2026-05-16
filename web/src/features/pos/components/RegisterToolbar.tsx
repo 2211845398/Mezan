@@ -1,4 +1,4 @@
-import { Clock3, ListChecks, ReceiptText, RotateCcw, Trash2 } from 'lucide-react';
+import { Clock3, ListChecks, ReceiptText, RotateCcw, Trash2, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -34,6 +34,9 @@ export type RegisterToolbarProps = {
   onResumeCart: (cartId: number) => void;
   parkedOpen: boolean;
   onParkedOpenChange: (open: boolean) => void;
+  /** When true, show «صندوق» (expense / non-sale cash-in). */
+  canDrawerMovement?: boolean;
+  onDrawerMovementOpen?: () => void;
 };
 
 /** Top toolbar for the register route. */
@@ -49,6 +52,8 @@ export function RegisterToolbar({
   onResumeCart,
   parkedOpen,
   onParkedOpenChange,
+  canDrawerMovement = false,
+  onDrawerMovementOpen,
 }: RegisterToolbarProps) {
   const { t } = useTranslation('pos');
   const online = useOnline();
@@ -76,8 +81,11 @@ export function RegisterToolbar({
     void parked.refetch();
   }
 
+  /** Same min-height for all toolbar actions (previously «إنهاء الوردية» used `size="sm"`). */
+  const posToolbarBtn = 'min-h-9 gap-2';
+
   return (
-    <div className="flex w-full shrink-0 flex-wrap items-center gap-y-3 rounded-2xl border bg-card px-4 py-3 shadow-sm sm:gap-x-2">
+    <div className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-y-3 rounded-2xl border bg-card px-3 py-3 shadow-sm sm:gap-x-2 sm:px-4">
       {/*
         One row: mirrors automatically between RTL and LTR.
         Group 1 (inline-start): title + branch → clock → today's sales → pending invoices.
@@ -103,22 +111,22 @@ export function RegisterToolbar({
           <Clock3 className="size-3.5" aria-hidden />
           {formatDateTime(clock, 'HH:mm:ss')}
         </span>
-        <Button type="button" variant="outline" className="min-h-9 gap-2" asChild>
+        <Button type="button" variant="outline" className={posToolbarBtn} asChild>
           <Link to="/pos/invoices">
-            <ReceiptText className="size-4" aria-hidden />
+            <ReceiptText className="size-4 shrink-0" aria-hidden />
             {t('register.todays_sales')}
           </Link>
         </Button>
         <Button
           type="button"
           variant="outline"
-          className="relative min-h-9 gap-2"
+          className={`relative ${posToolbarBtn}`}
           onClick={() => onParkedOpenChange(true)}
         >
-          <ListChecks className="size-4" aria-hidden />
+          <ListChecks className="size-4 shrink-0" aria-hidden />
           {t('pending.title')}
           {(parked.data?.length ?? 0) > 0 ? (
-            <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-black text-white">
+            <span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 px-0.5 text-[9px] font-semibold text-emerald-800 dark:bg-emerald-300/35 dark:text-emerald-950">
               {parked.data?.length}
             </span>
           ) : null}
@@ -135,17 +143,27 @@ export function RegisterToolbar({
         <Button
           type="button"
           variant="outline"
-          className="min-h-9 gap-2 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+          className={`border-primary/30 text-primary hover:bg-primary/10 hover:text-primary ${posToolbarBtn}`}
           onClick={() => onReturnOpen()}
         >
-          <RotateCcw className="size-4" aria-hidden />
+          <RotateCcw className="size-4 shrink-0" aria-hidden />
           {t('return.title')}
         </Button>
+        {canDrawerMovement && onDrawerMovementOpen ? (
+          <Button
+            type="button"
+            variant="outline"
+            className={posToolbarBtn}
+            onClick={() => onDrawerMovementOpen()}
+          >
+            <Wallet className="size-4 shrink-0" aria-hidden />
+            {t('drawer_movement.toolbar')}
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="min-h-9 shrink-0 gap-2"
+          className={posToolbarBtn}
           onClick={() => setEndShiftOpen(true)}
         >
           {t('register.end_shift')}

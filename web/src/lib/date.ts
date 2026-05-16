@@ -1,10 +1,12 @@
 import {
   addDays,
   differenceInCalendarDays,
+  endOfDay,
   endOfMonth,
   format as dfFormat,
   getDate,
   parseISO as dfParseISO,
+  startOfDay,
 } from 'date-fns';
 import type { Locale } from 'date-fns/locale';
 import { arSA as arSALocale, enUS as enUSLocale } from 'date-fns/locale';
@@ -80,4 +82,24 @@ export function inclusiveEndIsoDateFromStartAndDays(
   const n = Math.max(1, Math.floor(inclusiveDayCount));
   const end = addDays(fromISO(startIsoDate), n - 1);
   return dfFormat(end, 'yyyy-MM-dd');
+}
+
+/** Parse `YYYY-MM-DD` as a local calendar date (00:00 local). */
+function localCalendarDateFromYmd(ymd: string): Date {
+  const parts = ymd.trim().split('-').map((p) => Number.parseInt(p, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    throw new RangeError(`Invalid YYYY-MM-DD: ${ymd}`);
+  }
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d);
+}
+
+/** Start of local calendar day as ISO-8601 UTC (for API `start_date`). */
+export function localDayStartToIsoUtc(ymd: string): string {
+  return toISOStringUtc(startOfDay(localCalendarDateFromYmd(ymd)));
+}
+
+/** End of local calendar day (23:59:59.999 local) as ISO-8601 UTC (for API `end_date`). */
+export function localDayEndToIsoUtc(ymd: string): string {
+  return toISOStringUtc(endOfDay(localCalendarDateFromYmd(ymd)));
 }

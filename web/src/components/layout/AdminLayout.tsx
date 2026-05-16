@@ -1,4 +1,7 @@
+import { useLocation } from 'react-router-dom';
+
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
@@ -13,6 +16,9 @@ export type AdminLayoutProps = {
 };
 
 export function AdminLayout({ children }: AdminLayoutProps) {
+  const { pathname } = useLocation();
+  const isPosShell = pathname.startsWith('/pos');
+
   return (
     <TooltipProvider delayDuration={300}>
       {/* h-[100dvh] + overflow-hidden: document/body must not scroll — only sidebar nav + main scroll */}
@@ -20,7 +26,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <Sidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar />
-          <main className="mezan-scrollbar min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
+          <main
+            className={cn(
+              'mezan-scrollbar min-h-0 flex-1',
+              isPosShell
+                ? 'overflow-hidden p-0'
+                : 'overflow-y-auto p-4 lg:p-6',
+            )}
+          >
             {children}
           </main>
         </div>

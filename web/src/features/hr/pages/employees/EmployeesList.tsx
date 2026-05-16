@@ -4,14 +4,16 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { NavAttentionBadge } from '@/components/layout/NavAttentionBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import { listBranches } from '@/features/admin/api';
+import { listBranches, listPendingOnboarding } from '@/features/admin/api';
 import { getBranchLabel } from '@/features/admin/lib/branchLabels';
 import { roleCodeLabel } from '@/features/admin/lib/roleLabels';
 import { adminKeys } from '@/features/admin/queries';
+import { usePermission } from '@/hooks/usePermission';
 
 import { type EmployeeProfileRead } from '../../api';
 import { employeeProfileRowSearchValue } from '../../lib/hrTableSearch';
@@ -19,11 +21,19 @@ import { employeesQueryOptions } from '../../queries';
 
 export default function EmployeesList() {
   const { t, i18n } = useTranslation('hr');
+  const canOnboardingRead = usePermission('onboarding', 'read');
   const { data: rows = [], isLoading, isError, refetch } = useQuery(employeesQueryOptions());
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
   });
+  const { data: pendingOnboarding = [] } = useQuery({
+    queryKey: adminKeys.onboardingList(null),
+    queryFn: listPendingOnboarding,
+    enabled: canOnboardingRead,
+    staleTime: 30_000,
+  });
+  const onboardingPendingCount = pendingOnboarding.length;
 
   const { t: tAdmin } = useTranslation('admin');
 
@@ -114,10 +124,21 @@ export default function EmployeesList() {
         title={t('employees.title')}
         actions={
           <Button variant="outline" asChild>
-            <Link to="/hr/employees/pending">
-              <UserCheck className="me-2 size-4" />
-              {t('pending.title')}
-              <ArrowRight className="ms-2 size-4" />
+            <Link
+              to="/hr/employees/pending"
+              className="relative inline-flex items-center gap-2 overflow-visible"
+            >
+              <UserCheck className="size-4 shrink-0" aria-hidden />
+              <span>{t('pending.title')}</span>
+              <ArrowRight className="size-4 shrink-0" aria-hidden />
+              {onboardingPendingCount > 0 ? (
+                <span
+                  className="pointer-events-none absolute -top-2 z-10 ltr:-end-2 rtl:-start-2"
+                  aria-hidden
+                >
+                  <NavAttentionBadge count={onboardingPendingCount} />
+                </span>
+              ) : null}
             </Link>
           </Button>
         }

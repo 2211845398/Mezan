@@ -465,6 +465,7 @@ Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
 - [x] **W-11.5** Control rail (middle column): split payment methods vs cash/transfer payment buttons, discount code field with role gating — `GAP-POS-014..017`.
 - [x] **W-11.6** Cart panel (left column): daily cart number, return-mode toggle with `data-mode="return"` color shift, exchange wiring, customer picker functional — `GAP-POS-018..022`.
 - [x] **W-11.7** Branch label surfaced in the POS topbar and payment receipt context — `GAP-POS-008`.
+- [x] **W-11.8** POS toolbar: shift drawer movement dialog (posted expense vs non-sale cash-in) wired to `/pos/expenses` and shift cash-events; CRM customer performance tab lists per-document open AR and opens apply-payment drawer with CRM cache refresh.
 
 #### Epic W-12 — Inventory / Purchasing UX Restructure
 - [x] **W-12.1** Transfers 3-column Kanban (Delivery Requests / In Transit / Delivered) — `GAP-INV-001`.

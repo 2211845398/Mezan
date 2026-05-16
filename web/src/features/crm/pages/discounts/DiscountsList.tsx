@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 import { fromISO } from '@/lib/date';
@@ -15,6 +17,7 @@ import { notify } from '@/lib/toast';
 import type { DiscountRuleRead } from '../../api';
 import { updateDiscountRule } from '../../api';
 import { crmKeys, discountsListQueryOptions } from '../../queries';
+import DiscountForm from './DiscountForm';
 
 function sortDiscounts(rows: DiscountRuleRead[]): DiscountRuleRead[] {
   return [...rows].sort((a, b) => {
@@ -28,6 +31,8 @@ function sortDiscounts(rows: DiscountRuleRead[]): DiscountRuleRead[] {
 export default function DiscountsList() {
   const { t } = useTranslation('crm');
   const { t: tc } = useTranslation('common');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const canCreate = usePermission('discounts', 'create');
   const canUpdate = usePermission('discounts', 'update');
@@ -35,6 +40,17 @@ export default function DiscountsList() {
     discountsListQueryOptions({ limit: 100, offset: 0 }),
   );
   const rows = useMemo(() => sortDiscounts(raw), [raw]);
+
+  const openNew = searchParams.get('new') === '1';
+  const rawEdit = searchParams.get('edit');
+  const editIdFromUrl =
+    !openNew && rawEdit && /^\d+$/.test(rawEdit) ? Number.parseInt(rawEdit, 10) : null;
+  const formOpen = openNew || (editIdFromUrl != null && editIdFromUrl > 0);
+  const dialogDiscountId = openNew ? null : editIdFromUrl;
+
+  function closeDiscountForm() {
+    void navigate('/crm/discounts', { replace: true });
+  }
 
   const mToggle = useMutation({
     mutationFn: async (r: DiscountRuleRead) => {
@@ -91,28 +107,42 @@ export default function DiscountsList() {
                 >
                   {row.original.status === 'active' ? t('discounts.deactivate') : t('discounts.activate')}
                 </Button>
-                <Button type="button" size="icon" variant="ghost" asChild>
-                  <Link to={`/crm/discounts/${row.original.id}/edit`} aria-label={t('discounts.edit')}>
-                    <Pencil className="size-4" />
-                  </Link>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  aria-label={t('discounts.edit')}
+                  onClick={() => {
+                    void navigate(`/crm/discounts?edit=${row.original.id}`);
+                  }}
+                >
+                  <Pencil className="size-4" />
                 </Button>
               </div>
             ) : null,
         },
       ]),
-    [canUpdate, mToggle, t],
+    [canUpdate, mToggle, navigate, t],
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{t('discounts.title')}</h1>
-        {canCreate ? (
-          <Button asChild>
-            <Link to="/crm/discounts/new">{t('discounts.new')}</Link>
-          </Button>
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        title={t('discounts.title')}
+        actions={
+          canCreate ? (
+            <Button
+              type="button"
+              onClick={() => {
+                void navigate('/crm/discounts?new=1');
+              }}
+            >
+              <Plus className="me-2 size-4" />
+              {t('discounts.new')}
+            </Button>
+          ) : null
+        }
+      />
       <DataTable
         mode="client"
         columns={columns}
@@ -121,6 +151,23 @@ export default function DiscountsList() {
         isError={isError}
         onRetry={() => void refetch()}
       />
+
+      <FloatingFormDialog
+        open={formOpen}
+        onOpenChange={(o) => {
+          if (!o) closeDiscountForm();
+        }}
+        title={openNew ? t('discounts.new_title') : t('discounts.edit_title')}
+        maxWidth="md"
+      >
+        {formOpen ? (
+          <DiscountForm
+            key={searchParams.toString()}
+            dialogDiscountId={dialogDiscountId}
+            onDismiss={closeDiscountForm}
+          />
+        ) : null}
+      </FloatingFormDialog>
     </div>
   );
 }

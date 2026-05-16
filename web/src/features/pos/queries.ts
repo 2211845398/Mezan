@@ -103,6 +103,8 @@ export function useCart(cartId: number | null) {
     enabled: cartId != null,
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: false,
+    /** Avoid long “preparing cart” spinners on 5xx / flaky networks (TanStack default retries). */
+    retry: false,
   });
 }
 

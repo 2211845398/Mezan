@@ -100,6 +100,29 @@ export async function addShiftCashEvent(
   return data;
 }
 
+/** Body for `POST /pos/expenses` (not yet in OpenAPI schema). */
+export type PosExpenseCreateBody = {
+  shift_id: number;
+  expense_category: string;
+  amount: string;
+  description?: string | null;
+};
+
+export type PosExpenseRead = {
+  id: number;
+  shift_id: number;
+  branch_id: number;
+  expense_category: string;
+  amount: string;
+  description: string | null;
+  created_at: string;
+};
+
+export async function createPosExpense(body: PosExpenseCreateBody): Promise<PosExpenseRead> {
+  const { data } = await apiClient.post<PosExpenseRead>('/pos/expenses', body);
+  return data;
+}
+
 export async function closeShift(
   shiftId: number,
   body: CloseShiftBody,
@@ -111,13 +134,20 @@ export async function closeShift(
   return data;
 }
 
+/** Avoid indefinite “preparing cart” when the API never responds (no global axios timeout). */
+const POS_CART_HTTP_TIMEOUT_MS = 25_000;
+
 export async function getCart(cartId: number): Promise<CartRead> {
-  const { data } = await apiClient.get<CartRead>(`/pos/carts/${cartId}`);
+  const { data } = await apiClient.get<CartRead>(`/pos/carts/${cartId}`, {
+    timeout: POS_CART_HTTP_TIMEOUT_MS,
+  });
   return data;
 }
 
 export async function createCart(body: CreateCartBody): Promise<CartRead> {
-  const { data } = await apiClient.post<CartRead>('/pos/carts', body);
+  const { data } = await apiClient.post<CartRead>('/pos/carts', body, {
+    timeout: POS_CART_HTTP_TIMEOUT_MS,
+  });
   return data;
 }
 

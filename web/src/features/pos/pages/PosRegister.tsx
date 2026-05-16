@@ -15,6 +15,7 @@ import { CustomerPicker } from '../components/CustomerPicker';
 import { ProductGrid } from '../components/ProductGrid';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { RegisterCartColumn } from '../components/RegisterCartColumn';
+import { PosDrawerMovementDialog } from '../components/PosDrawerMovementDialog';
 import { RegisterToolbar } from '../components/RegisterToolbar';
 import { RegisterTotalsColumn } from '../components/RegisterTotalsColumn';
 import { ReturnDrawer, type ReturnExchangeSession } from '../components/ReturnDrawer';
@@ -38,6 +39,25 @@ import { usePosRegisterStore } from '../stores/posRegisterStore';
 import { usePosTerminalStore } from '../stores/posTerminalStore';
 
 const POS_CURRENCY = 'USD';
+
+/** Fails if `promise` does not settle within `ms` (avoids stuck bootstrap when the network hangs). */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = window.setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(id);
+        reject(e);
+      },
+    );
+  });
+}
+
+const CREATE_CART_BOOTSTRAP_MS = 28_000;
 
 type RegisterSessionProps = {
   cartId: number;
@@ -100,10 +120,6 @@ function RegisterSession({
     }
   }, [cancelCart, cartId, qc]);
 
-  useEffect(() => {
-    if (cartError) onCartMissing();
-  }, [cartError, onCartMissing]);
-
   function onAddLine(productId: number, qty = 1) {
     const pid = productId;
     if (!Number.isFinite(pid)) return;
@@ -114,10 +130,24 @@ function RegisterSession({
       });
   }
 
+  if (cartError) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-6 text-center text-sm shadow-sm">
+        <p className="text-muted-foreground">{t('register.cart_error_title')}</p>
+        <Button type="button" variant="outline" onClick={() => onCartMissing()}>
+          {t('register.retry_cart')}
+        </Button>
+      </div>
+    );
+  }
+
   if (cartLoading || !cart) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-        {t('register.loading_cart')}
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
+        <p className="font-medium text-foreground">{t('register.loading_cart')}</p>
+        <p className="max-w-md text-[11px] leading-relaxed text-muted-foreground">
+          {t('register.loading_cart_hint')}
+        </p>
       </div>
     );
   }
@@ -267,11 +297,15 @@ export default function PosRegister() {
       creatingCartRef.current = true;
       setCartCreateError(null);
       try {
-        const c = await createCartMutRef.current.mutateAsync({
-          terminal_id: terminalId,
-          shift_id: shift.id,
-          customer_id: null,
-        });
+        const c = await withTimeout(
+          createCartMutRef.current.mutateAsync({
+            terminal_id: terminalId,
+            shift_id: shift.id,
+            customer_id: null,
+          }),
+          CREATE_CART_BOOTSTRAP_MS,
+          tc('errors.request_timeout'),
+        );
         setActiveCartId(c.id);
         if (opts?.dropDetailFor != null) {
           qc.removeQueries({ queryKey: cartKeys.detail(opts.dropDetailFor) });
@@ -285,7 +319,7 @@ export default function PosRegister() {
         creatingCartRef.current = false;
       }
     },
-    [qc, setActiveCartId, shift?.id, terminalId],
+    [qc, setActiveCartId, shift?.id, tc, terminalId],
   );
 
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -298,6 +332,8 @@ export default function PosRegister() {
 
   // Parked invoices dialog — lifted so both toolbar and totals column can open it
   const [parkedOpen, setParkedOpen] = useState(false);
+  const [drawerMovementOpen, setDrawerMovementOpen] = useState(false);
+  const canShiftLedgerActions = usePermission('pos_shifts', 'update');
 
   // Parked carts for badge count (fetched here so both toolbar & totals column share the same data)
   const parkedCarts = useParkedCarts(terminalId ?? 0);
@@ -319,11 +355,15 @@ export default function PosRegister() {
     creatingCartRef.current = true;
     void (async () => {
       try {
-        const c = await createCartMutRef.current.mutateAsync({
-          terminal_id: terminalId,
-          shift_id: shift.id,
-          customer_id: null,
-        });
+        const c = await withTimeout(
+          createCartMutRef.current.mutateAsync({
+            terminal_id: terminalId,
+            shift_id: shift.id,
+            customer_id: null,
+          }),
+          CREATE_CART_BOOTSTRAP_MS,
+          tc('errors.request_timeout'),
+        );
         if (!cancelled) setActiveCartId(c.id);
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
@@ -343,6 +383,7 @@ export default function PosRegister() {
     cartCreateError,
     cartRetryNonce,
     setActiveCartId,
+    tc,
   ]);
 
   if (!terminalId) {
@@ -384,6 +425,7 @@ export default function PosRegister() {
   }
 
   function resetCartAndRetry() {
+    creatingCartRef.current = false;
     setCartCreateError(null);
     setActiveCartId(null);
     setCartRetryNonce((n) => n + 1);
@@ -410,7 +452,7 @@ export default function PosRegister() {
   return (
     <div
       data-return-mode={returnExchangeSession ? 'exchange' : undefined}
-      className={`flex h-full min-h-0 flex-col gap-3 p-3 transition-colors duration-200 ${
+      className={`flex h-full min-h-0 w-full min-w-0 flex-col gap-2 px-2 py-2 transition-colors duration-200 sm:gap-3 sm:px-3 sm:py-3 ${
         returnExchangeSession
           ? 'bg-primary/5 ring-1 ring-primary/15 dark:bg-primary/10 dark:ring-primary/25'
           : 'bg-[#f8f7f4]'
@@ -428,6 +470,8 @@ export default function PosRegister() {
         onResumeCart={resumeCart}
         parkedOpen={parkedOpen}
         onParkedOpenChange={setParkedOpen}
+        canDrawerMovement={!!shift?.id && canShiftLedgerActions}
+        onDrawerMovementOpen={() => setDrawerMovementOpen(true)}
       />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -459,11 +503,29 @@ export default function PosRegister() {
             </div>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-            {t('register.loading_cart')}
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
+            <p className="font-medium text-foreground">{t('register.loading_cart')}</p>
+            <p className="max-w-md text-[11px] leading-relaxed text-muted-foreground">
+              {t('register.loading_cart_hint')}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="text-[11px] text-muted-foreground">{t('register.loading_cart_stuck')}</span>
+              <Button type="button" variant="outline" size="sm" onClick={resetCartAndRetry}>
+                {t('register.loading_cart_stuck_action')}
+              </Button>
+            </div>
           </div>
         )}
       </div>
+
+      {shift?.id && terminalId ? (
+        <PosDrawerMovementDialog
+          open={drawerMovementOpen}
+          onOpenChange={setDrawerMovementOpen}
+          shiftId={shift.id}
+          terminalId={terminalId}
+        />
+      ) : null}
 
       <ReturnDrawer
         open={returnOpen}

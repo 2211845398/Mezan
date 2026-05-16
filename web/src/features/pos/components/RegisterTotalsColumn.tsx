@@ -102,7 +102,7 @@ export function RegisterTotalsColumn({
           <ListChecks className="size-4" aria-hidden />
           {t('register.view_parked')}
           {parkedCount > 0 ? (
-            <span className="absolute end-2 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-black text-white">
+            <span className="absolute end-2 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-300/35 dark:text-emerald-950">
               {parkedCount}
             </span>
           ) : null}

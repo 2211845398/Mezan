@@ -26,9 +26,11 @@ type Props = {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   items: OpenItemRead[];
+  /** Runs after a successful apply (e.g. refresh CRM customer views). */
+  onApplied?: () => void | Promise<void>;
 };
 
-export default function ArApplyPaymentDrawer({ open, onOpenChange, items }: Props) {
+export default function ArApplyPaymentDrawer({ open, onOpenChange, items, onApplied }: Props) {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
@@ -81,6 +83,7 @@ export default function ArApplyPaymentDrawer({ open, onOpenChange, items }: Prop
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: accountingKeys.root });
+      await onApplied?.();
       toast.success(t('ar.apply_ok'));
       onOpenChange(false);
     },

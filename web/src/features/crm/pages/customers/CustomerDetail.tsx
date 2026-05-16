@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
@@ -9,11 +9,16 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { OpenItemRead } from '@/features/accounting/api';
+import ArApplyPaymentDrawer from '@/features/accounting/pages/ar/ArApplyPaymentDrawer';
+import { arOpenItemsQueryOptions } from '@/features/accounting/queries';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
 import { formatCurrency } from '@/lib/format';
 
 import type { CustomerSalesInvoiceListResponse, LedgerEntryRead } from '../../api';
 import {
+  crmKeys,
   customerDetailQueryOptions,
   customerInvoicesQueryOptions,
   customerPerformanceQueryOptions,
@@ -25,10 +30,15 @@ export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const cid = id ? Number(id) : NaN;
   const { t } = useTranslation('crm');
+  const qc = useQueryClient();
+  const activeBranchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
   const [adjOpen, setAdjOpen] = useState(false);
+  const [arPayOpen, setArPayOpen] = useState(false);
   const canEdit = usePermission('customers', 'update');
   const canAdjust = usePermission('loyalty', 'adjust');
   const canReadLoyalty = usePermission('loyalty', 'read');
+  const canReadAccounting = usePermission('accounting', 'read');
+  const canApplyAr = usePermission('accounting', 'update');
 
   const { data: customer, isLoading, refetch } = useQuery({
     ...customerDetailQueryOptions(cid),
@@ -49,6 +59,33 @@ export default function CustomerDetail() {
     ...customerPerformanceQueryOptions(cid, 365),
     enabled: !Number.isNaN(cid) && cid > 0,
   });
+
+  const { data: arItems = [], isLoading: arLoading } = useQuery({
+    ...arOpenItemsQueryOptions({
+      branch_id: activeBranchId ?? undefined,
+      status: 'open',
+    }),
+    enabled:
+      !Number.isNaN(cid) &&
+      cid > 0 &&
+      canReadAccounting &&
+      activeBranchId != null &&
+      activeBranchId > 0,
+  });
+
+  const customerOpenItems: OpenItemRead[] = useMemo(
+    () =>
+      arItems.filter(
+        (i) => i.customer_id === cid && Number.parseFloat(String(i.amount_open)) > 0,
+      ),
+    [arItems, cid],
+  );
+
+  const onArApplied = useCallback(async () => {
+    await qc.invalidateQueries({ queryKey: crmKeys.customer(cid) });
+    await qc.invalidateQueries({ queryKey: crmKeys.customerPerformance(cid, 365) });
+    await qc.invalidateQueries({ queryKey: crmKeys.customerInvoices(cid, invArgs) });
+  }, [qc, cid, invArgs]);
 
   const invRows = (invData as CustomerSalesInvoiceListResponse | undefined)?.items ?? [];
 
@@ -192,6 +229,57 @@ export default function CustomerDetail() {
                   ) : null}
                 </div>
               </SectionCard>
+
+              {canReadAccounting ? (
+                <SectionCard title={t('customers.ar_open_title')}>
+                  <p className="mb-3 text-sm text-muted-foreground">{t('customers.ar_open_hint')}</p>
+                  {!activeBranchId ? (
+                    <p className="text-sm text-muted-foreground">{t('customers.ar_no_branch')}</p>
+                  ) : arLoading ? (
+                    <p className="text-sm text-muted-foreground">{t('customers.ar_loading')}</p>
+                  ) : customerOpenItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('customers.ar_empty')}</p>
+                  ) : (
+                    <>
+                      <Table>
+                        <TableBody>
+                          {customerOpenItems.map((row) => (
+                            <TableRow key={row.id}>
+                              <TableCell className="max-w-[65%]">
+                                <p className="text-xs font-medium text-muted-foreground">
+                                  {t('customers.ar_doc')}
+                                </p>
+                                <span className="font-mono text-sm" dir="ltr">
+                                  {row.source_id}
+                                </span>
+                                {row.description ? (
+                                  <p className="mt-1 text-xs text-muted-foreground">{row.description}</p>
+                                ) : null}
+                              </TableCell>
+                              <TableCell className="text-end align-top">
+                                <p className="text-xs font-medium text-muted-foreground">
+                                  {t('customers.ar_open_amount')}
+                                </p>
+                                <p className="mt-1 font-semibold">
+                                  {formatCurrency(
+                                    Number(row.amount_open),
+                                    row.currency_code || 'USD',
+                                  )}
+                                </p>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {canApplyAr ? (
+                        <Button type="button" className="mt-4" onClick={() => setArPayOpen(true)}>
+                          {t('customers.ar_collect')}
+                        </Button>
+                      ) : null}
+                    </>
+                  )}
+                </SectionCard>
+              ) : null}
             </div>
           )}
         </TabsContent>
@@ -223,6 +311,13 @@ export default function CustomerDetail() {
       </Tabs>
 
       <ManualAdjustmentDrawer open={adjOpen} onOpenChange={setAdjOpen} customerId={cid} />
+
+      <ArApplyPaymentDrawer
+        open={arPayOpen}
+        onOpenChange={setArPayOpen}
+        items={customerOpenItems}
+        onApplied={onArApplied}
+      />
     </div>
   );
 }

@@ -1,125 +1,142 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { fromISO, now, toISOStringUtc } from '@/lib/date';
+import { localDayEndToIsoUtc, localDayStartToIsoUtc, now, utcCalendarDayKey } from '@/lib/date';
 
 import { createDiscountRule, updateDiscountRule } from '../../api';
 import { crmKeys, discountDetailQueryOptions } from '../../queries';
 
-export default function DiscountForm() {
-  const { discountId } = useParams<{ discountId: string }>();
-  const location = useLocation();
-  const did = discountId ? Number(discountId) : NaN;
-  const isEdit = Boolean(discountId) && location.pathname.endsWith('/edit') && !Number.isNaN(did);
+export type DiscountFormProps = {
+  /** `null` = new rule; positive id = edit existing */
+  dialogDiscountId: number | null;
+  onDismiss: () => void;
+};
+
+function parsePercent(raw: string): number | null {
+  const n = Number.parseFloat(raw.replace(',', '.').trim());
+  if (!Number.isFinite(n) || n <= 0 || n > 100) return null;
+  return n;
+}
+
+export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFormProps) {
+  const isEdit = dialogDiscountId != null && dialogDiscountId > 0;
+  const did = isEdit ? dialogDiscountId : NaN;
+
   const { t } = useTranslation('crm');
   const { t: tc } = useTranslation('common');
-  const nav = useNavigate();
   const qc = useQueryClient();
+
   const { data: existing } = useQuery({
     ...discountDetailQueryOptions(did),
-    enabled: isEdit && did > 0,
+    enabled: isEdit,
   });
+
+  const todayYmd = useMemo(() => utcCalendarDayKey(now()), []);
 
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [discountType, setDiscountType] = useState<'percentage' | 'flat' | 'bogo'>('percentage');
-  const [value, setValue] = useState('10');
-  const [buyQty, setBuyQty] = useState('2');
-  const [getQty, setGetQty] = useState('1');
-  const [startDate, setStartDate] = useState(() => toISOStringUtc(now()).slice(0, 16));
-  const [endDate, setEndDate] = useState('');
-  const [targetProducts, setTargetProducts] = useState('');
+  const [percentStr, setPercentStr] = useState('10');
+  const [startDay, setStartDay] = useState(todayYmd);
+  const [endDay, setEndDay] = useState('');
 
   useEffect(() => {
     if (existing) {
       setName(existing.name);
       setCode(existing.code);
-      setDiscountType(existing.discount_type as 'percentage' | 'flat' | 'bogo');
-      setValue(String(existing.value));
-      setBuyQty(String(existing.buy_qty ?? 2));
-      setGetQty(String(existing.get_qty ?? 1));
-      setStartDate(existing.start_date.slice(0, 16));
-      setEndDate(existing.end_date ? existing.end_date.slice(0, 16) : '');
-      setTargetProducts((existing.target_product_ids ?? []).join(','));
+      setPercentStr(String(existing.value));
+      setStartDay(existing.start_date.slice(0, 10));
+      setEndDay(existing.end_date ? existing.end_date.slice(0, 10) : '');
     }
   }, [existing]);
 
-  const parseProducts = (): number[] | null => {
-    const s = targetProducts.trim();
-    if (!s) return null;
-    const ids = s
-      .split(',')
-      .map((x) => Number.parseInt(x.trim(), 10))
-      .filter((n) => Number.isFinite(n));
-    return ids.length ? ids : null;
-  };
+  const incompatibleRule =
+    isEdit && existing && String(existing.discount_type) !== 'percentage';
 
   const mCreate = useMutation({
     mutationFn: () => {
-      const base = {
-        name,
-        code,
-        discount_type: discountType,
-        value,
-        start_date: toISOStringUtc(fromISO(startDate)),
-        end_date: endDate ? toISOStringUtc(fromISO(endDate)) : null,
-        target_product_ids: parseProducts(),
+      const pct = parsePercent(percentStr);
+      if (pct == null) throw new Error(t('discounts.percent_invalid'));
+      const startIso = startDay.trim()
+        ? localDayStartToIsoUtc(startDay.trim())
+        : localDayStartToIsoUtc(todayYmd);
+      const endIso =
+        endDay.trim() === '' ? null : localDayEndToIsoUtc(endDay.trim());
+      if (endIso && endIso <= startIso) {
+        throw new Error(t('discounts.end_before_start'));
+      }
+      return createDiscountRule({
+        name: name.trim(),
+        code: code.trim(),
+        discount_type: 'percentage',
+        value: String(pct),
+        start_date: startIso,
+        end_date: endIso,
+        target_product_ids: null,
         stackable: false,
-        status: 'draft' as const,
+        status: 'active',
         min_order_amount: null,
         max_discount_amount: null,
         usage_limit: null,
-      };
-      if (discountType === 'bogo') {
-        return createDiscountRule({
-          ...base,
-          buy_qty: Number.parseInt(buyQty, 10) || 2,
-          get_qty: Number.parseInt(getQty, 10) || 1,
-        });
-      }
-      return createDiscountRule({ ...base, buy_qty: null, get_qty: null });
+        buy_qty: null,
+        get_qty: null,
+      });
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: crmKeys.root });
       toast.success(t('discounts.saved'));
-      void nav('/crm/discounts');
+      onDismiss();
     },
-    onError: (error) => notifyApiError(error, t('errors.generic')),
+    onError: (error) => {
+      if (error instanceof Error && error.message && !('response' in error)) {
+        toast.error(error.message);
+        return;
+      }
+      notifyApiError(error, t('errors.generic'));
+    },
   });
 
   const mUpdate = useMutation({
-    mutationFn: () =>
-      updateDiscountRule(did, {
-        name,
-        code,
-        discount_type: discountType,
-        value,
-        start_date: toISOStringUtc(fromISO(startDate)),
-        end_date: endDate ? toISOStringUtc(fromISO(endDate)) : null,
-        target_product_ids: parseProducts(),
-        buy_qty: discountType === 'bogo' ? Number.parseInt(buyQty, 10) || null : null,
-        get_qty: discountType === 'bogo' ? Number.parseInt(getQty, 10) || null : null,
-      }),
+    mutationFn: () => {
+      const pct = parsePercent(percentStr);
+      if (pct == null) throw new Error(t('discounts.percent_invalid'));
+      const startIso = startDay.trim()
+        ? localDayStartToIsoUtc(startDay.trim())
+        : localDayStartToIsoUtc(todayYmd);
+      const endIso =
+        endDay.trim() === '' ? null : localDayEndToIsoUtc(endDay.trim());
+      if (endIso && endIso <= startIso) {
+        throw new Error(t('discounts.end_before_start'));
+      }
+      return updateDiscountRule(did, {
+        name: name.trim(),
+        code: code.trim(),
+        discount_type: 'percentage',
+        value: String(pct),
+        start_date: startIso,
+        end_date: endIso,
+        target_product_ids: null,
+        buy_qty: null,
+        get_qty: null,
+      });
+    },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: crmKeys.root });
       toast.success(t('discounts.saved'));
-      void nav('/crm/discounts');
+      onDismiss();
     },
-    onError: (error) => notifyApiError(error, t('errors.generic')),
+    onError: (error) => {
+      if (error instanceof Error && error.message && !('response' in error)) {
+        toast.error(error.message);
+        return;
+      }
+      notifyApiError(error, t('errors.generic'));
+    },
   });
 
   const submit = () => {
@@ -127,71 +144,79 @@ export default function DiscountForm() {
       toast.error(t('discounts.required'));
       return;
     }
+    if (incompatibleRule) {
+      toast.error(t('discounts.unsupported_type'));
+      return;
+    }
     if (isEdit) void mUpdate.mutate();
     else void mCreate.mutate();
   };
 
+  const busy = mCreate.isPending || mUpdate.isPending;
+
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">{isEdit ? t('discounts.edit_title') : t('discounts.new_title')}</h1>
+    <div className="flex flex-col gap-4">
+      {incompatibleRule ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          {t('discounts.unsupported_type')}
+        </p>
+      ) : null}
+
       <div className="grid gap-1">
         <Label>{t('discounts.col.name')}</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} />
+        <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
       </div>
       <div className="grid gap-1">
         <Label>{t('discounts.col.code')}</Label>
-        <Input value={code} onChange={(e) => setCode(e.target.value)} disabled={isEdit} />
-      </div>
-      <div className="grid gap-1">
-        <Label>{t('discounts.col.type')}</Label>
-        <Select value={discountType} onValueChange={(v) => setDiscountType(v as typeof discountType)}>
-          <SelectTrigger disabled>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="percentage">{t('discounts.type.percentage')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="grid gap-1">
-        <Label>{t('discounts.value')}</Label>
-        <Input value={value} onChange={(e) => setValue(e.target.value)} />
-      </div>
-      {discountType === 'bogo' ? (
-        <div className="grid grid-cols-2 gap-2">
-          <div className="grid gap-1">
-            <Label>{t('discounts.buy_qty')}</Label>
-            <Input value={buyQty} onChange={(e) => setBuyQty(e.target.value)} />
-          </div>
-          <div className="grid gap-1">
-            <Label>{t('discounts.get_qty')}</Label>
-            <Input value={getQty} onChange={(e) => setGetQty(e.target.value)} />
-          </div>
-        </div>
-      ) : null}
-      <div className="grid gap-1">
-        <Label>{t('discounts.target_products')}</Label>
         <Input
-          placeholder="1,2,3"
-          value={targetProducts}
-          onChange={(e) => setTargetProducts(e.target.value)}
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          disabled={isEdit}
+          autoComplete="off"
         />
-        <p className="text-xs text-muted-foreground">Category-scoped discounts are currently not supported by the backend API.</p>
+        <p className="text-xs text-muted-foreground">{t('discounts.code_pos_hint')}</p>
+      </div>
+
+      <div className="grid gap-1">
+        <Label>{t('discounts.percent_label')}</Label>
+        <div className="relative">
+          <Input
+            inputMode="decimal"
+            value={percentStr}
+            onChange={(e) => setPercentStr(e.target.value)}
+            className="pe-10"
+            aria-describedby="disc-pct-hint"
+          />
+          <span
+            className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+            aria-hidden
+          >
+            %
+          </span>
+        </div>
+        <p id="disc-pct-hint" className="text-xs text-muted-foreground">
+          {t('discounts.percent_hint')}
+        </p>
+      </div>
+
+      <p className="text-xs text-muted-foreground">{t('discounts.scope_all_hint')}</p>
+
+      <div className="grid gap-1">
+        <Label>{t('discounts.start_day')}</Label>
+        <Input type="date" value={startDay} onChange={(e) => setStartDay(e.target.value)} />
       </div>
       <div className="grid gap-1">
-        <Label>{t('discounts.start')}</Label>
-        <Input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <Label>{t('discounts.end_day')}</Label>
+        <Input type="date" value={endDay} onChange={(e) => setEndDay(e.target.value)} />
+        <p className="text-xs text-muted-foreground">{t('discounts.dates_day_hint')}</p>
       </div>
-      <div className="grid gap-1">
-        <Label>{t('discounts.end')}</Label>
-        <Input type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-      </div>
-      <div className="flex gap-2">
-        <Button type="button" disabled={mCreate.isPending || mUpdate.isPending} onClick={submit}>
+
+      <div className="flex flex-wrap gap-2 pt-1">
+        <Button type="button" disabled={busy || Boolean(incompatibleRule)} onClick={submit}>
           {tc('actions.save')}
         </Button>
-        <Button type="button" variant="outline" asChild>
-          <Link to="/crm/discounts">{tc('actions.cancel')}</Link>
+        <Button type="button" variant="outline" disabled={busy} onClick={onDismiss}>
+          {tc('actions.cancel')}
         </Button>
       </div>
     </div>

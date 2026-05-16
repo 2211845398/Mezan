@@ -52,15 +52,20 @@ export function ReceiptModal({ open, onOpenChange, model, creditMode }: ReceiptM
           <ThermalReceipt58 ref={ref58} model={printModel} />
           <ThermalReceipt80 ref={ref80} model={printModel} />
         </div>
-        <DialogFooter className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t('receipt.close')}
-          </Button>
-          <Button type="button" variant="secondary" onClick={() => void print58()}>
+        <DialogFooter className="flex flex-wrap items-center justify-end gap-2 sm:space-x-0">
+          <Button type="button" variant="outline" onClick={() => void print58()}>
             {t('receipt.print_58')}
           </Button>
-          <Button type="button" onClick={() => void print80()}>
+          <Button type="button" variant="outline" onClick={() => void print80()}>
             {t('receipt.print_80')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="border-destructive bg-background text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => onOpenChange(false)}
+          >
+            {t('receipt.close')}
           </Button>
         </DialogFooter>
       </DialogContent>

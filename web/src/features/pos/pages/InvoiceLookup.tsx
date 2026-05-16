@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useBranch } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
 import { formatDateTime, fromISO } from '@/lib/date';
@@ -30,8 +31,14 @@ const POS_CURRENCY = 'USD';
 
 export default function InvoiceLookup() {
   const { t } = useTranslation('pos');
+  const { t: tc } = useTranslation('common');
   const branchId = useAuthStore((s) => s.activeBranchId) ?? 0;
-  const branchLabel = branchId ? `Branch #${branchId}` : '';
+  const { data: activeBranch } = useBranch(branchId, {
+    enabled: branchId > 0,
+  });
+  const branchLabel =
+    activeBranch?.name?.trim() ||
+    (branchId > 0 ? tc('layout.branch_context', { id: branchId }) : '');
   const { activeTerminalId: terminalId } = usePosTerminalStore();
   const canRead = usePermission('sales_invoices', 'read');
 

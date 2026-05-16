@@ -40,20 +40,51 @@ export function ThermalReceiptInner({ model }: { model: ThermalReceiptModel }) {
       ) : null}
       <div className="text-center text-[10px]">{model.createdAtLabel}</div>
       <hr className="border-foreground/20" />
-      <div className="space-y-1">
-        {model.lines.map((ln, i) => (
-          <div key={`${ln.name}-${i}`} className="grid grid-cols-[1fr_auto] gap-x-2">
-            <div>
-              <div className="font-medium">{ln.name}</div>
-              <div className="text-[10px] text-muted-foreground">
-                ×{ln.qty} @ {money(ln.unitPrice, model.currency)} | {t('receipt.vat')}{' '}
-                {money(ln.taxAmount, model.currency)}
-              </div>
-            </div>
-            <div className="text-start font-medium">{money(ln.lineTotal, model.currency)}</div>
-          </div>
-        ))}
-      </div>
+      <table className="w-full table-fixed border-collapse text-[9px] leading-tight">
+        <colgroup>
+          <col className="w-[36%]" />
+          <col className="w-[24%]" />
+          <col className="w-[14%]" />
+          <col className="w-[26%]" />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-foreground/25">
+            <th scope="col" className="px-0.5 py-1 text-start align-bottom font-semibold">
+              {t('receipt.col_item')}
+            </th>
+            <th scope="col" className="px-0.5 py-1 text-end align-bottom font-semibold">
+              {t('receipt.col_unit')}
+            </th>
+            <th scope="col" className="px-0.5 py-1 text-center align-bottom font-semibold">
+              {t('receipt.col_qty')}
+            </th>
+            <th scope="col" className="px-0.5 py-1 text-end align-bottom font-semibold">
+              {t('receipt.col_line_total')}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {model.lines.map((ln, i) => (
+            <tr key={`${ln.name}-${i}`} className="border-b border-foreground/10">
+              <td className="break-words px-0.5 py-1 align-top font-medium">
+                {ln.name}
+                {Number.parseFloat(ln.taxAmount) > 0 ? (
+                  <span className="mt-0.5 block text-[8px] font-normal text-muted-foreground">
+                    {t('receipt.vat')} {money(ln.taxAmount, model.currency)}
+                  </span>
+                ) : null}
+              </td>
+              <td className="px-0.5 py-1 align-top text-end tabular-nums" dir="ltr">
+                {money(ln.unitPrice, model.currency)}
+              </td>
+              <td className="px-0.5 py-1 align-top text-center tabular-nums">{ln.qty}</td>
+              <td className="px-0.5 py-1 align-top text-end font-medium tabular-nums" dir="ltr">
+                {money(ln.lineTotal, model.currency)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <hr className="border-foreground/20" />
       <div className="space-y-0.5 text-[11px]">
         <div className="flex justify-between gap-2">

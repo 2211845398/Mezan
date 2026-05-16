@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatIso } from '@/lib/date';
+import { cn } from '@/lib/utils';
 import { notify } from '@/lib/toast';
 
 import {
@@ -44,16 +45,17 @@ export function NotificationCenter() {
           type="button"
           variant="ghost"
           size="icon"
-          className={`relative transition-colors hover:bg-muted/80 hover:text-primary ${
-            unreadCount > 0 ? 'text-primary' : 'text-muted-foreground'
-          }`}
+          className={cn(
+            'relative transition-colors hover:bg-muted/80 hover:text-primary',
+            unreadCount > 0 ? 'text-primary' : 'text-muted-foreground',
+          )}
           aria-label={t('notifications.open')}
         >
           <Bell className="size-5" strokeWidth={unreadCount > 0 ? 2.25 : 2} />
           {unreadCount > 0 ? (
             <Badge
               variant="successSoft"
-              className="pointer-events-none absolute -right-1 -top-1 h-5 min-w-5 justify-center px-1 text-[10px] font-semibold leading-none"
+              className="pointer-events-none absolute -end-1 -top-1 h-5 min-w-5 justify-center px-1 text-[10px] font-semibold leading-none"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
