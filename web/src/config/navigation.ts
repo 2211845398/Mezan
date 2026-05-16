@@ -90,7 +90,7 @@ export const navigation: NavItem[] = [
     key: 'pos',
     labelKey: 'nav.pos',
     icon: ShoppingCart,
-    href: '/pos',
+    href: '/pos/register',
     section: 'ops',
     permission: { resource: 'pos_shifts', action: 'read' },
   },

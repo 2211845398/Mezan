@@ -61,6 +61,12 @@ const NavLeafLink = React.forwardRef<HTMLAnchorElement, NavLeafLinkProps>(functi
 NavLeafLink.displayName = 'NavLeafLink';
 
 function isItemActive(item: NavItem, pathname: string): boolean {
+  if (
+    item.key === 'pos' &&
+    (pathname === '/pos' || pathname.startsWith('/pos/'))
+  ) {
+    return true;
+  }
   if (pathname === item.href || pathname.startsWith(`${item.href}/`)) return true;
   return item.children?.some((child) => isItemActive(child, pathname)) ?? false;
 }

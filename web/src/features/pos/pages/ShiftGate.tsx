@@ -34,6 +34,15 @@ export default function ShiftGate() {
     setActiveTerminalId(terminals[0]?.id ?? null);
   }, [terminals, activeTerminalId, setActiveTerminalId]);
 
+  /** Open shift → register is the primary surface; avoid leaving operators on `/pos`. */
+  useEffect(() => {
+    if (!canReadShift) return;
+    if (loadingShift) return;
+    if (shift) {
+      navigate('/pos/register', { replace: true });
+    }
+  }, [canReadShift, loadingShift, navigate, shift]);
+
   const termOptions: SelectOption[] =
     terminals?.map((x) => ({
       value: String(x.id),
