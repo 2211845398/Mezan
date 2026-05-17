@@ -15,7 +15,6 @@ from app.models.ar_open_item import ArOpenItem
 from app.models.category import Category
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
-from app.models.pos_shift import PosCashEvent
 from app.models.customer_profile import CustomerProfile
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
@@ -39,6 +38,7 @@ from app.services.loyalty_dsl_service import calculate_loyalty_for_purchase
 from app.services.loyalty_service import adjust_points
 from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
+from app.services.shift_service import add_cash_event
 from app.utils.money import q2
 from app.utils.person_name import display_person_name
 
@@ -109,17 +109,16 @@ async def finalize_paid_cart(
     tender_method = receipt.method if receipt else "cash"
     paid_amount = q2(receipt.amount) if receipt else q2(payment_intent.amount)
 
-    # Epic 21.3: Record PosCashEvent on cash tender
+    # Epic 21.3: cash tender updates shift expected_cash via add_cash_event (not raw PosCashEvent only).
     # Epic 21.6: Handle transfer tender method with clearing account
     if tender_method == "cash" and cart.shift_id:
-        db.add(
-            PosCashEvent(
-                shift_id=cart.shift_id,
-                event_type="sale",
-                amount=paid_amount,
-                note=f"Cart {cart.id} invoice {invoice.id}",
-                created_by_user_id=user_id,
-            )
+        await add_cash_event(
+            db,
+            shift_id=cart.shift_id,
+            event_type="sale",
+            amount=paid_amount,
+            note=f"Cart {cart.id} invoice {invoice.id}",
+            created_by_user_id=user_id,
         )
 
     for idx, ln in enumerate(lines):

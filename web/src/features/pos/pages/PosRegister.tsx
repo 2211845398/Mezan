@@ -8,10 +8,12 @@ import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { useBranch } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useOnline } from '@/hooks/useOnline';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 
 import { changeCartState, getCart, type CartRead } from '../api';
+import { thermalModelFromCreditNote } from '../print/mapModel';
 import { CustomerPicker } from '../components/CustomerPicker';
 import { PosQuickAddCustomerDialog } from '../components/PosQuickAddCustomerDialog';
 import { ProductGrid } from '../components/ProductGrid';
@@ -34,6 +36,7 @@ import {
   useLockCart,
   useParkCart,
   useParkedCarts,
+  useSubmitReturnMutation,
   useUpdateCartCustomer,
   useUpdateLineQty,
 } from '../queries';
@@ -73,6 +76,10 @@ type RegisterSessionProps = {
   onTenderDone: (result: TenderDone) => void;
   onCartMissing: () => void;
   onShowParked: () => void;
+  returnExchangeSession: ReturnExchangeSession | null;
+  onReturnExchangeSessionChange: (session: ReturnExchangeSession | null) => void;
+  onReturnCredit: (model: ThermalReceiptModel) => void;
+  canReturn: boolean;
 };
 
 function RegisterSession({
@@ -85,8 +92,13 @@ function RegisterSession({
   onTenderDone,
   onCartMissing,
   onShowParked,
+  returnExchangeSession,
+  onReturnExchangeSessionChange,
+  onReturnCredit,
+  canReturn,
 }: RegisterSessionProps) {
   const { t } = useTranslation('pos');
+  const online = useOnline();
   const { data: cart, isError: cartError, isLoading: cartLoading } = useCart(cartId);
 
   const canUpdateCart = usePermission('pos_carts', 'update');
@@ -113,6 +125,7 @@ function RegisterSession({
   const cancelCart = useCancelCart(cartId);
   const updateCustomer = useUpdateCartCustomer(cartId);
   const qc = useQueryClient();
+  const submitReturnMut = useSubmitReturnMutation();
 
   const abortCheckoutIfLocked = useCallback(async () => {
     const cached = qc.getQueryData<CartRead>(cartKeys.detail(cartId));
@@ -158,6 +171,63 @@ function RegisterSession({
 
   const editable = cart.status === 'active' && canUpdateCart;
   const isLocked = cart.status === 'checkout_locked';
+
+  const canRegisterReturn =
+    online && canReturn && editable && cart.status === 'active' && returnExchangeSession != null;
+
+  async function registerReturn() {
+    if (!returnExchangeSession) return;
+    try {
+      await addLineChainRef.current;
+      const fresh = await getCart(cartId);
+      const linesPayload: { sales_invoice_line_id: number; qty: number }[] = [];
+      for (const [idStr, meta] of Object.entries(returnExchangeSession.loads)) {
+        const salesInvoiceLineId = Number.parseInt(idStr, 10);
+        const cartLn = fresh.lines?.find(
+          (l) => l.product_id === meta.productId && l.variant_id === meta.variantId,
+        );
+        const current = cartLn ? Number(cartLn.qty) : 0;
+        const retQty = Math.max(0, meta.qtyLoaded - current);
+        if (retQty > 0) {
+          linesPayload.push({ sales_invoice_line_id: salesInvoiceLineId, qty: retQty });
+        }
+      }
+      if (!linesPayload.length) {
+        notify.error(t('return.none_return_qty'));
+        return;
+      }
+      const res = await submitReturnMut.mutateAsync({
+        invoice_barcode: returnExchangeSession.invoiceBarcode,
+        reason: null,
+        lines: linesPayload,
+        exchange_cart_id: cartId,
+      });
+      const model = thermalModelFromCreditNote({
+        branchLabel,
+        currency: POS_CURRENCY,
+        creditNumber: res.credit_number,
+        total: res.total_amount,
+        lines: linesPayload.map((p) => {
+          const meta = returnExchangeSession.loads[p.sales_invoice_line_id];
+          return {
+            name: meta?.productName ?? '',
+            qty: p.qty,
+            unitPrice: '0',
+            lineTotal: '0',
+            taxAmount: '0',
+          };
+        }),
+      });
+      notify.success(t('return.credit_note', { id: res.credit_note_id }));
+      onReturnExchangeSessionChange(null);
+      onReturnCredit(model);
+      // Any extra catalog lines still in the cart are discarded; cancel + fresh empty slate.
+      await cancelCart.mutateAsync();
+      await onOpenFreshCart({ dropDetailFor: cartId });
+    } catch (error) {
+      notifyApiError(error);
+    }
+  }
 
   async function openCheckout() {
     const hasPayableLines = cart.lines.some((ln) => (ln.qty ?? 0) > 0);
@@ -234,6 +304,10 @@ function RegisterSession({
           editable={editable}
           isLocked={isLocked}
           parkedCount={parkedCount}
+          returnModeActive={returnExchangeSession != null}
+          canRegisterReturn={canRegisterReturn}
+          returnSubmitPending={submitReturnMut.isPending}
+          onRegisterReturn={() => void registerReturn()}
           onApplyDiscount={async (code) => {
             try {
               await applyDisc.mutateAsync({ code });
@@ -365,6 +439,7 @@ export default function PosRegister() {
   const [parkedOpen, setParkedOpen] = useState(false);
   const [drawerMovementOpen, setDrawerMovementOpen] = useState(false);
   const canShiftLedgerActions = usePermission('pos_shifts', 'update');
+  const canReturn = usePermission('returns', 'create');
 
   // Parked carts for badge count (fetched here so both toolbar & totals column share the same data)
   const parkedCarts = useParkedCarts(terminalId ?? 0);
@@ -517,6 +592,14 @@ export default function PosRegister() {
             onTenderDone={onTenderDone}
             onCartMissing={resetCartAndRetry}
             onShowParked={() => setParkedOpen(true)}
+            returnExchangeSession={returnExchangeSession}
+            onReturnExchangeSessionChange={setReturnExchangeSession}
+            onReturnCredit={(model) => {
+              setReceiptModel(model);
+              setReceiptCredit(true);
+              setReceiptOpen(true);
+            }}
+            canReturn={canReturn}
           />
         ) : cartCreateError ? (
           <div className="flex min-h-0 flex-1 items-center justify-center">
@@ -555,16 +638,9 @@ export default function PosRegister() {
       <ReturnDrawer
         open={returnOpen}
         onOpenChange={setReturnOpen}
-        branchLabel={branchLabel}
-        currency={POS_CURRENCY}
         exchangeCartId={activeCartId}
         exchangeSession={returnExchangeSession}
         onExchangeSessionChange={setReturnExchangeSession}
-        onCredit={(model) => {
-          setReceiptModel(model);
-          setReceiptCredit(true);
-          setReceiptOpen(true);
-        }}
       />
 
       {receiptModel ? (

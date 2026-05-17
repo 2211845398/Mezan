@@ -18,6 +18,11 @@ export type RegisterTotalsColumnProps = {
   editable: boolean;
   isLocked: boolean;
   parkedCount: number;
+  /** When true, primary action is «Register return» instead of checkout. */
+  returnModeActive?: boolean;
+  canRegisterReturn?: boolean;
+  returnSubmitPending?: boolean;
+  onRegisterReturn?: () => void | Promise<void>;
   onApplyDiscount: (code: string) => Promise<void>;
   onCheckout: () => void | Promise<void>;
   onPark: () => void | Promise<void>;
@@ -37,6 +42,10 @@ export function RegisterTotalsColumn({
   editable,
   isLocked,
   parkedCount,
+  returnModeActive = false,
+  canRegisterReturn = false,
+  returnSubmitPending = false,
+  onRegisterReturn,
   onApplyDiscount,
   onCheckout,
   onPark,
@@ -56,6 +65,13 @@ export function RegisterTotalsColumn({
     hasPayableLines &&
     (isLocked || (editable && canUpdateCart && cart.status === 'active'));
 
+  const primaryReturnEnabled =
+    returnModeActive &&
+    online &&
+    Boolean(onRegisterReturn) &&
+    canRegisterReturn &&
+    !returnSubmitPending;
+
   const canPark = editable && cart.status === 'active' && hasPayableLines;
   const canNewCart = canPark;
   const canCancel = cart.status === 'active' || cart.status === 'parked' || cart.status === 'checkout_locked';
@@ -73,14 +89,16 @@ export function RegisterTotalsColumn({
           />
         ) : null}
 
-        {/* Pay — brand primary (Palm Green) */}
+        {/* Pay or Register return — same primary affordance */}
         <Button
           type="button"
           className="min-h-12 w-full bg-primary text-base font-semibold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
-          disabled={!canOpenPay}
-          onClick={() => void onCheckout()}
+          disabled={returnModeActive ? !primaryReturnEnabled : !canOpenPay}
+          onClick={() =>
+            returnModeActive && onRegisterReturn ? void onRegisterReturn() : void onCheckout()
+          }
         >
-          {t('register.checkout')}
+          {returnModeActive ? t('return.submit') : t('register.checkout')}
         </Button>
 
         {isLocked ? (

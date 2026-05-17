@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { formatCurrency, formatFixedDecimal } from '@/lib/format';
+import { formatCurrency } from '@/lib/format';
 import { formatDateTime, fromISO, now, toISOStringUtc } from '@/lib/date';
 
 import type { PosShiftRead } from '../api';
@@ -31,7 +31,9 @@ export function buildShiftCloseReportViewModel(
       varianceStr = shift.variance;
     } else {
       const v = new Decimal(declared).minus(new Decimal(shift.expected_cash || '0'));
-      varianceStr = formatFixedDecimal(v.toNumber(), 2);
+      // Keep a locale-neutral decimal string so varianceDeficitSurplus can parse it
+      // (formatFixedDecimal uses Intl and may emit Arabic-Indic digits, breaking parseFloat).
+      varianceStr = v.toDecimalPlaces(2).toFixed();
     }
   } catch {
     varianceStr = '—';

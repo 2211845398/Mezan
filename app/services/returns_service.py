@@ -18,7 +18,6 @@ from app.schemas.sales_return import (
     ReturnEligibleLineRead,
     SalesInvoiceReturnLookupRead,
 )
-from app.services.cart_service import deduct_exchange_cart_for_return
 from app.services.document_posting_service import post_sales_return_gl
 from app.services.inventory_service import apply_stock_movement
 from app.utils.money import q2
@@ -133,7 +132,6 @@ async def create_return_and_credit(
         total_amount=total_refund,
     )
     db.add(credit)
-    deductions: list[tuple[int, int, int]] = []
     if exchange_cart_id is not None:
         xres = await db.execute(select(PosCart).where(PosCart.id == exchange_cart_id))
         ex_cart = xres.scalar_one_or_none()
@@ -143,25 +141,9 @@ async def create_return_and_credit(
             raise ValidationError(
                 "Exchange cart must belong to the same branch as the original invoice"
             )
-        ores = await db.execute(select(PosCart).where(PosCart.id == invoice.cart_id))
-        orig_cart = ores.scalar_one_or_none()
-        if orig_cart is not None and orig_cart.shift_id is not None:
-            if ex_cart.shift_id != orig_cart.shift_id:
-                raise ValidationError(
-                    "Exchange cart must use the same POS shift as the original sale"
-                )
+        # Exchange cart may be on a different open shift than the original sale; eligibility is
+        # time-bound via _assert_invoice_eligible_for_return. Credit/settlement ties to current shift.
         db.add(ExchangeLink(sales_return_id=ret.id, new_cart_id=exchange_cart_id))
-        for item in lines:
-            inv_line = inv_lines.get(item["sales_invoice_line_id"])
-            if inv_line is None:
-                continue
-            deductions.append((inv_line.product_id, inv_line.variant_id, int(item["qty"])))
-        await deduct_exchange_cart_for_return(
-            db,
-            cart_id=exchange_cart_id,
-            deductions=deductions,
-            created_by_user_id=user_id,
-        )
     await post_sales_return_gl(
         db,
         branch_id=invoice.branch_id,
