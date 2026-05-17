@@ -28,7 +28,7 @@
     "cart": "السلة",
     "cart_hint": "العناصر المختارة في عملية البيع الحالية",
     "cart_empty": "السلة فارغة",
-    "loading_cart": "جاري فتح عملية البيع أو تحميل السلة…",
+    "loading_cart": "جاري تحميل السلة…",
     "loading_cart_hint": "«السلة» هي قائمة المنتجات الحالية قبل الدفع. قد يطول الانتظار إذا كان الاتصال بالخادم بطيئاً أو غير متوفر.",
     "loading_cart_stuck": "ما زال التحميل؟",
     "loading_cart_stuck_action": "إعادة المحاولة",
@@ -76,8 +76,23 @@
     "leave_return_mode": "العودة للبيع",
     "park_cart": "تعليق",
     "cancel_cart": "حذف السلة",
-    "exit_checkout": "إلغاء الدفع والعودة للتعديل",
-    "view_parked": "عرض المعلقة"
+    "exit_checkout": "إلغاء الدفع",
+    "view_parked": "عرض المعلقة",
+    "add_customer": "إضافة عميل",
+    "add_customer_title": "عميل جديد (هاتف فقط)",
+    "add_customer_hint": "يدخل العميل بياناته عبر الرابط.",
+    "add_customer_phone": "رقم الهاتف",
+    "add_customer_phone_placeholder": "مثال: 0922743088",
+    "add_customer_submit": "إنشاء",
+    "add_customer_cancel": "إلغاء",
+    "add_customer_qr_hint": "اطلب من العميل مسح الرمز أو فتح الرابط لإكمال الاسم والبريد.",
+    "add_customer_link": "رابط الإكمال",
+    "add_customer_copy": "نسخ الرابط",
+    "add_customer_copied": "تم نسخ الرابط",
+    "add_customer_copy_failed": "تعذر النسخ من المتصفح",
+    "add_customer_close": "إغلاق",
+    "add_customer_use_cart": "ربط بالسلة",
+    "add_customer_error": "تعذر إنشاء العميل"
   },
   "pending": {
     "title": "الفواتير المعلقة",
@@ -213,9 +228,13 @@
     "checkout": "الدفع — إن وجدت اختصارات لوحة مفاتيح لاحقًا"
   },
   "customer": {
-    "walk_in": "عميل نقدي (بدون ملف)",
+    "walk_in": "نقدي",
     "add": "إضافة زبون",
-    "unsupported": "إضافة وربط عميل بالسلة الحالية تحتاج نقطة API مخصصة. ستبقى العملية كعميل نقدي الآن."
+    "unsupported": "إضافة وربط عميل بالسلة الحالية تحتاج نقطة API مخصصة. ستبقى العملية كعميل نقدي الآن.",
+    "picker_placeholder": "اختر عميل",
+    "picker_search_placeholder": "ابحث عن عميل",
+    "picker_empty": "لا يوجد عملاء",
+    "clear_from_cart": "إزالة العميل من السلة"
   },
   "errors": {
     "payment": {

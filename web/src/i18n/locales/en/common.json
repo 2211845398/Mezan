@@ -178,6 +178,7 @@
     "server": "Server error, retrying automatically.",
     "validation": "Invalid input — check highlighted fields.",
     "validation_email": "Enter a valid email address.",
+    "validation_phone_ly": "Enter a valid Libyan phone number: 09, then 1–5, then seven digits (10 digits total).",
     "validation_password_short": "Password must be at least 8 characters.",
     "validation_required": "This field is required.",
     "validation_generic": "Invalid input. Please check the value and try again.",

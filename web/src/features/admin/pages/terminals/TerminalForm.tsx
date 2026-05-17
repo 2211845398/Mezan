@@ -81,7 +81,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
       title={isEdit ? t('terminals.edit_title') : t('terminals.create_title')}
       maxWidth="md"
       footer={
-        <div className="flex w-full flex-wrap justify-end gap-2">
+        <div className="flex w-full flex-wrap justify-end gap-[5px]">
           <Button
             type="button"
             variant="outline"

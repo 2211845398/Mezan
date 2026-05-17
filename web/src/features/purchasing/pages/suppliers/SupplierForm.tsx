@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import type { TFunction } from 'i18next';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -19,23 +20,28 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { chartAccountsQueryOptions } from '@/features/accounting/queries';
+import { zodLibyanPhoneOptional, zodOptionalNonEmptyEmail, normalizeLyPhoneInput } from '@/lib/validation/contact';
 import { cn } from '@/lib/utils';
 
 import { createSupplier, updateSupplier } from '../../api';
 import { purchasingKeys, supplierQueryOptions } from '../../queries';
 
-const schema = z.object({
-  code: z.string().min(1).max(64),
-  name: z.string().min(1).max(255),
-  currency_id: z.coerce.number().int().positive(),
-  payables_account_id: z.string().optional(),
-  tax_id: z.string().max(64).optional().nullable(),
-  payment_terms: z.string().max(512).optional().nullable(),
-  contact_phone: z.string().optional(),
-  contact_email: z.string().optional(),
-});
+function supplierFormSchema(tc: TFunction<'common'>) {
+  return z.object({
+    code: z.string().min(1).max(64),
+    first_name: z.string().min(1).max(255),
+    father_name: z.string().max(255),
+    family_name: z.string().max(255),
+    currency_id: z.coerce.number().int().positive(),
+    payables_account_id: z.string().optional(),
+    tax_id: z.string().max(64).optional().nullable(),
+    payment_terms: z.string().max(512).optional().nullable(),
+    contact_phone: zodLibyanPhoneOptional(tc('errors.validation_phone_ly')),
+    contact_email: zodOptionalNonEmptyEmail(tc('errors.validation_email')),
+  });
+}
 
-type FormValues = z.infer<typeof schema>;
+export type SupplierFormValues = z.infer<ReturnType<typeof supplierFormSchema>>;
 
 export type SupplierFormProps = {
   variant?: 'page' | 'dialog';
@@ -45,6 +51,7 @@ export type SupplierFormProps = {
 export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFormProps = {}) {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation('purchasing');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
@@ -59,11 +66,15 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
 
   const { data: accounts = [] } = useQuery(chartAccountsQueryOptions());
 
-  const form = useForm<FormValues>({
+  const schema = useMemo(() => supplierFormSchema(tc), [tc]);
+
+  const form = useForm<SupplierFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       code: isNew ? `SUP-${Math.floor(Date.now() / 1000)}` : '',
-      name: '',
+      first_name: '',
+      father_name: '',
+      family_name: '',
       currency_id: 1,
       payables_account_id: '',
       tax_id: '',
@@ -80,7 +91,9 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
     const c = existing.contact as Record<string, string | undefined> | undefined;
     form.reset({
       code: existing.code,
-      name: existing.name,
+      first_name: existing.first_name ?? '',
+      father_name: existing.father_name ?? '',
+      family_name: existing.family_name ?? '',
       currency_id: existing.currency_id,
       payables_account_id: existing.payables_account_id != null ? String(existing.payables_account_id) : '',
       tax_id: existing.tax_id ?? '',
@@ -91,16 +104,20 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
   }, [existing, form]);
 
   const save = useMutation({
-    mutationFn: async (values: FormValues) => {
+    mutationFn: async (values: SupplierFormValues) => {
       const contact: Record<string, string> = {};
-      if (values.contact_phone) contact.phone = values.contact_phone;
-      if (values.contact_email) contact.email = values.contact_email;
+      const p = values.contact_phone.trim();
+      if (p) contact.phone = normalizeLyPhoneInput(p);
+      const em = values.contact_email.trim();
+      if (em) contact.email = em;
       const payRaw = values.payables_account_id?.trim();
       const pay = payRaw ? Number(payRaw) : null;
       if (isNew) {
         return createSupplier({
           code: values.code,
-          name: values.name,
+          first_name: values.first_name.trim(),
+          father_name: values.father_name.trim() || null,
+          family_name: values.family_name.trim() || null,
           currency_id: values.currency_id,
           payables_account_id: pay,
           tax_id: values.tax_id || null,
@@ -109,7 +126,9 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
         });
       }
       return updateSupplier(supplierId, {
-        name: values.name,
+        first_name: values.first_name.trim(),
+        father_name: values.father_name.trim() || null,
+        family_name: values.family_name.trim() || null,
         currency_id: values.currency_id,
         payables_account_id: pay,
         tax_id: values.tax_id || null,
@@ -153,8 +172,16 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
           ) : null}
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="name">{t('suppliers.form.name')}</Label>
-          <Input id="name" {...form.register('name')} />
+          <Label htmlFor="sup-fn">{t('suppliers.form.first_name')}</Label>
+          <Input id="sup-fn" {...form.register('first_name')} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="sup-father">{t('suppliers.form.father_name')}</Label>
+          <Input id="sup-father" {...form.register('father_name')} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="sup-family">{t('suppliers.form.family_name')}</Label>
+          <Input id="sup-family" {...form.register('family_name')} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="currency_id">{t('suppliers.form.currency_id')}</Label>

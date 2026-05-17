@@ -15,7 +15,7 @@ async def test_patch_me_sets_avatar_url(client, admin_auth_header):
         headers=admin_auth_header,
         json={
             "avatar_url": "https://example.com/photo.png",
-            "full_name": "Admin",
+            "first_name": "Admin",
         },
     )
     assert res.status_code == 200
@@ -27,7 +27,9 @@ async def test_patch_me_sets_avatar_url(client, admin_auth_header):
 async def test_patch_me_email_conflict(client, admin_auth_header, db_session):
     other = User(
         email="taken@example.com",
-        full_name="Other",
+        first_name="Other",
+        father_name=None,
+        family_name=None,
         password_hash=hash_password("password123"),
         status="active",
         branch_id=None,

@@ -52,8 +52,34 @@ export async function listCustomers(params?: {
   limit?: number;
   offset?: number;
   search?: string;
+  activation?: 'all' | 'active' | 'pending';
+  pos_ready?: boolean;
 }): Promise<CustomerListResponse> {
   const { data } = await apiClient.get<CustomerListResponse>('/customers', { params });
+  return data;
+}
+
+export type CreateTemporaryCustomerResponse = {
+  customer: components['schemas']['CustomerRead'];
+  onboarding_token: string;
+  onboarding_path: string;
+  qr_url: string;
+};
+
+export async function createTemporaryCustomer(
+  body: components['schemas']['CustomerCreateTemporaryRequest'],
+): Promise<CreateTemporaryCustomerResponse> {
+  const { data } = await apiClient.post<CreateTemporaryCustomerResponse>('/customers/temporary', body);
+  return data;
+}
+
+export async function completeCustomerOnboarding(
+  body: components['schemas']['CustomerCompleteOnboardingRequest'],
+): Promise<components['schemas']['CustomerRead']> {
+  const { data } = await apiClient.post<components['schemas']['CustomerRead']>(
+    '/customers/onboarding/complete',
+    body,
+  );
   return data;
 }
 

@@ -25,6 +25,9 @@ class EmployeeProfile(Base):
     annual_leave_entitlement_days: Mapped[Decimal | None] = mapped_column(
         Numeric(8, 2), nullable=True
     )
+    identity_document_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    identity_document_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    identity_document_image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

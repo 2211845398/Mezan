@@ -17,7 +17,9 @@ class Supplier(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    father_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    family_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     currency_id: Mapped[int] = mapped_column(
         ForeignKey("currencies.id", ondelete="RESTRICT"), nullable=False, index=True
     )

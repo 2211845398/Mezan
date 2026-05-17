@@ -17,6 +17,7 @@ from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.stock_level import StockLevel
 from app.models.suppliers import Supplier
+from app.utils.person_name import display_person_name
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.fifo_valuation_service import create_cost_layer, get_valuation_policy
@@ -142,7 +143,7 @@ async def receive_goods_for_purchase_order(
         sres = await db.execute(select(Supplier).where(Supplier.id == supplier_id))
         sup = sres.scalar_one_or_none()
         if sup:
-            supplier_name = sup.name
+            supplier_name = display_person_name(sup.first_name, sup.father_name, sup.family_name)
 
     receipt = GoodsReceipt(
         branch_id=branch_id,

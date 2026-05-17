@@ -138,14 +138,18 @@ async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
     if user is None:
         user = User(
             email="admin@example.com",
-            full_name="Admin",
+            first_name="Admin",
+            father_name=None,
+            family_name=None,
             password_hash=hash_password("password123"),
             status="active",
             branch_id=None,
         )
         db_session.add(user)
     else:
-        user.full_name = "Admin"
+        user.first_name = "Admin"
+        user.father_name = None
+        user.family_name = None
         user.password_hash = hash_password("password123")
         user.status = "active"
         user.branch_id = None

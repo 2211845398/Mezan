@@ -37,7 +37,7 @@ async def test_create_user_duplicate_email_returns_machine_code(
     """Duplicate email is rejected in the route after schema validation (HTTP 400, not 422)."""
     resp = await client.post(
         "/api/v1/users",
-        json={"email": "admin@example.com", "full_name": "Dup"},
+        json={"email": "admin@example.com", "first_name": "Dup"},
         headers=admin_auth_header,
     )
     assert resp.status_code == 400
@@ -55,7 +55,9 @@ async def test_create_user_rejects_ineligible_assignee(
     cashier_role = role_res.scalar_one()
     cashier = User(
         email="only_cashier_assignee@test.local",
-        full_name="Cashier",
+        first_name="Cashier",
+        father_name=None,
+        family_name=None,
         password_hash=hash_password("password123"),
         status="active",
         branch_id=None,
@@ -69,7 +71,7 @@ async def test_create_user_rejects_ineligible_assignee(
         "/api/v1/users",
         json={
             "email": "new_staff_assignee@example.com",
-            "full_name": "Staff",
+            "first_name": "Staff",
             "assigned_hr_user_id": cashier.id,
         },
         headers=admin_auth_header,

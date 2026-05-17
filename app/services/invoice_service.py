@@ -40,6 +40,7 @@ from app.services.loyalty_service import adjust_points
 from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
 from app.utils.money import q2
+from app.utils.person_name import display_person_name
 
 VOID_INVOICE_MAX_AGE_HOURS = 48
 
@@ -159,6 +160,8 @@ async def finalize_paid_cart(
             reference=receipt.reference if receipt else payment_intent.external_id,
         )
     )
+    # Session uses autoflush=False: GL posting sums `invoice_payments` from the DB — flush first.
+    await db.flush()
     sil_res = await db.execute(
         select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
     )
@@ -412,7 +415,7 @@ async def list_sales_invoices_for_terminal_window(
     for inv, cust in rows:
         cust_disp: str | None = None
         if cust is not None:
-            name = (cust.full_name or "").strip()
+            name = display_person_name(cust.first_name, cust.father_name, cust.family_name)
             cust_disp = name or (cust.phone or "").strip() or None
         out.append(
             SalesInvoiceListItem(

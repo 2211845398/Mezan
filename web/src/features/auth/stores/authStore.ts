@@ -19,7 +19,9 @@ import { syncUiLanguageFromAccount } from '@/lib/syncUiLanguageFromAccount';
 export type AuthUser = {
   id: number;
   email: string;
-  full_name: string | null;
+  first_name: string | null;
+  father_name: string | null;
+  family_name: string | null;
   status: string;
   branch_id: number | null;
   phone: string | null;

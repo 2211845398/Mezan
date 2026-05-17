@@ -24,6 +24,7 @@ import { listProducts } from '@/features/catalog/api';
 import { catalogKeys } from '@/features/catalog/queries';
 import { fromISO, toISOStringUtc } from '@/lib/date';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
 
 import {
@@ -134,7 +135,7 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     }
     const s = suppliers.find((x) => x.id === Number(supplierId));
     if (s) {
-      setSupplierName(s.name);
+      setSupplierName(formatPersonName(s.first_name, s.father_name, s.family_name).trim() || '—');
     }
   }, [supplierId, suppliers]);
 
@@ -281,7 +282,7 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
               <SelectItem value="__none">—</SelectItem>
               {suppliers.map((s) => (
                 <SelectItem key={s.id} value={String(s.id)}>
-                  {s.name} ({s.code})
+                  {formatPersonName(s.first_name, s.father_name, s.family_name) || s.code} ({s.code})
                 </SelectItem>
               ))}
             </SelectContent>

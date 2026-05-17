@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ValidationError
 from app.models.suppliers import Supplier
+from app.utils.person_name import person_name_sql_expr
 from app.schemas.inventory_reorder import (
     CreatePurchaseOrdersFromReorderRequest,
     CreatePurchaseOrdersFromReorderResponse,
@@ -40,8 +41,9 @@ async def list_reorder_alerts(
     supplier_ids = {r.preferred_supplier_id for r in rows if r.preferred_supplier_id}
     names: dict[int, str] = {}
     if supplier_ids:
-        sres = await db.execute(select(Supplier.id, Supplier.name).where(Supplier.id.in_(supplier_ids)))
-        names = {int(i): n for i, n in sres.all()}
+        disp = person_name_sql_expr(Supplier.first_name, Supplier.father_name, Supplier.family_name)
+        sres = await db.execute(select(Supplier.id, disp).where(Supplier.id.in_(supplier_ids)))
+        names = {int(i): str(n).strip() for i, n in sres.all() if n}
 
     out: list[ReorderAlertRow] = []
     for r in rows:
@@ -100,7 +102,8 @@ async def create_purchase_orders_from_reorder(
         product_ids = [a.product_id for a in group]
         costs = await get_unit_costs_for_sale(db, branch_id=bid, product_ids=product_ids)
         sup_name = group[0].supplier_name or "Supplier"
-        sres = await db.execute(select(Supplier.name).where(Supplier.id == sup_id))
+        disp = person_name_sql_expr(Supplier.first_name, Supplier.father_name, Supplier.family_name)
+        sres = await db.execute(select(disp).where(Supplier.id == sup_id))
         sn = sres.scalar_one_or_none()
         if sn:
             sup_name = str(sn)

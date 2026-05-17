@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
@@ -10,8 +11,9 @@ import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 
-import { changeCartState, type CartRead } from '../api';
+import { changeCartState, getCart, type CartRead } from '../api';
 import { CustomerPicker } from '../components/CustomerPicker';
+import { PosQuickAddCustomerDialog } from '../components/PosQuickAddCustomerDialog';
 import { ProductGrid } from '../components/ProductGrid';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { RegisterCartColumn } from '../components/RegisterCartColumn';
@@ -93,8 +95,10 @@ function RegisterSession({
   const canPayCapture = usePermission('pos_payments', 'capture');
   const canPay = canPayCreate && canPayCapture;
   const canInvoice = usePermission('sales_invoices', 'create');
+  const canCreateCustomer = usePermission('customers', 'create');
 
   const [tenderOpen, setTenderOpen] = useState(false);
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const addLine = useAddLine(cartId);
   /** Serialize add-line calls so each POST sees the previous response (avoids stale absolute qty races). */
@@ -143,11 +147,11 @@ function RegisterSession({
 
   if (cartLoading || !cart) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
         <p className="font-medium text-foreground">{t('register.loading_cart')}</p>
-        <p className="max-w-md text-[11px] leading-relaxed text-muted-foreground">
-          {t('register.loading_cart_hint')}
-        </p>
+        <Button type="button" variant="outline" onClick={() => void onCartMissing()}>
+          {t('register.retry_cart')}
+        </Button>
       </div>
     );
   }
@@ -163,7 +167,12 @@ function RegisterSession({
     }
     if (cart.status === 'active' && canUpdateCart) {
       try {
+        /** Wait for any in-flight optimistic line POSTs to settle before locking, so server-side recalc reflects every line. */
+        await addLineChainRef.current;
         await lock.mutateAsync();
+        /** Force-refresh from server because `useCart` has staleTime=Infinity and won't auto-refetch. */
+        const fresh = await getCart(cartId);
+        qc.setQueryData(cartKeys.detail(cartId), fresh);
       } catch (error) {
         notifyApiError(error);
         return;
@@ -239,15 +248,37 @@ function RegisterSession({
           onShowParked={onShowParked}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 px-0.5 pt-2 sm:px-1">
-          <div className="shrink-0">
-            <CustomerPicker
-              value={(cart as typeof cart & { customer_id?: number | null }).customer_id ?? null}
-              disabled={!editable}
-              onChange={async (customerId) => {
-                await updateCustomer.mutateAsync(customerId);
-              }}
-            />
+          <div className="flex shrink-0 gap-2">
+            <div className="min-w-0 flex-1">
+              <CustomerPicker
+                value={(cart as typeof cart & { customer_id?: number | null }).customer_id ?? null}
+                disabled={!editable}
+                onChange={async (customerId) => {
+                  await updateCustomer.mutateAsync(customerId);
+                }}
+              />
+            </div>
+            {canCreateCustomer ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                disabled={cart.status !== 'active'}
+                onClick={() => setAddCustomerOpen(true)}
+                aria-label={t('register.add_customer')}
+              >
+                <UserPlus className="size-4" aria-hidden />
+              </Button>
+            ) : null}
           </div>
+          <PosQuickAddCustomerDialog
+            open={addCustomerOpen}
+            onOpenChange={setAddCustomerOpen}
+            onCreated={async (customerId) => {
+              await updateCustomer.mutateAsync(customerId);
+            }}
+          />
           <ProductGrid
             disabled={!editable}
             onAddProduct={(productId, qty) => void onAddLine(productId, qty)}
@@ -505,15 +536,9 @@ export default function PosRegister() {
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
             <p className="font-medium text-foreground">{t('register.loading_cart')}</p>
-            <p className="max-w-md text-[11px] leading-relaxed text-muted-foreground">
-              {t('register.loading_cart_hint')}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="text-[11px] text-muted-foreground">{t('register.loading_cart_stuck')}</span>
-              <Button type="button" variant="outline" size="sm" onClick={resetCartAndRetry}>
-                {t('register.loading_cart_stuck_action')}
-              </Button>
-            </div>
+            <Button type="button" variant="outline" onClick={resetCartAndRetry}>
+              {t('register.retry_cart')}
+            </Button>
           </div>
         )}
       </div>

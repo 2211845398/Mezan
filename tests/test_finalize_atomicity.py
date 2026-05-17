@@ -35,7 +35,7 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
     )
     user = User(
         email=f"atomicity-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="Atomicity Tester",
+        first_name="Atomicity Tester",
         password_hash="not-used-in-this-test",
         status="active",
         branch_id=None,

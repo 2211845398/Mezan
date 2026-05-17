@@ -12,6 +12,7 @@ from app.models.customer_profile import CustomerProfile
 from app.models.loyalty import LoyaltyLedger
 from app.models.sales_invoice import SalesInvoice
 from app.utils.money import q2
+from app.utils.person_name import person_name_sql_expr
 
 
 async def _loyalty_balance_scalar(db: AsyncSession, customer_id: int) -> int:
@@ -49,14 +50,30 @@ async def list_customers(
     limit: int = 50,
     offset: int = 0,
     search: str | None = None,
+    pos_ready: bool = False,
+    activation: str = "all",
 ) -> tuple[list[tuple[CustomerProfile, int, Decimal]], int]:
     filters = []
+    if pos_ready:
+        filters.append(CustomerProfile.is_active.is_(True))
+    elif activation == "active":
+        filters.append(CustomerProfile.is_active.is_(True))
+    elif activation == "pending":
+        filters.append(CustomerProfile.is_active.is_(False))
     if search and search.strip():
         q = f"%{search.strip()}%"
+        disp = person_name_sql_expr(
+            CustomerProfile.first_name,
+            CustomerProfile.father_name,
+            CustomerProfile.family_name,
+        )
         filters.append(
             or_(
                 CustomerProfile.phone.ilike(q),
-                CustomerProfile.full_name.ilike(q),
+                CustomerProfile.first_name.ilike(q),
+                CustomerProfile.father_name.ilike(q),
+                CustomerProfile.family_name.ilike(q),
+                disp.ilike(q),
                 CustomerProfile.email.ilike(q),
             )
         )
@@ -111,9 +128,12 @@ async def update_customer_profile(
     db: AsyncSession, *, customer_id: int, data: dict
 ) -> CustomerProfile:
     allowed = {
-        "full_name",
+        "first_name",
+        "father_name",
+        "family_name",
         "email",
         "is_temporary",
+        "is_active",
         "default_currency_id",
         "receivables_account_id",
     }
@@ -131,7 +151,9 @@ async def create_staff_customer(
     db: AsyncSession,
     *,
     phone: str,
-    full_name: str | None,
+    first_name: str | None,
+    father_name: str | None,
+    family_name: str | None,
     email: str | None,
     is_temporary: bool,
     default_currency_id: int | None,
@@ -142,9 +164,12 @@ async def create_staff_customer(
         raise ValidationError("Phone is required")
     c = CustomerProfile(
         phone=phone.strip(),
-        full_name=full_name,
+        first_name=first_name,
+        father_name=father_name,
+        family_name=family_name,
         email=email,
         is_temporary=is_temporary,
+        is_active=not is_temporary,
         default_currency_id=default_currency_id,
         receivables_account_id=receivables_account_id,
         created_by_user_id=created_by_user_id,

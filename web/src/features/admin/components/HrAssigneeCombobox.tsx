@@ -12,6 +12,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
 
 import { useOnboardingAssignees, useUser } from '../queries';
@@ -26,7 +27,7 @@ type Props = {
 };
 
 function userPrimaryLabel(u: UserRead): string {
-  const n = (u.full_name ?? '').trim();
+  const n = formatPersonName(u.first_name, u.father_name, u.family_name).trim();
   if (n) return n;
   return u.email;
 }

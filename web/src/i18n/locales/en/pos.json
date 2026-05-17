@@ -28,7 +28,7 @@
     "cart": "Cart",
     "cart_hint": "Items selected for the current sale",
     "cart_empty": "The cart is empty",
-    "loading_cart": "Opening the sale or loading the cart…",
+    "loading_cart": "Loading the cart…",
     "loading_cart_hint": "The cart is the current list of items before checkout. This step may take longer if the server is slow or unreachable.",
     "loading_cart_stuck": "Still loading?",
     "loading_cart_stuck_action": "Try again",
@@ -77,7 +77,22 @@
     "park_cart": "Park",
     "cancel_cart": "Delete cart",
     "exit_checkout": "Exit payment",
-    "view_parked": "View parked"
+    "view_parked": "View parked",
+    "add_customer": "Add customer",
+    "add_customer_title": "New customer (phone only)",
+    "add_customer_hint": "The customer enters their details via the link.",
+    "add_customer_phone": "Phone number",
+    "add_customer_phone_placeholder": "e.g. +218912345678",
+    "add_customer_submit": "Create",
+    "add_customer_cancel": "Cancel",
+    "add_customer_qr_hint": "Ask the customer to scan the code or open the link to add name and email.",
+    "add_customer_link": "Completion link",
+    "add_customer_copy": "Copy link",
+    "add_customer_copied": "Link copied",
+    "add_customer_copy_failed": "Could not copy from this browser",
+    "add_customer_close": "Close",
+    "add_customer_use_cart": "Attach to cart",
+    "add_customer_error": "Could not create customer"
   },
   "pending": {
     "title": "Pending invoices",
@@ -215,7 +230,11 @@
   "customer": {
     "walk_in": "Walk-in customer",
     "add": "Add customer",
-    "unsupported": "Adding and attaching a customer to the current cart needs a dedicated API endpoint. This sale will remain walk-in for now."
+    "unsupported": "Adding and attaching a customer to the current cart needs a dedicated API endpoint. This sale will remain walk-in for now.",
+    "picker_placeholder": "Select customer",
+    "picker_search_placeholder": "Search customers",
+    "picker_empty": "No customers found",
+    "clear_from_cart": "Remove customer from cart"
   },
   "errors": {
     "payment": {

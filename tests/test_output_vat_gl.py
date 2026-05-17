@@ -34,7 +34,7 @@ async def test_walk_in_sale_posts_credit_to_output_vat_payable(db_session) -> No
     )
     user = User(
         email=f"v-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="VAT",
+        first_name="VAT",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -162,7 +162,7 @@ async def test_sales_return_debits_output_vat_payable(db_session) -> None:
     )
     user = User(
         email=f"vr-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="VRet",
+        first_name="VRet",
         password_hash="x",
         status="active",
         branch_id=None,

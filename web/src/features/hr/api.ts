@@ -39,6 +39,19 @@ export async function updateEmployee(
   return data;
 }
 
+export async function uploadEmployeeIdentityDocumentImage(
+  employeeProfileId: number,
+  file: File,
+): Promise<{ image_url: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await apiClient.post<{ image_url: string }>(
+    `/employees/${employeeProfileId}/identity-document-image`,
+    formData,
+  );
+  return data;
+}
+
 export async function listSchedules(employeeProfileId: number): Promise<WeeklyScheduleRead[]> {
   const { data } = await apiClient.get<WeeklyScheduleRead[]>(
     `/employees/${employeeProfileId}/schedules`,

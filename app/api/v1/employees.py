@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_any_permission, require_permission
 from app.core.config import settings
+from app.core.errors import ValidationError
 from app.db.database import get_db
 from app.models.employee_profile import EmployeeProfile
 from app.models.leave_request import LeaveStatus, LeaveType
@@ -21,6 +22,7 @@ from app.schemas.employees import (
     EmployeeProfileCreate,
     EmployeeProfileRead,
     EmployeeProfileUpdate,
+    IdentityDocumentImageResponse,
     LeaveRequestCreate,
     LeaveRequestRead,
     LeaveRequestReview,
@@ -49,6 +51,7 @@ from app.services.employee_service import (
     list_weekly_schedules,
     list_weekly_schedules_for_authenticated_user,
     review_leave_request,
+    save_employee_identity_document_image,
     soft_delete_leave_request,
     update_employee_profile,
     update_weekly_schedule,
@@ -124,6 +127,9 @@ async def list_employee_profiles_endpoint(
         data.update(
             {
                 "user_email": row["user_email"],
+                "user_first_name": row["user_first_name"],
+                "user_father_name": row["user_father_name"],
+                "user_family_name": row["user_family_name"],
                 "user_full_name": row["user_full_name"],
                 "user_status": row["user_status"],
                 "user_branch_id": row["user_branch_id"],
@@ -166,6 +172,9 @@ async def get_employee_profile_endpoint(
     data.update(
         {
             "user_email": row["user_email"],
+            "user_first_name": row["user_first_name"],
+            "user_father_name": row["user_father_name"],
+            "user_family_name": row["user_family_name"],
             "user_full_name": row["user_full_name"],
             "user_status": row["user_status"],
             "user_branch_id": row["user_branch_id"],
@@ -220,6 +229,9 @@ async def update_employee_profile_endpoint(
     data.update(
         {
             "user_email": row["user_email"],
+            "user_first_name": row["user_first_name"],
+            "user_father_name": row["user_father_name"],
+            "user_family_name": row["user_family_name"],
             "user_full_name": row["user_full_name"],
             "user_status": row["user_status"],
             "user_branch_id": row["user_branch_id"],
@@ -229,6 +241,36 @@ async def update_employee_profile_endpoint(
         }
     )
     return EmployeeProfileRead.model_validate(data)
+
+
+@router.post(
+    "/employees/{employee_profile_id}/identity-document-image",
+    response_model=IdentityDocumentImageResponse,
+)
+async def upload_employee_identity_document_image(
+    employee_profile_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("employees", "update"),
+) -> IdentityDocumentImageResponse:
+    """Upload a passport / national ID scan (JPEG, PNG, or WebP)."""
+    raw = await file.read(settings.EMPLOYEE_IDENTITY_DOCUMENT_MAX_BYTES + 1)
+    if len(raw) > settings.EMPLOYEE_IDENTITY_DOCUMENT_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Identity document file too large",
+        )
+    try:
+        row = await save_employee_identity_document_image(
+            db, employee_profile_id=employee_profile_id, file_body=raw
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+    await db.commit()
+    await db.refresh(row)
+    url = row.identity_document_image_url or ""
+    return IdentityDocumentImageResponse(image_url=url)
 
 
 @router.post(

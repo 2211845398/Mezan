@@ -132,7 +132,7 @@ function TransferBoardCard({ t, row }: { t: TFunction; row: TransferRead }) {
 }
 
 export default function TransfersList() {
-  const { t } = useTranslation('inventory');
+  const { t, i18n } = useTranslation('inventory');
   const { t: tc } = useTranslation('common');
   const canUpdate = usePermission('inventory', 'update');
   const { data: rows = [], isLoading, isError, refetch } = useTransfersListQuery({ limit: 200, offset: 0 });
@@ -311,14 +311,14 @@ export default function TransfersList() {
         </div>
       </div>
 
-      <Tabs defaultValue="board" className="flex flex-col gap-4">
-        <TabsList className="w-full justify-start sm:w-auto">
+      <Tabs defaultValue="board" className="flex flex-col gap-4" dir={i18n.dir()}>
+        <TabsList className="flex h-auto w-full flex-wrap gap-1 rounded-md bg-muted p-1 sm:w-auto">
           <TabsTrigger value="board">{t('transfers.board.tab_track')}</TabsTrigger>
           <TabsTrigger value="list">{t('transfers.board.tab_list')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="board" className="mt-0 flex flex-col gap-4 outline-none">
-          <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4">
+          <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4" dir={i18n.dir()}>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
               <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="lg:contents">
                 <CollapsibleTrigger asChild>
@@ -449,7 +449,7 @@ export default function TransfersList() {
             isLoading={isLoading}
             isError={isError}
             onRetry={() => void refetch()}
-            tableDir="rtl"
+            tableDir={i18n.dir() === 'rtl' ? 'rtl' : 'ltr'}
           />
         </TabsContent>
       </Tabs>

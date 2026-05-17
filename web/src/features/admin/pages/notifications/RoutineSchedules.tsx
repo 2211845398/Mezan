@@ -289,7 +289,7 @@ function RoutineDialog({
       title={row ? t('notifications.edit_routine') : t('notifications.create_routine')}
       maxWidth="lg"
       footer={
-        <div className="flex w-full flex-wrap justify-end gap-2">
+        <div className="flex w-full flex-wrap justify-end gap-[5px]">
           <Button
             type="button"
             variant="outline"

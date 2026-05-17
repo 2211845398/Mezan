@@ -24,8 +24,10 @@ import { roleCodeLabel } from '../../lib/roleLabels';
 import { adminKeys, useCreateUser } from '../../queries';
 
 const schema = z.object({
-  full_name: z.string().min(1),
-  email: z.string().email(),
+  first_name: z.string().min(1),
+  father_name: z.string().optional().nullable(),
+  family_name: z.string().optional().nullable(),
+  email: z.string().trim().email(),
   password: z.string().optional(),
   branch_id: z.coerce.number().nullable().optional(),
   role_code: z.string().optional().nullable(),
@@ -43,7 +45,9 @@ export default function UserCreate() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      full_name: '',
+      first_name: '',
+      father_name: '',
+      family_name: '',
       email: '',
       password: '',
       branch_id: null,
@@ -73,7 +77,9 @@ export default function UserCreate() {
               setFormError(null);
               try {
                 const u = await create.mutateAsync({
-                  full_name: v.full_name,
+                  first_name: v.first_name,
+                  father_name: v.father_name?.trim() ? v.father_name.trim() : null,
+                  family_name: v.family_name?.trim() ? v.family_name.trim() : null,
                   email: v.email,
                   password: v.password != null && v.password !== '' ? v.password : null,
                   branch_id: v.branch_id == null ? null : v.branch_id,
@@ -90,11 +96,37 @@ export default function UserCreate() {
             className="space-y-4"
           >
             <FormField
-              name="full_name"
+              name="first_name"
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('users.col.full_name')}</FormLabel>
+                  <FormLabel>{t('users.col.first_name')}</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="father_name"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('users.col.father_name')}</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="family_name"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('users.col.family_name')}</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value ?? ''} />
                   </FormControl>
@@ -178,7 +210,7 @@ export default function UserCreate() {
                 {formError}
               </p>
             ) : null}
-            <div className="flex gap-2">
+            <div className="flex gap-[5px]">
               <Button type="submit" className={floatingFormApproveButtonClassName} disabled={create.isPending}>
                 {t('actions.save')}
               </Button>

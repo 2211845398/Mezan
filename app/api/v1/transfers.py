@@ -13,6 +13,7 @@ from app.models.product import Product
 from app.models.transfer_batch import TransferBatch
 from app.models.users import User
 from app.schemas.transfers import TransferBatchCreate, TransferBatchRead, TransferLineRead
+from app.utils.person_name import person_name_sql_expr
 from app.services import audit_service
 from app.services.transfer_service import (
     cancel_pending_batch,
@@ -50,7 +51,13 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
         pmap = {int(i): str(n) for i, n in res.all()}
     umap: dict[int, str] = {}
     if uids:
-        res = await db.execute(select(User.id, User.full_name, User.email).where(User.id.in_(uids)))
+        res = await db.execute(
+            select(
+                User.id,
+                person_name_sql_expr(User.first_name, User.father_name, User.family_name),
+                User.email,
+            ).where(User.id.in_(uids))
+        )
         for uid, fn, em in res.all():
             label = (str(fn).strip() if fn else "") or (str(em).strip() if em else "")
             umap[int(uid)] = label

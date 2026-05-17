@@ -277,7 +277,7 @@ async def test_happy_user_journey(
     # =======================================================================
     # 06. HYBRID CUSTOMER ONBOARDING — phone -> token -> full profile
     # =======================================================================
-    temp_phone = f"010{uuid.uuid4().int % 10**8:08d}"
+    temp_phone = f"09{1 + uuid.uuid4().int % 5}{uuid.uuid4().int % 10**7:07d}"
     temp = await client.post(
         "/api/v1/customers/temporary",
         headers=headers,
@@ -290,7 +290,7 @@ async def test_happy_user_journey(
         headers=headers,
         json={
             "token": onboarding_token,
-            "full_name": "Happy Customer",
+            "first_name": "Happy Customer",
             "email": f"happy-{uuid.uuid4().hex[:6]}@example.com",
         },
     )

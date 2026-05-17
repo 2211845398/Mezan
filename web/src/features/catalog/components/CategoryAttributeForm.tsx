@@ -325,7 +325,7 @@ export function CategoryAttributeForm({ categoryId, defs, canUpdate }: CategoryA
               </div>
             ) : null}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
               {t('actions.cancel')}
             </Button>

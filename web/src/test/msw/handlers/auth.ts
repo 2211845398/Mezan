@@ -14,7 +14,9 @@ type RefreshBody = { refresh_token: string };
 export const DEFAULT_USER = {
   id: 1,
   email: 'admin@example.com',
-  full_name: 'Admin Al-Admin',
+  first_name: 'Admin',
+  father_name: 'Al',
+  family_name: 'Admin',
   status: 'active',
   branch_id: 1,
   phone: null,

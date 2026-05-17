@@ -21,6 +21,7 @@ const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPassword
 const OnboardingCompletePage = lazy(
   () => import('@/features/auth/pages/OnboardingCompletePage'),
 );
+const CustomerOnboardingPage = lazy(() => import('@/features/crm/pages/customers/CustomerOnboardingPage'));
 const ProfilePage = lazy(() => import('@/features/auth/pages/ProfilePage'));
 const NotificationsInboxPage = lazy(() => import('@/features/notifications/pages/NotificationsInboxPage'));
 
@@ -171,6 +172,10 @@ export const router = createBrowserRouter([
       {
         path: '/onboarding/complete/:token',
         element: withSuspense(OnboardingCompletePage),
+      },
+      {
+        path: '/customer-onboarding',
+        element: withSuspense(CustomerOnboardingPage),
       },
     ],
   },

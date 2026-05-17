@@ -482,7 +482,9 @@ async def seed_default_admin(db: AsyncSession, email: str, password: str) -> Non
         return
     user = User(
         email=email,
-        full_name="System Administrator",
+        first_name="System Administrator",
+        father_name=None,
+        family_name=None,
         password_hash=hash_password(password),
         status="active",
     )

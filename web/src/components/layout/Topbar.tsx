@@ -16,6 +16,7 @@ import { useBranch } from '@/features/admin/queries';
 import { logout as logoutApi } from '@/features/auth/api';
 import { getRefreshTokenSync, useAuthStore } from '@/features/auth/stores/authStore';
 import { NotificationCenter } from '@/features/notifications/NotificationCenter';
+import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
 import { useShellStore } from '@/stores/shellStore';
 
@@ -37,6 +38,7 @@ export function Topbar() {
 
   const titleKey = getTitleKeyForPath(location.pathname);
   const sheetSide = i18n.dir() === 'rtl' ? 'right' : 'left';
+  const isPosShell = location.pathname.startsWith('/pos');
 
   function toggleLang() {
     const next = i18n.language === 'ar' ? 'en' : 'ar';
@@ -55,68 +57,88 @@ export function Topbar() {
     }
   }
 
+  const userDisplay = user
+    ? formatPersonName(user.first_name, user.father_name, user.family_name).trim() || user.email
+    : null;
+
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-4 lg:px-6">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      {isPosShell ? (
+        /* POS: hide full app topbar on desktop (sidebar stays). Mobile still needs a menu trigger because Sidebar is lg-only. */
+        <header className="flex h-12 shrink-0 items-center border-b bg-background px-3 lg:hidden">
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="shrink-0 lg:hidden"
+            className="shrink-0"
             aria-label={t('layout.open_sidebar')}
             onClick={() => setMobileNavOpen(true)}
           >
             <Menu className="size-5" />
           </Button>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold leading-tight">{t(titleKey)}</h1>
-            {branchId != null ? (
-              <p className="truncate text-xs text-muted-foreground">
-                {branchRow?.name?.trim() || t('layout.branch_context', { id: branchId })}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {user?.full_name || user?.email ? (
-            <span className="hidden max-w-[10rem] truncate text-sm text-muted-foreground md:inline">
-              {user.full_name ?? user.email}
-            </span>
-          ) : null}
-          {/* EN: N → L → T → out (LTR). AR: reverse visual order (flex-row-reverse) while DOM stays keyboard-friendly. */}
-          <div
-            className={cn('flex items-center gap-2', i18n.language.startsWith('ar') && 'flex-row-reverse')}
-            dir="ltr"
-          >
-            {user ? <NotificationCenter /> : null}
+        </header>
+      ) : (
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-background px-4 lg:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="icon"
-              onClick={toggleLang}
-              aria-label={t('layout.toggle_language')}
+              className="shrink-0 lg:hidden"
+              aria-label={t('layout.open_sidebar')}
+              onClick={() => setMobileNavOpen(true)}
             >
-              <Languages className="size-5" />
+              <Menu className="size-5" />
             </Button>
-            <ThemeToggle />
-            {user ? (
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-lg font-semibold leading-tight">{t(titleKey)}</h1>
+              {branchId != null ? (
+                <p className="truncate text-xs text-muted-foreground">
+                  {branchRow?.name?.trim() || t('layout.branch_context', { id: branchId })}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {userDisplay ? (
+              <span className="hidden max-w-[10rem] truncate text-sm text-muted-foreground md:inline">
+                {userDisplay}
+              </span>
+            ) : null}
+            {/* EN: N → L → T → out (LTR). AR: reverse visual order (flex-row-reverse) while DOM stays keyboard-friendly. */}
+            <div
+              className={cn('flex items-center gap-2', i18n.language.startsWith('ar') && 'flex-row-reverse')}
+              dir="ltr"
+            >
+              {user ? <NotificationCenter /> : null}
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => {
-                  void onSignOut();
-                }}
-                aria-label={t('layout.sign_out')}
+                onClick={toggleLang}
+                aria-label={t('layout.toggle_language')}
               >
-                <LogOut className="size-5" />
+                <Languages className="size-5" />
               </Button>
-            ) : null}
+              <ThemeToggle />
+              {user ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => {
+                    void onSignOut();
+                  }}
+                  aria-label={t('layout.sign_out')}
+                >
+                  <LogOut className="size-5" />
+                </Button>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent

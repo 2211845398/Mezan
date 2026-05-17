@@ -504,7 +504,7 @@ export default function EmployeeSchedule() {
               </div>
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditing(null)}>
               {tc('actions.cancel')}
             </Button>

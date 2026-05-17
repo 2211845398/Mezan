@@ -246,7 +246,7 @@ export default function InvoiceLookup() {
               disabled={voidSale.isPending}
             />
           </div>
-          <DialogFooter className="gap-2 sm:justify-between">
+          <DialogFooter className="sm:justify-between">
             <Button
               type="button"
               variant="outline"

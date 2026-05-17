@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useReactToPrint } from 'react-to-print';
 
@@ -55,32 +55,6 @@ export function ShiftCloseForm({ onSuccess }: ShiftCloseFormProps) {
     () => (reportVm ? varianceDeficitSurplus(reportVm.variance, REPORT_CURRENCY) : { deficit: '—', surplus: '—' }),
     [reportVm],
   );
-
-  useEffect(() => {
-    if (!reportVm) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7273/ingest/c13c7694-4ebb-4bfb-93a4-3af7e7abfcce', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c56b81' },
-      body: JSON.stringify({
-        sessionId: 'c56b81',
-        runId: 'pre-fix',
-        hypothesisId: 'H3',
-        location: 'ShiftCloseForm.tsx:summary',
-        message: 'shift close summary vm snapshot',
-        data: {
-          layout: 'symmetry-rows',
-          opened: periodLabels.openedLabel,
-          duration: periodLabels.durationInline,
-          varianceRaw: reportVm.variance,
-          deficit: varianceDisplay.deficit,
-          surplus: varianceDisplay.surplus,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-  }, [reportVm, periodLabels.openedLabel, periodLabels.durationInline, varianceDisplay]);
 
   if (!terminalId) {
     return <p className="text-sm text-destructive">{t('gate.select_terminal')}</p>;

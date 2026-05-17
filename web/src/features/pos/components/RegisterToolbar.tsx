@@ -16,6 +16,7 @@ import { useAuthStore } from '@/features/auth/stores/authStore';
 import { useOnline } from '@/hooks/useOnline';
 import { now } from '@/lib/date';
 import { formatCurrency, formatDateTime } from '@/lib/format';
+import { formatPersonName } from '@/lib/personName';
 
 import { changeCartState } from '../api';
 import { useParkedCarts } from '../queries';
@@ -138,7 +139,9 @@ export function RegisterToolbar({
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-between">
         <OfflineBadge online={online} />
         <span className="max-w-[12rem] truncate text-xs text-muted-foreground">
-          {user?.full_name || user?.email}
+          {user
+            ? formatPersonName(user.first_name, user.father_name, user.family_name).trim() || user.email
+            : null}
         </span>
         <Button
           type="button"

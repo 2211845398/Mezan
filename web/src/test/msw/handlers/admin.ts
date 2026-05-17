@@ -11,7 +11,9 @@ const user2: UserRead = {
   ...DEFAULT_USER,
   id: 2,
   email: 'new@example.com',
-  full_name: 'New User',
+  first_name: 'New',
+  father_name: null,
+  family_name: 'User',
   status: 'active',
   branch_id: 1,
   last_login_at: null,
@@ -24,11 +26,18 @@ export const adminHandlers = [
   http.get(`${BASE}/users/2`, () => HttpResponse.json(user2)),
   http.patch(`${BASE}/users/:id`, () => HttpResponse.json(user2)),
   http.post(`${BASE}/users`, async ({ request }) => {
-    const body = (await request.json()) as { email: string; full_name?: string | null };
+    const body = (await request.json()) as {
+      email: string;
+      first_name?: string | null;
+      father_name?: string | null;
+      family_name?: string | null;
+    };
     return HttpResponse.json({
       id: 2,
       email: body.email,
-      full_name: body.full_name ?? null,
+      first_name: body.first_name ?? null,
+      father_name: body.father_name ?? null,
+      family_name: body.family_name ?? null,
       status: 'pending_onboarding',
       branch_id: null,
       last_login_at: null,

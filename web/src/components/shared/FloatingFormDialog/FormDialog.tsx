@@ -61,7 +61,7 @@ export function FloatingFormDialog({
           {children}
         </div>
         {footer ? (
-          <DialogFooter className="shrink-0 gap-2 border-t px-6 py-4 sm:justify-between">{footer}</DialogFooter>
+          <DialogFooter className="shrink-0 border-t px-6 py-4 sm:justify-between">{footer}</DialogFooter>
         ) : null}
       </DialogContent>
     </Dialog>

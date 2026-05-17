@@ -79,14 +79,14 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
     c = await client.post(
         "/api/v1/customers/temporary",
         headers=admin_auth_header,
-        json={"phone": "01000000000"},
+        json={"phone": "0910000000"},
     )
     assert c.status_code == 201, c.text
     onboarding_token = c.json()["onboarding_token"]
     complete = await client.post(
         "/api/v1/customers/onboarding/complete",
         headers=admin_auth_header,
-        json={"token": onboarding_token, "full_name": "Temp User", "email": "temp@example.com"},
+        json={"token": onboarding_token, "first_name": "Temp User", "email": "temp@example.com"},
     )
     assert complete.status_code == 200, complete.text
     customer_id = complete.json()["id"]

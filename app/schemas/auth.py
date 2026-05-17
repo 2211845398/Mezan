@@ -1,12 +1,12 @@
 """Pydantic schemas for auth: login, refresh, password reset, profile."""
 
-import re
 from typing import Self
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
+from app.utils.libyan_phone import require_libyan_mobile
+
 _PROFILE_STRING_MAX = 128
-_LIBYAN_MOBILE_RE = re.compile(r"^09[1-5]\d{7}$")
 
 
 class LoginRequest(BaseModel):
@@ -61,7 +61,9 @@ class ProfileUpdate(BaseModel):
     """Update current user profile (identity, contact, language, optional password)."""
 
     email: EmailStr | None = None
-    full_name: str | None = None
+    first_name: str | None = Field(default=None, max_length=255)
+    father_name: str | None = Field(default=None, max_length=255)
+    family_name: str | None = Field(default=None, max_length=255)
     phone: str | None = None
     city: str | None = Field(default=None, max_length=_PROFILE_STRING_MAX)
     preferred_language: str | None = None
@@ -88,12 +90,10 @@ class ProfileUpdate(BaseModel):
     @field_validator("phone")
     @classmethod
     def libyan_mobile_format(cls, v: str | None) -> str | None:
-        """Libyan mobile: mandatory 09, third digit 1–5, then seven digits (10 digits total)."""
+        """Libyan national phone: ``09`` + operator digit 1–5 + seven digits (10 digits total)."""
         if v is None:
             return None
-        if not _LIBYAN_MOBILE_RE.fullmatch(v):
-            raise ValueError("invalid_libyan_phone")
-        return v
+        return require_libyan_mobile(v)
 
     @model_validator(mode="after")
     def password_change_requires_current(self) -> Self:

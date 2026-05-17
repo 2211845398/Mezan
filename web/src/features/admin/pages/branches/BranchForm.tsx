@@ -69,7 +69,7 @@ export function BranchForm({
       title={mode === 'create' ? t('branches.create_title') : t('branches.edit_title')}
       maxWidth="md"
       footer={
-        <div className="flex w-full flex-wrap justify-end gap-2">
+        <div className="flex w-full flex-wrap justify-end gap-[5px]">
           <Button
             type="button"
             variant="outline"

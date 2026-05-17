@@ -59,7 +59,7 @@ export default function LeaveApproveDrawer({ open, onOpenChange, leave }: Props)
           <Label htmlFor="notes">{t('leave.review_notes')}</Label>
           <Textarea id="notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
-        <DialogFooter className="flex flex-row flex-wrap gap-2">
+        <DialogFooter className="flex flex-row flex-wrap gap-[5px]">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {tc('actions.cancel')}
           </Button>

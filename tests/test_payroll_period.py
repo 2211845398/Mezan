@@ -81,7 +81,7 @@ async def test_list_payslips_read_includes_user_and_period_filter(db_session: As
 
     u = User(
         email="payslip_list_u@test.example",
-        full_name="Listed Employee",
+        first_name="Listed Employee",
         password_hash=hash_password("pw"),
         status="active",
         branch_id=branch.id,

@@ -243,6 +243,14 @@ app.mount(
     name="static_catalog_product_images",
 )
 
+_employee_id_doc_dir = Path(settings.EMPLOYEE_IDENTITY_DOCUMENT_UPLOAD_DIR)
+_employee_id_doc_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/v1/static/employee-identity-documents",
+    StaticFiles(directory=str(_employee_id_doc_dir.resolve())),
+    name="static_employee_identity_documents",
+)
+
 # Include v1 routers
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
 app.include_router(backups_router, prefix="/api/v1", tags=["backups"])

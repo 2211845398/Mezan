@@ -62,7 +62,7 @@ async def test_compute_period_approved_leave_reduces_absence_auto_deductions(
 
     u = User(
         email="payroll_srs_cashier1@test.example",
-        full_name="Cashier SRS",
+        first_name="Cashier SRS",
         password_hash=hash_password("pw"),
         status="active",
         branch_id=store.id,
@@ -151,7 +151,7 @@ async def test_compute_period_exempt_admin_role_has_zero_automatic_deductions(
 
     u = User(
         email="payroll_srs_admin1@test.example",
-        full_name="Admin SRS",
+        first_name="Admin SRS",
         password_hash=hash_password("pw"),
         status="active",
         branch_id=store.id,

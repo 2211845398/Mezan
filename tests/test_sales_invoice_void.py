@@ -38,7 +38,7 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
     )
     user = User(
         email=f"v-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="Void",
+        first_name="Void",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -218,7 +218,7 @@ async def test_void_is_idempotent(db_session) -> None:
     )
     user = User(
         email=f"v2-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="V2",
+        first_name="V2",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -359,7 +359,7 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
     )
     user = User(
         email=f"v3-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="V3",
+        first_name="V3",
         password_hash="x",
         status="active",
         branch_id=None,

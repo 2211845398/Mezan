@@ -194,7 +194,9 @@ async def _ensure_dev_admin(
     admin_role = res_ar.scalar_one()
     user = User(
         email=email,
-        full_name="Dev Administrator",
+        first_name="Dev Administrator",
+        father_name=None,
+        family_name=None,
         password_hash=hash_password(password),
         status="active",
         branch_id=primary_branch.id,

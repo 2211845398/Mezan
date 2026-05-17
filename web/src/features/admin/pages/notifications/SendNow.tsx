@@ -148,7 +148,7 @@ export default function SendNow() {
             </p>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-[5px]">
             <Button
               type="button"
               variant="outline"

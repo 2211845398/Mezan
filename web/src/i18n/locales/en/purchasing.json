@@ -12,7 +12,9 @@
     },
     "form": {
       "code": "Code",
-      "name": "Name",
+      "first_name": "First name",
+      "father_name": "Father's name",
+      "family_name": "Family name",
       "currency_id": "Currency ID",
       "tax_id": "Tax ID",
       "payment_terms": "Payment terms",

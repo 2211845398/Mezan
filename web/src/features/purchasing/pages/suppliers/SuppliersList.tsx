@@ -10,6 +10,7 @@ import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
+import { formatPersonName } from '@/lib/personName';
 
 import type { SupplierRead } from '../../api';
 import { suppliersQueryOptions } from '../../queries';
@@ -27,7 +28,13 @@ export default function SuppliersList() {
     () =>
       defineColumns<SupplierRead>()([
         { id: 'code', accessorKey: 'code', header: t('suppliers.col.code') },
-        { id: 'name', accessorKey: 'name', header: t('suppliers.col.name') },
+        {
+          id: 'name',
+          accessorFn: (row) =>
+            [formatPersonName(row.first_name, row.father_name, row.family_name), row.code].filter(Boolean).join(' '),
+          header: t('suppliers.col.name'),
+          cell: ({ row }) => formatPersonName(row.original.first_name, row.original.father_name, row.original.family_name) || '—',
+        },
         { id: 'currency_id', accessorKey: 'currency_id', header: t('suppliers.col.currency') },
         {
           id: 'tax_id',

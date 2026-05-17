@@ -39,6 +39,9 @@ export function employeeProfileRowSearchValue(
   const branchLabel = getBranchLabel(opts.branches, bid);
   const parts = [
     row.user_full_name,
+    row.user_first_name,
+    row.user_father_name,
+    row.user_family_name,
     row.user_email,
     status,
     sAr,
@@ -54,6 +57,9 @@ export function employeeProfileRowSearchValue(
     row.hire_date,
     row.base_salary != null ? String(row.base_salary) : '',
     row.hourly_rate != null ? String(row.hourly_rate) : '',
+    row.identity_document_type ?? '',
+    row.identity_document_number ?? '',
+    row.identity_document_image_url ?? '',
   ];
   return parts.filter(Boolean).join(' ');
 }
@@ -80,6 +86,9 @@ export function pendingOnboardingRowSearchValue(
   const branchLabel = getBranchLabel(opts.branches, bid);
   const parts = [
     row.user_full_name,
+    row.user_first_name,
+    row.user_father_name,
+    row.user_family_name,
     row.user_email,
     uStatus,
     sAr,
@@ -96,6 +105,9 @@ export function pendingOnboardingRowSearchValue(
     row.requested_by_name,
     row.assigned_hr_name,
     row.created_at,
+    row.identity_document_type ?? '',
+    row.identity_document_number ?? '',
+    row.identity_document_image_url ?? '',
   ];
   return parts.filter(Boolean).join(' ');
 }

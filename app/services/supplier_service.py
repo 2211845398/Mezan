@@ -9,13 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
 from app.models.suppliers import Supplier
+from app.utils.person_name import person_name_sql_expr
 
 
 async def create_supplier(
     db: AsyncSession,
     *,
     code: str,
-    name: str,
+    first_name: str | None,
+    father_name: str | None,
+    family_name: str | None,
     currency_id: int,
     payables_account_id: int | None,
     tax_id: str | None = None,
@@ -27,7 +30,9 @@ async def create_supplier(
         raise ConflictError("Supplier code already exists", details={"code": code})
     s = Supplier(
         code=code,
-        name=name,
+        first_name=first_name,
+        father_name=father_name,
+        family_name=family_name,
         currency_id=currency_id,
         payables_account_id=payables_account_id,
         tax_id=tax_id,
@@ -41,7 +46,8 @@ async def create_supplier(
 
 
 async def list_suppliers(db: AsyncSession) -> list[Supplier]:
-    res = await db.execute(select(Supplier).order_by(Supplier.name))
+    disp = person_name_sql_expr(Supplier.first_name, Supplier.father_name, Supplier.family_name)
+    res = await db.execute(select(Supplier).order_by(disp.asc().nulls_last(), Supplier.id.asc()))
     return list(res.scalars().all())
 
 

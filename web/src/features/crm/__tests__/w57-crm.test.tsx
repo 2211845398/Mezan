@@ -35,7 +35,9 @@ describe('W-5.7 CRM', () => {
         HttpResponse.json({
           id: 1,
           phone: '+100',
-          full_name: 'A',
+          first_name: 'A',
+          father_name: null,
+          family_name: null,
           email: null,
           is_temporary: false,
           default_currency_id: null,
@@ -74,7 +76,8 @@ describe('W-5.7 CRM', () => {
       </Routes>,
       { initialEntries: ['/crm/customers/1'] },
     );
-    expect(await screen.findByRole('heading', { name: 'A' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /customer/i })).toBeInTheDocument();
+    expect(await screen.findByText('A · +100')).toBeInTheDocument();
     await u.click(await screen.findByRole('tab', { name: /loyalty ledger/i }));
     expect(await screen.findByText('purchase', {}, { timeout: 5000 })).toBeVisible();
   });

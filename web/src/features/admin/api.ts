@@ -109,7 +109,9 @@ export async function listPendingOnboarding(): Promise<UserOnboardingRead[]> {
 }
 
 export type PendingOnboardingSubjectPatch = {
-  full_name?: string | null;
+  first_name?: string | null;
+  father_name?: string | null;
+  family_name?: string | null;
   branch_id?: number | null;
   role_code?: string | null;
 };
@@ -119,6 +121,19 @@ export async function patchPendingOnboardingSubject(
   body: PendingOnboardingSubjectPatch,
 ): Promise<UserRead> {
   const { data } = await apiClient.patch<UserRead>(`/hr/onboarding/${onboardingId}/subject`, body);
+  return data;
+}
+
+export async function uploadOnboardingIdentityDocumentImage(
+  onboardingId: number,
+  file: File,
+): Promise<{ image_url: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await apiClient.post<{ image_url: string }>(
+    `/hr/onboarding/${onboardingId}/identity-document-image`,
+    formData,
+  );
   return data;
 }
 
@@ -134,6 +149,8 @@ export async function completeOnboarding(
     salary_currency?: string | null;
     bank_account?: string | null;
     notes?: string | null;
+    identity_document_type?: string | null;
+    identity_document_number?: string | null;
     schedules?: Array<{
       weekday: number;
       start_time: string;

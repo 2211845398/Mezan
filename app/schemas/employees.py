@@ -24,8 +24,12 @@ class EmployeeProfileUpdate(BaseModel):
     hourly_rate: Decimal | None = None
     bank_account: str | None = None
     annual_leave_entitlement_days: Decimal | None = None
+    identity_document_type: str | None = Field(default=None, max_length=32)
+    identity_document_number: str | None = Field(default=None, max_length=128)
     # Linked user (via employees:update); email and status are not editable here.
-    subject_full_name: str | None = None
+    subject_first_name: str | None = None
+    subject_father_name: str | None = None
+    subject_family_name: str | None = None
     subject_branch_id: int | None = None
     subject_role_code: str | None = None
 
@@ -40,16 +44,28 @@ class EmployeeProfileRead(BaseModel):
     hourly_rate: Decimal | None = None
     bank_account: str | None = None
     annual_leave_entitlement_days: Decimal | None = None
+    identity_document_type: str | None = None
+    identity_document_number: str | None = None
+    identity_document_image_url: str | None = None
     created_at: datetime
     updated_at: datetime
     # Enriched user details
     user_email: str | None = None
+    user_first_name: str | None = None
+    user_father_name: str | None = None
+    user_family_name: str | None = None
     user_full_name: str | None = None
     user_status: str | None = None
     user_branch_id: int | None = None
     user_branch_name: str | None = None
     user_role_code: str | None = None
     user_role_name: str | None = None
+
+
+class IdentityDocumentImageResponse(BaseModel):
+    """Response after uploading a passport / national ID scan."""
+
+    image_url: str
 
 
 class WeeklyScheduleCreate(BaseModel):

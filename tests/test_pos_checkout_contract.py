@@ -32,7 +32,7 @@ async def test_payment_intent_rejected_when_cart_not_locked(db_session, monkeypa
     )
     user = User(
         email=f"lock-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="Lock Tester",
+        first_name="Lock Tester",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -116,7 +116,7 @@ async def test_finalize_rejected_when_cart_not_locked(db_session, monkeypatch) -
     )
     user = User(
         email=f"fin-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="Fin Tester",
+        first_name="Fin Tester",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -347,7 +347,7 @@ async def test_payment_intent_rejects_non_base_currency_without_fx_rate(db_sessi
     )
     user = User(
         email=f"fxm-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="FX Missing",
+        first_name="FX Missing",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -438,7 +438,7 @@ async def test_payment_intent_snapshots_exchange_rate_for_non_base(db_session) -
     )
     user = User(
         email=f"fxs-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="FX Snap",
+        first_name="FX Snap",
         password_hash="x",
         status="active",
         branch_id=None,

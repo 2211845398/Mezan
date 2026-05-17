@@ -150,6 +150,8 @@ async def create_cart(
 
 
 async def _recalc_totals(db: AsyncSession, cart: PosCart) -> None:
+    # Session uses autoflush=False; flush so newly added/modified lines are visible to this SELECT.
+    await db.flush()
     lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
     lines = list(lines_res.scalars().all())
     disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart.id))

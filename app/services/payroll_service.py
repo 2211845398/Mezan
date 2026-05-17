@@ -19,6 +19,7 @@ from app.models.employee_profile import EmployeeProfile
 from app.models.payslip import Payslip, PayslipStatus
 from app.models.users import User
 from app.schemas.payroll import PayslipRead
+from app.utils.person_name import person_name_sql_expr
 from app.services import employee_service as employee_service_module
 from app.services.attendance_payroll_engine import compute_period_payroll_components
 from app.services.document_posting_service import post_payslip_approved_gl
@@ -299,7 +300,7 @@ async def list_payslips_read(
 ) -> list[PayslipRead]:
     """List payslips with linked user display fields (for API responses)."""
     stmt = (
-        select(Payslip, User.full_name, User.email)
+        select(Payslip, person_name_sql_expr(User.first_name, User.father_name, User.family_name), User.email)
         .join(EmployeeProfile, EmployeeProfile.id == Payslip.employee_profile_id)
         .join(User, User.id == EmployeeProfile.user_id)
         .order_by(Payslip.created_at.desc())

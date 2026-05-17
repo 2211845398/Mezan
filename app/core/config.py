@@ -147,6 +147,16 @@ class Settings(BaseSettings):
         description="Maximum product image file size in bytes (default 2 MiB)",
     )
 
+    # Employee identity scans (passport / ID card; served via /api/v1/static/employee-identity-documents)
+    EMPLOYEE_IDENTITY_DOCUMENT_UPLOAD_DIR: str = Field(
+        default="data/uploads/employee-identity-documents",
+        description="Directory for uploaded employee identity document images",
+    )
+    EMPLOYEE_IDENTITY_DOCUMENT_MAX_BYTES: int = Field(
+        default=5_242_880,
+        description="Maximum identity scan file size in bytes (default 5 MiB)",
+    )
+
     # Database
     DATABASE_URL: str = Field(
         ...,

@@ -266,10 +266,14 @@ export function useAddLine(cartId: number) {
     onSuccess: (data) => {
       qc.setQueryData(cartKeys.detail(cartId), (current: CartRead | undefined) => {
         if (!current) return data;
+        /** Stale line POST may resolve after checkout lock; never clobber locked/paid cache. */
+        if (current.status !== 'active') {
+          return current;
+        }
         const stillPending = pendingOptimisticLinesAfterMerge(current.lines, data.lines);
         const mergedLines = [...(data.lines ?? []), ...stillPending].filter((l) => Number(l.qty) > 0);
         const r = recalcApproxCartTotals(data, mergedLines);
-        const merged: CartRead = { ...data, ...r, lines: mergedLines };
+        const merged: CartRead = { ...data, ...r, lines: r.lines };
         return merged;
       });
     },
@@ -300,10 +304,13 @@ export function useUpdateLineQty(cartId: number) {
     onSuccess: (data) => {
       qc.setQueryData(cartKeys.detail(cartId), (current: CartRead | undefined) => {
         if (!current) return data;
+        if (current.status !== 'active') {
+          return current;
+        }
         const stillPending = pendingOptimisticLinesAfterMerge(current.lines, data.lines);
         const mergedLines = [...(data.lines ?? []), ...stillPending].filter((l) => Number(l.qty) > 0);
         const r = recalcApproxCartTotals(data, mergedLines);
-        return { ...data, ...r, lines: mergedLines };
+        return { ...data, ...r, lines: r.lines };
       });
     },
   });

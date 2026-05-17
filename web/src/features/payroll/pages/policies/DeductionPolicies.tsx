@@ -225,7 +225,7 @@ export default function DeductionPolicies() {
               />
             </div>
           </div>
-          <DialogFooter className="mt-auto flex-row gap-2 sm:justify-center">
+          <DialogFooter className="mt-auto flex-row gap-[5px] sm:justify-center">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               {t('policies.cancel')}
             </Button>

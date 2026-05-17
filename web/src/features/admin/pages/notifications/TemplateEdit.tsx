@@ -83,7 +83,7 @@ export function TemplateEdit({ kind, open, onOpenChange }: Props) {
       title={title}
       maxWidth="lg"
       footer={
-        <div className="flex w-full flex-wrap justify-end gap-2">
+        <div className="flex w-full flex-wrap justify-end gap-[5px]">
           <Button
             type="button"
             variant="outline"

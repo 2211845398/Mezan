@@ -222,8 +222,10 @@ async def update_own_profile(db: AsyncSession, user: User, body: ProfileUpdate) 
                 raise ValueError("email_already_in_use")
             user.email = new_email
 
-    if "full_name" in data:
-        user.full_name = body.full_name
+    for field, col in (("first_name", "first_name"), ("father_name", "father_name"), ("family_name", "family_name")):
+        if field in data:
+            v = getattr(body, field)
+            setattr(user, col, v.strip() if isinstance(v, str) and v.strip() else None)
 
     if "phone" in data:
         user.phone = body.phone
@@ -345,7 +347,9 @@ async def exchange_google_code_and_login(
     if not user:
         user = User(
             email=email,
-            full_name=name,
+            first_name=str(name).strip() if name else None,
+            father_name=None,
+            family_name=None,
             password_hash=None,
             status=ACTIVE_STATUS,
         )

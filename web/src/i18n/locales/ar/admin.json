@@ -74,6 +74,9 @@
     "col": {
       "email": "البريد",
       "full_name": "الاسم",
+      "first_name": "الاسم الأول",
+      "father_name": "اسم الأب",
+      "family_name": "اللقب",
       "status": "الحالة",
       "branch": "الفرع",
       "role": "الدور",

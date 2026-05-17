@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useMe } from '@/features/auth/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { resolveMediaUrl, withMediaCacheBust } from '@/lib/mediaUrl';
+import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
 
 function initials(displayName: string | null | undefined, email: string): string {
@@ -47,9 +48,10 @@ export function SidebarProfile({ collapsed }: SidebarProfileProps) {
 
   if (!me) return null;
 
-  const label = me.full_name?.trim() || me.email;
-  const sub = me.full_name?.trim() ? me.email : null;
-  const ini = initials(me.full_name, me.email);
+  const displayName = formatPersonName(me.first_name, me.father_name, me.family_name);
+  const label = displayName.trim() || me.email;
+  const sub = displayName.trim() ? me.email : null;
+  const ini = initials(displayName || null, me.email);
   const baseAvatar = resolveMediaUrl(me.avatar_url?.trim());
   const avatarSrc = baseAvatar ? withMediaCacheBust(baseAvatar, avatarCacheBust) : null;
 

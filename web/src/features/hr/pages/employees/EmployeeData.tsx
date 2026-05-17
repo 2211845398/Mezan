@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
@@ -15,18 +15,28 @@ import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
 import { RoleCodeCombobox } from '@/features/admin/components/RoleCodeCombobox';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import RouteLoader from '@/routes/RouteLoader';
 
-import { updateEmployee } from '../../api';
+import { updateEmployee, uploadEmployeeIdentityDocumentImage } from '../../api';
 import { employeeQueryOptions, hrKeys } from '../../queries';
 
 const formSchema = z
   .object({
-    subject_full_name: z.string().max(255),
+    subject_first_name: z.string().max(255),
+    subject_father_name: z.string().max(255),
+    subject_family_name: z.string().max(255),
     subject_branch_id: z.number().int().positive().nullable(),
     subject_role_code: z.string(),
     hire_date: z.string().min(1),
@@ -34,6 +44,8 @@ const formSchema = z
     hourly_rate: z.string().optional(),
     bank_account: z.string().max(64).optional().nullable(),
     annual_leave_entitlement_days: z.string().optional(),
+    identity_document_type: z.string().max(32),
+    identity_document_number: z.string().max(128),
   })
   .refine((d) => (d.base_salary && d.base_salary !== '') || (d.hourly_rate && d.hourly_rate !== ''), {
     message: 'base_or_hourly',
@@ -54,7 +66,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function EmployeeData() {
   const { id } = useParams<{ id: string }>();
   const eid = Number(id);
-  const { t } = useTranslation('hr');
+  const { t, i18n } = useTranslation('hr');
   const { t: tc } = useTranslation('common');
   const { t: tAdmin } = useTranslation('admin');
   const qc = useQueryClient();
@@ -69,7 +81,9 @@ export default function EmployeeData() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      subject_full_name: '',
+      subject_first_name: '',
+      subject_father_name: '',
+      subject_family_name: '',
       subject_branch_id: null,
       subject_role_code: '',
       hire_date: '',
@@ -77,13 +91,17 @@ export default function EmployeeData() {
       hourly_rate: '',
       bank_account: '',
       annual_leave_entitlement_days: '',
+      identity_document_type: '',
+      identity_document_number: '',
     },
   });
 
   useEffect(() => {
     if (!existing) return;
     form.reset({
-      subject_full_name: existing.user_full_name ?? '',
+      subject_first_name: existing.user_first_name ?? '',
+      subject_father_name: existing.user_father_name ?? '',
+      subject_family_name: existing.user_family_name ?? '',
       subject_branch_id: existing.user_branch_id ?? null,
       subject_role_code: (existing.user_role_code ?? '').trim(),
       hire_date: existing.hire_date?.slice(0, 10) ?? '',
@@ -94,6 +112,8 @@ export default function EmployeeData() {
         existing.annual_leave_entitlement_days != null && existing.annual_leave_entitlement_days !== ''
           ? String(existing.annual_leave_entitlement_days)
           : '',
+      identity_document_type: existing.identity_document_type ?? '',
+      identity_document_number: existing.identity_document_number ?? '',
     });
   }, [existing, form]);
 
@@ -107,11 +127,15 @@ export default function EmployeeData() {
         base_salary: base,
         hourly_rate: hr,
         bank_account: v.bank_account?.trim() || null,
-        subject_full_name: v.subject_full_name.trim() ? v.subject_full_name.trim() : null,
+        subject_first_name: v.subject_first_name.trim() ? v.subject_first_name.trim() : null,
+        subject_father_name: v.subject_father_name.trim() ? v.subject_father_name.trim() : null,
+        subject_family_name: v.subject_family_name.trim() ? v.subject_family_name.trim() : null,
         subject_branch_id: v.subject_branch_id ?? null,
       };
       const al = v.annual_leave_entitlement_days?.trim();
       payload.annual_leave_entitlement_days = al && al !== '' ? Number(al) : null;
+      payload.identity_document_type = v.identity_document_type.trim() || null;
+      payload.identity_document_number = v.identity_document_number.trim() || null;
       if (rc) {
         payload.subject_role_code = rc;
       }
@@ -122,6 +146,16 @@ export default function EmployeeData() {
       await qc.invalidateQueries({ queryKey: hrKeys.root });
       notify.success(tc('toasts.saved'));
       setFormError(null);
+    },
+    onError: (error) => notifyApiError(error, t('hr_errors.generic')),
+  });
+
+  const idFileInputRef = useRef<HTMLInputElement>(null);
+  const uploadIdScan = useMutation({
+    mutationFn: (file: File) => uploadEmployeeIdentityDocumentImage(eid, file),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: hrKeys.employee(eid) });
+      notify.success(t('employees.form.identity_scan_uploaded'));
     },
     onError: (error) => notifyApiError(error, t('hr_errors.generic')),
   });
@@ -170,12 +204,25 @@ export default function EmployeeData() {
         <SectionCard>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="emp-subject-name">{tAdmin('users.col.full_name')}</Label>
+              <Label htmlFor="emp-subject-fn">{tAdmin('users.col.first_name')}</Label>
+              <Input id="emp-subject-fn" {...form.register('subject_first_name')} disabled={!canUpdate} autoComplete="given-name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="emp-subject-father">{tAdmin('users.col.father_name')}</Label>
               <Input
-                id="emp-subject-name"
-                {...form.register('subject_full_name')}
+                id="emp-subject-father"
+                {...form.register('subject_father_name')}
                 disabled={!canUpdate}
-                autoComplete="name"
+                autoComplete="additional-name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="emp-subject-family">{tAdmin('users.col.family_name')}</Label>
+              <Input
+                id="emp-subject-family"
+                {...form.register('subject_family_name')}
+                disabled={!canUpdate}
+                autoComplete="family-name"
               />
             </div>
             <div className="grid gap-2">
@@ -230,6 +277,86 @@ export default function EmployeeData() {
           </div>
         </SectionCard>
 
+        <SectionCard title={t('employees.form.identity_section_title')}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2" dir={i18n.dir()}>
+              <Label>{t('employees.form.identity_document_type')}</Label>
+              <Controller
+                control={form.control}
+                name="identity_document_type"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || '__none__'}
+                    onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}
+                    disabled={!canUpdate || uploadIdScan.isPending}
+                  >
+                    <SelectTrigger dir={i18n.dir()}>
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent dir={i18n.dir()}>
+                      <SelectItem value="__none__">—</SelectItem>
+                      <SelectItem value="passport">{t('employees.form.identity_doc_passport')}</SelectItem>
+                      <SelectItem value="national_id">{t('employees.form.identity_doc_national_id')}</SelectItem>
+                      <SelectItem value="residency">{t('employees.form.identity_doc_residency')}</SelectItem>
+                      <SelectItem value="other">{t('employees.form.identity_doc_other')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="emp-id-doc-number">{t('employees.form.identity_document_number')}</Label>
+              <Input
+                id="emp-id-doc-number"
+                {...form.register('identity_document_number')}
+                disabled={!canUpdate}
+                autoComplete="off"
+              />
+            </div>
+            <div className="grid gap-2 sm:col-span-2">
+              <Label>{t('employees.form.identity_document_image')}</Label>
+              <input
+                ref={idFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f && canUpdate) void uploadIdScan.mutateAsync(f);
+                }}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!canUpdate || uploadIdScan.isPending || save.isPending}
+                  onClick={() => idFileInputRef.current?.click()}
+                >
+                  {t('employees.form.identity_document_choose')}
+                </Button>
+              </div>
+              {existing.identity_document_image_url ? (
+                <div className="mt-2 grid gap-2">
+                  <p className="text-xs text-muted-foreground">{t('employees.form.identity_document_preview')}</p>
+                  <a
+                    href={resolveMediaUrl(existing.identity_document_image_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block max-w-xs"
+                  >
+                    <img
+                      src={resolveMediaUrl(existing.identity_document_image_url)}
+                      alt=""
+                      className="max-h-40 rounded-md border object-contain"
+                    />
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </SectionCard>
+
         <SectionCard title={t('tracking.data_compensation')}>
           <div className="flex flex-col gap-4">
             <div className="grid gap-2">
@@ -256,7 +383,6 @@ export default function EmployeeData() {
                 disabled={!canUpdate}
               />
             </div>
-            <p className="text-xs text-muted-foreground">{t('employees.form.compensation_hint')}</p>
             <div className="grid gap-2">
               <Label htmlFor="bank-data">{t('employees.form.bank')}</Label>
               <Input id="bank-data" {...form.register('bank_account')} disabled={!canUpdate} />
@@ -271,7 +397,6 @@ export default function EmployeeData() {
                 disabled={!canUpdate}
                 placeholder={t('employees.form.annual_leave_placeholder')}
               />
-              <p className="text-xs text-muted-foreground">{t('employees.form.annual_leave_hint')}</p>
             </div>
             {formError ? (
               <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

@@ -17,6 +17,8 @@ from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
 from app.schemas.users import UserOnboardingSubjectUpdate
+from app.services.identity_document_files import persist_raster_identity_scan
+from app.utils.person_name import person_name_sql_expr
 
 
 async def assign_role_by_code(db: AsyncSession, *, user_id: int, role_code: str) -> None:
@@ -81,7 +83,12 @@ async def list_onboarding_tasks_enriched(
         select(
             UserOnboarding,
             UserModel.email.label("user_email"),
-            UserModel.full_name.label("user_full_name"),
+            UserModel.first_name.label("user_first_name"),
+            UserModel.father_name.label("user_father_name"),
+            UserModel.family_name.label("user_family_name"),
+            person_name_sql_expr(
+                UserModel.first_name, UserModel.father_name, UserModel.family_name
+            ).label("user_full_name"),
             UserModel.branch_id.label("user_branch_id"),
             UserModel.status.label("user_status"),
             BranchModel.name.label("user_branch_name"),
@@ -118,9 +125,14 @@ async def list_onboarding_tasks_enriched(
     names_map: dict[int, str] = {}
     if user_ids:
         user_result = await db.execute(
-            select(UserModel.id, UserModel.full_name).where(UserModel.id.in_(list(user_ids)))
+            select(
+                UserModel.id,
+                person_name_sql_expr(
+                    UserModel.first_name, UserModel.father_name, UserModel.family_name
+                ),
+            ).where(UserModel.id.in_(list(user_ids)))
         )
-        names_map = {uid: name for uid, name in user_result.all()}
+        names_map = {uid: (str(n).strip() if n else None) for uid, n in user_result.all()}
 
     enriched = []
     for row in rows:
@@ -129,6 +141,9 @@ async def list_onboarding_tasks_enriched(
             {
                 "onboarding": onboarding,
                 "user_email": row.user_email,
+                "user_first_name": row.user_first_name,
+                "user_father_name": row.user_father_name,
+                "user_family_name": row.user_family_name,
                 "user_full_name": row.user_full_name,
                 "user_branch_id": row.user_branch_id,
                 "user_status": row.user_status,
@@ -175,13 +190,20 @@ async def complete_onboarding_task(
                     details={"code": "onboarding_assignee_ineligible"},
                 )
 
-    # Update task fields from data
+    # Update task fields from data (image URL is set only via upload endpoint)
+    skip_keys = ("schedules", "hourly_rate", "bank_account", "identity_document_image_url")
     for key, value in data.items():
-        if value is not None and key not in ("schedules", "hourly_rate", "bank_account"):
+        if value is not None and key not in skip_keys:
             setattr(task, key, value)
 
     if task.contract_start is None:
         raise ValidationError("contract_start is required to complete onboarding")
+
+    if task.contract_end is not None and task.contract_end < task.contract_start:
+        raise ValidationError(
+            "contract_end must be on or after contract_start",
+            details={"code": "contract_end_before_start"},
+        )
 
     # Either salary_amount or hourly_rate must be provided
     salary_amount = data.get("salary_amount") or task.salary_amount
@@ -209,6 +231,10 @@ async def complete_onboarding_task(
             employee.hourly_rate = hourly_rate
         if data.get("bank_account") is not None:
             employee.bank_account = data.get("bank_account")
+
+    employee.identity_document_type = task.identity_document_type
+    employee.identity_document_number = task.identity_document_number
+    employee.identity_document_image_url = task.identity_document_image_url
 
     await db.flush()
 
@@ -283,9 +309,14 @@ async def update_pending_onboarding_subject(
             details={"user_id": user.id, "status": user.status},
         )
 
-    if "full_name" in payload:
-        fn = payload["full_name"]
-        user.full_name = fn.strip() if isinstance(fn, str) and fn.strip() else None
+    for field, col in (
+        ("first_name", "first_name"),
+        ("father_name", "father_name"),
+        ("family_name", "family_name"),
+    ):
+        if field in payload:
+            v = payload[field]
+            setattr(user, col, v.strip() if isinstance(v, str) and v.strip() else None)
 
     if "branch_id" in payload:
         user.branch_id = payload["branch_id"]
@@ -390,3 +421,24 @@ async def delete_user_permission_override(
     if not override:
         raise NotFoundError("Permission override not found", details={"override_id": override_id})
     await db.delete(override)
+
+
+async def save_onboarding_identity_document_image(
+    db: AsyncSession, *, onboarding_id: int, file_body: bytes
+) -> str:
+    """Store a passport/ID scan for a pending onboarding task; returns public static URL path."""
+
+    result = await db.execute(select(UserOnboarding).where(UserOnboarding.id == onboarding_id))
+    task = result.scalar_one_or_none()
+    if task is None:
+        raise NotFoundError("Onboarding task not found", details={"onboarding_id": onboarding_id})
+    if (task.status or "").strip().lower() != "pending":
+        raise ValidationError(
+            "Onboarding task is not pending",
+            details={"onboarding_id": onboarding_id, "status": task.status},
+        )
+    url = persist_raster_identity_scan(basename=f"onboarding-{onboarding_id}", file_body=file_body)
+    task.identity_document_image_url = url
+    await db.flush()
+    await db.refresh(task)
+    return url

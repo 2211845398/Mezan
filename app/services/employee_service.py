@@ -20,6 +20,8 @@ from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
 from app.schemas.employees import LeaveRequestRead, VacationLeaveBalanceRead, WeeklyScheduleRead
 from app.services.attendance_classification_service import refresh_attendance_log_classification
+from app.services.identity_document_files import persist_raster_identity_scan
+from app.utils.person_name import person_name_sql_expr
 
 
 def _to_utc(dt: datetime | None) -> datetime:
@@ -73,7 +75,12 @@ async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
         select(
             EmployeeProfile,
             User.email.label("user_email"),
-            User.full_name.label("user_full_name"),
+            User.first_name.label("user_first_name"),
+            User.father_name.label("user_father_name"),
+            User.family_name.label("user_family_name"),
+            person_name_sql_expr(User.first_name, User.father_name, User.family_name).label(
+                "user_full_name"
+            ),
             User.status.label("user_status"),
             User.branch_id.label("user_branch_id"),
             Branch.name.label("user_branch_name"),
@@ -98,6 +105,9 @@ async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
             {
                 "employee": employee,
                 "user_email": row.user_email,
+                "user_first_name": row.user_first_name,
+                "user_father_name": row.user_father_name,
+                "user_family_name": row.user_family_name,
                 "user_full_name": row.user_full_name,
                 "user_status": row.user_status,
                 "user_branch_id": row.user_branch_id,
@@ -116,7 +126,12 @@ async def get_employee_profile_enriched(db: AsyncSession, employee_profile_id: i
         select(
             EmployeeProfile,
             User.email.label("user_email"),
-            User.full_name.label("user_full_name"),
+            User.first_name.label("user_first_name"),
+            User.father_name.label("user_father_name"),
+            User.family_name.label("user_family_name"),
+            person_name_sql_expr(User.first_name, User.father_name, User.family_name).label(
+                "user_full_name"
+            ),
             User.status.label("user_status"),
             User.branch_id.label("user_branch_id"),
             Branch.name.label("user_branch_name"),
@@ -142,6 +157,9 @@ async def get_employee_profile_enriched(db: AsyncSession, employee_profile_id: i
     return {
         "employee": employee,
         "user_email": row.user_email,
+        "user_first_name": row.user_first_name,
+        "user_father_name": row.user_father_name,
+        "user_family_name": row.user_family_name,
         "user_full_name": row.user_full_name,
         "user_status": row.user_status,
         "user_branch_id": row.user_branch_id,
@@ -167,12 +185,15 @@ async def _apply_employee_subject_user_updates(
     if user is None:
         raise NotFoundError("User not found", details={"user_id": user_id})
 
-    if "subject_full_name" in data:
-        fn = data["subject_full_name"]
-        if fn is None or (isinstance(fn, str) and not fn.strip()):
-            user.full_name = None
-        elif isinstance(fn, str):
-            user.full_name = fn.strip()
+    if "subject_first_name" in data:
+        v = data["subject_first_name"]
+        user.first_name = v.strip() if isinstance(v, str) and v.strip() else None
+    if "subject_father_name" in data:
+        v = data["subject_father_name"]
+        user.father_name = v.strip() if isinstance(v, str) and v.strip() else None
+    if "subject_family_name" in data:
+        v = data["subject_family_name"]
+        user.family_name = v.strip() if isinstance(v, str) and v.strip() else None
 
     if "subject_branch_id" in data:
         bid = data["subject_branch_id"]
@@ -210,7 +231,13 @@ async def update_employee_profile(
 ) -> EmployeeProfile:
     employee = await _get_employee_profile(db, employee_profile_id)
     patch = dict(data)
-    subject_keys = ("subject_full_name", "subject_branch_id", "subject_role_code")
+    subject_keys = (
+        "subject_first_name",
+        "subject_father_name",
+        "subject_family_name",
+        "subject_branch_id",
+        "subject_role_code",
+    )
     subject_patch = {k: patch.pop(k) for k in subject_keys if k in patch}
 
     for key, value in patch.items():
@@ -685,6 +712,17 @@ async def attendance_period_summary(
             period_end=date_to,
         )
     return {**agg, "absent_days": absent_days}
+
+
+async def save_employee_identity_document_image(
+    db: AsyncSession, *, employee_profile_id: int, file_body: bytes
+) -> EmployeeProfile:
+    employee = await _get_employee_profile(db, employee_profile_id)
+    url = persist_raster_identity_scan(basename=f"employee-{employee_profile_id}", file_body=file_body)
+    employee.identity_document_image_url = url
+    await db.flush()
+    await db.refresh(employee)
+    return employee
 
 
 async def get_employee_profile_id_for_user(db: AsyncSession, user_id: int) -> int | None:

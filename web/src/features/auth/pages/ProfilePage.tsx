@@ -28,31 +28,13 @@ import { useAuthStore } from '@/features/auth/stores/authStore';
 import EmployeeLeaveRequestDialog from '@/features/hr/pages/employees/EmployeeLeaveRequestDialog';
 import { usePermission } from '@/hooks/usePermission';
 import { resolveMediaUrl, withMediaCacheBust } from '@/lib/mediaUrl';
+import { formatPersonName } from '@/lib/personName';
+import { isLibyanMobilePhone } from '@/lib/validation/contact';
 import { cn } from '@/lib/utils';
 
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { useUploadAvatar } from '../hooks/useUploadAvatar';
 import { useMe } from '../queries';
-
-/** Libyan mobile: `09` + operator digit 1–5 + 7 subscriber digits (10 digits). */
-const LY_MOBILE_RE = /^09[1-5]\d{7}$/;
-
-function splitFullName(full: string | null | undefined): {
-  first_name: string;
-  father_name: string;
-  last_name: string;
-} {
-  const raw = full?.trim() ?? '';
-  if (!raw) return { first_name: '', father_name: '', last_name: '' };
-  const parts = raw.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return { first_name: parts[0]!, father_name: '', last_name: '' };
-  if (parts.length === 2) return { first_name: parts[0]!, father_name: '', last_name: parts[1]! };
-  return {
-    first_name: parts[0]!,
-    father_name: parts[1]!,
-    last_name: parts.slice(2).join(' '),
-  };
-}
 
 function joinNameParts(first: string, father: string, last: string): string | null {
   const segments = [first, father, last].map((s) => s.trim()).filter((s) => s.length > 0);
@@ -74,7 +56,7 @@ function initials(displayName: string | null | undefined, email: string): string
 
 function buildProfileSchema(t: (k: string) => string) {
   return z.object({
-    email: z.string().email(t('profile.email_invalid')),
+    email: z.string().trim().email(t('profile.email_invalid')),
     first_name: z.string().max(120).optional(),
     father_name: z.string().max(120).optional(),
     last_name: z.string().max(120).optional(),
@@ -84,7 +66,7 @@ function buildProfileSchema(t: (k: string) => string) {
       .refine(
         (v) => {
           const s = v?.trim() ?? '';
-          return s.length === 0 || LY_MOBILE_RE.test(s);
+          return s.length === 0 || isLibyanMobilePhone(s);
         },
         { message: t('profile.phone_invalid_ly') },
       ),
@@ -171,10 +153,11 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!me) return;
-    const nameParts = splitFullName(me.full_name);
     profileForm.reset({
       email: me.email ?? '',
-      ...nameParts,
+      first_name: me.first_name ?? '',
+      father_name: me.father_name ?? '',
+      last_name: me.family_name ?? '',
       phone: me.phone ?? '',
       city: me.city ?? '',
       preferred_language:
@@ -210,7 +193,8 @@ export default function ProfilePage() {
     fatherNameWatch ?? '',
     lastNameWatch ?? '',
   );
-  const displayName = (composedName ?? me.full_name?.trim()) || me.email;
+  const displayName =
+    (composedName ?? formatPersonName(me.first_name, me.father_name, me.family_name)) || me.email;
   const heroAvatarSrc =
     localPreview ??
     withMediaCacheBust(resolveMediaUrl(me.avatar_url), avatarCacheBust);
@@ -220,18 +204,15 @@ export default function ProfilePage() {
   );
 
   function onProfileSubmit(values: ProfileFormValues) {
-    const full_name = joinNameParts(
-      values.first_name ?? '',
-      values.father_name ?? '',
-      values.last_name ?? '',
-    );
     const phone =
       values.phone == null || values.phone.trim() === '' ? null : values.phone.trim();
     const city = values.city == null || values.city.trim() === '' ? null : values.city.trim();
 
     const payload: ProfileUpdate = {
       email: values.email.trim(),
-      full_name,
+      first_name: values.first_name?.trim() || null,
+      father_name: values.father_name?.trim() || null,
+      family_name: values.last_name?.trim() || null,
       phone,
       city,
       preferred_language:

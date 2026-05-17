@@ -74,6 +74,9 @@
     "col": {
       "email": "Email",
       "full_name": "Name",
+      "first_name": "First name",
+      "father_name": "Father's name",
+      "family_name": "Family name",
       "status": "Status",
       "branch": "Branch",
       "role": "Role",

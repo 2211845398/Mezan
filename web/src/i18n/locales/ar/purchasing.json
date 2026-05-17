@@ -12,7 +12,9 @@
     },
     "form": {
       "code": "الرمز",
-      "name": "الاسم",
+      "first_name": "الاسم الأول",
+      "father_name": "اسم الأب",
+      "family_name": "اللقب",
       "currency_id": "معرّف العملة",
       "tax_id": "الرقم الضريبي",
       "payment_terms": "شروط الدفع",

@@ -43,7 +43,9 @@ import {
 import type { UserRoleAssign } from '../../types';
 
 const schema = z.object({
-  full_name: z.string().min(1).optional().nullable(),
+  first_name: z.string().max(255).optional().nullable(),
+  father_name: z.string().max(255).optional().nullable(),
+  family_name: z.string().max(255).optional().nullable(),
   status: z.string(),
   branch_id: z.coerce.number().nullable().optional(),
 });
@@ -77,7 +79,9 @@ export default function UserEdit() {
   useEffect(() => {
     if (!user) return;
     form.reset({
-      full_name: user.full_name,
+      first_name: user.first_name,
+      father_name: user.father_name,
+      family_name: user.family_name,
       status: user.status,
       branch_id: user.branch_id,
     });
@@ -109,7 +113,9 @@ export default function UserEdit() {
               setFormError(null);
               try {
                 await update.mutateAsync({
-                  full_name: v.full_name == null ? null : v.full_name,
+                  first_name: v.first_name == null || v.first_name === '' ? null : v.first_name,
+                  father_name: v.father_name == null || v.father_name === '' ? null : v.father_name,
+                  family_name: v.family_name == null || v.family_name === '' ? null : v.family_name,
                   status: v.status,
                   branch_id: v.branch_id == null ? null : v.branch_id,
                 });
@@ -138,11 +144,39 @@ export default function UserEdit() {
               </div>
 
               <FormField
-                name="full_name"
+                name="first_name"
                 control={form.control}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('users.col.full_name')}</FormLabel>
+                    <FormLabel>{t('users.col.first_name')}</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value ?? ''} disabled={!canUpdate} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                name="father_name"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('users.col.father_name')}</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value ?? ''} disabled={!canUpdate} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                name="family_name"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('users.col.family_name')}</FormLabel>
                     <FormControl>
                       <Input {...field} value={field.value ?? ''} disabled={!canUpdate} />
                     </FormControl>
@@ -277,7 +311,7 @@ export default function UserEdit() {
 
             {/* Action Buttons with separators */}
             {canUpdate ? (
-              <div className="border-border flex flex-wrap items-center gap-2 border-t pt-5">
+              <div className="border-border flex flex-wrap items-center gap-[5px] border-t pt-5">
                 <Button type="submit" className={floatingFormApproveButtonClassName} disabled={update.isPending}>
                   {t('actions.save')}
                 </Button>

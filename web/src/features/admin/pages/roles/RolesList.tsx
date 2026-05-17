@@ -132,7 +132,7 @@ export default function RolesList() {
         maxWidth="xl"
         footer={
           permDialogRole ? (
-            <div className="flex w-full flex-wrap justify-end gap-2">
+            <div className="flex w-full flex-wrap justify-end gap-[5px]">
               {dialogReadOnly ? (
                 <Button
                   type="button"

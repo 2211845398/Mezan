@@ -17,7 +17,10 @@ async def create_temporary_customer(
     db: AsyncSession, *, phone: str, created_by_user_id: int
 ) -> tuple[CustomerProfile, str]:
     customer = CustomerProfile(
-        phone=phone, is_temporary=True, created_by_user_id=created_by_user_id
+        phone=phone,
+        is_temporary=True,
+        is_active=False,
+        created_by_user_id=created_by_user_id,
     )
     db.add(customer)
     await db.flush()
@@ -36,7 +39,13 @@ async def create_temporary_customer(
 
 
 async def complete_onboarding(
-    db: AsyncSession, *, token: str, full_name: str | None, email: str | None
+    db: AsyncSession,
+    *,
+    token: str,
+    first_name: str | None,
+    father_name: str | None,
+    family_name: str | None,
+    email: str | None,
 ) -> CustomerProfile:
     token_hash = hash_token(token)
     res = await db.execute(
@@ -49,7 +58,12 @@ async def complete_onboarding(
     customer = c_res.scalar_one_or_none()
     if not customer:
         raise ValidationError("Customer not found")
-    customer.full_name = full_name or customer.full_name
+    if first_name is not None:
+        customer.first_name = first_name.strip() or None
+    if father_name is not None:
+        customer.father_name = father_name.strip() or None
+    if family_name is not None:
+        customer.family_name = family_name.strip() or None
     customer.email = email or customer.email
     customer.is_temporary = False
     rec.used = True

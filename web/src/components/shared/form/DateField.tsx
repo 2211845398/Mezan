@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { startOfDay } from 'date-fns';
+
 import { format, fromISO } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
@@ -23,18 +25,24 @@ export type DateFieldProps = {
   id?: string;
   className?: string;
   disabled?: boolean;
+  /** ISO `YYYY-MM-DD`. When set, calendar days strictly before this day are not selectable. */
+  minSelectableDate?: string;
   'aria-label'?: string;
 };
 
 export const DateField = React.forwardRef<HTMLButtonElement, DateFieldProps>(
   (
-    { value, onChange, placeholder, id, className, disabled, 'aria-label': ariaLabel },
+    { value, onChange, placeholder, id, className, disabled, minSelectableDate, 'aria-label': ariaLabel },
     ref,
   ) => {
     const { t } = useTranslation();
     const [open, setOpen] = React.useState(false);
 
     const parsed = value ? safeParseIso(value) : undefined;
+    const minDay =
+      minSelectableDate && safeParseIso(minSelectableDate)
+        ? startOfDay(safeParseIso(minSelectableDate)!)
+        : undefined;
 
     return (
       <Popover open={open} onOpenChange={setOpen}>
@@ -56,6 +64,7 @@ export const DateField = React.forwardRef<HTMLButtonElement, DateFieldProps>(
           <Calendar
             mode="single"
             selected={parsed}
+            disabled={minDay ? { before: minDay } : undefined}
             onSelect={(d) => {
               if (!d) return;
               onChange(format(d, 'yyyy-MM-dd'));

@@ -29,6 +29,7 @@ from app.models.employee_profile import EmployeeProfile
 from app.models.users import User
 from app.schemas.ai_advisory import HrAnomaly, HrAnomalyRequest, HrAnomalyResponse
 from app.services.ai.llm_client import call_llm_json
+from app.utils.person_name import person_name_sql_expr
 
 
 class _LLMAnomalyEnvelope(BaseModel):
@@ -64,7 +65,7 @@ async def _load_attendance(
             AttendanceLog.clock_out_at,
             EmployeeProfile.id.label("ep_id"),
             EmployeeProfile.user_id,
-            User.full_name,
+            person_name_sql_expr(User.first_name, User.father_name, User.family_name).label("full_name"),
         )
         .join(EmployeeProfile, EmployeeProfile.id == AttendanceLog.employee_profile_id)
         .join(User, User.id == EmployeeProfile.user_id)

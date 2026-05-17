@@ -3902,8 +3902,12 @@ export interface components {
         CustomerCompleteOnboardingRequest: {
             /** Token */
             token: string;
-            /** Full Name */
-            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Email */
             email?: string | null;
         };
@@ -3911,8 +3915,12 @@ export interface components {
         CustomerCreateStaff: {
             /** Phone */
             phone: string;
-            /** Full Name */
-            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Email */
             email?: string | null;
             /**
@@ -3936,12 +3944,18 @@ export interface components {
             id: number;
             /** Phone */
             phone: string;
-            /** Full Name */
-            full_name: string | null;
+            /** First Name */
+            first_name: string | null;
+            /** Father Name */
+            father_name: string | null;
+            /** Family Name */
+            family_name: string | null;
             /** Email */
             email: string | null;
             /** Is Temporary */
             is_temporary: boolean;
+            /** Is Active */
+            is_active: boolean;
             /** Default Currency Id */
             default_currency_id?: number | null;
             /** Receivables Account Id */
@@ -3967,12 +3981,18 @@ export interface components {
             id: number;
             /** Phone */
             phone: string;
-            /** Full Name */
-            full_name: string | null;
+            /** First Name */
+            first_name: string | null;
+            /** Father Name */
+            father_name: string | null;
+            /** Family Name */
+            family_name: string | null;
             /** Email */
             email: string | null;
             /** Is Temporary */
             is_temporary: boolean;
+            /** Is Active */
+            is_active: boolean;
             /** Loyalty Balance */
             loyalty_balance: number;
             /** Lifetime Spend */
@@ -3995,12 +4015,18 @@ export interface components {
             id: number;
             /** Phone */
             phone: string;
-            /** Full Name */
-            full_name: string | null;
+            /** First Name */
+            first_name: string | null;
+            /** Father Name */
+            father_name: string | null;
+            /** Family Name */
+            family_name: string | null;
             /** Email */
             email: string | null;
             /** Is Temporary */
             is_temporary: boolean;
+            /** Is Active */
+            is_active: boolean;
         };
         /** CustomerSalesInvoiceListItem */
         CustomerSalesInvoiceListItem: {
@@ -4043,12 +4069,18 @@ export interface components {
         };
         /** CustomerUpdate */
         CustomerUpdate: {
-            /** Full Name */
-            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Email */
             email?: string | null;
             /** Is Temporary */
             is_temporary?: boolean | null;
+            /** Is Active */
+            is_active?: boolean | null;
             /** Default Currency Id */
             default_currency_id?: number | null;
             /** Receivables Account Id */
@@ -4258,6 +4290,12 @@ export interface components {
             bank_account?: string | null;
             /** Annual Leave Entitlement Days */
             annual_leave_entitlement_days?: string | null;
+            /** Identity Document Type */
+            identity_document_type?: string | null;
+            /** Identity Document Number */
+            identity_document_number?: string | null;
+            /** Identity Document Image Url */
+            identity_document_image_url?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -4270,6 +4308,12 @@ export interface components {
             updated_at: string;
             /** User Email */
             user_email?: string | null;
+            /** User First Name */
+            user_first_name?: string | null;
+            /** User Father Name */
+            user_father_name?: string | null;
+            /** User Family Name */
+            user_family_name?: string | null;
             /** User Full Name */
             user_full_name?: string | null;
             /** User Status */
@@ -4283,6 +4327,11 @@ export interface components {
             /** User Role Name */
             user_role_name?: string | null;
         };
+        /** IdentityDocumentImageResponse */
+        IdentityDocumentImageResponse: {
+            /** Image Url */
+            image_url: string;
+        };
         /** EmployeeProfileUpdate */
         EmployeeProfileUpdate: {
             /** Hire Date */
@@ -4295,8 +4344,16 @@ export interface components {
             bank_account?: string | null;
             /** Annual Leave Entitlement Days */
             annual_leave_entitlement_days?: number | string | null;
-            /** Subject Full Name */
-            subject_full_name?: string | null;
+            /** Identity Document Type */
+            identity_document_type?: string | null;
+            /** Identity Document Number */
+            identity_document_number?: string | null;
+            /** Subject First Name */
+            subject_first_name?: string | null;
+            /** Subject Father Name */
+            subject_father_name?: string | null;
+            /** Subject Family Name */
+            subject_family_name?: string | null;
             /** Subject Branch Id */
             subject_branch_id?: number | null;
             /** Subject Role Code */
@@ -5905,8 +5962,12 @@ export interface components {
         ProfileUpdate: {
             /** Email */
             email?: string | null;
-            /** Full Name */
-            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Phone */
             phone?: string | null;
             /** City */
@@ -6467,8 +6528,12 @@ export interface components {
         SupplierCreate: {
             /** Code */
             code: string;
-            /** Name */
-            name: string;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Currency Id */
             currency_id: number;
             /** Payables Account Id */
@@ -6488,8 +6553,12 @@ export interface components {
             id: number;
             /** Code */
             code: string;
-            /** Name */
-            name: string;
+            /** First Name */
+            first_name: string | null;
+            /** Father Name */
+            father_name: string | null;
+            /** Family Name */
+            family_name: string | null;
             /** Currency Id */
             currency_id: number;
             /** Payables Account Id */
@@ -6510,8 +6579,12 @@ export interface components {
         };
         /** SupplierUpdate */
         SupplierUpdate: {
-            /** Name */
-            name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Currency Id */
             currency_id?: number | null;
             /** Payables Account Id */
@@ -6771,8 +6844,12 @@ export interface components {
              * Format: email
              */
             email: string;
-            /** Full Name */
-            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Password */
             password?: string | null;
             /**
@@ -6807,6 +6884,10 @@ export interface components {
             bank_account?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Identity Document Type */
+            identity_document_type?: string | null;
+            /** Identity Document Number */
+            identity_document_number?: string | null;
             /** Schedules */
             schedules?: components["schemas"]["WeeklyScheduleItem"][] | null;
         };
@@ -6848,6 +6929,12 @@ export interface components {
             updated_at: string;
             /** User Email */
             user_email?: string | null;
+            /** User First Name */
+            user_first_name?: string | null;
+            /** User Father Name */
+            user_father_name?: string | null;
+            /** User Family Name */
+            user_family_name?: string | null;
             /** User Full Name */
             user_full_name?: string | null;
             /** User Branch Id */
@@ -6864,14 +6951,24 @@ export interface components {
             requested_by_name?: string | null;
             /** Assigned Hr Name */
             assigned_hr_name?: string | null;
+            /** Identity Document Type */
+            identity_document_type?: string | null;
+            /** Identity Document Number */
+            identity_document_number?: string | null;
+            /** Identity Document Image Url */
+            identity_document_image_url?: string | null;
         };
         /**
          * UserOnboardingSubjectUpdate
          * @description HR edits the subject user while onboarding is still pending (no users:update required).
          */
         UserOnboardingSubjectUpdate: {
-            /** Full Name */
-            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Branch Id */
             branch_id?: number | null;
             /** Role Code */
@@ -6928,8 +7025,12 @@ export interface components {
              * Format: email
              */
             email: string;
-            /** Full Name */
-            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Status */
             status: string;
             /** Branch Id */
@@ -6970,8 +7071,12 @@ export interface components {
          * @description Update user (status, profile, branch).
          */
         UserUpdate: {
-            /** Full Name */
-            full_name?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Father Name */
+            father_name?: string | null;
+            /** Family Name */
+            family_name?: string | null;
             /** Status */
             status?: string | null;
             /** Branch Id */
@@ -10360,6 +10465,8 @@ export interface operations {
                 limit?: number;
                 offset?: number;
                 search?: string | null;
+                activation?: "all" | "active" | "pending";
+                pos_ready?: boolean;
             };
             header?: never;
             path?: never;

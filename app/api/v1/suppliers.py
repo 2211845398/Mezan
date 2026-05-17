@@ -29,7 +29,9 @@ async def create_supplier_endpoint(
     s = await create_supplier(
         db,
         code=body.code,
-        name=body.name,
+        first_name=body.first_name,
+        father_name=body.father_name,
+        family_name=body.family_name,
         currency_id=body.currency_id,
         payables_account_id=body.payables_account_id,
         tax_id=body.tax_id,

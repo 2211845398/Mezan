@@ -300,7 +300,7 @@ export function TenderDrawer({
             </div>
           ) : null}
         </div>
-        <DialogFooter className="flex flex-col gap-2 border-t px-6 py-4">
+        <DialogFooter className="flex flex-col gap-[5px] border-t px-6 py-4">
           <div className="flex w-full flex-wrap gap-2 sm:justify-between">
             <Button
               type="button"

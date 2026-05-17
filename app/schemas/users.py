@@ -11,7 +11,9 @@ class UserCreate(BaseModel):
     """Schema for creating a new user (staff)."""
 
     email: EmailStr
-    full_name: str | None = None
+    first_name: str | None = None
+    father_name: str | None = None
+    family_name: str | None = None
     password: str | None = None  # optional for SSO-only users
     status: str = "pending_onboarding"  # pending_onboarding, active, deactivated, suspended, banned
     branch_id: int | None = None
@@ -22,7 +24,9 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Update user (status, profile, branch)."""
 
-    full_name: str | None = None
+    first_name: str | None = None
+    father_name: str | None = None
+    family_name: str | None = None
     status: str | None = None  # active, deactivated, suspended, banned
     branch_id: int | None = None
 
@@ -34,7 +38,9 @@ class UserRead(BaseModel):
 
     id: int
     email: EmailStr
-    full_name: str | None = None
+    first_name: str | None = None
+    father_name: str | None = None
+    family_name: str | None = None
     status: str
     branch_id: int | None = None
     phone: str | None = None
@@ -64,6 +70,9 @@ class UserOnboardingRead(BaseModel):
     updated_at: datetime
     # Enriched user details for HR pending requests page
     user_email: str | None = None
+    user_first_name: str | None = None
+    user_father_name: str | None = None
+    user_family_name: str | None = None
     user_full_name: str | None = None
     user_branch_id: int | None = None
     user_branch_name: str | None = None
@@ -72,12 +81,17 @@ class UserOnboardingRead(BaseModel):
     user_role_name: str | None = None
     requested_by_name: str | None = None
     assigned_hr_name: str | None = None
+    identity_document_type: str | None = None
+    identity_document_number: str | None = None
+    identity_document_image_url: str | None = None
 
 
 class UserOnboardingSubjectUpdate(BaseModel):
     """HR edits the subject user while onboarding is still pending (no users:update required)."""
 
-    full_name: str | None = None
+    first_name: str | None = None
+    father_name: str | None = None
+    family_name: str | None = None
     branch_id: int | None = None
     role_code: str | None = Field(default=None, max_length=64)
 
@@ -102,6 +116,8 @@ class UserOnboardingComplete(BaseModel):
     salary_currency: str | None = None
     bank_account: str | None = None
     notes: str | None = None
+    identity_document_type: str | None = Field(default=None, max_length=32)
+    identity_document_number: str | None = Field(default=None, max_length=128)
     schedules: list[WeeklyScheduleItem] | None = None
 
 

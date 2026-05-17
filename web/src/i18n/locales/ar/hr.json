@@ -11,7 +11,8 @@
       "user_id": "المستخدم",
       "hire_date": "تاريخ التعيين",
       "hourly_rate": "سعر الساعة",
-      "compensation": "الأجر"
+      "compensation": "الأجر",
+      "identity_document": "وثيقة الهوية"
     },
     "form": {
       "user": "رقم المستخدم",
@@ -36,7 +37,18 @@
       "add_day": "إضافة عطلة ({{d}})",
       "job_title": "المسمى الوظيفي",
       "contract_start": "بداية العقد",
-      "contract_end": "نهاية العقد (اختياري)"
+      "contract_end": "نهاية العقد (اختياري)",
+      "identity_document_type": "نوع وثيقة الهوية",
+      "identity_document_number": "رقم الوثيقة",
+      "identity_document_image": "صورة الوثيقة",
+      "identity_document_choose": "اختر صورة",
+      "identity_document_preview": "الصورة الحالية",
+      "identity_doc_passport": "جواز سفر",
+      "identity_doc_national_id": "بطاقة هوية وطنية",
+      "identity_doc_residency": "إقامة",
+      "identity_doc_other": "أخرى",
+      "identity_section_title": "وثيقة الهوية",
+      "identity_scan_uploaded": "تم رفع صورة الوثيقة"
     }
   },
   "pending": {
@@ -57,12 +69,14 @@
     "created": "تاريخ الإنشاء",
     "complete": "إكمال الضبط",
     "completed_success": "تم إكمال ضبط الموظف بنجاح",
+    "identity_scan_uploaded": "تم رفع صورة الوثيقة",
     "notes": "ملاحظات (اختياري)",
     "schedule_hint": "قم بإعداد جدول العمل الأسبوعي لهذا الموظف",
     "no_schedules": "لم يتم إعداد الجدول بعد. انقر أدناه لإضافة أيام.",
     "add_schedule": "إضافة يوم للجدول",
     "error_salary_or_hourly": "يرجى إدخال راتب أساسي و/أو سعر ساعة للعمل الإضافي (واحد على الأقل).",
     "error_contract_start": "تاريخ بداية العقد مطلوب",
+    "error_contract_end_before_start": "لا يمكن أن يكون تاريخ نهاية العقد قبل تاريخ البداية.",
     "error_role_required": "يرجى اختيار دور لهذا الموظف.",
     "schedule_after_onboarding": "بعد إكمال الضبط، اضبط ساعات العمل الأسبوعية من تبويب «الجدول» الخاص بالموظف."
   },

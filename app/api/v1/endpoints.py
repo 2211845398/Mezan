@@ -1,16 +1,18 @@
 """User CRUD API router (RBAC-protected)."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
-from app.core.errors import AppError
+from app.core.config import settings
+from app.core.errors import AppError, ValidationError
 from app.db.database import get_db
 from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
 from app.schemas.role import UserRoleAssign
+from app.schemas.employees import IdentityDocumentImageResponse
 from app.schemas.users import (
     UserCreate,
     UserOnboardingComplete,
@@ -33,6 +35,7 @@ from app.services.user_lifecycle_service import (
     ensure_onboarding_task,
     list_onboarding_tasks_enriched,
     list_user_permission_overrides,
+    save_onboarding_identity_document_image,
     update_pending_onboarding_subject,
     upsert_user_permission_override,
 )
@@ -65,7 +68,9 @@ async def create_user(
 
     user = User(
         email=str(user_in.email),
-        full_name=user_in.full_name,
+        first_name=user_in.first_name,
+        father_name=user_in.father_name,
+        family_name=user_in.family_name,
         password_hash=hash_password(user_in.password) if user_in.password else None,
         status="pending_onboarding",
         branch_id=user_in.branch_id,
@@ -146,14 +151,18 @@ async def update_user(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("users", "update"),
 ) -> UserRead:
-    """Update user (status, full_name, branch). Requires users:update."""
+    """Update user (status, name parts, branch). Requires users:update."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     old_value = UserRead.model_validate(user).model_dump()
-    if body.full_name is not None:
-        user.full_name = body.full_name
+    if body.first_name is not None:
+        user.first_name = body.first_name
+    if body.father_name is not None:
+        user.father_name = body.father_name
+    if body.family_name is not None:
+        user.family_name = body.family_name
     if body.status is not None:
         user.status = body.status
     if body.branch_id is not None:
@@ -317,6 +326,9 @@ async def list_pending_onboarding(
         data.update(
             {
                 "user_email": row["user_email"],
+                "user_first_name": row["user_first_name"],
+                "user_father_name": row["user_father_name"],
+                "user_family_name": row["user_family_name"],
                 "user_full_name": row["user_full_name"],
                 "user_branch_id": row["user_branch_id"],
                 "user_branch_name": row["user_branch_name"],
@@ -375,6 +387,47 @@ async def patch_pending_onboarding_subject(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.post(
+    "/hr/onboarding/{onboarding_id}/identity-document-image",
+    response_model=IdentityDocumentImageResponse,
+)
+async def upload_onboarding_identity_document_image(
+    onboarding_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("onboarding", "update"),
+) -> IdentityDocumentImageResponse:
+    """Upload a passport / national ID scan while onboarding is still pending."""
+    from app.models.user_onboarding import UserOnboarding
+
+    result = await db.execute(select(UserOnboarding).where(UserOnboarding.id == onboarding_id))
+    onboarding_task = result.scalar_one_or_none()
+    if not onboarding_task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Onboarding task not found"
+        )
+    if not await _can_complete_onboarding(db, onboarding_task, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the assigned reviewer or HR/Owner/Admin can update this onboarding",
+        )
+    raw = await file.read(settings.EMPLOYEE_IDENTITY_DOCUMENT_MAX_BYTES + 1)
+    if len(raw) > settings.EMPLOYEE_IDENTITY_DOCUMENT_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Identity document file too large",
+        )
+    try:
+        url = await save_onboarding_identity_document_image(
+            db, onboarding_id=onboarding_id, file_body=raw
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+    await db.commit()
+    return IdentityDocumentImageResponse(image_url=url)
 
 
 # Role codes allowed to complete any onboarding (owner/admin/HR manager)

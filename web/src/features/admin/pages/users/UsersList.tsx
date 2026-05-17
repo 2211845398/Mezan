@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
+import { formatPersonName } from '@/lib/personName';
 import { notify } from '@/lib/toast';
 
 import { getUserRoles, updateUser as apiUpdateUser } from '../../api';
@@ -41,6 +42,7 @@ import { getBranchLabel } from '../../lib/branchLabels';
 import { roleCodeLabel } from '../../lib/roleLabels';
 import {
   userRowBranchFilterValue,
+  userRowNameFilterValue,
   userRowRoleFilterValue,
   userRowStatusFilterValue,
 } from '../../lib/userListSearch';
@@ -77,7 +79,9 @@ export default function UsersList() {
   const qc = useQueryClient();
 
   // Create user form state
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [fatherName, setFatherName] = useState('');
+  const [familyName, setFamilyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [branchId, setBranchId] = useState<number | null>(null);
@@ -111,7 +115,9 @@ export default function UsersList() {
     try {
       await createUser.mutateAsync({
         email: trimmedEmail,
-        full_name: fullName.trim(),
+        first_name: firstName.trim() || null,
+        father_name: fatherName.trim() || null,
+        family_name: familyName.trim() || null,
         password: trimmedPassword || null,
         branch_id: branchId,
         role_code: roleCode.trim() || null,
@@ -121,7 +127,9 @@ export default function UsersList() {
       notify.success(tc('toasts.saved'));
       setCreateOpen(false);
       // Reset form
-      setFullName('');
+      setFirstName('');
+      setFatherName('');
+      setFamilyName('');
       setEmail('');
       setPassword('');
       setBranchId(null);
@@ -143,10 +151,11 @@ export default function UsersList() {
           header: t('users.col.email'),
         },
         {
-          id: 'full_name',
-          accessorKey: 'full_name',
+          id: 'display_name',
+          accessorFn: (row) => userRowNameFilterValue(row),
           header: t('users.col.full_name'),
-          cell: ({ row }) => row.original.full_name ?? '—',
+          cell: ({ row }) =>
+            formatPersonName(row.original.first_name, row.original.father_name, row.original.family_name) || '—',
         },
         {
           id: 'status',
@@ -278,11 +287,16 @@ export default function UsersList() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1">
-              <Label>{t('users.col.full_name')}</Label>
-              <Input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-              />
+              <Label>{t('users.col.first_name')}</Label>
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('users.col.father_name')}</Label>
+              <Input value={fatherName} onChange={(e) => setFatherName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('users.col.family_name')}</Label>
+              <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>{t('users.col.email')}</Label>
@@ -327,7 +341,7 @@ export default function UsersList() {
                 {createError}
               </p>
             ) : null}
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-[5px] pt-4">
               <Button
                 type="button"
                 variant="outline"
@@ -340,7 +354,7 @@ export default function UsersList() {
                 type="button"
                 className={floatingFormApproveButtonClassName}
                 onClick={() => void handleCreateSubmit()}
-                disabled={!email.trim() || !fullName.trim() || createUser.isPending}
+                disabled={!email.trim() || !firstName.trim() || createUser.isPending}
               >
                 {t('actions.save')}
               </Button>

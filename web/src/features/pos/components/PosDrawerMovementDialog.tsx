@@ -141,7 +141,7 @@ export function PosDrawerMovementDialog({ open, onOpenChange, shiftId, terminalI
             />
           </div>
         </div>
-        <DialogFooter className="!mt-2 !grid w-full grid-cols-2 gap-[5px] sm:space-x-0">
+        <DialogFooter className="!mt-2 !grid w-full grid-cols-2 gap-[5px]">
           <Button
             type="button"
             variant="outline"

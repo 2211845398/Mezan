@@ -11,7 +11,8 @@
       "user_id": "User",
       "hire_date": "Hire date",
       "hourly_rate": "Hourly rate",
-      "compensation": "Compensation"
+      "compensation": "Compensation",
+      "identity_document": "ID document"
     },
     "form": {
       "user": "User ID",
@@ -36,7 +37,18 @@
       "add_day": "Add day off ({{d}})",
       "job_title": "Job title",
       "contract_start": "Contract start",
-      "contract_end": "Contract end (optional)"
+      "contract_end": "Contract end (optional)",
+      "identity_document_type": "ID document type",
+      "identity_document_number": "Document number",
+      "identity_document_image": "Document image",
+      "identity_document_choose": "Choose image",
+      "identity_document_preview": "Current scan",
+      "identity_doc_passport": "Passport",
+      "identity_doc_national_id": "National ID",
+      "identity_doc_residency": "Residency / Iqama",
+      "identity_doc_other": "Other",
+      "identity_section_title": "Identity document",
+      "identity_scan_uploaded": "Document scan uploaded"
     }
   },
   "pending": {
@@ -57,12 +69,14 @@
     "created": "Created",
     "complete": "Complete onboarding",
     "completed_success": "Employee onboarding completed successfully",
+    "identity_scan_uploaded": "Document scan uploaded",
     "notes": "Notes (optional)",
     "schedule_hint": "Set up the weekly work schedule for this employee",
     "no_schedules": "No schedule set up yet. Click below to add days.",
     "add_schedule": "Add schedule day",
     "error_salary_or_hourly": "Provide base salary and/or overtime hourly rate (at least one).",
     "error_contract_start": "Contract start date is required",
+    "error_contract_end_before_start": "Contract end cannot be before contract start.",
     "error_role_required": "Select a role for this employee.",
     "schedule_after_onboarding": "After onboarding is completed, set weekly work hours from the employee’s Schedule tab."
   },

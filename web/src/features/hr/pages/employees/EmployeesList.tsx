@@ -89,6 +89,34 @@ export default function EmployeesList() {
         cell: ({ row }) => row.original.hire_date,
       },
       {
+        id: 'identity_document',
+        header: t('employees.col.identity_document'),
+        accessorFn: (row) => employeeProfileRowSearchValue(row, searchOpts),
+        cell: ({ row }) => {
+          const typ = row.original.identity_document_type?.trim();
+          const num = row.original.identity_document_number?.trim();
+          const hasImg = Boolean(row.original.identity_document_image_url);
+          if (!typ && !num && !hasImg) return '—';
+          const label = typ
+            ? t(`employees.form.identity_doc_${typ}`, { defaultValue: typ })
+            : '';
+          const numDisp = num ? (label ? ` · ${num}` : num) : '';
+          return (
+            <span className="inline-flex max-w-[14rem] flex-wrap items-center gap-1 truncate">
+              <span className="truncate">
+                {label}
+                {numDisp}
+              </span>
+              {hasImg ? (
+                <span className="shrink-0 text-muted-foreground" title={t('employees.form.identity_document_preview')}>
+                  ✓
+                </span>
+              ) : null}
+            </span>
+          );
+        },
+      },
+      {
         id: 'compensation',
         header: t('employees.col.compensation'),
         accessorFn: (row) => employeeProfileRowSearchValue(row, searchOpts),

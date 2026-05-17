@@ -16,10 +16,11 @@ from app.models.product import Product
 from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import ExchangeLink, SalesReturn
 from app.utils.money import q2
+from app.utils.person_name import display_person_name
 
 
 def _customer_display_name(c: CustomerProfile) -> str:
-    return (c.full_name or "").strip() or c.phone
+    return display_person_name(c.first_name, c.father_name, c.family_name) or c.phone
 
 
 async def get_customer_performance(

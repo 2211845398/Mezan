@@ -4,7 +4,7 @@ import * as api from './api';
 
 export const crmKeys = {
   root: ['crm'] as const,
-  customers: (q: { limit: number; offset: number; search?: string }) =>
+  customers: (q: { limit: number; offset: number; search?: string; activation?: string }) =>
     [...crmKeys.root, 'customers', q] as const,
   customer: (id: number) => [...crmKeys.root, 'customer', id] as const,
   customerPerformance: (id: number, daysBack: number) =>
@@ -27,6 +27,7 @@ export function customersListQueryOptions(args: {
   limit: number;
   offset: number;
   search?: string;
+  activation?: 'all' | 'active' | 'pending';
 }) {
   return queryOptions({
     queryKey: crmKeys.customers(args),

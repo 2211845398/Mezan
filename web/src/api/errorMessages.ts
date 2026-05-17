@@ -53,7 +53,8 @@ export function localizedValidationItemMessage(
   const typ = typeof item.type === 'string' ? item.type : '';
   const rawMsg = typeof item.msg === 'string' ? item.msg : '';
 
-  const isEmailField = field === 'email';
+  const isEmailField = field === 'email' || field.endsWith('.email');
+  const isPhoneField = field === 'phone' || field.endsWith('.phone');
   const looksLikeEmailError =
     typ === 'value_error.email' ||
     (typeof typ === 'string' && typ.includes('email')) ||
@@ -61,6 +62,12 @@ export function localizedValidationItemMessage(
 
   if (isEmailField && looksLikeEmailError) {
     return t('errors.validation_email');
+  }
+  if (
+    isPhoneField &&
+    (rawMsg.includes('invalid_libyan_phone') || rawMsg.toLowerCase().includes('libyan'))
+  ) {
+    return t('errors.validation_phone_ly');
   }
   if (field === 'password' && typ === 'string_too_short') {
     return t('errors.validation_password_short');

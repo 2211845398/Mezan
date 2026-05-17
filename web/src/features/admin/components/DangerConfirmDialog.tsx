@@ -65,7 +65,7 @@ export function DangerConfirmDialog({
             autoComplete="off"
           />
         </div>
-        <DialogFooter className="gap-2 sm:justify-end">
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"

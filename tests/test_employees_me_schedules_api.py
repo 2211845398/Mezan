@@ -39,7 +39,7 @@ async def test_my_schedules_ok_without_employees_read(
 
     u = User(
         email="me_schedules_user@test.example",
-        full_name="Schedule User",
+        first_name="Schedule User",
         password_hash=hash_password("pw"),
         status="active",
         branch_id=store.id,
@@ -96,7 +96,7 @@ async def test_my_schedules_empty_when_no_employee_profile(
 
     u = User(
         email="no_employee_profile@test.example",
-        full_name="No EP",
+        first_name="No EP",
         password_hash=hash_password("pw"),
         status="active",
         branch_id=store.id,

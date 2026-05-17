@@ -344,7 +344,7 @@ export function ReturnDrawer({
           ) : null}
         </div>
 
-        <DialogFooter className="gap-2 border-t border-border/80 bg-muted/20 px-6 py-4">
+        <DialogFooter className="gap-[5px] border-t border-border/80 bg-muted/20 px-6 py-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>

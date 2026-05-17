@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,6 +59,7 @@ async def create_temporary_customer_endpoint(
     return {
         "customer": CustomerRead.model_validate(customer).model_dump(),
         "onboarding_token": token,
+        "onboarding_path": f"/customer-onboarding?token={token}",
         "qr_url": f"/api/v1/customers/onboarding/complete?token={token}",
     }
 
@@ -69,7 +71,12 @@ async def complete_onboarding_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> CustomerRead:
     customer = await complete_onboarding(
-        db, token=body.token, full_name=body.full_name, email=body.email
+        db,
+        token=body.token,
+        first_name=body.first_name,
+        father_name=body.father_name,
+        family_name=body.family_name,
+        email=body.email,
     )
     await audit_service.log(
         session=db,
@@ -87,18 +94,30 @@ async def list_customers_endpoint(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     search: str | None = Query(None, max_length=128),
+    activation: Literal["all", "active", "pending"] = Query("all"),
+    pos_ready: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("customers", "read"),
 ) -> CustomerListResponse:
-    rows, total = await list_customers(db, limit=limit, offset=offset, search=search)
+    rows, total = await list_customers(
+        db,
+        limit=limit,
+        offset=offset,
+        search=search,
+        pos_ready=pos_ready,
+        activation=activation,
+    )
     items = [
         CustomerListItemRead(
             id=c.id,
             phone=c.phone,
-            full_name=c.full_name,
+            first_name=c.first_name,
+            father_name=c.father_name,
+            family_name=c.family_name,
             email=c.email,
             is_temporary=c.is_temporary,
+            is_active=c.is_active,
             loyalty_balance=bal,
             lifetime_spend=spend,
         )
@@ -118,7 +137,9 @@ async def create_customer_staff_endpoint(
     c = await create_staff_customer(
         db,
         phone=body.phone,
-        full_name=body.full_name,
+        first_name=body.first_name,
+        father_name=body.father_name,
+        family_name=body.family_name,
         email=body.email,
         is_temporary=body.is_temporary,
         default_currency_id=body.default_currency_id,
@@ -130,7 +151,7 @@ async def create_customer_staff_endpoint(
         action="customer.created",
         resource_type="customer_profile",
         resource_id=str(c.id),
-        new_value={"phone": c.phone, "full_name": c.full_name},
+        new_value={"phone": c.phone, "first_name": c.first_name},
         user_id=current_user.id,
         request=request,
     )
@@ -141,9 +162,12 @@ async def create_customer_staff_endpoint(
     return CustomerDetailRead(
         id=c.id,
         phone=c.phone,
-        full_name=c.full_name,
+        first_name=c.first_name,
+        father_name=c.father_name,
+        family_name=c.family_name,
         email=c.email,
         is_temporary=c.is_temporary,
+        is_active=c.is_active,
         default_currency_id=c.default_currency_id,
         receivables_account_id=c.receivables_account_id,
         created_at=c.created_at,
@@ -197,9 +221,12 @@ async def get_customer_endpoint(
     return CustomerDetailRead(
         id=c.id,
         phone=c.phone,
-        full_name=c.full_name,
+        first_name=c.first_name,
+        father_name=c.father_name,
+        family_name=c.family_name,
         email=c.email,
         is_temporary=c.is_temporary,
+        is_active=c.is_active,
         default_currency_id=c.default_currency_id,
         receivables_account_id=c.receivables_account_id,
         created_at=c.created_at,
@@ -235,9 +262,12 @@ async def update_customer_endpoint(
     return CustomerDetailRead(
         id=c.id,
         phone=c.phone,
-        full_name=c.full_name,
+        first_name=c.first_name,
+        father_name=c.father_name,
+        family_name=c.family_name,
         email=c.email,
         is_temporary=c.is_temporary,
+        is_active=c.is_active,
         default_currency_id=c.default_currency_id,
         receivables_account_id=c.receivables_account_id,
         created_at=c.created_at,
