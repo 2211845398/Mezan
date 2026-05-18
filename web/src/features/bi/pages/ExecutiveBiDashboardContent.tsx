@@ -34,6 +34,7 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { MARKETING_SALES_INVOICES_PATH } from '@/features/marketing/paths';
 import { usePermission } from '@/hooks/usePermission';
 import { format, now } from '@/lib/date';
 import {
@@ -64,7 +65,7 @@ export default function ExecutiveBiDashboardContent() {
   const activeBranchId = useAuthStore((s) => s.activeBranchId);
   const canViewAccounting = usePermission('accounting', 'read');
   const canViewInvoices = usePermission('sales_invoices', 'read');
-  const canViewLoyalty = usePermission('loyalty', 'read');
+  const canViewCustomers = usePermission('customers', 'read');
   const canViewCatalog = usePermission('catalog', 'read');
   const [periodEnd, setPeriodEnd] = useState(() => format(now(), 'yyyy-MM-dd'));
   const [periodStart, setPeriodStart] = useState(() =>
@@ -154,11 +155,8 @@ export default function ExecutiveBiDashboardContent() {
     data?.gross_margin_ratio != null && data.gross_margin_ratio !== ''
       ? formatPercent(Number.parseFloat(String(data.gross_margin_ratio)), { fractionDigits: 1 })
       : '—';
-  const revenueLink = canViewInvoices
-    ? '/pos/invoices'
-    : canViewAccounting
-      ? '/accounting/income-statement'
-      : undefined;
+  const invoiceRegisterLink = canViewInvoices ? MARKETING_SALES_INVOICES_PATH : undefined;
+  const revenueLink = invoiceRegisterLink ?? (canViewAccounting ? '/accounting/income-statement' : undefined);
   const accountingLink = canViewAccounting ? '/accounting/income-statement' : undefined;
 
   const grossSales = data ? num(data.gross_sales) : 0;
@@ -244,7 +242,7 @@ export default function ExecutiveBiDashboardContent() {
               value={formatCompactNumber(invoiceCount)}
               footnote={t('kpi.value_exact_count', { value: formatNumber(invoiceCount) })}
               description={t('kpi.orders_hint')}
-              {...(canViewInvoices ? { to: '/pos/invoices' } : {})}
+              {...(invoiceRegisterLink ? { to: invoiceRegisterLink } : {})}
             />
             <KpiCard
               title={t('kpi.avg_ticket')}
@@ -253,14 +251,14 @@ export default function ExecutiveBiDashboardContent() {
                 value: formatCurrency(avgTicket, DISPLAY_CURRENCY),
               })}
               description={t('kpi.avg_ticket_hint')}
-              {...(canViewInvoices ? { to: '/pos/invoices' } : {})}
+              {...(invoiceRegisterLink ? { to: invoiceRegisterLink } : {})}
             />
             <KpiCard
               title={t('kpi.loyalty')}
               value={formatCompactNumber(loyaltyPts)}
               footnote={t('kpi.value_exact_points', { value: formatNumber(loyaltyPts) })}
               description={t('kpi.loyalty_hint')}
-              {...(canViewLoyalty ? { to: '/crm/loyalty' } : {})}
+              {...(canViewCustomers ? { to: '/crm/customers' } : {})}
             />
           </section>
 
@@ -289,7 +287,7 @@ export default function ExecutiveBiDashboardContent() {
               {canViewInvoices ? (
                 <CardFooter className="pt-0">
                   <Button variant="link" className="h-auto p-0 text-sm" asChild>
-                    <Link to="/pos/invoices">{t('charts.trend_view_invoices')}</Link>
+                    <Link to={MARKETING_SALES_INVOICES_PATH}>{t('charts.trend_view_invoices')}</Link>
                   </Button>
                 </CardFooter>
               ) : null}

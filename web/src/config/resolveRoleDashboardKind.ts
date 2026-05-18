@@ -17,7 +17,7 @@ const PRIORITY: { code: string; kind: RoleDashboardKind }[] = [
   { code: 'ADMIN', kind: 'executive' },
   { code: 'HR_MANAGER', kind: 'hr' },
   { code: 'ACCOUNTANT', kind: 'accountant' },
-  { code: 'MARKETING_MANAGER', kind: 'marketing' },
+  { code: 'MARKETING_MANAGER', kind: 'executive' },
   { code: 'IT_ADMIN', kind: 'it' },
   { code: 'CASHIER', kind: 'staff' },
   { code: 'FLOOR_STAFF', kind: 'staff' },

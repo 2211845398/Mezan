@@ -7,14 +7,26 @@ import { toast } from 'sonner';
  * without touching call sites.
  */
 
-export type ToastOptions = { description?: string; durationMs?: number; id?: string | number };
+export type ToastOptions = {
+  description?: string;
+  durationMs?: number;
+  id?: string | number;
+  /** Applied to the toast root (Sonner). */
+  className?: string;
+};
 
 function build(options?: ToastOptions) {
   if (!options) return undefined;
-  const payload: { description?: string; duration?: number; id?: string | number } = {};
+  const payload: {
+    description?: string;
+    duration?: number;
+    id?: string | number;
+    className?: string;
+  } = {};
   if (options.description !== undefined) payload.description = options.description;
   if (options.durationMs !== undefined) payload.duration = options.durationMs;
   if (options.id !== undefined) payload.id = options.id;
+  if (options.className !== undefined) payload.className = options.className;
   return payload;
 }
 

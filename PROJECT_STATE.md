@@ -217,7 +217,7 @@
 - [x] **W-5.6** Accounting (journals, trial balance, financial reports) + Fiscal periods.
 - [x] **W-5.7** CRM (loyalty, discounts) + Marketing advisory.
 - [x] **W-5.8** Executive BI dashboard (`/dashboard` + Recharts KPIs + AI advisors).
-- [x] **W-5.8.1** Role-specific `/dashboard` home (OWNER/ADMIN executive BI; accountant, marketing, IT, HR, staff surfaces) + `GET /employees/me/schedules` self-service + `/` redirects to `/dashboard`.
+- [x] **W-5.8.1** Role-specific `/dashboard` home (OWNER/ADMIN/MARKETING_MANAGER → executive BI; accountant, IT, HR, staff surfaces) + `GET /employees/me/schedules` self-service + `/` redirects to `/dashboard`.
 - [x] **W-5.9** Admin (users, roles, permissions, branches, terminals, backups, notifications).
 - [x] **W-5.9.1** User creation form: always create pending onboarding, simplified field order.
 - [x] **W-5.9.2** Enriched pending onboarding list with user details for HR review.

@@ -22,6 +22,17 @@ import { notify } from '@/lib/toast';
 import type { MarketingAdvisoryResponse } from '../../api';
 import { postMarketingAdvisory } from '../../api';
 
+const FALLBACK_TOAST_CLASS =
+  '!border-amber-400/70 !bg-amber-50 !text-amber-950 shadow-sm dark:!border-amber-600 dark:!bg-amber-950/40 dark:!text-amber-50';
+
+function advisoryPriorityLabel(t: (k: string) => string, raw: string): string {
+  const k = raw?.toLowerCase?.() ?? '';
+  if (k === 'high' || k === 'medium' || k === 'low') {
+    return t(`advisory.priority_level.${k}`);
+  }
+  return raw;
+}
+
 export default function MarketingAdvisory() {
   const { t } = useTranslation('marketing');
   const { t: tc } = useTranslation('common');
@@ -45,7 +56,15 @@ export default function MarketingAdvisory() {
     onSuccess: (r) => {
       setResult(r);
       setFriendlyError(null);
-      notify.success(tc('toasts.analysis_complete'));
+      if (r.model === 'deterministic_fallback') {
+        notify.warning(t('advisory.fallback_notice_toast'), {
+          id: 'marketing-advisory-fallback',
+          durationMs: 9000,
+          className: FALLBACK_TOAST_CLASS,
+        });
+      } else {
+        notify.success(tc('toasts.analysis_complete'));
+      }
     },
     onError: (e) => {
       setResult(null);
@@ -64,6 +83,8 @@ export default function MarketingAdvisory() {
       toast.error(t('advisory.run_failed'));
     },
   });
+
+  const isFallback = result?.model === 'deterministic_fallback';
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -101,17 +122,24 @@ export default function MarketingAdvisory() {
       <div className="grid gap-3 md:grid-cols-2">
         {(result?.suggestions ?? []).map((s, i) => (
           <Card key={`${s.title}-${i}`}>
-            <CardHeader>
-              <CardTitle className="text-base">{s.title}</CardTitle>
+            <CardHeader className={isFallback ? 'text-start' : undefined}>
+              <CardTitle className="text-base" dir={isFallback ? 'rtl' : 'auto'}>
+                {s.title}
+              </CardTitle>
               <p className="text-xs text-muted-foreground">
-                {t('advisory.priority')}: {s.priority} · {t('advisory.confidence')}: {s.confidence}
+                {t('advisory.priority')}: {advisoryPriorityLabel(t, s.priority)} · {t('advisory.confidence')}:{' '}
+                <span dir="ltr" className="num-latin inline-block tabular-nums">
+                  {s.confidence}
+                </span>
               </p>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <p>{s.rationale}</p>
+            <CardContent className="space-y-2 text-sm" dir={isFallback ? 'rtl' : undefined}>
+              <p dir="auto">{s.rationale}</p>
               <ul className="list-inside list-disc">
                 {(s.action_items ?? []).map((a, j) => (
-                  <li key={j}>{a}</li>
+                  <li key={j} dir="auto">
+                    {a}
+                  </li>
                 ))}
               </ul>
             </CardContent>

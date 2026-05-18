@@ -125,6 +125,12 @@ const CrmDiscountsList = lazy(() => import('@/features/crm/pages/discounts/Disco
 const CrmDiscountsQueryRedirect = lazy(() => import('@/features/crm/pages/discounts/DiscountsQueryRedirect'));
 
 const MarketingAnalytics = lazy(() => import('@/features/marketing/pages/analytics/Analytics'));
+const MarketingSalesInvoiceRegister = lazy(
+  () => import('@/features/marketing/pages/sales-invoices/SalesInvoiceRegister'),
+);
+const MarketingInventoryInsights = lazy(
+  () => import('@/features/marketing/pages/inventory-insights/InventoryInsights'),
+);
 const MarketingAdvisoryPage = lazy(() => import('@/features/marketing/pages/advisory/MarketingAdvisory'));
 const MarketingCampaignAdvisor = lazy(() => import('@/features/marketing/pages/campaigns/CampaignAdvisor'));
 
@@ -949,6 +955,22 @@ export const router = createBrowserRouter([
                 element: (
                   <RequirePermission resource="analytics" action="read">
                     {withSuspense(MarketingAnalytics)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'sales-invoices',
+                element: (
+                  <RequirePermission resource="sales_invoices" action="read">
+                    {withSuspense(MarketingSalesInvoiceRegister)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'inventory-insights',
+                element: (
+                  <RequirePermission resource="analytics" action="read">
+                    {withSuspense(MarketingInventoryInsights)}
                   </RequirePermission>
                 ),
               },

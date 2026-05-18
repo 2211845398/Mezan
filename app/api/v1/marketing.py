@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime
+from datetime import UTC, date, datetime, time as dt_time, timedelta
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
@@ -192,7 +192,9 @@ async def marketing_advisory_endpoint(
 
 @router.get("/marketing/analytics/charts/sales-trend")
 async def sales_trend_chart_endpoint(
-    days: int = 30,
+    days: int = Query(30, ge=1, le=366),
+    period_start: date | None = Query(None, description="UTC calendar day inclusive (overrides rolling `days`)"),
+    period_end: date | None = Query(None, description="UTC calendar day inclusive"),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("analytics", "read"),
@@ -200,13 +202,31 @@ async def sales_trend_chart_endpoint(
     """Get sales trend data for line/area charts (Recharts compatible).
 
     Returns daily sales totals for the specified period.
+    When ``period_start`` and ``period_end`` are provided, filters that inclusive
+    UTC date range; otherwise uses the last ``days`` from now (legacy behaviour).
     """
-    from datetime import timedelta
     from sqlalchemy import func, select
+
     from app.models.sales_invoice import SalesInvoice
 
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=days)
+    if period_start is not None and period_end is not None:
+        if period_end < period_start:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="period_end must be on or after period_start",
+            )
+        start_date = datetime.combine(period_start, dt_time.min, tzinfo=UTC)
+        end_date = datetime.combine(period_end + timedelta(days=1), dt_time.min, tzinfo=UTC)
+        time_upper = "<"
+    elif period_start is not None or period_end is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide both period_start and period_end, or neither",
+        )
+    else:
+        end_date = datetime.now(UTC)
+        start_date = end_date - timedelta(days=days)
+        time_upper = "<="
 
     stmt = (
         select(
@@ -216,18 +236,23 @@ async def sales_trend_chart_endpoint(
         )
         .where(
             SalesInvoice.created_at >= start_date,
-            SalesInvoice.created_at <= end_date,
             SalesInvoice.voided_at.is_(None),
         )
         .group_by(func.date(SalesInvoice.created_at))
         .order_by(func.date(SalesInvoice.created_at))
     )
+    if time_upper == "<":
+        stmt = stmt.where(SalesInvoice.created_at < end_date)
+    else:
+        stmt = stmt.where(SalesInvoice.created_at <= end_date)
 
     result = await db.execute(stmt)
     rows = result.all()
 
     return {
         "period_days": days,
+        "period_start": period_start.isoformat() if period_start else None,
+        "period_end": period_end.isoformat() if period_end else None,
         "data": [
             {"date": str(r.date), "total": float(r.total or 0), "count": r.count or 0}
             for r in rows

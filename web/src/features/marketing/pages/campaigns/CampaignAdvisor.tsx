@@ -15,14 +15,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { notify } from '@/lib/toast';
 
 import type { TargetedCampaignResponse } from '../../api';
 import { postCampaignSegmentExport, postTargetedCampaigns } from '../../api';
 
 const SEGMENTS = ['champions', 'loyal', 'at_risk', 'lost'] as const;
 
+const FALLBACK_TOAST_CLASS =
+  '!border-amber-400/70 !bg-amber-50 !text-amber-950 shadow-sm dark:!border-amber-600 dark:!bg-amber-950/40 dark:!text-amber-50';
+
+function campaignChannelLabel(t: (k: string) => string, code: string): string {
+  const c = code.toLowerCase();
+  if (c === 'sms' || c === 'email' || c === 'push' || c === 'in_store') {
+    return t(`campaigns.channel.${c}`);
+  }
+  return code;
+}
+
+function campaignSegmentLabel(t: (k: string) => string, code: string): string {
+  const c = code.toLowerCase();
+  if (c === 'champions' || c === 'loyal' || c === 'at_risk' || c === 'lost') {
+    return t(`campaigns.segment.${c}`);
+  }
+  return code;
+}
+
 export default function CampaignAdvisor() {
   const { t } = useTranslation('marketing');
+  const { t: tc } = useTranslation('common');
   const [lookback, setLookback] = useState('90');
   const [minPurchases, setMinPurchases] = useState('2');
   const [result, setResult] = useState<TargetedCampaignResponse | null>(null);
@@ -39,6 +60,15 @@ export default function CampaignAdvisor() {
     onSuccess: (r) => {
       setResult(r);
       setError(null);
+      if (r.model === 'deterministic_fallback') {
+        notify.warning(t('campaigns.fallback_notice_toast'), {
+          id: 'marketing-campaigns-fallback',
+          durationMs: 9000,
+          className: FALLBACK_TOAST_CLASS,
+        });
+      } else {
+        notify.success(tc('toasts.analysis_complete'));
+      }
     },
     onError: (e) => {
       setResult(null);
@@ -72,6 +102,8 @@ export default function CampaignAdvisor() {
     }
   };
 
+  const isFallback = result?.model === 'deterministic_fallback';
+
   return (
     <div className="flex flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold">{t('campaigns.title')}</h1>
@@ -96,17 +128,31 @@ export default function CampaignAdvisor() {
       <div className="grid gap-3 md:grid-cols-2">
         {(result?.campaigns ?? []).map((c, i) => (
           <Card key={`${c.title}-${i}`}>
-            <CardHeader>
-              <CardTitle className="text-base">{c.title}</CardTitle>
+            <CardHeader className={isFallback ? 'text-start' : undefined}>
+              <CardTitle className="text-base" dir={isFallback ? 'rtl' : 'auto'}>
+                {c.title}
+              </CardTitle>
               <p className="text-xs text-muted-foreground">
-                {c.segment.segment_code} · {c.channel} · {t('campaigns.lift')}: {c.expected_lift_pct}%
+                {campaignSegmentLabel(t, c.segment.segment_code)} · {campaignChannelLabel(t, c.channel)} ·{' '}
+                {t('campaigns.lift')}:{' '}
+                <span dir="ltr" className="num-latin tabular-nums">
+                  {c.expected_lift_pct}%
+                </span>{' '}
+                · {t('campaigns.confidence')}:{' '}
+                <span dir="ltr" className="num-latin tabular-nums">
+                  {c.confidence}
+                </span>
               </p>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <p>{c.segment.description}</p>
-              <p>{c.offer}</p>
-              <p className="font-medium">{c.call_to_action}</p>
-              <p className="text-xs text-muted-foreground">{c.segment.rationale}</p>
+            <CardContent className="space-y-2 text-sm" dir={isFallback ? 'rtl' : undefined}>
+              <p dir="auto">{c.segment.description}</p>
+              <p dir="auto">{c.offer}</p>
+              <p className="font-medium" dir="auto">
+                {c.call_to_action}
+              </p>
+              <p className="text-xs text-muted-foreground" dir="auto">
+                {c.segment.rationale}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -121,7 +167,7 @@ export default function CampaignAdvisor() {
             <SelectContent>
               {SEGMENTS.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {s}
+                  {campaignSegmentLabel(t, s)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -96,6 +96,44 @@ export function formatCurrency(
   ).format(n);
 }
 
+/**
+ * When `Intl` places the currency symbol after the amount (common for some
+ * Arabic locales), move it before the numeric part so an LTR span shows
+ * `US$ 1,234.56` instead of `1,234.56 US$`.
+ */
+export function formatCurrencyWithLeadingSymbol(
+  value: number | string,
+  currency: string,
+  options: { locale?: NumericLocale; fractionDigits?: number } = {},
+): string {
+  const n = typeof value === 'string' ? Number.parseFloat(value) : value;
+  if (!Number.isFinite(n)) return '';
+  const { locale, fractionDigits = 2 } = options;
+  const loc = locale ?? getNumericLocale();
+  const nf = new Intl.NumberFormat(
+    loc,
+    numberFormatOptions({
+      style: 'currency',
+      currency,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }),
+  );
+  const parts = nf.formatToParts(n);
+  const curIdx = parts.findIndex((p) => p.type === 'currency');
+  const intIdx = parts.findIndex((p) => p.type === 'integer');
+  if (curIdx === -1 || intIdx === -1 || curIdx < intIdx) {
+    return nf.format(n);
+  }
+  const sym = parts[curIdx]?.value ?? '';
+  const rest = parts
+    .filter((p) => p.type !== 'currency')
+    .map((p) => p.value)
+    .join('')
+    .replace(/^\s+|\s+$/g, '');
+  return `${sym}\u00A0${rest}`;
+}
+
 export function formatPercent(
   value: number,
   { fractionDigits = 1, locale }: { fractionDigits?: number; locale?: NumericLocale } = {},

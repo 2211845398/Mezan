@@ -96,6 +96,17 @@ class SalesInvoiceListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
 
+class SalesInvoiceRegisterPageRead(BaseModel):
+    """Paginated branch-period sales invoice register (executive / marketing UI)."""
+
+    items: list[SalesInvoiceListItem]
+    total_count: int
+    sum_subtotal: Decimal
+    sum_total: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
 class VoidInvoiceRequest(BaseModel):
     invoice_id: int | None = None
     invoice_barcode: str | None = None

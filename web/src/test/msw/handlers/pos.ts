@@ -224,6 +224,31 @@ export const posHandlers = [
     });
   }),
 
+  http.get(`${BASE}/sales-invoices/register`, () =>
+    HttpResponse.json({
+      items: [
+        {
+          id: 555,
+          invoice_number: 'INV-555',
+          invoice_barcode: 'BC555',
+          cart_id: cart.id,
+          terminal_id: 10,
+          branch_id: 1,
+          customer_id: null,
+          customer_display: null,
+          subtotal: '10',
+          discount_total: '0',
+          tax_total: '0',
+          total: '10',
+          created_at: '2026-04-22T11:00:00Z',
+        },
+      ],
+      total_count: 1,
+      sum_subtotal: '10',
+      sum_total: '10',
+    }),
+  ),
+
   http.get(`${BASE}/sales-invoices`, () =>
     HttpResponse.json([
       {

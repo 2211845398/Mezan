@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
@@ -15,6 +15,7 @@ from app.models.ar_open_item import ArOpenItem
 from app.models.category import Category
 from app.models.pos_cart import PosCart, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
+from app.models.branch import Branch
 from app.models.customer_profile import CustomerProfile
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
@@ -434,3 +435,74 @@ async def list_sales_invoices_for_terminal_window(
             )
         )
     return out
+
+
+async def list_sales_invoices_register_page(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    start_inclusive: datetime,
+    end_exclusive: datetime,
+    limit: int,
+    offset: int,
+) -> tuple[list[SalesInvoiceListItem], int, Decimal, Decimal]:
+    """Non-void invoices for a branch in [start_inclusive, end_exclusive), with aggregates."""
+    br = await db.execute(
+        select(Branch.id).where(Branch.id == branch_id, Branch.archived_at.is_(None)),
+    )
+    if br.scalar_one_or_none() is None:
+        raise NotFoundError("Branch not found")
+
+    filt = (
+        SalesInvoice.branch_id == branch_id,
+        SalesInvoice.created_at >= start_inclusive,
+        SalesInvoice.created_at < end_exclusive,
+        SalesInvoice.voided_at.is_(None),
+    )
+
+    agg_row = (
+        await db.execute(
+            select(
+                func.count(SalesInvoice.id),
+                func.coalesce(func.sum(SalesInvoice.subtotal), 0),
+                func.coalesce(func.sum(SalesInvoice.total), 0),
+            ).where(*filt),
+        )
+    ).one()
+    total_count = int(agg_row[0] or 0)
+    sum_subtotal = q2(Decimal(str(agg_row[1] or 0)))
+    sum_total = q2(Decimal(str(agg_row[2] or 0)))
+
+    inv_res = await db.execute(
+        select(SalesInvoice, CustomerProfile)
+        .outerjoin(CustomerProfile, SalesInvoice.customer_id == CustomerProfile.id)
+        .where(*filt)
+        .order_by(SalesInvoice.created_at.desc())
+        .limit(limit)
+        .offset(offset),
+    )
+    rows = inv_res.all()
+    out: list[SalesInvoiceListItem] = []
+    for inv, cust in rows:
+        cust_disp: str | None = None
+        if cust is not None:
+            name = display_person_name(cust.first_name, cust.father_name, cust.family_name)
+            cust_disp = name or (cust.phone or "").strip() or None
+        out.append(
+            SalesInvoiceListItem(
+                id=inv.id,
+                invoice_number=inv.invoice_number,
+                invoice_barcode=inv.invoice_barcode,
+                cart_id=inv.cart_id,
+                terminal_id=inv.terminal_id,
+                branch_id=inv.branch_id,
+                customer_id=inv.customer_id,
+                customer_display=cust_disp,
+                subtotal=inv.subtotal,
+                discount_total=inv.discount_total,
+                tax_total=inv.tax_total,
+                total=inv.total,
+                created_at=inv.created_at,
+            ),
+        )
+    return out, total_count, sum_subtotal, sum_total

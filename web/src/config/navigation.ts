@@ -110,13 +110,6 @@ export const navigation: NavItem[] = [
         permission: { resource: 'catalog', action: 'read' },
       },
       {
-        key: 'catalog-taxes',
-        labelKey: 'nav.catalog_taxes',
-        icon: Percent,
-        href: '/catalog/taxes',
-        permission: { resource: 'catalog', action: 'read' },
-      },
-      {
         key: 'catalog-categories',
         labelKey: 'nav.catalog_categories',
         icon: Tags,
@@ -291,6 +284,13 @@ export const navigation: NavItem[] = [
         permission: { resource: 'accounting', action: 'read' },
       },
       {
+        key: 'accounting-catalog-taxes',
+        labelKey: 'nav.catalog_taxes',
+        icon: Percent,
+        href: '/catalog/taxes',
+        permission: { resource: 'catalog', action: 'read' },
+      },
+      {
         key: 'accounting-balance-sheet',
         labelKey: 'nav.accounting_balance_sheet',
         icon: Landmark,
@@ -369,6 +369,20 @@ export const navigation: NavItem[] = [
         labelKey: 'nav.marketing_analytics',
         icon: BarChart3,
         href: '/marketing/analytics',
+        permission: { resource: 'analytics', action: 'read' },
+      },
+      {
+        key: 'marketing-sales-invoices',
+        labelKey: 'nav.marketing_sales_invoices',
+        icon: Receipt,
+        href: '/marketing/sales-invoices',
+        permission: { resource: 'sales_invoices', action: 'read' },
+      },
+      {
+        key: 'marketing-inventory-insights',
+        labelKey: 'nav.marketing_inventory_insights',
+        icon: Boxes,
+        href: '/marketing/inventory-insights',
         permission: { resource: 'analytics', action: 'read' },
       },
       {

@@ -8,8 +8,8 @@ describe('resolveRoleDashboardKind', () => {
     expect(resolveRoleDashboardKind(['ACCOUNTANT', 'ADMIN'])).toBe('executive');
   });
 
-  it('maps MARKETING_MANAGER to marketing even with analytics-heavy roles absent', () => {
-    expect(resolveRoleDashboardKind(['MARKETING_MANAGER'])).toBe('marketing');
+  it('maps MARKETING_MANAGER to executive', () => {
+    expect(resolveRoleDashboardKind(['MARKETING_MANAGER'])).toBe('executive');
   });
 
   it('orders HR before accountant when both present', () => {
