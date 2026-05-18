@@ -20,8 +20,10 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
-import { listProducts } from '@/features/catalog/api';
-import { catalogKeys } from '@/features/catalog/queries';
+import {
+  getProduct,
+  searchProductVariantsForPurchasing,
+} from '@/features/catalog/api';
 import { fromISO, toISOStringUtc } from '@/lib/date';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { formatPersonName } from '@/lib/personName';
@@ -40,16 +42,95 @@ import { purchaseOrderQueryOptions, purchasingKeys, suppliersQueryOptions } from
 type LineDraft = {
   key: string;
   product_id: number;
+  variant_id: number;
   qty: number;
+  pick_label: string;
 };
 
 function newLine(): LineDraft {
-  return { key: crypto.randomUUID(), product_id: 0, qty: 1 };
+  return { key: crypto.randomUUID(), product_id: 0, variant_id: 0, qty: 1, pick_label: '' };
 }
 
 type ReorderLocationState = {
   reorderLines?: Array<{ product_id: number; qty: number; unit_cost?: string }>;
 };
+
+type PoLineVariantPickerProps = {
+  disabled?: boolean;
+  pickLabel: string;
+  onPick: (row: { product_id: number; variant_id: number; pick_label: string }) => void;
+};
+
+function PoLineVariantPicker({ disabled, pickLabel, onPick }: PoLineVariantPickerProps) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [debounced, setDebounced] = useState('');
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(q.trim()), 280);
+    return () => window.clearTimeout(t);
+  }, [q]);
+
+  const { data: hits = [], isFetching } = useQuery({
+    queryKey: ['purchasing', 'variant-search', debounced],
+    queryFn: () => searchProductVariantsForPurchasing({ q: debounced, limit: 50 }),
+    enabled: open && debounced.length > 0,
+  });
+
+  const inputValue = open ? q : pickLabel;
+
+  return (
+    <div className="relative">
+      <Input
+        disabled={disabled}
+        value={inputValue}
+        placeholder="ابحث بالاسم أو SKU أو الباركود"
+        onChange={(e) => {
+          setQ(e.target.value);
+          if (!open) setOpen(true);
+        }}
+        onFocus={() => {
+          setOpen(true);
+          setQ('');
+        }}
+        onBlur={() => {
+          window.setTimeout(() => setOpen(false), 180);
+        }}
+      />
+      {open && debounced.length > 0 ? (
+        <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 text-sm shadow-md">
+          {isFetching ? (
+            <li className="rounded-sm px-2 py-2 text-muted-foreground">…</li>
+          ) : hits.length === 0 ? (
+            <li className="rounded-sm px-2 py-2 text-muted-foreground">لا نتائج</li>
+          ) : (
+            hits.map((h) => (
+              <li key={h.variant_id}>
+                <button
+                  type="button"
+                  className="w-full rounded-sm px-2 py-2 text-start hover:bg-muted"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onPick({
+                      product_id: h.product_id,
+                      variant_id: h.variant_id,
+                      pick_label: h.display_name,
+                    });
+                    setOpen(false);
+                    setQ('');
+                  }}
+                >
+                  <span className="font-medium">{h.display_name}</span>
+                  <span className="text-muted-foreground"> · {h.sku}</span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 export type OrderFormProps = {
   variant?: 'page' | 'dialog';
@@ -72,10 +153,6 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     enabled: !isNew && !Number.isNaN(poId),
   });
   const { data: suppliers = [] } = useQuery(suppliersQueryOptions());
-  const { data: products = [] } = useQuery({
-    queryKey: catalogKeys.products({ limit: 500, offset: 0, status: 'active' }),
-    queryFn: () => listProducts({ limit: 500, offset: 0, status: 'active' }),
-  });
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
@@ -105,7 +182,9 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
       st.map((ln) => ({
         key: crypto.randomUUID(),
         product_id: ln.product_id,
+        variant_id: 0,
         qty: ln.qty,
+        pick_label: '',
       })),
     );
     navigate('.', { replace: true, state: {} });
@@ -120,13 +199,35 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     setBranchId(existing.branch_id != null ? String(existing.branch_id) : '');
     setExpectedDate(existing.expected_at ? existing.expected_at.slice(0, 10) : '');
     setNotes(existing.notes ?? '');
-    setLines(
-      (existing.lines ?? []).map((ln) => ({
-        key: String(ln.id),
-        product_id: ln.product_id,
-        qty: ln.qty,
-      })),
-    );
+    const rawLines = existing.lines ?? [];
+    let cancelled = false;
+    void (async () => {
+      const ids = [...new Set(rawLines.map((l) => l.product_id))];
+      const names: Record<number, string> = {};
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const p = await getProduct(id);
+            names[id] = p.name;
+          } catch {
+            names[id] = `#${id}`;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setLines(
+        rawLines.map((ln) => ({
+          key: String(ln.id),
+          product_id: ln.product_id,
+          variant_id: typeof ln.variant_id === 'number' ? ln.variant_id : 0,
+          qty: ln.qty,
+          pick_label: names[ln.product_id] ?? `#${ln.product_id}`,
+        })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [existing]);
 
   useEffect(() => {
@@ -147,11 +248,17 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
   const buildPayloadLines = (): PurchaseOrderLineCreate[] =>
     lines
       .filter((l) => l.product_id > 0 && l.qty > 0)
-      .map(({ product_id, qty }) => ({
-        product_id,
-        qty,
-        unit_cost: '0' as PurchaseOrderLineCreate['unit_cost'],
-      }));
+      .map(({ product_id, variant_id, qty }) => {
+        const row: PurchaseOrderLineCreate = {
+          product_id,
+          qty,
+          unit_cost: '0' as PurchaseOrderLineCreate['unit_cost'],
+        };
+        if (variant_id > 0) {
+          return { ...row, variant_id };
+        }
+        return row;
+      });
 
   const saveDraft = useMutation({
     mutationFn: async () => {
@@ -196,6 +303,7 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
       const optimisticLines: PurchaseOrderLineRead[] = payloadLines.map((pl, i) => ({
         id: prev.lines?.[i]?.id ?? -(i + 1),
         product_id: pl.product_id,
+        variant_id: pl.variant_id ?? null,
         qty: pl.qty,
         unit_cost: '0',
       }));
@@ -326,25 +434,24 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
             <div key={ln.key} className="grid gap-2 rounded-md border p-3 md:grid-cols-12 md:items-end">
               <div className="md:col-span-7">
                 <Label>{t('orders.form.product')}</Label>
-                <Select
-                  value={ln.product_id ? String(ln.product_id) : '__none'}
-                  onValueChange={(v) => {
-                    const pid = v === '__none' ? 0 : Number(v);
-                    setLines((prev) => prev.map((x, i) => (i === idx ? { ...x, product_id: pid } : x)));
+                <PoLineVariantPicker
+                  disabled={saveDraft.isPending}
+                  pickLabel={ln.pick_label}
+                  onPick={(row) => {
+                    setLines((prev) =>
+                      prev.map((x, i) =>
+                        i === idx
+                          ? {
+                              ...x,
+                              product_id: row.product_id,
+                              variant_id: row.variant_id,
+                              pick_label: row.pick_label,
+                            }
+                          : x,
+                      ),
+                    );
                   }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none">—</SelectItem>
-                    {products.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.sku} — {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="md:col-span-3">
                 <Label>{t('orders.form.qty')}</Label>

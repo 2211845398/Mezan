@@ -10,11 +10,10 @@ import { Label } from '@/components/ui/label';
 export type BarcodeRepeaterProps = {
   value: string;
   onChange: (v: string) => void;
-  onGenerate?: (() => void) | undefined;
   disabled?: boolean;
 };
 
-export function BarcodeRepeater({ value, onChange, onGenerate, disabled }: BarcodeRepeaterProps) {
+export function BarcodeRepeater({ value, onChange, disabled }: BarcodeRepeaterProps) {
   const { t } = useTranslation('catalog');
   return (
     <div className="space-y-2">
@@ -30,16 +29,6 @@ export function BarcodeRepeater({ value, onChange, onGenerate, disabled }: Barco
             className="h-8 text-sm"
           />
         </div>
-        {onGenerate ? (
-          <button
-            type="button"
-            className="text-xs font-medium text-primary underline-offset-2 hover:underline sm:shrink-0"
-            onClick={onGenerate}
-            disabled={disabled}
-          >
-            {t('barcode.generate')}
-          </button>
-        ) : null}
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ describe('W-5.3 catalog API wiring', () => {
             sku: 'T1',
             status: 'active',
             output_vat_rate: '0',
+            tax_definition_ids: [],
             attributes: { price: 9.99 },
             created_at: '2024-01-01T00:00:00Z',
             updated_at: '2024-01-01T00:00:00Z',
@@ -70,6 +71,7 @@ describe('W-5.3 catalog API wiring', () => {
       sku: 'S',
       status: 'active',
       output_vat_rate: '0',
+      tax_definition_ids: [],
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     };

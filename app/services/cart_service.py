@@ -16,7 +16,7 @@ from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.schemas.pos_cart import CartDiscountRead, CartLineRead, CartRead
 from app.services.branch_scope import require_branch_open_for_operations
-from app.services.catalog_service import resolve_default_variant_id
+from app.services.catalog_service import map_effective_output_tax_rates, resolve_default_variant_id
 from app.services.discount_service import get_discount_rule_by_code, validate_discount
 from app.services.pricing_service import get_active_sell_price
 from app.utils.money import q2
@@ -168,11 +168,12 @@ async def _recalc_totals(db: AsyncSession, cart: PosCart) -> None:
     product_ids = {ln.product_id for ln in lines}
     pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
     prods = {p.id: p for p in pres.scalars().all()}
+    rates = await map_effective_output_tax_rates(db, products_by_id=prods)
 
     line_bases: list[tuple[PosCartLine, Decimal]] = []
     for ln in lines:
         p = prods.get(ln.product_id)
-        rate = p.output_vat_rate if p and p.output_vat_rate is not None else Decimal("0")
+        rate = rates.get(ln.product_id, Decimal("0")) if p else Decimal("0")
         if rate < 0:
             rate = Decimal("0")
         if rate > Decimal("1"):
@@ -272,7 +273,8 @@ async def upsert_line(
         return cart
 
     unit_price = await get_active_sell_price(db, product_id=product.id)
-    rate = product.output_vat_rate if product.output_vat_rate is not None else Decimal("0")
+    rates = await map_effective_output_tax_rates(db, products_by_id={product.id: product})
+    rate = rates.get(product.id, Decimal("0"))
     if rate < 0:
         rate = Decimal("0")
     if rate > Decimal("1"):
@@ -553,7 +555,10 @@ async def deduct_exchange_cart_for_return(
             unit_price = await get_active_sell_price(db, product_id=product_id)
             p_res = await db.execute(select(Product).where(Product.id == product_id))
             product = p_res.scalar_one_or_none()
-            rate = product.output_vat_rate if product and product.output_vat_rate is not None else Decimal("0")
+            rates = await map_effective_output_tax_rates(
+                db, products_by_id={product_id: product} if product else {}
+            )
+            rate = rates.get(product_id, Decimal("0")) if product else Decimal("0")
             if rate < 0:
                 rate = Decimal("0")
             if rate > Decimal("1"):

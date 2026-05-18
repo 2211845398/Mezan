@@ -27,7 +27,8 @@
     "save_ok": "Product saved",
     "status_updated": "Product status updated",
     "no_permission": "You do not have permission to perform this action.",
-    "list_note": "Showing up to 2000 products from the server. Use filters to narrow results.",
+    "list_note": "Loads 50 products per page (newest first). With search, up to 50 matches per page are ordered by closest match (barcode, SKU, name). Use filters, then Previous / Next between pages.",
+    "page_indicator": "Page {{page}}",
     "attributes_empty": "No dynamic fields are defined for this primary category yet.",
     "tags_empty": "No other categories available to tag.",
     "sku_auto_hint": "SKU is generated automatically when you save.",
@@ -41,7 +42,7 @@
       "basic": "Basic information",
       "pricing": "Pricing",
       "categories": "Categories",
-      "presentation": "Image, barcode & status",
+      "presentation": "Image & status",
       "attributes": "Dynamic attributes"
     },
     "field": {
@@ -60,9 +61,11 @@
     },
     "tax": {
       "title": "Taxes",
-      "future_hint": "Taxes will be managed by a tax engine: add taxes as tags and calculate them automatically. The current value is kept as-is until that ships."
+      "future_hint": "A future tax engine will manage tags and automatic calculation. The current value is kept until then.",
+      "empty_defs": "No tax definitions yet. Create them under Catalog → Taxes."
     },
-    "tags_help": "Tap a category to tag this product when it belongs to more than one category.",
+    "variant_attrs_title": "Variant / piece attributes",
+    "tags_help": "You can select additional categories when the product belongs to more than one category.",
     "col": {
       "sku": "SKU",
       "name": "Name",
@@ -84,10 +87,31 @@
     },
     "status": { "active": "Active", "archived": "Archived" }
   },
+  "taxes": {
+    "title": "Taxes",
+    "new": "New tax",
+    "edit": "Edit tax",
+    "save_ok": "Tax saved",
+    "archive": "Deactivate",
+    "archive_confirm": "Deactivate this definition? It will not be offered for new product links.",
+    "status_yes": "Yes",
+    "status_no": "No",
+    "col": {
+      "name": "Name",
+      "code": "Code",
+      "rate": "Rate",
+      "active": "Active"
+    },
+    "field": {
+      "name": "Name",
+      "code": "Optional unique code",
+      "rate": "Rate (fraction)",
+      "rate_hint": "Example: 0.15 means 15% on the tax-exclusive amount.",
+      "active": "Definition active"
+    }
+  },
   "barcode": {
-    "label": "Barcode",
-    "generate": "Generate EAN",
-    "hint": "Leave empty to assign an internal barcode automatically when you save. After the product exists you can use Generate EAN to replace it."
+    "label": "Barcode"
   },
   "categories": {
     "title": "Categories",

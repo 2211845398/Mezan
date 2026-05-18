@@ -12,11 +12,29 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.services.catalog_service import resolve_default_variant_id
 
 TERMINAL_STATUSES = frozenset({"closed", "cancelled"})
+
+
+async def _line_variant_id(db: AsyncSession, *, product_id: int, variant_id: int | None) -> int:
+    if variant_id is not None:
+        res = await db.execute(
+            select(ProductVariant.product_id).where(ProductVariant.id == variant_id)
+        )
+        pid = res.scalar_one_or_none()
+        if pid is None:
+            raise ValidationError("Unknown variant_id", details={"variant_id": variant_id})
+        if int(pid) != int(product_id):
+            raise ValidationError(
+                "variant_id does not belong to product_id",
+                details={"variant_id": variant_id, "product_id": product_id},
+            )
+        return int(variant_id)
+    return await resolve_default_variant_id(db, product_id=product_id)
 
 
 async def _get_po(db: AsyncSession, po_id: int) -> PurchaseOrder:
@@ -66,8 +84,9 @@ async def create_po(
     await _ensure_products_exist(db, product_ids)
     for ln in lines:
         row = dict(ln)
-        if row.get("variant_id") is None:
-            row["variant_id"] = await resolve_default_variant_id(db, product_id=row["product_id"])
+        row["variant_id"] = await _line_variant_id(
+            db, product_id=row["product_id"], variant_id=row.get("variant_id")
+        )
         db.add(PurchaseOrderLine(purchase_order_id=po.id, **row))
 
     try:
@@ -119,8 +138,9 @@ async def update_po(db: AsyncSession, *, po_id: int, data: dict[str, Any]) -> Pu
         await db.flush()
         for ln in lines:
             row = dict(ln)
-            if row.get("variant_id") is None:
-                row["variant_id"] = await resolve_default_variant_id(db, product_id=row["product_id"])
+            row["variant_id"] = await _line_variant_id(
+                db, product_id=row["product_id"], variant_id=row.get("variant_id")
+            )
             po.lines.append(PurchaseOrderLine(**row))
 
     await db.commit()

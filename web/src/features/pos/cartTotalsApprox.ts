@@ -61,16 +61,31 @@ export function catalogListUnitPriceString(p: ProductRead): string {
   return '0.00';
 }
 
+/** Normalize catalog `products` query cache: plain list (POS) or paged `{ items, total }` (catalog list). */
+function catalogProductQueryRows(data: unknown): ProductRead[] | null {
+  if (Array.isArray(data)) return data as ProductRead[];
+  if (
+    data &&
+    typeof data === 'object' &&
+    'items' in data &&
+    Array.isArray((data as { items: unknown }).items)
+  ) {
+    return (data as { items: ProductRead[] }).items;
+  }
+  return null;
+}
+
 export function findProductInCatalogCache(qc: QueryClient, productId: number): ProductRead | undefined {
-  const matches = qc.getQueriesData<ProductRead[]>({
+  const matches = qc.getQueriesData<unknown>({
     predicate: (q) =>
       Array.isArray(q.queryKey) &&
       q.queryKey[0] === catalogKeys.root[0] &&
       q.queryKey[1] === 'products',
   });
-  for (const [, list] of matches) {
-    if (!list) continue;
-    const hit = list.find((p) => p.id === productId);
+  for (const [, raw] of matches) {
+    const rows = catalogProductQueryRows(raw);
+    if (!rows?.length) continue;
+    const hit = rows.find((p) => p.id === productId);
     if (hit) return hit;
   }
   const single = qc.getQueryData<ProductRead>(catalogKeys.product(productId));

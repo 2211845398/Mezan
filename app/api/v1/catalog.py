@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.encoders import jsonable_encoder
+from starlette.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_any_permission, require_permission
@@ -23,31 +25,42 @@ from app.schemas.catalog import (
     ProductImageUploadRead,
     ProductRead,
     ProductUpdate,
+    ProductVariantPurchasingSearchItem,
+    TaxDefinitionCreate,
+    TaxDefinitionRead,
+    TaxDefinitionUpdate,
 )
 from app.services import audit_service
 from app.services.catalog_service import (
     archive_product,
+    archive_tax_definition,
+    count_products,
     create_category,
     create_category_attribute_def,
     create_product,
+    create_tax_definition,
     delete_category,
     delete_category_attribute_def,
     filter_products_by_attributes,
     generate_product_barcode,
     get_category,
     get_product,
+    get_tax_definition_row,
     list_categories,
     list_category_attribute_defs_for_ui,
     list_category_tree,
     list_products,
+    list_tax_definitions,
     product_to_read,
     products_to_reads,
     save_category_image_bytes,
     save_product_image_bytes,
+    search_product_variants_for_purchasing,
     unarchive_product,
     update_category,
     update_category_attribute_def,
     update_product,
+    update_tax_definition,
 )
 
 router = APIRouter()
@@ -298,6 +311,115 @@ async def delete_category_attribute_endpoint(
     await db.commit()
 
 
+# Tax definitions (catalog output taxes)
+@router.get("/tax-definitions", response_model=list[TaxDefinitionRead])
+async def list_tax_definitions_endpoint(
+    include_inactive: bool = True,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("catalog", "read"),
+) -> list[TaxDefinitionRead]:
+    rows = await list_tax_definitions(db, include_inactive=include_inactive)
+    return [TaxDefinitionRead.model_validate(r) for r in rows]
+
+
+@router.post("/tax-definitions", response_model=TaxDefinitionRead, status_code=status.HTTP_201_CREATED)
+async def create_tax_definition_endpoint(
+    body: TaxDefinitionCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("catalog", "create"),
+) -> TaxDefinitionRead:
+    row = await create_tax_definition(db, data=body.model_dump(exclude_none=True))
+    read = TaxDefinitionRead.model_validate(row)
+    await audit_service.log(
+        session=db,
+        action="tax_definition.created",
+        resource_type="tax_definition",
+        resource_id=str(row.id),
+        new_value=read.model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return read
+
+
+@router.get("/tax-definitions/{tax_id}", response_model=TaxDefinitionRead)
+async def get_tax_definition_endpoint(
+    tax_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("catalog", "read"),
+) -> TaxDefinitionRead:
+    row = await get_tax_definition_row(db, tax_id)
+    return TaxDefinitionRead.model_validate(row)
+
+
+@router.patch("/tax-definitions/{tax_id}", response_model=TaxDefinitionRead)
+async def update_tax_definition_endpoint(
+    tax_id: int,
+    body: TaxDefinitionUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("catalog", "update"),
+) -> TaxDefinitionRead:
+    row = await update_tax_definition(db, tax_id=tax_id, data=body.model_dump(exclude_unset=True))
+    read = TaxDefinitionRead.model_validate(row)
+    await audit_service.log(
+        session=db,
+        action="tax_definition.updated",
+        resource_type="tax_definition",
+        resource_id=str(row.id),
+        new_value=read.model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return read
+
+
+@router.delete("/tax-definitions/{tax_id}", response_model=TaxDefinitionRead)
+async def archive_tax_definition_endpoint(
+    tax_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("catalog", "update"),
+) -> TaxDefinitionRead:
+    row = await archive_tax_definition(db, tax_id=tax_id)
+    read = TaxDefinitionRead.model_validate(row)
+    await audit_service.log(
+        session=db,
+        action="tax_definition.archived",
+        resource_type="tax_definition",
+        resource_id=str(row.id),
+        new_value=read.model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return read
+
+
+@router.get(
+    "/product-variants/search",
+    response_model=list[ProductVariantPurchasingSearchItem],
+)
+async def search_product_variants_endpoint(
+    q: str | None = None,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_any_permission(("catalog", "read"), ("purchase_orders", "read")),
+) -> list[ProductVariantPurchasingSearchItem]:
+    """Search stock-keeping variants for purchasing line pickers (display name = product)."""
+    return await search_product_variants_for_purchasing(db, q=q, limit=limit, offset=offset)
+
+
 # Products
 @router.post("/products", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
 async def create_product_endpoint(
@@ -323,28 +445,51 @@ async def create_product_endpoint(
     return read
 
 
-@router.get("/products", response_model=list[ProductRead])
+@router.get("/products")
 async def list_products_endpoint(
     q: str | None = None,
     category_id: int | None = None,
     category_include_descendants: bool = False,
     status: str | None = None,
+    branch_id: int | None = None,
+    in_stock_only: bool = False,
     limit: int = 50,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("catalog", "read"),
-) -> list[ProductRead]:
+) -> JSONResponse:
+    if in_stock_only and branch_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="branch_id is required when in_stock_only is true",
+        )
+    total = await count_products(
+        db,
+        q=q,
+        category_id=category_id,
+        category_include_descendants=category_include_descendants,
+        status=status,
+        attributes_filter=None,
+        branch_id=branch_id,
+        in_stock_only=in_stock_only,
+    )
     rows = await list_products(
         db,
         q=q,
         category_id=category_id,
         category_include_descendants=category_include_descendants,
         status=status,
+        branch_id=branch_id,
+        in_stock_only=in_stock_only,
         limit=limit,
         offset=offset,
     )
-    return await products_to_reads(db, rows)
+    reads = await products_to_reads(db, rows)
+    return JSONResponse(
+        content=jsonable_encoder(reads),
+        headers={"X-Total-Count": str(total)},
+    )
 
 
 @router.post("/products/images", response_model=ProductImageUploadRead)

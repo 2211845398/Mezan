@@ -192,6 +192,172 @@ async def test_product_create_without_sku_assigns_auto_sku(
 
 
 @pytest.mark.asyncio
+async def test_create_product_without_required_category_attributes_ok(
+    client: AsyncClient,
+    admin_auth_header: dict[str, str],
+) -> None:
+    """Master product shell: required category attrs (e.g. SIZE) are filled on variant/receipt flows."""
+    suffix = uuid4().hex[:10]
+    cat = await client.post(
+        "/api/v1/categories",
+        headers=admin_auth_header,
+        json={
+            "name": f"ReqAttrCat_{suffix}",
+            "slug": f"req-attr-cat-{suffix}",
+            "sort_order": 0,
+            "is_active": True,
+        },
+    )
+    assert cat.status_code == 201, cat.text
+    cid = cat.json()["id"]
+
+    attr = await client.post(
+        f"/api/v1/categories/{cid}/attributes",
+        headers=admin_auth_header,
+        json={
+            "key": "SIZE",
+            "label": "Size",
+            "type": "text",
+            "required": True,
+            "sort_order": 0,
+        },
+    )
+    assert attr.status_code == 201, attr.text
+
+    prod = await client.post(
+        "/api/v1/products",
+        headers=admin_auth_header,
+        json={
+            "category_id": cid,
+            "name": f"ShellProduct_{suffix}",
+            "sku": f"SKU-SHELL-{suffix}",
+            "status": "active",
+            "attributes": {},
+            "output_vat_rate": "0",
+        },
+    )
+    assert prod.status_code == 201, prod.text
+    assert "SIZE" not in (prod.json().get("attributes") or {})
+
+
+@pytest.mark.asyncio
+async def test_product_update_empty_enum_string_treated_as_unset(
+    client: AsyncClient,
+    admin_auth_header: dict[str, str],
+) -> None:
+    """UI sends '' for empty Select; server must not reject with invalid enum."""
+    suffix = uuid4().hex[:10]
+    cat = await client.post(
+        "/api/v1/categories",
+        headers=admin_auth_header,
+        json={
+            "name": f"EnumAttrCat_{suffix}",
+            "slug": f"enum-attr-{suffix}",
+            "sort_order": 0,
+            "is_active": True,
+        },
+    )
+    assert cat.status_code == 201, cat.text
+    cid = cat.json()["id"]
+
+    attr = await client.post(
+        f"/api/v1/categories/{cid}/attributes",
+        headers=admin_auth_header,
+        json={
+            "key": "SIZE",
+            "label": "Size",
+            "type": "enum",
+            "required": False,
+            "sort_order": 0,
+            "options": {"values": ["S", "M", "L", "XL"]},
+        },
+    )
+    assert attr.status_code == 201, attr.text
+
+    prod = await client.post(
+        "/api/v1/products",
+        headers=admin_auth_header,
+        json={
+            "category_id": cid,
+            "name": f"EnumProduct_{suffix}",
+            "sku": f"SKU-ENUM-{suffix}",
+            "status": "active",
+            "attributes": {},
+            "output_vat_rate": "0",
+        },
+    )
+    assert prod.status_code == 201, prod.text
+    pid = prod.json()["id"]
+
+    upd = await client.patch(
+        f"/api/v1/products/{pid}",
+        headers=admin_auth_header,
+        json={"attributes": {"SIZE": ""}},
+    )
+    assert upd.status_code == 200, upd.text
+    assert "SIZE" not in (upd.json().get("attributes") or {})
+
+
+@pytest.mark.asyncio
+async def test_product_update_empty_enum_string_when_required_is_missing_error(
+    client: AsyncClient,
+    admin_auth_header: dict[str, str],
+) -> None:
+    suffix = uuid4().hex[:10]
+    cat = await client.post(
+        "/api/v1/categories",
+        headers=admin_auth_header,
+        json={
+            "name": f"ReqEnumCat_{suffix}",
+            "slug": f"req-enum-{suffix}",
+            "sort_order": 0,
+            "is_active": True,
+        },
+    )
+    assert cat.status_code == 201, cat.text
+    cid = cat.json()["id"]
+
+    attr = await client.post(
+        f"/api/v1/categories/{cid}/attributes",
+        headers=admin_auth_header,
+        json={
+            "key": "SIZE",
+            "label": "Size",
+            "type": "enum",
+            "required": True,
+            "sort_order": 0,
+            "options": {"values": ["S", "M", "L", "XL"]},
+        },
+    )
+    assert attr.status_code == 201, attr.text
+
+    prod = await client.post(
+        "/api/v1/products",
+        headers=admin_auth_header,
+        json={
+            "category_id": cid,
+            "name": f"ReqEnumProd_{suffix}",
+            "sku": f"SKU-REN-{suffix}",
+            "status": "active",
+            "attributes": {"SIZE": "M"},
+            "output_vat_rate": "0",
+        },
+    )
+    assert prod.status_code == 201, prod.text
+    pid = prod.json()["id"]
+
+    bad = await client.patch(
+        f"/api/v1/products/{pid}",
+        headers=admin_auth_header,
+        json={"attributes": {"SIZE": ""}},
+    )
+    assert bad.status_code == 422, bad.text
+    err = bad.json()["error"]
+    assert err["code"] == "validation_error"
+    assert "SIZE" in err["details"]["missing_keys"]
+
+
+@pytest.mark.asyncio
 async def test_product_image_upload_returns_static_url(
     client: AsyncClient,
     admin_auth_header: dict[str, str],

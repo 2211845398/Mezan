@@ -67,6 +67,8 @@ export type DataTableProps<TData> = {
   /** Export button in the toolbar. The body is the consumer's responsibility. */
   onExport?: ((table: ReturnType<typeof useReactTable<TData>>) => void) | undefined;
   toolbarExtras?: ReactNode;
+  /** Hide built-in pagination (e.g. when the parent drives offset/limit via API). */
+  showPagination?: boolean;
   /** Hide the global search field (short static lists). */
   showSearch?: boolean;
   /** Optional footer action bar slot (rendered when rows are selected). */
@@ -98,6 +100,7 @@ export function DataTable<TData>({
   onExport,
   toolbarExtras,
   showSearch = true,
+  showPagination = true,
   renderActionBar,
   defaultUrlQuery,
   estimatedRowHeight = 40,
@@ -330,13 +333,15 @@ export function DataTable<TData>({
         {body}
       </div>
 
-      <Pagination
-        page={page}
-        pageSize={pageSize}
-        totalRows={totalForPagination}
-        onPageChange={urlActions.setPage}
-        onPageSizeChange={urlActions.setPageSize}
-      />
+      {showPagination ? (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalRows={totalForPagination}
+          onPageChange={urlActions.setPage}
+          onPageSizeChange={urlActions.setPageSize}
+        />
+      ) : null}
 
       {renderActionBar && selectedRows.length > 0 ? (
         <div className="sticky bottom-2 mt-3 rounded-md border bg-popover p-3 shadow-lg">

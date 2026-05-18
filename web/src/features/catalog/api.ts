@@ -1,9 +1,13 @@
 import { apiClient } from '@/api/client';
-import type { paths } from '@/api/generated/schema';
+import type { components, paths } from '@/api/generated/schema';
 
-type ProductRead = paths['/api/v1/products']['get']['responses']['200']['content']['application/json'][number];
-type ProductCreate = paths['/api/v1/products']['post']['requestBody']['content']['application/json'];
-type ProductUpdate = paths['/api/v1/products/{product_id}']['patch']['requestBody']['content']['application/json'];
+type ProductReadBase = paths['/api/v1/products']['get']['responses']['200']['content']['application/json'][number];
+type ProductCreateBase = paths['/api/v1/products']['post']['requestBody']['content']['application/json'];
+type ProductUpdateBase = paths['/api/v1/products/{product_id}']['patch']['requestBody']['content']['application/json'];
+
+export type ProductRead = ProductReadBase & { tax_definition_ids?: number[] };
+export type ProductCreate = ProductCreateBase & { tax_definition_ids?: number[] | null };
+export type ProductUpdate = ProductUpdateBase & { tax_definition_ids?: number[] | null };
 type CategoryRead = paths['/api/v1/categories']['get']['responses']['200']['content']['application/json'][number];
 type CategoryCreate = paths['/api/v1/categories']['post']['requestBody']['content']['application/json'];
 type CategoryUpdate = paths['/api/v1/categories/{category_id}']['patch']['requestBody']['content']['application/json'];
@@ -20,21 +24,113 @@ export type {
   CategoryRead,
   CategoryTreeNode,
   CategoryUpdate,
-  ProductCreate,
-  ProductRead,
-  ProductUpdate,
 };
+
+export type TaxDefinitionRead = {
+  id: number;
+  name: string;
+  code: string | null;
+  rate: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TaxDefinitionCreateBody = {
+  name: string;
+  code?: string | null;
+  rate: string | number;
+  is_active?: boolean;
+};
+
+export type TaxDefinitionUpdateBody = {
+  name?: string | null;
+  code?: string | null;
+  rate?: string | number | null;
+  is_active?: boolean | null;
+};
+
+export async function listTaxDefinitions(includeInactive = true): Promise<TaxDefinitionRead[]> {
+  const { data } = await apiClient.get<TaxDefinitionRead[]>('/tax-definitions', {
+    params: { include_inactive: includeInactive },
+  });
+  return data;
+}
+
+export async function createTaxDefinition(body: TaxDefinitionCreateBody): Promise<TaxDefinitionRead> {
+  const { data } = await apiClient.post<TaxDefinitionRead>('/tax-definitions', body);
+  return data;
+}
+
+export async function updateTaxDefinition(
+  id: number,
+  body: TaxDefinitionUpdateBody,
+): Promise<TaxDefinitionRead> {
+  const { data } = await apiClient.patch<TaxDefinitionRead>(`/tax-definitions/${id}`, body);
+  return data;
+}
+
+export async function archiveTaxDefinition(id: number): Promise<TaxDefinitionRead> {
+  const { data } = await apiClient.delete<TaxDefinitionRead>(`/tax-definitions/${id}`);
+  return data;
+}
+
+export type ProductVariantPurchasingSearchItem =
+  components['schemas']['ProductVariantPurchasingSearchItem'];
+
+export async function searchProductVariantsForPurchasing(params: {
+  q: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ProductVariantPurchasingSearchItem[]> {
+  const { data } = await apiClient.get<ProductVariantPurchasingSearchItem[]>('/product-variants/search', {
+    params,
+  });
+  return data;
+}
 
 export async function listProducts(params: {
   q?: string;
   category_id?: number;
   category_include_descendants?: boolean;
   status?: string;
+  branch_id?: number;
+  in_stock_only?: boolean;
   limit?: number;
   offset?: number;
 }): Promise<ProductRead[]> {
   const { data } = await apiClient.get<ProductRead[]>('/products', { params });
   return data;
+}
+
+function productListTotalFromHeaders(headers: Record<string, unknown>, rowCount: number): number {
+  const get =
+    headers && typeof (headers as { get?: (name: string) => string | undefined }).get === 'function'
+      ? (headers as { get: (name: string) => string | undefined }).get.bind(headers)
+      : (name: string) => {
+          const v = (headers as Record<string, string | undefined>)[name];
+          return typeof v === 'string' ? v : undefined;
+        };
+  const raw = get('x-total-count') ?? get('X-Total-Count');
+  const n = raw != null && raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(n) ? n : rowCount;
+}
+
+/** Same as {@link listProducts} plus total row count from `X-Total-Count` (catalog list pagination). */
+export async function listProductsWithTotal(params: {
+  q?: string;
+  category_id?: number;
+  category_include_descendants?: boolean;
+  status?: string;
+  branch_id?: number;
+  in_stock_only?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: ProductRead[]; total: number }> {
+  const res = await apiClient.get<ProductRead[]>('/products', { params });
+  const items = res.data;
+  const total = productListTotalFromHeaders(res.headers as Record<string, unknown>, items.length);
+  return { items, total };
 }
 
 export async function getProduct(id: number): Promise<ProductRead> {

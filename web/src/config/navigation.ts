@@ -20,6 +20,7 @@ import {
   Megaphone,
   Monitor,
   Package,
+  Percent,
   Receipt,
   ScanLine,
   Settings,
@@ -106,6 +107,13 @@ export const navigation: NavItem[] = [
         labelKey: 'nav.catalog_products',
         icon: Package,
         href: '/catalog/products',
+        permission: { resource: 'catalog', action: 'read' },
+      },
+      {
+        key: 'catalog-taxes',
+        labelKey: 'nav.catalog_taxes',
+        icon: Percent,
+        href: '/catalog/taxes',
         permission: { resource: 'catalog', action: 'read' },
       },
       {

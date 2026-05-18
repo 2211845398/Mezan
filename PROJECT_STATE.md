@@ -102,7 +102,7 @@
 
 #### Epic 2 — Master Catalog and Inventory Engine
 - [x] **2.1** Hierarchical categories and dynamic attributes.
-- [x] **2.2** Product catalog CRUD, barcode domain support.
+- [x] **2.2** Product catalog CRUD, barcode domain support, catalog tax definitions and product tax links (parallel rates; POS uses effective rate).
 - [x] **2.3** Purchase orders (draft/sent/tracked flow).
 - [x] **2.4** Invoice scan pipeline (basic OCR provider).
 - [x] **2.5** Manual override / validation for scanned invoices.
@@ -208,6 +208,7 @@
 - [x] **W-5.2** POS web: `/pos` shell, `ShiftGate`, `PosRegister`, thermal receipts, offline queue stub.
 - [x] **W-5.3** Inventory and catalog: products, categories, price lists, stock, adjustments, transfers.
 - [x] **W-5.3.1** Inventory operations UI: stock workspace (KPI strip, search, reorder-only filter, PO-from-alerts), product stock card page, movement form (transaction types + `ProductSearch`), transfers with branch/product labels, receiving scans labels; manual TS API shapes until OpenAPI regen.
+- [x] **W-5.3.2** Catalog tax definitions (`/catalog/taxes`), product multi-tax links, effective VAT on POS from definitions.
 
 - [x] **W-5.4** Purchase orders + goods receipts + invoice scans.
 - [x] **W-5.5** HR (employees, attendance, leave) + Payroll.
@@ -356,6 +357,7 @@ Resolves `D-7`, `GAP-CAT-005..007`, `GAP-INV-007`. Blocking dependency for Epic 
 - [x] **18.9** Remove `standard_cost` and `sell_price` from product form (frontend task); pricing via Purchase Invoice / Price List.
 - [x] **18.10** Variant-aware product detail API: `GET /catalog/products/{id}/with-variants` returns product with variants, stock per variant, last cost per variant.
 - [x] **18.11** Variant wiring (Phase 2 Workstream B): session-scoped cache in `resolve_default_variant_id`; POS cart lines keyed by `(product_id, variant_id)`; optional `variant_id` on cart upsert / stock adjustment / PO lines; WAVG `apply_receipt_to_weighted_average` and transfer receive use explicit variant; GL (`post_sales_invoice_gl`, `post_sales_return_gl`, `post_transfer_batch_receive_gl`) uses per-line variant for COGS / inventory at source WAVG.
+- [x] **18.12** Default variant on product create (`create_product` → `ProductVariant` with `_default` marker); `GET /api/v1/product-variants/search` for purchasing line pickers; `GET /api/v1/products?branch_id=&in_stock_only=` for POS sellable grid; PO service validates explicit `variant_id` matches `product_id`.
 
 #### Epic 19 — Accounting Core Hardening
 Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The largest backend epic of Phase 2.

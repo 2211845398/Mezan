@@ -52,6 +52,8 @@ from app.models.pos_terminal import POSTerminal
 from app.models.price_list import PriceList, PriceListBranch, PriceListLine
 from app.models.product import Product
 from app.models.product_category import ProductCategory
+from app.models.product_tax_definition import ProductTaxDefinition
+from app.models.tax_definition import TaxDefinition
 from app.models.product_variant import ProductVariant
 from app.models.product_price import ProductPrice
 from app.models.purchase_order import PurchaseOrder
@@ -156,6 +158,7 @@ __all__ = [
     "ExchangeLink",
     "Product",
     "ProductCategory",
+    "ProductTaxDefinition",
     "ProductPrice",
     "ProductVariant",
     "PurchaseOrder",
@@ -163,6 +166,7 @@ __all__ = [
     "StockLevel",
     "Supplier",
     "StockMovement",
+    "TaxDefinition",
     "GoodsReceipt",
     "GoodsReceiptLine",
     "InventoryPolicy",

@@ -67,6 +67,7 @@ const AdminNotificationsLayout = lazy(
 
 const CatalogProductsList = lazy(() => import('@/features/catalog/pages/products/ProductsList'));
 const CatalogProductFormPage = lazy(() => import('@/features/catalog/pages/products/ProductFormPage'));
+const CatalogTaxesList = lazy(() => import('@/features/catalog/pages/taxes/TaxesList'));
 const CatalogCategoriesTree = lazy(() => import('@/features/catalog/pages/categories/CategoriesTree'));
 const CatalogCategoryProperties = lazy(
   () => import('@/features/catalog/pages/categories/CategoryPropertiesPage'),
@@ -299,6 +300,14 @@ export const router = createBrowserRouter([
                     ),
                   },
                 ],
+              },
+              {
+                path: 'taxes',
+                element: (
+                  <RequirePermission resource="catalog" action="read">
+                    {withSuspense(CatalogTaxesList)}
+                  </RequirePermission>
+                ),
               },
               {
                 path: 'categories',

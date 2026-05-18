@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -27,11 +27,9 @@ import { cn } from '@/lib/utils';
 
 import {
   createProduct,
-  postGenerateBarcode,
-  type ProductRead,
+  listTaxDefinitions,
   updateProduct,
 } from '../../api';
-import { AttributeFieldset } from '../../components/AttributeFieldset';
 import { BarcodeRepeater } from '../../components/BarcodeRepeater';
 import { ProductImageUploadField } from '../../components/ProductImageUploadField';
 import { catalogKeys, useCategoryAttributesQuery, useCategoryTreeQuery, useProductQuery } from '../../queries';
@@ -63,6 +61,7 @@ function buildProductFormSchema(isNew: boolean) {
     barcode: z.string().optional().nullable(),
     image_url: z.string().optional().nullable(),
     output_vat_rate: z.string(),
+    tax_definition_ids: z.array(z.number()),
     attributes: z.record(z.unknown()).optional(),
     isActive: z.boolean(),
   });
@@ -90,7 +89,15 @@ export default function ProductFormPage() {
     isNew || !productIdValid ? null : rawProductId,
   );
   const { data: tree = [] } = useCategoryTreeQuery();
+  const { data: taxDefinitions = [] } = useQuery({
+    queryKey: catalogKeys.taxDefinitions(true),
+    queryFn: () => listTaxDefinitions(true),
+  });
   const flat = useMemo(() => flattenCategoryTree(tree, '', true), [tree]);
+  const activeTaxOptions = useMemo(
+    () => taxDefinitions.filter((d) => d.is_active).sort((a, b) => a.name.localeCompare(b.name)),
+    [taxDefinitions],
+  );
 
   const allowed = isNew ? canCreate : canUpdate;
 
@@ -104,6 +111,7 @@ export default function ProductFormPage() {
       barcode: '',
       image_url: '',
       output_vat_rate: '0',
+      tax_definition_ids: [],
       attributes: {},
       isActive: true,
     },
@@ -130,6 +138,7 @@ export default function ProductFormPage() {
       barcode: product.barcode ?? '',
       image_url: product.image_url ?? '',
       output_vat_rate: String(product.output_vat_rate ?? '0'),
+      tax_definition_ids: [...(product.tax_definition_ids ?? [])],
       attributes: (product.attributes as Record<string, unknown>) ?? {},
       isActive: product.status !== 'archived',
     });
@@ -154,6 +163,8 @@ export default function ProductFormPage() {
       const extraTags = v.tag_category_ids.filter((id) => id !== v.category_id);
       const attrs: Record<string, unknown> = { ...(v.attributes as Record<string, unknown> | undefined) };
       const imageTrimmed = v.image_url?.trim() ?? '';
+      const taxIds = [...new Set(v.tax_definition_ids)].sort((a, b) => a - b);
+      const vatOut = taxIds.length > 0 ? '0' : v.output_vat_rate;
 
       if (isNew) {
         const body: Parameters<typeof createProduct>[0] = {
@@ -163,9 +174,10 @@ export default function ProductFormPage() {
           barcode: v.barcode || null,
           status: v.isActive ? 'active' : 'archived',
           attributes: attrs,
-          output_vat_rate: v.output_vat_rate,
+          output_vat_rate: vatOut,
           sell_price_currency_id: null,
           category_ids: extraTags,
+          tax_definition_ids: taxIds,
           image_url: imageTrimmed === '' ? null : imageTrimmed,
           standard_cost: null,
           sell_price: null,
@@ -182,9 +194,10 @@ export default function ProductFormPage() {
         barcode: v.barcode || null,
         status: v.isActive ? 'active' : 'archived',
         attributes: attrs,
-        output_vat_rate: v.output_vat_rate,
+        output_vat_rate: vatOut,
         sell_price_currency_id: null,
         category_ids: extraTags,
+        tax_definition_ids: taxIds,
         image_url: imageTrimmed === '' ? null : imageTrimmed,
         standard_cost: null,
         sell_price: null,
@@ -199,12 +212,20 @@ export default function ProductFormPage() {
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
-  const genBar = useMutation({
-    mutationFn: async (p: ProductRead) => postGenerateBarcode(p.id),
-    onSuccess: (p) => {
-      form.setValue('barcode', p.barcode ?? '');
-    },
-  });
+  const toggleTax = (id: number, checked: boolean) => {
+    const cur = form.getValues('tax_definition_ids');
+    if (checked) {
+      if (!cur.includes(id)) {
+        form.setValue('tax_definition_ids', [...cur, id], { shouldDirty: true, shouldValidate: true });
+      }
+    } else {
+      form.setValue(
+        'tax_definition_ids',
+        cur.filter((x) => x !== id),
+        { shouldDirty: true, shouldValidate: true },
+      );
+    }
+  };
 
   const toggleTag = (id: number, checked: boolean) => {
     const cur = form.getValues('tag_category_ids');
@@ -280,38 +301,52 @@ export default function ProductFormPage() {
                       />
                       <div className="rounded-md border border-dashed bg-muted/15 p-3 sm:col-span-2">
                         <p className="text-sm font-medium">{t('products.tax.title')}</p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('products.tax.future_hint')}</p>
-                        <div
-                          className="mt-2 flex min-h-8 flex-wrap gap-1.5 rounded-md border border-border/60 bg-background/50 p-2"
-                          aria-hidden
-                        />
+                        {activeTaxOptions.length === 0 ? (
+                          <p className="mt-2 text-xs text-muted-foreground">{t('products.tax.empty_defs')}</p>
+                        ) : (
+                          <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-md border border-border/60 bg-background/50 p-2">
+                            {activeTaxOptions.map((d) => {
+                              const checked = form.watch('tax_definition_ids').includes(d.id);
+                              const pct = (Number.parseFloat(String(d.rate)) * 100).toFixed(2);
+                              return (
+                                <button
+                                  key={d.id}
+                                  type="button"
+                                  className={cn(
+                                    'rounded-full border px-2.5 py-1 text-start text-xs transition-colors',
+                                    checked
+                                      ? 'border-primary bg-primary/10 font-medium text-foreground shadow-sm'
+                                      : 'border-border bg-background text-foreground hover:bg-muted/60',
+                                  )}
+                                  onClick={() => toggleTax(d.id, !checked)}
+                                >
+                                  <span>{d.name}</span>
+                                  <span className="ms-1 num-latin text-muted-foreground">({pct}%)</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </SectionCard>
 
                   <SectionCard title={t('products.section.attributes')}>
-                    {isNew ? (
-                      <div className="rounded-md border border-dashed bg-muted/15 p-3">
-                        <p className="text-sm font-medium">سمات المتغيرات / القطع</p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                          تُحدد قيم هذه السمات (مثل اللون والمقاس) عند استلام البضائع الفعلية ولا تُدخل على مستوى المنتج الأساسي.
-                        </p>
-                        {defs && defs.length > 0 ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {defs.map((d) => (
-                              <span key={d.id} className="rounded-full bg-background px-2.5 py-0.5 text-xs border border-border/60">
-                                {d.label}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <AttributeFieldset defs={defs} categoryId={categoryForAttrs} compact />
-                    )}
-                    {!defs?.length && !isNew ? (
-                      <p className="text-sm text-muted-foreground">{t('products.attributes_empty')}</p>
-                    ) : null}
+                    <div className="rounded-md border border-dashed bg-muted/15 p-3">
+                      <p className="text-sm font-medium">{t('products.variant_attrs_title')}</p>
+                      {defs && defs.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {defs.map((d) => (
+                            <span
+                              key={d.id}
+                              className="rounded-full border border-border/60 bg-background px-2.5 py-0.5 text-xs"
+                            >
+                              {d.label}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   </SectionCard>
                 </div>
 
@@ -396,9 +431,7 @@ export default function ProductFormPage() {
                           <BarcodeRepeater
                             value={form.watch('barcode') ?? ''}
                             onChange={(b) => form.setValue('barcode', b)}
-                            {...(product ? { onGenerate: () => genBar.mutate(product) } : {})}
                           />
-                          <p className="mt-1 text-xs text-muted-foreground">{t('barcode.hint')}</p>
                         </div>
                       ) : null}
                       <FormField

@@ -4,6 +4,7 @@
     "pos": "Point of sale",
     "catalog": "Catalog",
     "catalog_products": "Products",
+    "catalog_taxes": "Taxes",
     "catalog_categories": "Categories",
     "inventory": "Inventory",
     "inventory_stock": "Stock & balances",

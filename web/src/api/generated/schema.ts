@@ -851,6 +851,23 @@ export interface paths {
         patch: operations["update_category_attribute_endpoint_api_v1_categories__category_id__attributes__attr_id__patch"];
         trace?: never;
     };
+    "/api/v1/product-variants/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Product Variants Endpoint */
+        get: operations["search_product_variants_endpoint_api_v1_product_variants_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products": {
         parameters: {
             query?: never;
@@ -5879,6 +5896,19 @@ export interface components {
             /** Image Url */
             image_url?: string | null;
         };
+        /** ProductVariantPurchasingSearchItem */
+        ProductVariantPurchasingSearchItem: {
+            /** Variant Id */
+            variant_id: number;
+            /** Product Id */
+            product_id: number;
+            /** Display Name */
+            display_name: string;
+            /** Sku */
+            sku: string;
+            /** Barcode */
+            barcode?: string | null;
+        };
         /** ProductRead */
         ProductRead: {
             /** Category Id */
@@ -6018,6 +6048,8 @@ export interface components {
         PurchaseOrderLineCreate: {
             /** Product Id */
             product_id: number;
+            /** Variant Id */
+            variant_id?: number | null;
             /** Qty */
             qty: number;
             /** Unit Cost */
@@ -6027,6 +6059,8 @@ export interface components {
         PurchaseOrderLineRead: {
             /** Product Id */
             product_id: number;
+            /** Variant Id */
+            variant_id?: number | null;
             /** Qty */
             qty: number;
             /** Unit Cost */
@@ -8980,6 +9014,8 @@ export interface operations {
                 category_id?: number | null;
                 category_include_descendants?: boolean;
                 status?: string | null;
+                branch_id?: number | null;
+                in_stock_only?: boolean;
                 limit?: number;
                 offset?: number;
             };
@@ -8996,6 +9032,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_product_variants_endpoint_api_v1_product_variants_search_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductVariantPurchasingSearchItem"][];
                 };
             };
             /** @description Validation Error */

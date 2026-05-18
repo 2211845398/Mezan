@@ -9,6 +9,10 @@ import { resolveMediaUrl } from '@/lib/mediaUrl';
 export type ProductGridProps = {
   disabled?: boolean;
   onAddProduct: (productId: number, qty?: number) => void;
+  /** Branch for stock filter (with {@link inStockOnly}). */
+  branchId?: number | null;
+  /** When true and {@link branchId} is set, only products with on_hand > 0 are listed. */
+  inStockOnly?: boolean;
 };
 
 function productImageSrc(product: ProductRead): string | null {
@@ -27,7 +31,8 @@ const ProductTile = memo(function ProductTile({
   disabled: boolean;
   onAddProduct: (productId: number, qty?: number) => void;
 }) {
-  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** DOM timer id (`number` in browsers). */
+  const clickTimerRef = useRef<number | null>(null);
 
   useEffect(
     () => () => {
@@ -79,18 +84,24 @@ const ProductTile = memo(function ProductTile({
   );
 });
 
-export function ProductGrid({ disabled, onAddProduct }: ProductGridProps) {
+export function ProductGrid({ disabled, onAddProduct, branchId, inStockOnly }: ProductGridProps) {
   const [q, setQ] = useState('');
 
   const params = useMemo((): ListProductsParams => {
     const trimmed = q.trim();
-    return {
-      ...(trimmed ? { q: trimmed } : {}),
+    const bid = branchId != null && branchId > 0 ? branchId : undefined;
+    const stockFilter = Boolean(inStockOnly && bid != null);
+    const base: ListProductsParams = {
       limit: 60,
       offset: 0,
       status: 'active',
+      ...(trimmed ? { q: trimmed } : {}),
     };
-  }, [q]);
+    if (stockFilter && bid != null) {
+      return { ...base, branch_id: bid, in_stock_only: true };
+    }
+    return base;
+  }, [q, branchId, inStockOnly]);
   const { data: products = [], isFetching } = useProducts(params, { enabled: !disabled });
 
   return (

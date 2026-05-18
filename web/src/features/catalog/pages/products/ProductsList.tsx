@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Archive, Pencil, RotateCcw } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -57,6 +57,8 @@ function flattenCategoryTree(
   return o;
 }
 
+const PAGE_SIZE = 50;
+
 export default function ProductsList() {
   const { t } = useTranslation('catalog');
   const navigate = useNavigate();
@@ -76,7 +78,62 @@ export default function ProductsList() {
   }, [searchParams]);
 
   const categorySubtree = searchParams.get('category_subtree') === '1';
-  const q = searchParams.get('q')?.trim() ?? '';
+  const qRaw = searchParams.get('q') ?? '';
+  const q = qRaw.trim();
+  const [searchDraft, setSearchDraft] = useState(qRaw);
+
+  useEffect(() => {
+    setSearchDraft(qRaw);
+  }, [qRaw]);
+
+  const pageSize = useMemo(() => {
+    const raw = searchParams.get('pageSize');
+    const n = Number.parseInt(raw ?? '', 10);
+    return Number.isFinite(n) && n > 0 ? n : PAGE_SIZE;
+  }, [searchParams]);
+
+  const tablePage = useMemo(() => {
+    const raw = searchParams.get('page');
+    const n = Number.parseInt(raw ?? '', 10);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  }, [searchParams]);
+
+  const offset = (tablePage - 1) * pageSize;
+
+  const setQuery = useCallback(
+    (patch: Record<string, string | null | undefined>) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [k, v] of Object.entries(patch)) {
+          if (v === null || v === undefined || v === '') {
+            next.delete(k);
+          } else {
+            next.set(k, v);
+          }
+        }
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
+  useEffect(() => {
+    const trimmed = searchDraft.trim();
+    if (trimmed === q) return;
+    const id = window.setTimeout(() => {
+      setQuery({ q: trimmed || null, page: null });
+    }, 350);
+    return () => window.clearTimeout(id);
+  }, [searchDraft, q, setQuery]);
+
+  useEffect(() => {
+    if (!searchParams.get('p')) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('p');
+      return next;
+    });
+  }, [searchParams, setSearchParams]);
 
   const { data: treeData = [] } = useCategoryTreeQuery();
   const categoryOptions = useMemo(() => flattenCategoryTree(treeData), [treeData]);
@@ -89,31 +146,29 @@ export default function ProductsList() {
     },
   });
 
-  const { data: rows = [], isLoading, isError, refetch } = useProductListQuery({
-    limit: 2000,
-    offset: 0,
+  const { data, isLoading, isError, refetch } = useProductListQuery({
+    limit: pageSize,
+    offset,
     ...(status ? { status } : {}),
     ...(categoryId != null ? { category_id: categoryId } : {}),
     ...(categoryId != null && categorySubtree ? { category_include_descendants: true } : {}),
     ...(q !== '' ? { q } : {}),
   });
 
+  const rows = data?.items ?? [];
+  const totalRows = data?.total ?? 0;
+
+  useEffect(() => {
+    if (isLoading || isError) return;
+    if (rows.length === 0 && tablePage > 1) {
+      setQuery({ page: null });
+    }
+  }, [isLoading, isError, rows.length, tablePage, setQuery]);
+
   const categoryNameById = useMemo(
     () => new Map(categoryOptions.map((c) => [c.id, c.name] as const)),
     [categoryOptions],
   );
-
-  const setQuery = (patch: Record<string, string | null | undefined>) => {
-    const next = new URLSearchParams(searchParams);
-    for (const [k, v] of Object.entries(patch)) {
-      if (v === null || v === undefined || v === '') {
-        next.delete(k);
-      } else {
-        next.set(k, v);
-      }
-    }
-    setSearchParams(next);
-  };
 
   const columns = useMemo(
     () =>
@@ -219,14 +274,20 @@ export default function ProductsList() {
           <Label htmlFor="product-search">{t('products.filter.search')}</Label>
           <Input
             id="product-search"
-            value={q}
-            onChange={(e) => setQuery({ q: e.target.value || null })}
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
             placeholder={t('products.filter.search_ph')}
           />
         </div>
         <div className="min-w-40 space-y-1">
           <Label>{t('products.filter.status')}</Label>
-          <Select value={status ?? 'all'} onValueChange={(v) => setStatus(v === 'all' ? null : v)}>
+          <Select
+            value={status ?? 'all'}
+            onValueChange={(v) => {
+              setStatus(v === 'all' ? null : v);
+              setQuery({ page: null });
+            }}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -243,9 +304,13 @@ export default function ProductsList() {
             value={categoryId == null ? 'all' : String(categoryId)}
             onValueChange={(v) => {
               if (v === 'all') {
-                setQuery({ category_id: null, category_subtree: null });
+                setQuery({ category_id: null, category_subtree: null, page: null });
               } else {
-                setQuery({ category_id: v, category_subtree: categorySubtree ? '1' : null });
+                setQuery({
+                  category_id: v,
+                  category_subtree: categorySubtree ? '1' : null,
+                  page: null,
+                });
               }
             }}
           >
@@ -267,7 +332,7 @@ export default function ProductsList() {
             id="subtree"
             checked={categorySubtree}
             disabled={categoryId == null}
-            onCheckedChange={(on) => setQuery({ category_subtree: on ? '1' : null })}
+            onCheckedChange={(on) => setQuery({ category_subtree: on ? '1' : null, page: null })}
           />
           <Label htmlFor="subtree" className="text-sm font-normal">
             {t('products.filter.include_subcategories')}
@@ -275,8 +340,10 @@ export default function ProductsList() {
         </div>
       </div>
       <DataTable
-        mode="client"
+        mode="server"
         showSearch={false}
+        totalRows={totalRows}
+        defaultUrlQuery={{ pageSize: PAGE_SIZE }}
         columns={columns}
         data={rows}
         isLoading={isLoading}
@@ -284,7 +351,6 @@ export default function ProductsList() {
         onRetry={() => {
           void refetch();
         }}
-        toolbarExtras={<p className="text-xs text-muted-foreground">{t('products.list_note')}</p>}
       />
       <AlertDialog
         open={archiveTarget != null}

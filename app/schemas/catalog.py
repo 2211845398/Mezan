@@ -51,6 +51,16 @@ class ProductImageUploadRead(BaseModel):
     image_url: str = Field(min_length=1, max_length=1024)
 
 
+class ProductVariantPurchasingSearchItem(BaseModel):
+    """Variant row for purchasing UIs (display name is the parent product)."""
+
+    variant_id: int
+    product_id: int
+    display_name: str
+    sku: str
+    barcode: str | None = None
+
+
 class CategoryTreeNode(CategoryRead):
     children: list[CategoryTreeNode] = Field(default_factory=list)
     direct_product_count: int = 0
@@ -94,6 +104,55 @@ class CategoryAttributeDefListRead(CategoryAttributeDefRead):
 
     is_inherited: bool = False
     source_category_name: str | None = None
+
+
+class TaxDefinitionCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    code: str | None = Field(default=None, max_length=64)
+    rate: Decimal = Field(
+        default=Decimal("0"),
+        ge=Decimal("0"),
+        lt=Decimal("1"),
+        description="Tax-exclusive fraction, e.g. 0.15 for 15%",
+    )
+    is_active: bool = True
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def empty_code_to_none(cls, v: Any) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
+
+class TaxDefinitionUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    code: str | None = Field(default=None, max_length=64)
+    rate: Decimal | None = Field(default=None, ge=Decimal("0"), lt=Decimal("1"))
+    is_active: bool | None = None
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def empty_code_to_none(cls, v: Any) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
+
+class TaxDefinitionRead(BaseModel):
+    id: int
+    name: str
+    code: str | None
+    rate: Decimal
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class ProductBase(BaseModel):
@@ -143,6 +202,10 @@ class ProductCreate(BaseModel):
         default=None,
         description="Extra category tags; primary is ``category_id`` and is always included.",
     )
+    tax_definition_ids: list[int] | None = Field(
+        default=None,
+        description="Output tax definitions applied to this product (parallel rates on exclusive base).",
+    )
 
     @field_validator("sku", mode="before")
     @classmethod
@@ -177,6 +240,10 @@ class ProductUpdate(BaseModel):
         default=None,
         description="Replace extra category tags; omit to leave unchanged.",
     )
+    tax_definition_ids: list[int] | None = Field(
+        default=None,
+        description="Replace applied tax definitions; omit to leave unchanged.",
+    )
     image_url: str | None = Field(default=None, max_length=1024)
 
 
@@ -187,6 +254,10 @@ class ProductRead(ProductBase):
     category_ids: list[int] = Field(
         default_factory=list,
         description="All linked categories including primary ``category_id``.",
+    )
+    tax_definition_ids: list[int] = Field(
+        default_factory=list,
+        description="Linked catalog tax definition ids (junction table).",
     )
 
     model_config = {"from_attributes": True}

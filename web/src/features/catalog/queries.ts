@@ -8,6 +8,7 @@ import {
   listCategories,
   listCategoryAttributes,
   listProducts,
+  listProductsWithTotal,
 } from './api';
 
 export const catalogKeys = {
@@ -19,6 +20,8 @@ export const catalogKeys = {
   category: (id: number) => [...catalogKeys.root, 'category', id] as const,
   categoryAttrs: (id: number, includeInherited?: boolean) =>
     [...catalogKeys.root, 'categoryAttrs', id, { includeInherited: includeInherited ?? true }] as const,
+  taxDefinitions: (includeInactive: boolean) =>
+    [...catalogKeys.root, 'taxDefinitions', includeInactive] as const,
 };
 
 export type ListProductsParams = {
@@ -26,12 +29,14 @@ export type ListProductsParams = {
   category_id?: number;
   category_include_descendants?: boolean;
   status?: string;
+  branch_id?: number;
+  in_stock_only?: boolean;
   limit: number;
   offset: number;
 };
 
-function buildListParams(p: ListProductsParams): Parameters<typeof listProducts>[0] {
-  const o: Parameters<typeof listProducts>[0] = { limit: p.limit, offset: p.offset };
+function buildListParams(p: ListProductsParams): Parameters<typeof listProductsWithTotal>[0] {
+  const o: Parameters<typeof listProductsWithTotal>[0] = { limit: p.limit, offset: p.offset };
   if (p.q !== undefined) {
     o.q = p.q;
   }
@@ -43,6 +48,12 @@ function buildListParams(p: ListProductsParams): Parameters<typeof listProducts>
   }
   if (p.status !== undefined) {
     o.status = p.status;
+  }
+  if (p.branch_id !== undefined) {
+    o.branch_id = p.branch_id;
+  }
+  if (p.in_stock_only !== undefined) {
+    o.in_stock_only = p.in_stock_only;
   }
   return o;
 }
@@ -81,7 +92,7 @@ export function useProductListQuery(params: {
       offset: params.offset,
     }),
     queryFn: () =>
-      listProducts(
+      listProductsWithTotal(
         buildListParams({
           limit: params.limit,
           offset: params.offset,

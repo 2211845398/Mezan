@@ -53,6 +53,11 @@ class Product(Base):
         back_populates="product",
         cascade="all, delete-orphan",
     )
+    tax_definition_links = relationship(
+        "ProductTaxDefinition",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
     variants = relationship(
         "ProductVariant",
         back_populates="product",

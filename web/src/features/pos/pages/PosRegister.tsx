@@ -68,6 +68,8 @@ type RegisterSessionProps = {
   cartId: number;
   terminalId: number;
   branchLabel: string;
+  /** Branch for POS product grid stock filter (shift branch). */
+  posBranchId: number;
   /** Paid carts this shift (`/pos/shifts/current` → `transactions_in_shift`). */
   transactionsInShift: number;
   parkedCount: number;
@@ -86,6 +88,7 @@ function RegisterSession({
   cartId,
   terminalId: _terminalId,
   branchLabel,
+  posBranchId,
   transactionsInShift,
   parkedCount,
   onOpenFreshCart,
@@ -355,6 +358,8 @@ function RegisterSession({
           />
           <ProductGrid
             disabled={!editable}
+            branchId={posBranchId}
+            inStockOnly
             onAddProduct={(productId, qty) => void onAddLine(productId, qty)}
           />
         </div>
@@ -586,6 +591,7 @@ export default function PosRegister() {
             cartId={activeCartId}
             terminalId={terminalId}
             branchLabel={branchLabel}
+            posBranchId={shift.branch_id}
             transactionsInShift={shift.transactions_in_shift ?? 0}
             parkedCount={parkedCount}
             onOpenFreshCart={openFreshCartAfterSessionEnd}
