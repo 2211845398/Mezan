@@ -7,7 +7,6 @@ import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
   Breadcrumb,
@@ -37,7 +36,6 @@ import { cn } from '@/lib/utils';
 
 import { useTransfersListQuery } from '../../queries';
 import type { TransferRead } from '../../types';
-import TransferForm from './TransferForm';
 
 type TransferBoardColumnStatus = 'pending_dispatch' | 'in_transit' | 'received';
 
@@ -147,8 +145,6 @@ export default function TransfersList() {
   const [fromBranchId, setFromBranchId] = useState<string>('all');
   const [toBranchId, setToBranchId] = useState<string>('all');
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
-  const [transferFormKey, setTransferFormKey] = useState(0);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -259,41 +255,35 @@ export default function TransfersList() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-start lg:gap-3">
-        <div className="order-2 flex flex-wrap items-center gap-2 lg:order-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => void refetch()}
-            disabled={isLoading}
-            title={t('transfers.board.refresh')}
-          >
-            <RefreshCw className={cn('size-4', isLoading && 'animate-spin')} />
-          </Button>
-          {canUpdate ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setTransferFormKey((k) => k + 1);
-                setTransferDialogOpen(true);
-              }}
-            >
-              {t('transfers.new')}
-            </Button>
-          ) : null}
+      <div
+        className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:gap-4"
+        dir={i18n.dir()}
+      >
+        <div
+          className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+          aria-hidden
+        >
+          <Truck className="size-6" />
         </div>
-        <div className="order-1 flex min-w-0 flex-1 gap-4 lg:order-2">
-          <div
-            className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-            aria-hidden
-          >
-            <Truck className="size-6" />
-          </div>
+        <div className="min-w-0 flex-1 sm:min-w-[12rem]">
           <PageHeader title={t('transfers.title')} subtitle={t('transfers.subtitle')} />
         </div>
+        {canUpdate ? (
+          <Button type="button" variant="outline" size="sm" className="shrink-0" asChild>
+            <Link to="/inventory/transfers/new">{t('transfers.new')}</Link>
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          onClick={() => void refetch()}
+          disabled={isLoading}
+          title={t('transfers.board.refresh')}
+        >
+          <RefreshCw className={cn('size-4', isLoading && 'animate-spin')} />
+        </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3 sm:[direction:rtl]">
@@ -312,26 +302,38 @@ export default function TransfersList() {
       </div>
 
       <Tabs defaultValue="board" className="flex flex-col gap-4" dir={i18n.dir()}>
-        <TabsList className="flex h-auto w-full flex-wrap gap-1 rounded-md bg-muted p-1 sm:w-auto">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-md bg-muted p-1">
           <TabsTrigger value="board">{t('transfers.board.tab_track')}</TabsTrigger>
           <TabsTrigger value="list">{t('transfers.board.tab_list')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="board" className="mt-0 flex flex-col gap-4 outline-none">
           <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4" dir={i18n.dir()}>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-              <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="lg:contents">
+            <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <Label htmlFor="transfer-search" className="sr-only">
+                    {t('transfers.board.search_placeholder')}
+                  </Label>
+                  <Input
+                    id="transfer-search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={t('transfers.board.search_placeholder')}
+                  />
+                </div>
                 <CollapsibleTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
-                    className="shrink-0 gap-2 self-start border-secondary/60 bg-background font-medium text-secondary shadow-none hover:bg-muted/50 hover:text-secondary lg:self-end"
+                    className="w-full shrink-0 gap-2 border-secondary/60 bg-background font-medium text-secondary shadow-none hover:bg-muted/50 hover:text-secondary sm:w-auto"
                   >
                     <Filter className="size-4" />
                     {advancedOpen ? t('transfers.board.advanced_close') : t('transfers.board.advanced_open')}
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="flex flex-col gap-3 data-[state=open]:mt-3 lg:col-span-full lg:flex-row lg:flex-wrap lg:items-end lg:gap-4">
+              </div>
+              <CollapsibleContent className="mt-3 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:gap-4">
                   <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:max-w-md">
                     <div className="space-y-1">
                       <Label htmlFor="tf-from">{t('transfers.board.date_from')}</Label>
@@ -377,19 +379,7 @@ export default function TransfersList() {
                     </div>
                   </div>
                 </CollapsibleContent>
-              </Collapsible>
-              <div className="min-w-0 flex-1 space-y-1">
-                <Label htmlFor="transfer-search" className="sr-only">
-                  {t('transfers.board.search_placeholder')}
-                </Label>
-                <Input
-                  id="transfer-search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={t('transfers.board.search_placeholder')}
-                />
-              </div>
-            </div>
+            </Collapsible>
           </div>
 
           {isError ? (
@@ -455,21 +445,6 @@ export default function TransfersList() {
       </Tabs>
 
       <p className="text-xs text-muted-foreground">{t('transfers.wavg_note')}</p>
-
-      <FloatingFormDialog
-        open={transferDialogOpen}
-        onOpenChange={setTransferDialogOpen}
-        title={t('transfers.new')}
-        maxWidth="lg"
-      >
-        {transferDialogOpen ? (
-          <TransferForm
-            key={transferFormKey}
-            variant="dialog"
-            onDismiss={() => setTransferDialogOpen(false)}
-          />
-        ) : null}
-      </FloatingFormDialog>
     </div>
   );
 }

@@ -13,6 +13,7 @@ from app.models.branch import Branch
 from app.models.category import Category
 from app.models.inventory_policy import InventoryPolicy
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.stock_level import StockLevel
@@ -21,6 +22,7 @@ from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
 from app.schemas.inventory_stock import StockOnHandRowRead
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
+from app.utils.variant_display import variant_attributes_summary
 
 COST_Q = Decimal("0.0001")
 OPEN_PO_STATUSES: tuple[str, ...] = ("draft", "sent", "tracked")
@@ -30,11 +32,12 @@ def _q(value: Decimal) -> Decimal:
     return value.quantize(COST_Q)
 
 
-async def _open_po_qty_map(db: AsyncSession) -> dict[tuple[int, int], int]:
+async def _open_po_qty_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
     stmt = (
         select(
             PurchaseOrder.branch_id,
             PurchaseOrderLine.product_id,
+            PurchaseOrderLine.variant_id,
             func.coalesce(func.sum(PurchaseOrderLine.qty), 0),
         )
         .join(PurchaseOrderLine, PurchaseOrderLine.purchase_order_id == PurchaseOrder.id)
@@ -42,53 +45,56 @@ async def _open_po_qty_map(db: AsyncSession) -> dict[tuple[int, int], int]:
             PurchaseOrder.status.in_(OPEN_PO_STATUSES),
             PurchaseOrder.branch_id.is_not(None),
         )
-        .group_by(PurchaseOrder.branch_id, PurchaseOrderLine.product_id)
+        .group_by(PurchaseOrder.branch_id, PurchaseOrderLine.product_id, PurchaseOrderLine.variant_id)
     )
     res = await db.execute(stmt)
-    out: dict[tuple[int, int], int] = {}
-    for bid, pid, qty in res.all():
+    out: dict[tuple[int, int, int], int] = {}
+    for bid, pid, vid, qty in res.all():
         if bid is None:
             continue
-        out[(int(bid), int(pid))] = int(qty)
+        out[(int(bid), int(pid), int(vid))] = int(qty)
     return out
 
 
-async def _in_transit_in_map(db: AsyncSession) -> dict[tuple[int, int], int]:
+async def _in_transit_in_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
     stmt = (
         select(
             TransferBatch.to_branch_id,
             TransferLine.product_id,
+            TransferLine.variant_id,
             func.coalesce(func.sum(TransferLine.qty), 0),
         )
         .join(TransferLine, TransferLine.transfer_batch_id == TransferBatch.id)
         .where(TransferBatch.status == "in_transit")
-        .group_by(TransferBatch.to_branch_id, TransferLine.product_id)
+        .group_by(TransferBatch.to_branch_id, TransferLine.product_id, TransferLine.variant_id)
     )
     res = await db.execute(stmt)
-    return {(int(b), int(p)): int(q) for b, p, q in res.all()}
+    return {(int(b), int(p), int(v)): int(q) for b, p, v, q in res.all()}
 
 
-async def _in_transit_out_map(db: AsyncSession) -> dict[tuple[int, int], int]:
+async def _in_transit_out_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
     stmt = (
         select(
             TransferBatch.from_branch_id,
             TransferLine.product_id,
+            TransferLine.variant_id,
             func.coalesce(func.sum(TransferLine.qty), 0),
         )
         .join(TransferLine, TransferLine.transfer_batch_id == TransferBatch.id)
         .where(TransferBatch.status == "in_transit")
-        .group_by(TransferBatch.from_branch_id, TransferLine.product_id)
+        .group_by(TransferBatch.from_branch_id, TransferLine.product_id, TransferLine.variant_id)
     )
     res = await db.execute(stmt)
-    return {(int(b), int(p)): int(q) for b, p, q in res.all()}
+    return {(int(b), int(p), int(v)): int(q) for b, p, v, q in res.all()}
 
 
-async def _consumption_30d_map(db: AsyncSession) -> dict[tuple[int, int], int]:
+async def _consumption_30d_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
     since = datetime.now(UTC) - timedelta(days=30)
     stmt = (
         select(
             StockMovement.branch_id,
             StockMovement.product_id,
+            StockMovement.variant_id,
             func.coalesce(func.sum(-StockMovement.qty_delta), 0),
         )
         .where(
@@ -96,10 +102,10 @@ async def _consumption_30d_map(db: AsyncSession) -> dict[tuple[int, int], int]:
             StockMovement.qty_delta < 0,
             StockMovement.created_at >= since,
         )
-        .group_by(StockMovement.branch_id, StockMovement.product_id)
+        .group_by(StockMovement.branch_id, StockMovement.product_id, StockMovement.variant_id)
     )
     res = await db.execute(stmt)
-    return {(int(b), int(p)): int(q) for b, p, q in res.all()}
+    return {(int(b), int(p), int(v)): int(q) for b, p, v, q in res.all()}
 
 
 def _reorder_status(
@@ -136,8 +142,9 @@ async def list_stock_on_hand(
     cons_m = await _consumption_30d_map(db)
 
     stmt = (
-        select(StockLevel, Product, Category, Branch, InventoryPolicy)
+        select(StockLevel, Product, Category, Branch, InventoryPolicy, ProductVariant)
         .join(Product, Product.id == StockLevel.product_id)
+        .join(ProductVariant, ProductVariant.id == StockLevel.variant_id)
         .join(Category, Category.id == Product.category_id)
         .join(Branch, Branch.id == StockLevel.branch_id)
         .outerjoin(
@@ -154,16 +161,22 @@ async def list_stock_on_hand(
         stmt = stmt.where(Product.category_id == category_id)
     if q and q.strip():
         like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like)))
+        stmt = stmt.where(
+            or_(
+                Product.name.ilike(like),
+                Product.sku.ilike(like),
+                ProductVariant.sku.ilike(like),
+            )
+        )
 
     order_col = sort or "branch_sku"
     if order_col == "available_asc":
         stmt = stmt.order_by(
             (StockLevel.on_hand - StockLevel.reserved - StockLevel.damaged).asc(),
-            Product.sku.asc(),
+            ProductVariant.sku.asc(),
         )
     else:
-        stmt = stmt.order_by(Branch.name.asc(), Product.sku.asc())
+        stmt = stmt.order_by(Branch.name.asc(), ProductVariant.sku.asc())
 
     stmt = stmt.limit(min(max(limit, 1), 500)).offset(max(offset, 0))
     res = await db.execute(stmt)
@@ -171,23 +184,24 @@ async def list_stock_on_hand(
     if not rows:
         return []
 
-    by_branch: dict[int, list[tuple[StockLevel, Product, Category, Branch, InventoryPolicy | None]]] = (
-        defaultdict(list)
-    )
-    for sl, prod, cat, br, pol in rows:
-        by_branch[sl.branch_id].append((sl, prod, cat, br, pol))
+    by_branch: dict[
+        int,
+        list[tuple[StockLevel, Product, Category, Branch, InventoryPolicy | None, ProductVariant]],
+    ] = defaultdict(list)
+    for sl, prod, cat, br, pol, pv in rows:
+        by_branch[sl.branch_id].append((sl, prod, cat, br, pol, pv))
 
     out: list[StockOnHandRowRead] = []
     for bid, group in by_branch.items():
-        pids = [p.id for _, p, _, _, _ in group]
+        pids = [p.id for _, p, _, _, _, _ in group]
         costs = await get_unit_costs_for_sale(db, branch_id=bid, product_ids=pids)
-        for sl, prod, cat, br, pol in group:
+        for sl, prod, cat, br, pol, pv in group:
             uc = _q(costs.get(prod.id, _q(Decimal("0"))))
             oh = int(sl.on_hand)
             rv = int(sl.reserved)
             dm = int(sl.damaged)
             available = oh - rv - dm
-            key = (sl.branch_id, prod.id)
+            key = (sl.branch_id, prod.id, sl.variant_id)
             on_order = on_order_m.get(key, 0)
             in_in = in_in_m.get(key, 0)
             in_out = out_m.get(key, 0)
@@ -210,12 +224,16 @@ async def list_stock_on_hand(
             )
 
             ext = _q(uc * Decimal(oh))
+            attr_summary = variant_attributes_summary(pv.attribute_values)
             out.append(
                 StockOnHandRowRead(
                     branch_id=sl.branch_id,
                     branch_name=br.name,
                     product_id=prod.id,
+                    variant_id=sl.variant_id,
                     sku=prod.sku,
+                    variant_sku=pv.sku,
+                    variant_attributes=attr_summary,
                     product_name=prod.name,
                     product_image_url=prod.image_url,
                     category_id=cat.id,
@@ -244,7 +262,7 @@ async def list_stock_on_hand(
         out = [r for r in out if r.reorder_status == status]
 
     if order_col == "available_asc":
-        out.sort(key=lambda r: (r.available, r.sku))
+        out.sort(key=lambda r: (r.available, r.variant_sku or r.sku))
 
     return out
 

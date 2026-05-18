@@ -56,9 +56,12 @@ class ProductVariantPurchasingSearchItem(BaseModel):
 
     variant_id: int
     product_id: int
+    category_id: int
     display_name: str
     sku: str
     barcode: str | None = None
+    variant_attributes: str = ""
+    attribute_values: dict[str, Any] | None = None
 
 
 class CategoryTreeNode(CategoryRead):

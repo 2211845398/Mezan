@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.encoders import jsonable_encoder
 from starlette.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_any_permission, require_permission
@@ -210,7 +211,11 @@ async def list_category_attributes_endpoint(
     ),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
-    __: None = require_permission("catalog", "read"),
+    __: None = require_any_permission(
+        ("catalog", "read"),
+        ("inventory", "read"),
+        ("inventory", "update"),
+    ),
 ) -> list[CategoryAttributeDefListRead]:
     rows = await list_category_attribute_defs_for_ui(
         db, category_id=category_id, include_inherited=include_inherited
@@ -414,7 +419,12 @@ async def search_product_variants_endpoint(
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
-    __: None = require_any_permission(("catalog", "read"), ("purchase_orders", "read")),
+    __: None = require_any_permission(
+        ("catalog", "read"),
+        ("purchase_orders", "read"),
+        ("inventory", "read"),
+        ("inventory", "update"),
+    ),
 ) -> list[ProductVariantPurchasingSearchItem]:
     """Search stock-keeping variants for purchasing line pickers (display name = product)."""
     return await search_product_variants_for_purchasing(db, q=q, limit=limit, offset=offset)
@@ -663,16 +673,26 @@ async def get_product_with_variants_endpoint(
     product_id: int,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
-    __: None = require_permission("catalog", "read"),
+    __: None = require_any_permission(
+        ("catalog", "read"),
+        ("inventory", "read"),
+        ("inventory", "update"),
+    ),
 ) -> dict:
     """Get product with variants, stock per variant, and last cost per variant."""
+    from app.core.errors import ValidationError
+    from app.models.branch_product_costs import BranchProductCost
     from app.models.product_variant import ProductVariant
     from app.models.stock_level import StockLevel
-    from app.models.branch_product_costs import BranchProductCost
     from app.services.pricing_service import get_active_sell_price
 
     product = await get_product(db, product_id)
     base_read = await product_to_read(db, product)
+
+    try:
+        product_sell_price = await get_active_sell_price(db, product_id=product_id)
+    except ValidationError:
+        product_sell_price = None
 
     # Get variants
     variants_res = await db.execute(
@@ -687,17 +707,14 @@ async def get_product_with_variants_endpoint(
             select(StockLevel).where(StockLevel.variant_id == v.id)
         )
         stock_levels = stock_res.scalars().all()
-        stock_by_branch = {s.branch_id: s.qty for s in stock_levels}
+        stock_by_branch = {s.branch_id: s.on_hand for s in stock_levels}
 
         # Get last cost for this variant
         cost_res = await db.execute(
             select(BranchProductCost).where(BranchProductCost.variant_id == v.id)
         )
         costs = cost_res.scalars().all()
-        cost_by_branch = {c.branch_id: c.last_unit_cost for c in costs}
-
-        # Get price
-        price = await get_active_sell_price(db, product_id=product_id, variant_id=v.id)
+        cost_by_branch = {c.branch_id: c.average_unit_cost for c in costs}
 
         variants_data.append({
             "id": v.id,
@@ -707,7 +724,7 @@ async def get_product_with_variants_endpoint(
             "active": v.active,
             "stock_by_branch": stock_by_branch,
             "last_cost_by_branch": cost_by_branch,
-            "sell_price": price,
+            "sell_price": product_sell_price,
         })
 
     return {

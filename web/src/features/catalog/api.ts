@@ -89,6 +89,25 @@ export async function searchProductVariantsForPurchasing(params: {
   return data;
 }
 
+export type ProductWithVariantsVariantRow = {
+  id: number;
+  sku: string;
+  barcode: string | null;
+  attribute_values: Record<string, unknown> | null;
+  active: boolean;
+};
+
+export type ProductWithVariantsResponse = {
+  product: ProductRead;
+  variants: ProductWithVariantsVariantRow[];
+  variant_count: number;
+};
+
+export async function getProductWithVariants(productId: number): Promise<ProductWithVariantsResponse> {
+  const { data } = await apiClient.get<ProductWithVariantsResponse>(`/products/${productId}/with-variants`);
+  return data;
+}
+
 export async function listProducts(params: {
   q?: string;
   category_id?: number;

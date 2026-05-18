@@ -10,10 +10,12 @@ from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.branch import Branch
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.transfer_batch import TransferBatch
 from app.models.users import User
 from app.schemas.transfers import TransferBatchCreate, TransferBatchRead, TransferLineRead
 from app.utils.person_name import person_name_sql_expr
+from app.utils.variant_display import variant_attributes_summary
 from app.services import audit_service
 from app.services.transfer_service import (
     cancel_pending_batch,
@@ -32,6 +34,7 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
         return []
     bids: set[int] = set()
     pids: set[int] = set()
+    vids: set[int] = set()
     uids: set[int] = set()
     for b in batches:
         bids.add(b.from_branch_id)
@@ -40,6 +43,7 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
             uids.add(b.created_by_user_id)
         for ln in b.lines:
             pids.add(ln.product_id)
+            vids.add(ln.variant_id)
 
     bmap: dict[int, str] = {}
     if bids:
@@ -49,6 +53,18 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
     if pids:
         res = await db.execute(select(Product.id, Product.name).where(Product.id.in_(pids)))
         pmap = {int(i): str(n) for i, n in res.all()}
+    vsku: dict[int, str] = {}
+    vattr: dict[int, str] = {}
+    if vids:
+        res = await db.execute(
+            select(ProductVariant.id, ProductVariant.sku, ProductVariant.attribute_values).where(
+                ProductVariant.id.in_(vids)
+            )
+        )
+        for vid, sku, attrs in res.all():
+            iid = int(vid)
+            vsku[iid] = str(sku)
+            vattr[iid] = variant_attributes_summary(dict(attrs or {}))
     umap: dict[int, str] = {}
     if uids:
         res = await db.execute(
@@ -69,7 +85,10 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
                 id=ln.id,
                 product_id=ln.product_id,
                 qty=ln.qty,
+                variant_id=ln.variant_id,
                 product_name=pmap.get(ln.product_id, ""),
+                variant_sku=vsku.get(ln.variant_id, ""),
+                variant_attributes=vattr.get(ln.variant_id, ""),
             )
             for ln in batch.lines
         ]

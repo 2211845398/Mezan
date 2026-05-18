@@ -10,11 +10,14 @@ from pydantic import BaseModel, Field
 class TransferLineCreate(BaseModel):
     product_id: int
     qty: int = Field(gt=0)
+    variant_id: int | None = None
 
 
 class TransferLineRead(TransferLineCreate):
     id: int
     product_name: str = ""
+    variant_sku: str = ""
+    variant_attributes: str = ""
 
     model_config = {"from_attributes": True}
 

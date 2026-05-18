@@ -26,7 +26,6 @@ import { BranchStockFilterBar } from '../../components/BranchStockFilterBar';
 import { inventoryKeys, useStockOnHandQuery } from '../../queries';
 import type { StockOnHandRow } from '../../types';
 import AdjustmentForm from '../adjustments/AdjustmentForm';
-import TransferForm from '../transfers/TransferForm';
 
 function flattenCats(nodes: { id: number; name: string; children?: typeof nodes }[]): { id: number; name: string }[] {
   const o: { id: number; name: string }[] = [];
@@ -74,9 +73,7 @@ export default function StockOnHand() {
   const [qDraft, setQDraft] = useState(qText);
 
   const [movementDialogOpen, setMovementDialogOpen] = useState(false);
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [movementFormKey, setMovementFormKey] = useState(0);
-  const [transferFormKey, setTransferFormKey] = useState(0);
 
   const setParam = useCallback(
     (key: string, value: string | null) => {
@@ -177,12 +174,21 @@ export default function StockOnHand() {
           cell: ({ row }) => <TableCategoryTags tags={[row.original.category_name]} />,
         },
         {
+          id: 'attrs',
+          header: t('stock.col.variant_attrs'),
+          cell: ({ row }) => (
+            <span className="max-w-[12rem] truncate text-sm text-muted-foreground">
+              {row.original.variant_attributes?.trim() ? row.original.variant_attributes : '—'}
+            </span>
+          ),
+        },
+        {
           id: 'sku',
-          accessorKey: 'sku',
-          header: t('stock.col.sku'),
+          accessorKey: 'variant_sku',
+          header: t('stock.col.variant_sku'),
           cell: ({ row }) => (
             <span className="num-latin tabular-nums" dir="ltr">
-              {row.original.sku}
+              {row.original.variant_sku?.trim() || row.original.sku}
             </span>
           ),
         },
@@ -237,16 +243,8 @@ export default function StockOnHand() {
               </Button>
             ) : null}
             {canCreateTransfer ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setTransferFormKey((k) => k + 1);
-                  setTransferDialogOpen(true);
-                }}
-              >
-                {t('stock.action.transfer')}
+              <Button type="button" variant="outline" size="sm" asChild>
+                <Link to="/inventory/transfers/new">{t('stock.action.transfer')}</Link>
               </Button>
             ) : null}
             {canCreatePo ? (
@@ -340,6 +338,7 @@ export default function StockOnHand() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        getRowId={(r) => `${r.branch_id}-${r.product_id}-${r.variant_id}`}
       />
 
       <FloatingFormDialog
@@ -357,20 +356,6 @@ export default function StockOnHand() {
         ) : null}
       </FloatingFormDialog>
 
-      <FloatingFormDialog
-        open={transferDialogOpen}
-        onOpenChange={setTransferDialogOpen}
-        title={t('transfers.new')}
-        maxWidth="lg"
-      >
-        {transferDialogOpen ? (
-          <TransferForm
-            key={transferFormKey}
-            variant="dialog"
-            onDismiss={() => setTransferDialogOpen(false)}
-          />
-        ) : null}
-      </FloatingFormDialog>
     </div>
   );
 }

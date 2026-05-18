@@ -42,7 +42,9 @@
     },
     "col": {
       "branch": "Branch",
-      "sku": "SKU",
+      "sku": "Product SKU",
+      "variant_sku": "Variant SKU",
+      "variant_attrs": "Variant attributes",
       "product": "Product",
       "category": "Category",
       "qty": "On hand",
@@ -120,12 +122,24 @@
   },
   "transfers": {
     "title": "Internal transfers",
-    "subtitle": "Track shipments between branches from pending dispatch through receipt.",
+    "subtitle": "Track shipments between branches.",
     "new": "New transfer",
     "created": "Transfer created",
+    "created_pending_dispatch": "The batch is pending dispatch. The sending branch must confirm shipment.",
+    "attributes_no_match": "No variant matches these attribute values. Adjust the selection.",
+    "select_attr_placeholder": "Choose…",
     "from": "From branch",
     "to": "To branch",
-    "line": { "product_id": "Product id", "product": "Product", "qty": "Qty" },
+    "line": {
+      "product_id": "Product id",
+      "product": "Product",
+      "qty": "Qty",
+      "list_fallback": "Product #{{id}} × {{qty}}",
+      "variant_picker": "Product & variant",
+      "variant_sku": "Variant SKU",
+      "attributes": "Attributes",
+      "actions": "Actions"
+    },
     "col": {
       "transfer_no": "Transfer #",
       "from": "From",
@@ -164,11 +178,16 @@
       "receive_branch_hint": "Receipt is confirmed only at the receiving branch."
     },
     "wavg_note": "Cost follows weighted-average on receive (GL posted server-side).",
-    "add_line_hint": "Adds the product and quantity to the transfer list after verifying the source branch has enough available stock (including quantities already added for the same product).",
+    "variant_search_placeholder": "Search by product name or variant SKU…",
+    "variant_search_empty": "No matches",
+    "lines_empty": "No lines yet. Pick a variant and quantity.",
+    "remove_line": "Remove",
     "errors": {
       "select_from_branch": "Choose the source (from) branch first.",
       "stock_loading": "Stock for the source branch is still loading. Try again in a moment.",
-      "insufficient_at_source": "Available at source branch: {{available}} — total requested: {{requested}} (including current lines)."
+      "select_variant": "Pick a product variant from the list.",
+      "insufficient_at_source": "Available at source branch: {{available}} — total requested: {{requested}} (including current lines).",
+      "resolve_lines": "Resolve every line’s attributes so each row maps to a single variant before creating."
     },
     "board": {
       "tab_track": "Track board",

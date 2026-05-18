@@ -33,6 +33,7 @@ from app.schemas.catalog import (
 from app.services.pricing_service import set_product_sell_price
 from app.utils.image_format import detect_raster_image_extension
 from app.utils.money import to_decimal
+from app.utils.variant_display import variant_attributes_summary
 
 PRICE_COMPAT_KEY = "price"
 _UNSET = object()
@@ -1087,9 +1088,14 @@ async def search_product_variants_for_purchasing(
         ProductVariantPurchasingSearchItem(
             variant_id=int(pv.id),
             product_id=int(pr.id),
+            category_id=int(pr.category_id),
             display_name=pr.name,
             sku=pv.sku,
             barcode=pv.barcode,
+            variant_attributes=variant_attributes_summary(pv.attribute_values),
+            attribute_values=dict(pv.attribute_values)
+            if isinstance(getattr(pv, "attribute_values", None), dict)
+            else None,
         )
         for pv, pr in rows
     ]

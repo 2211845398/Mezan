@@ -20,6 +20,7 @@ export const catalogKeys = {
   category: (id: number) => [...catalogKeys.root, 'category', id] as const,
   categoryAttrs: (id: number, includeInherited?: boolean) =>
     [...catalogKeys.root, 'categoryAttrs', id, { includeInherited: includeInherited ?? true }] as const,
+  productWithVariants: (id: number) => [...catalogKeys.root, 'productWithVariants', id] as const,
   taxDefinitions: (includeInactive: boolean) =>
     [...catalogKeys.root, 'taxDefinitions', includeInactive] as const,
 };

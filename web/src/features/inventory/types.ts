@@ -4,7 +4,10 @@ export type StockOnHandRow = {
   branch_id: number;
   branch_name: string;
   product_id: number;
+  variant_id: number;
   sku: string;
+  variant_sku: string;
+  variant_attributes: string;
   product_name: string;
   product_image_url?: string | null;
   category_id: number;
@@ -47,8 +50,11 @@ export type StockMovement = {
 export type TransferLineRead = {
   id: number;
   product_id: number;
+  variant_id?: number | null;
   qty: number;
   product_name?: string;
+  variant_sku?: string;
+  variant_attributes?: string;
 };
 
 export type TransferRead = {

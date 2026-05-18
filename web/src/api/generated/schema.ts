@@ -5919,12 +5919,20 @@ export interface components {
             variant_id: number;
             /** Product Id */
             product_id: number;
+            /** Category Id */
+            category_id: number;
             /** Display Name */
             display_name: string;
             /** Sku */
             sku: string;
             /** Barcode */
             barcode?: string | null;
+            /** Variant Attributes */
+            variant_attributes?: string;
+            /** Attribute Values */
+            attribute_values?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ProductRead */
         ProductRead: {
@@ -6858,6 +6866,8 @@ export interface components {
             product_id: number;
             /** Qty */
             qty: number;
+            /** Variant Id */
+            variant_id?: number | null;
         };
         /** TransferLineRead */
         TransferLineRead: {
@@ -6865,8 +6875,16 @@ export interface components {
             product_id: number;
             /** Qty */
             qty: number;
+            /** Variant Id */
+            variant_id?: number | null;
             /** Id */
             id: number;
+            /** Product Name */
+            product_name?: string;
+            /** Variant Sku */
+            variant_sku?: string;
+            /** Variant Attributes */
+            variant_attributes?: string;
         };
         /** TrialBalanceRow */
         TrialBalanceRow: {

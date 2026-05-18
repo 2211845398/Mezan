@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
+from app.models.product_variant import ProductVariant
 from app.models.stock_level import StockLevel
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
@@ -53,10 +54,33 @@ async def create_batch(
     await db.flush()
     for ln in lines:
         row = dict(ln)
-        if not row.get("variant_id"):
-            row["variant_id"] = await resolve_default_variant_id(db, product_id=row["product_id"])
-        line_obj = TransferLine(**row, transfer_batch_id=batch.id)
-        db.add(line_obj)
+        product_id = int(row["product_id"])
+        qty = int(row["qty"])
+        pick_vid = row.get("variant_id")
+        if pick_vid is not None:
+            vid = int(pick_vid)
+            chk = await db.execute(
+                select(ProductVariant.id).where(
+                    ProductVariant.id == vid,
+                    ProductVariant.product_id == product_id,
+                )
+            )
+            if chk.scalar_one_or_none() is None:
+                raise ValidationError(
+                    "variant_id does not match product_id",
+                    details={"variant_id": vid, "product_id": product_id},
+                )
+            variant_id = vid
+        else:
+            variant_id = await resolve_default_variant_id(db, product_id=product_id)
+        db.add(
+            TransferLine(
+                transfer_batch_id=batch.id,
+                product_id=product_id,
+                variant_id=variant_id,
+                qty=qty,
+            )
+        )
     await db.commit()
     return await _get_batch(db, batch.id)
 

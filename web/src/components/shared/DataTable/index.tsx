@@ -83,6 +83,8 @@ export type DataTableProps<TData> = {
   tableClassName?: string;
   /** Sets `dir` on the bordered table wrapper (e.g. `rtl` for Arabic list columns). */
   tableDir?: 'rtl' | 'ltr';
+  /** Stable row id for client tables (e.g. variant-level stock rows). */
+  getRowId?: (row: TData) => string;
 };
 
 export function DataTable<TData>({
@@ -107,6 +109,7 @@ export function DataTable<TData>({
   className,
   tableClassName,
   tableDir,
+  getRowId,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
 
@@ -124,6 +127,7 @@ export function DataTable<TData>({
   const table = useReactTable<TData>({
     data,
     columns,
+    ...(getRowId ? { getRowId: (row, _index) => getRowId(row as TData) } : {}),
     state: {
       sorting,
       globalFilter: q,

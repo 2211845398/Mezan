@@ -31,12 +31,15 @@ class StockMovementLedgerRead(BaseModel):
 
 
 class StockOnHandRowRead(BaseModel):
-    """Per branch/product row: quantities, policy hints, and WAVG cost display."""
+    """Per branch/product/variant row: quantities, policy hints, and WAVG cost display."""
 
     branch_id: int
     branch_name: str
     product_id: int
+    variant_id: int
     sku: str
+    variant_sku: str = ""
+    variant_attributes: str = ""
     product_name: str
     product_image_url: str | None = Field(
         default=None,
