@@ -12,6 +12,7 @@ class GoodsReceiptLineRead(BaseModel):
     id: int
     purchase_order_line_id: int | None
     product_id: int
+    variant_id: int
     qty: int
     unit_cost: Decimal
 
@@ -35,6 +36,11 @@ class GoodsReceiptRead(BaseModel):
 class GoodsReceiptReceiveLine(BaseModel):
     purchase_order_line_id: int = Field(gt=0)
     qty: int = Field(gt=0)
+    unit_cost: Decimal = Field(gt=0, description="Unit cost applied at receipt (valuation).")
+    variant_id: int | None = Field(
+        default=None,
+        description="Required when the PO line has no preset variant_id; ignored otherwise.",
+    )
 
 
 class GoodsReceiptReceiveRequest(BaseModel):

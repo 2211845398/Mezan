@@ -15,26 +15,38 @@ from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
-from app.services.catalog_service import resolve_default_variant_id
+from app.models.suppliers import Supplier
+from app.utils.person_name import display_person_name
 
 TERMINAL_STATUSES = frozenset({"closed", "cancelled"})
 
 
-async def _line_variant_id(db: AsyncSession, *, product_id: int, variant_id: int | None) -> int:
-    if variant_id is not None:
-        res = await db.execute(
-            select(ProductVariant.product_id).where(ProductVariant.id == variant_id)
+async def validate_variant_belongs_to_product(
+    db: AsyncSession, *, product_id: int, variant_id: int
+) -> int:
+    res = await db.execute(
+        select(ProductVariant.product_id).where(ProductVariant.id == variant_id)
+    )
+    pid = res.scalar_one_or_none()
+    if pid is None:
+        raise ValidationError("Unknown variant_id", details={"variant_id": variant_id})
+    if int(pid) != int(product_id):
+        raise ValidationError(
+            "variant_id does not belong to product_id",
+            details={"variant_id": variant_id, "product_id": product_id},
         )
-        pid = res.scalar_one_or_none()
-        if pid is None:
-            raise ValidationError("Unknown variant_id", details={"variant_id": variant_id})
-        if int(pid) != int(product_id):
-            raise ValidationError(
-                "variant_id does not belong to product_id",
-                details={"variant_id": variant_id, "product_id": product_id},
-            )
-        return int(variant_id)
-    return await resolve_default_variant_id(db, product_id=product_id)
+    return int(variant_id)
+
+
+async def resolve_po_line_variant_id(
+    db: AsyncSession, *, product_id: int, variant_id: int | None
+) -> int | None:
+    """PO lines without variant_id defer variant selection to goods receipt."""
+    if variant_id is None:
+        return None
+    return await validate_variant_belongs_to_product(
+        db, product_id=product_id, variant_id=variant_id
+    )
 
 
 async def _get_po(db: AsyncSession, po_id: int) -> PurchaseOrder:
@@ -61,6 +73,28 @@ async def _ensure_products_exist(db: AsyncSession, product_ids: set[int]) -> Non
         )
 
 
+async def _resolve_supplier_name(db: AsyncSession, data: dict[str, Any]) -> dict[str, Any]:
+    supplier_id = data.get("supplier_id")
+    if supplier_id is not None:
+        res = await db.execute(select(Supplier).where(Supplier.id == supplier_id))
+        sup = res.scalar_one_or_none()
+        if not sup:
+            raise ValidationError("Unknown supplier_id", details={"supplier_id": supplier_id})
+        data["supplier_name"] = display_person_name(
+            sup.first_name, sup.father_name, sup.family_name
+        ).strip() or sup.code
+    elif not (data.get("supplier_name") or "").strip():
+        raise ValidationError("supplier_id is required")
+    return data
+
+
+def _normalize_po_line_row(row: dict[str, Any]) -> dict[str, Any]:
+    out = dict(row)
+    if out.get("unit_cost") is None:
+        out.pop("unit_cost", None)
+    return out
+
+
 def _ensure_status(po: PurchaseOrder, expected: str) -> None:
     if po.status != expected:
         raise StateTransitionError(
@@ -76,6 +110,7 @@ async def create_po(
     data: dict[str, Any],
 ) -> PurchaseOrder:
     lines = data.pop("lines", [])
+    data = await _resolve_supplier_name(db, data)
     po = PurchaseOrder(**data, status="draft", created_by_user_id=created_by_user_id)
     db.add(po)
     await db.flush()
@@ -83,8 +118,8 @@ async def create_po(
     product_ids = {ln["product_id"] for ln in lines}
     await _ensure_products_exist(db, product_ids)
     for ln in lines:
-        row = dict(ln)
-        row["variant_id"] = await _line_variant_id(
+        row = _normalize_po_line_row(dict(ln))
+        row["variant_id"] = await resolve_po_line_variant_id(
             db, product_id=row["product_id"], variant_id=row.get("variant_id")
         )
         db.add(PurchaseOrderLine(purchase_order_id=po.id, **row))
@@ -128,8 +163,10 @@ async def update_po(db: AsyncSession, *, po_id: int, data: dict[str, Any]) -> Pu
 
     data.pop("send_idempotency_key", None)
     lines = data.pop("lines", None)
-    for k, v in data.items():
-        setattr(po, k, v)
+    if data:
+        data = await _resolve_supplier_name(db, data)
+        for k, v in data.items():
+            setattr(po, k, v)
 
     if lines is not None:
         product_ids = {ln["product_id"] for ln in lines}
@@ -137,8 +174,8 @@ async def update_po(db: AsyncSession, *, po_id: int, data: dict[str, Any]) -> Pu
         po.lines.clear()
         await db.flush()
         for ln in lines:
-            row = dict(ln)
-            row["variant_id"] = await _line_variant_id(
+            row = _normalize_po_line_row(dict(ln))
+            row["variant_id"] = await resolve_po_line_variant_id(
                 db, product_id=row["product_id"], variant_id=row.get("variant_id")
             )
             po.lines.append(PurchaseOrderLine(**row))

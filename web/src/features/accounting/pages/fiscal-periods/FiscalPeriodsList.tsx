@@ -4,15 +4,25 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { DangerConfirmDialog } from '@/features/admin/components/DangerConfirmDialog';
 import { usePermission } from '@/hooks/usePermission';
 
 import type { FiscalPeriodRead } from '../../api';
 import { updateFiscalPeriod } from '../../api';
-import { accountingKeys,fiscalPeriodsQueryOptions } from '../../queries';
+import { accountingKeys, fiscalPeriodsQueryOptions } from '../../queries';
 
 export default function FiscalPeriodsList() {
   const { t } = useTranslation('accounting');
@@ -45,7 +55,35 @@ export default function FiscalPeriodsList() {
     () =>
       defineColumns<FiscalPeriodRead>()([
         { id: 'key', accessorKey: 'period_key', header: t('fiscal.col.key') },
-        { id: 's', accessorKey: 'status', header: t('fiscal.col.status') },
+        {
+          id: 'start',
+          header: t('fiscal.col.start'),
+          cell: ({ row }) =>
+            (row.original as FiscalPeriodRead & { period_start?: string }).period_start?.slice(0, 10) ?? '—',
+        },
+        {
+          id: 'end',
+          header: t('fiscal.col.end'),
+          cell: ({ row }) =>
+            (row.original as FiscalPeriodRead & { period_end?: string }).period_end?.slice(0, 10) ?? '—',
+        },
+        {
+          id: 's',
+          accessorKey: 'status',
+          header: t('fiscal.col.status'),
+          cell: ({ row }) => (
+            <StatusBadge
+              status={row.original.status}
+              label={t(`fiscal.status_label.${row.original.status}`, row.original.status)}
+            />
+          ),
+        },
+        {
+          id: 'closed_at',
+          header: t('fiscal.col.closed_at'),
+          cell: ({ row }) =>
+            (row.original as FiscalPeriodRead & { closed_at?: string }).closed_at?.slice(0, 10) ?? '—',
+        },
         {
           id: 'a',
           header: '',
@@ -71,9 +109,11 @@ export default function FiscalPeriodsList() {
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">{t('fiscal.title')}</h1>
-      <p className="max-w-xl text-sm text-muted-foreground">{t('fiscal.hint')}</p>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        title={t('fiscal.title')}
+        subtitle={t('fiscal.hint')}
+      />
       <DataTable
         mode="client"
         columns={columns}
@@ -82,28 +122,47 @@ export default function FiscalPeriodsList() {
         isError={isError}
         onRetry={() => void refetch()}
       />
-      <DangerConfirmDialog
-        open={closePk != null}
-        onOpenChange={(o) => {
-          if (!o) setClosePk(null);
-        }}
-        title={t('fiscal.close_confirm_title')}
-        description={t('fiscal.close_confirm_body')}
-        confirmKeyword="CLOSE"
-        onConfirm={() => closePk && mClose.mutate(closePk)}
-        isLoading={mClose.isPending}
-      />
-      <DangerConfirmDialog
-        open={openPk != null}
-        onOpenChange={(o) => {
-          if (!o) setOpenPk(null);
-        }}
-        title={t('fiscal.reopen_confirm_title')}
-        description={t('fiscal.reopen_confirm_body')}
-        confirmKeyword="REOPEN"
-        onConfirm={() => openPk && mOpen.mutate(openPk)}
-        isLoading={mOpen.isPending}
-      />
+
+      {/* Close confirmation — simple yes/no, no typed keyword */}
+      <AlertDialog open={closePk != null} onOpenChange={(o) => { if (!o) setClosePk(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('fiscal.close_confirm_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('fiscal.close_confirm_body_simple')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={mClose.isPending}
+              onClick={() => closePk && mClose.mutate(closePk)}
+            >
+              {t('fiscal.close')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reopen confirmation */}
+      <AlertDialog open={openPk != null} onOpenChange={(o) => { if (!o) setOpenPk(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('fiscal.reopen_confirm_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('fiscal.reopen_confirm_body')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
+            <Button
+              type="button"
+              disabled={mOpen.isPending}
+              onClick={() => openPk && mOpen.mutate(openPk)}
+            >
+              {t('fiscal.reopen')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

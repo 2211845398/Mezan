@@ -1,12 +1,19 @@
 {
+  "currency": {
+    "lyd": "دينار ليبي",
+    "usd": "دولار أمريكي"
+  },
   "suppliers": {
     "title": "الموردون",
+    "search_label": "بحث الموردين",
+    "search_placeholder": "الاسم أو الرمز…",
     "new": "مورد جديد",
     "edit": "تعديل مورد",
     "col": {
       "code": "الرمز",
       "name": "الاسم",
-      "currency": "معرّف العملة",
+      "contact": "التواصل",
+      "currency": "العملة",
       "tax_id": "الرقم الضريبي",
       "payment_terms": "شروط الدفع"
     },
@@ -33,9 +40,16 @@
     "col": {
       "po_number": "رقم أمر الشراء",
       "supplier": "المورد",
+      "branch": "الفرع",
       "status": "الحالة",
+      "created_at": "تاريخ الإنشاء",
       "expected": "متوقع",
-      "total": "الإجمالي"
+      "total": "الإجمالي",
+      "actions": "إجراءات"
+    },
+    "actions": {
+      "view": "عرض",
+      "receive": "استلام"
     },
     "filter_status": "الحالة",
     "all_statuses": "الكل",
@@ -45,7 +59,9 @@
       "expected_date": "التاريخ المتوقع",
       "branch": "الفرع",
       "branch_hint": "فرع الاستلام (اختياري حتى الاستلام)",
-      "supplier_currency": "عملة المورد (المعرّف)",
+      "supplier_currency": "عملة المورد",
+      "supplier_required": "اختر المورد",
+      "lines_required": "أضف بنداً واحداً على الأقل (منتج وكمية)",
       "notes": "ملاحظات",
       "lines": "البنود",
       "product": "المنتج",
@@ -57,7 +73,12 @@
       "send": "إرسال للمورد",
       "sent_toast": "تم إرسال أمر الشراء",
       "footer_total": "الإجمالي",
-      "created": "تم حفظ أمر الشراء"
+      "created": "تم حفظ أمر الشراء",
+      "product_search_placeholder": "ابحث باسم المنتج أو SKU",
+      "product_search_empty": "لا نتائج",
+      "lines_variant_hint": "اختر المنتج فقط؛ اللون والمقاس يُحدَّدان عند استلام البضاعة.",
+      "lock_variant_on_po": "تحديد متغير على أمر الشراء (اختياري)",
+      "unit_cost_required": "أدخل تكلفة وحدة أكبر من صفر لكل سطر"
     },
     "detail_page": {
       "timeline": "الحالة",
@@ -73,7 +94,9 @@
       "receipt_ok": "تم الاستلام وتحديث المخزون والقيود.",
       "closed_ok": "تم إغلاق الأمر",
       "remaining": "المتبقي",
-      "received_col": "المستلم"
+      "received_col": "المستلم",
+      "variant_col": "المتغير",
+      "variant_at_receive": "يُحدَّد عند الاستلام"
     },
     "status": {
       "draft": "مسودة",
@@ -84,10 +107,23 @@
     },
     "receive": {
       "title": "الاستلام على أمر الشراء",
+      "page_title": "استلام أمر PO-{{id}}",
+      "not_available": "لا يمكن الاستلام في هذه الحالة.",
       "branch": "الفرع",
       "qty": "الكمية للاستلام",
+      "unit_cost": "تكلفة الوحدة",
+      "unit_cost_required": "أدخل تكلفة وحدة أكبر من صفر",
       "submit": "ترحيل الاستلام",
-      "idempotency_note": "محمي بتكرار آمن — يمكن إعادة المحاولة."
+      "idempotency_note": "محمي بتكرار آمن — يمكن إعادة المحاولة.",
+      "workflow_hint": "للبنود بدون متغير محدد: وزّع الكمية على صفوف واختر SKU/خصائص كل جزء.",
+      "deferred_hint": "حدد المتغير لكل جزء من الكمية",
+      "variant": "المتغير",
+      "variant_search_placeholder": "ابحث بـ SKU أو الخصائص",
+      "variant_search_empty": "لا نتائج",
+      "add_split": "إضافة جزء",
+      "allocated": "المُوزَّع",
+      "variant_required": "اختر متغيراً وكمية لكل جزء",
+      "split_exceeds_remaining": "مجموع الأجزاء يتجاوز الكمية المتبقية"
     }
   },
   "match": {

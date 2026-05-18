@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateField } from '@/components/shared/form/DateField';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -16,32 +17,53 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { now, utcCalendarDayKey } from '@/lib/date';
+import { formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 import { balanceSheetQueryOptions } from '../../queries';
 
-function LinesTable({ title, rows }: { title: string; rows: { account_id: number; code: string; name: string; amount: string }[] }) {
+type LineRow = { account_id: number; code: string; name: string; amount: string; depth?: number };
+
+function IndentedLinesTable({ title, rows }: { title: string; rows: LineRow[] }) {
   const { t } = useTranslation('accounting');
   return (
     <div>
-      <h2 className="mb-2 font-medium">{title}</h2>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('tb.col.code')}</TableHead>
-            <TableHead>{t('tb.col.name')}</TableHead>
-            <TableHead>{t('is.amount')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r) => (
-            <TableRow key={r.account_id}>
-              <TableCell>{r.code}</TableCell>
-              <TableCell>{r.name}</TableCell>
-              <TableCell>{r.amount}</TableCell>
+      <h2 className="mb-2 font-semibold">{title}</h2>
+      <div className="overflow-hidden rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('tb.col.code')}</TableHead>
+              <TableHead>{t('tb.col.name')}</TableHead>
+              <TableHead className="text-end">{t('is.amount')}</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => {
+              const depth = r.depth ?? (r.code ? (r.code.split('.').length - 1) : 0);
+              return (
+                <TableRow key={r.account_id}>
+                  <TableCell
+                    className={cn('num-latin text-sm', depth === 0 && 'font-medium', depth >= 2 && 'text-muted-foreground')}
+                    style={{ paddingInlineStart: `${12 + depth * 16}px` }}
+                  >
+                    {r.code}
+                  </TableCell>
+                  <TableCell
+                    className={cn('text-sm', depth === 0 && 'font-medium', depth >= 2 && 'text-muted-foreground')}
+                    style={{ paddingInlineStart: `${12 + depth * 16}px` }}
+                  >
+                    {r.name}
+                  </TableCell>
+                  <TableCell className="text-end tabular-nums num-latin text-sm">
+                    {formatMoney(r.amount)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -57,6 +79,7 @@ export default function BalanceSheet() {
     queryFn: () => listBranches({ include_archived: false }),
   });
   const { data, isLoading } = useQuery(balanceSheetQueryOptions(applied));
+
   const apply = () => {
     const b = branch === '__all' ? undefined : Number(branch);
     setApplied(
@@ -64,11 +87,14 @@ export default function BalanceSheet() {
     );
   };
 
-  if (isLoading && !data) return <div className="p-4">…</div>;
+  const imbalance = data ? Number(data.assets_minus_liabilities_equity ?? 0) : 0;
+  const balanced = Math.abs(imbalance) < 0.01;
+
+  if (isLoading && !data) return <div className="p-4 text-muted-foreground">…</div>;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">{t('bs.title')}</h1>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader title={t('bs.title')} />
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('bs.as_of')}</Label>
@@ -94,29 +120,55 @@ export default function BalanceSheet() {
           {t('toolbar.apply')}
         </Button>
       </div>
+
       {data ? (
         <div className="space-y-6">
-          <div className="grid gap-2 md:grid-cols-2">
-            <div>
-              <div className="text-xs text-muted-foreground">{t('bs.total_assets')}</div>
-              <div className="text-lg font-medium">{String(data.total_assets)}</div>
+          {/* KPI metric tiles */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border bg-card p-4">
+              <p className="text-xs text-muted-foreground">{t('bs.total_assets')}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums num-latin">
+                {formatMoney(data.total_assets)}
+              </p>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">{t('bs.imbalance')}</div>
-              <div className="text-lg font-medium">{String(data.assets_minus_liabilities_equity)}</div>
+            <div className="rounded-lg border bg-card p-4">
+              <p className="text-xs text-muted-foreground">{t('bs.total_liabilities')}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums num-latin">
+                {formatMoney(data.total_liabilities)}
+              </p>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">{t('bs.total_liabilities')}</div>
-              <div className="text-lg font-medium">{String(data.total_liabilities)}</div>
+            <div className="rounded-lg border bg-card p-4">
+              <p className="text-xs text-muted-foreground">{t('bs.total_equity')}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums num-latin">
+                {formatMoney(data.total_equity)}
+              </p>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">{t('bs.total_equity')}</div>
-              <div className="text-lg font-medium">{String(data.total_equity)}</div>
+            <div
+              className={cn(
+                'rounded-lg border p-4',
+                balanced
+                  ? 'border-emerald-500/40 bg-emerald-500/10'
+                  : 'border-destructive/40 bg-destructive/10',
+              )}
+            >
+              <p className={cn('text-xs', balanced ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive')}>
+                {t('bs.balance_check')}
+              </p>
+              {balanced ? (
+                <p className="mt-1 text-lg font-semibold text-emerald-700 dark:text-emerald-300">
+                  ✓ {t('bs.balanced')}
+                </p>
+              ) : (
+                <p className="mt-1 text-lg font-semibold text-destructive">
+                  ⚠ {t('bs.difference')}: {formatMoney(imbalance)}
+                </p>
+              )}
             </div>
           </div>
-          <LinesTable title={t('bs.section.assets')} rows={data.asset_lines ?? []} />
-          <LinesTable title={t('bs.section.liabilities')} rows={data.liability_lines ?? []} />
-          <LinesTable title={t('bs.section.equity')} rows={data.equity_lines ?? []} />
+
+          <IndentedLinesTable title={t('bs.section.assets')} rows={data.asset_lines ?? []} />
+          <IndentedLinesTable title={t('bs.section.liabilities')} rows={data.liability_lines ?? []} />
+          <IndentedLinesTable title={t('bs.section.equity')} rows={data.equity_lines ?? []} />
         </div>
       ) : null}
     </div>

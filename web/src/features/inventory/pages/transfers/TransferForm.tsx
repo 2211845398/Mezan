@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Package } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { StatusStepper } from '@/components/shared/StatusStepper';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import {
   Breadcrumb,
@@ -114,6 +115,11 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const [selectedVariant, setSelectedVariant] = useState<ProductVariantPurchasingSearchItem | null>(null);
   const [lineQty, setLineQty] = useState('1');
   const [lines, setLines] = useState<DraftTransferLine[]>([]);
+
+  const fromBranchName = useMemo(
+    () => branches.find((b) => String(b.id) === from)?.name ?? null,
+    [branches, from],
+  );
 
   const patchLine = useCallback((index: number, patch: Partial<DraftTransferLine>) => {
     setLines((prev) => prev.map((row, j) => (j === index ? { ...row, ...patch } : row)));
@@ -242,6 +248,16 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
               onChange={(_id, item) => setSelectedVariant(item)}
               disabled={!from || (stockQueryEnabled && stockLoading)}
             />
+            {/* Available stock hint */}
+            <p className="mt-1 text-xs text-muted-foreground">
+              {!from
+                ? t('transfers.errors.select_from_branch')
+                : stockQueryEnabled && stockLoading
+                  ? t('transfers.errors.stock_loading')
+                  : selectedVariant
+                    ? `${fromBranchName ?? t('transfers.from')}: ${availableForVariant(stockRows, selectedVariant.variant_id)} ${t('transfers.line.qty').toLowerCase()}`
+                    : null}
+            </p>
           </div>
           <div>
             <Label>{t('transfers.line.qty')}</Label>
@@ -457,6 +473,12 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
         ? t('transfers.detail.receive_branch_hint')
         : t('transfers.detail.dispatch_branch_hint');
 
+  const transferSteps = [
+    { key: 'pending_dispatch', label: t('transfers.status.pending_dispatch'), sublabel: batch.created_at ? String(batch.created_at).slice(0, 10) : undefined },
+    { key: 'in_transit', label: t('transfers.status.in_transit'), sublabel: batch.dispatched_at ? String(batch.dispatched_at).slice(0, 10) : undefined },
+    { key: 'received', label: t('transfers.status.received'), sublabel: batch.received_at ? String(batch.received_at).slice(0, 10) : undefined },
+  ];
+
   const detailShell =
     variant === 'dialog' ? 'mx-auto max-w-6xl space-y-6' : 'mx-auto max-w-6xl space-y-6 p-4 sm:p-6';
 
@@ -474,6 +496,11 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
             <BackButton to="/inventory/transfers" label={t('actions.back')} />
           </div>
         ) : null}
+      </div>
+
+      {/* Lifecycle stepper */}
+      <div className="rounded-xl border bg-muted/20 px-4 py-3">
+        <StatusStepper steps={transferSteps} current={batch.status} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">

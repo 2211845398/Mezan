@@ -4541,6 +4541,8 @@ export interface components {
             purchase_order_line_id: number | null;
             /** Product Id */
             product_id: number;
+            /** Variant Id */
+            variant_id: number;
             /** Qty */
             qty: number;
             /** Unit Cost */
@@ -4576,6 +4578,10 @@ export interface components {
             purchase_order_line_id: number;
             /** Qty */
             qty: number;
+            /** Unit Cost */
+            unit_cost: number | string;
+            /** Variant Id */
+            variant_id?: number | null;
         };
         /** GoodsReceiptReceiveRequest */
         GoodsReceiptReceiveRequest: {
@@ -6078,7 +6084,7 @@ export interface components {
             /** Qty */
             qty: number;
             /** Unit Cost */
-            unit_cost: number | string;
+            unit_cost?: number | string | null;
         };
         /** PurchaseOrderLineRead */
         PurchaseOrderLineRead: {
@@ -6089,7 +6095,7 @@ export interface components {
             /** Qty */
             qty: number;
             /** Unit Cost */
-            unit_cost: string;
+            unit_cost?: string | null;
             /** Id */
             id: number;
         };
@@ -6620,6 +6626,10 @@ export interface components {
             family_name: string | null;
             /** Currency Id */
             currency_id: number;
+            /** Currency Code */
+            currency_code?: string | null;
+            /** Currency Name */
+            currency_name?: string | null;
             /** Payables Account Id */
             payables_account_id: number | null;
             /** Tax Id */

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -14,10 +15,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
 import { now, utcCalendarDayKey } from '@/lib/date';
+import { formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 import type { TrialBalanceRow } from '../../api';
 import { exportTrialBalanceCsvBlob } from '../../api';
@@ -45,21 +56,10 @@ export default function TrialBalance() {
       dr += Number(r.total_debit);
       cr += Number(r.total_credit);
     }
-    return { dr: dr.toFixed(2), cr: cr.toFixed(2) };
+    const diff = Math.abs(dr - cr);
+    const balanced = diff < 0.01;
+    return { dr, cr, balanced };
   }, [rows]);
-
-  const columns = useMemo(
-    () =>
-      defineColumns<TrialBalanceRow>()([
-        { id: 'code', accessorKey: 'code', header: t('tb.col.code') },
-        { id: 'name', accessorKey: 'name', header: t('tb.col.name') },
-        { id: 'type', accessorKey: 'account_type', header: t('tb.col.type') },
-        { id: 'dr', header: t('tb.col.debit'), cell: ({ row }) => String(row.original.total_debit) },
-        { id: 'cr', header: t('tb.col.credit'), cell: ({ row }) => String(row.original.total_credit) },
-        { id: 'net', accessorKey: 'net', header: t('tb.col.net'), cell: ({ row }) => String(row.original.net) },
-      ]),
-    [t],
-  );
 
   const apply = () => {
     const b = branch === '__all' ? undefined : Number(branch);
@@ -83,9 +83,67 @@ export default function TrialBalance() {
     URL.revokeObjectURL(url);
   };
 
+  const columns = useMemo(
+    () =>
+      defineColumns<TrialBalanceRow>()([
+        { id: 'code', accessorKey: 'code', header: t('tb.col.code') },
+        { id: 'name', accessorKey: 'name', header: t('tb.col.name') },
+        { id: 'type', accessorKey: 'account_type', header: t('tb.col.type') },
+        {
+          id: 'dr',
+          header: t('tb.col.debit'),
+          cell: ({ row }) => (
+            <span className="block text-end tabular-nums num-latin">
+              {Number(row.original.total_debit) !== 0 ? formatMoney(row.original.total_debit) : ''}
+            </span>
+          ),
+        },
+        {
+          id: 'cr',
+          header: t('tb.col.credit'),
+          cell: ({ row }) => (
+            <span className="block text-end tabular-nums num-latin">
+              {Number(row.original.total_credit) !== 0 ? formatMoney(row.original.total_credit) : ''}
+            </span>
+          ),
+        },
+        {
+          id: 'net',
+          header: t('tb.col.net'),
+          cell: ({ row }) => (
+            <span className={cn('block text-end tabular-nums num-latin',
+              Number(row.original.net) !== 0 && 'font-medium',
+            )}>
+              {formatMoney(row.original.net)}
+            </span>
+          ),
+        },
+      ]),
+    [t],
+  );
+
+  // Highlight rows with non-zero net (active accounts)
+  const getRowClassName = (row: TrialBalanceRow) =>
+    Number(row.net) !== 0 ? 'bg-amber-50/40 dark:bg-amber-900/10' : undefined;
+
+  const balancedBadge = rows.length > 0 ? (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ms-2',
+        totals.balanced
+          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+          : 'border-destructive/40 bg-destructive/10 text-destructive',
+      )}
+    >
+      {totals.balanced ? `✓ ${t('tb.balanced')}` : `⚠ ${t('tb.unbalanced')}`}
+    </span>
+  ) : null;
+
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">{t('tb.title')}</h1>
+    <div className="flex flex-col gap-4 p-6">
+      <PageHeader
+        title={<span className="flex items-center">{t('tb.title')}{balancedBadge}</span>}
+      />
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('tb.as_of')}</Label>
@@ -116,9 +174,7 @@ export default function TrialBalance() {
           </Button>
         ) : null}
       </div>
-      <p className="text-sm">
-        {t('tb.totals', { dr: totals.dr, cr: totals.cr })}
-      </p>
+
       <DataTable
         mode="client"
         columns={columns}
@@ -126,7 +182,27 @@ export default function TrialBalance() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        getRowClassName={getRowClassName}
       />
+
+      {/* Totals footer row */}
+      {rows.length > 0 ? (
+        <div className="rounded-lg border bg-muted/30 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead colSpan={3}>{t('tb.totals_row')}</TableHead>
+                <TableHead className="text-end">{formatMoney(totals.dr)}</TableHead>
+                <TableHead className="text-end">{formatMoney(totals.cr)}</TableHead>
+                <TableHead className={cn('text-end', !totals.balanced && 'text-destructive font-semibold')}>
+                  {formatMoney(Math.abs(totals.dr - totals.cr))}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody />
+          </Table>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,12 +1,19 @@
 {
+  "currency": {
+    "lyd": "Libyan dinar",
+    "usd": "US dollar"
+  },
   "suppliers": {
     "title": "Suppliers",
     "new": "New supplier",
     "edit": "Edit supplier",
+    "search_label": "Search suppliers",
+    "search_placeholder": "Name or code…",
     "col": {
       "code": "Code",
       "name": "Name",
-      "currency": "Currency ID",
+      "contact": "Contact",
+      "currency": "Currency",
       "tax_id": "Tax ID",
       "payment_terms": "Payment terms"
     },
@@ -33,9 +40,16 @@
     "col": {
       "po_number": "PO #",
       "supplier": "Supplier",
+      "branch": "Branch",
       "status": "Status",
+      "created_at": "Created",
       "expected": "Expected",
-      "total": "Total"
+      "total": "Total",
+      "actions": "Actions"
+    },
+    "actions": {
+      "view": "View",
+      "receive": "Receive"
     },
     "filter_status": "Status",
     "all_statuses": "All",
@@ -45,7 +59,9 @@
       "expected_date": "Expected date",
       "branch": "Branch",
       "branch_hint": "Receiving branch (optional until receipt)",
-      "supplier_currency": "Supplier currency (ID)",
+      "supplier_currency": "Supplier currency",
+      "supplier_required": "Select a supplier",
+      "lines_required": "Add at least one line (product and qty)",
       "notes": "Notes",
       "lines": "Lines",
       "product": "Product",
@@ -57,7 +73,12 @@
       "send": "Send to supplier",
       "sent_toast": "Purchase order sent",
       "footer_total": "Total",
-      "created": "Purchase order saved"
+      "created": "Purchase order saved",
+      "product_search_placeholder": "Search by product name or SKU",
+      "product_search_empty": "No matches",
+      "lines_variant_hint": "Pick the product only; color/size are chosen when receiving goods.",
+      "lock_variant_on_po": "Lock variant on PO (optional)",
+      "unit_cost_required": "Enter a unit cost greater than zero for each line"
     },
     "detail_page": {
       "timeline": "Status",
@@ -73,7 +94,9 @@
       "receipt_ok": "Goods received; inventory and GL updated.",
       "closed_ok": "Order closed",
       "remaining": "Remaining",
-      "received_col": "Received"
+      "received_col": "Received",
+      "variant_col": "Variant",
+      "variant_at_receive": "Set at receipt"
     },
     "status": {
       "draft": "Draft",
@@ -84,10 +107,23 @@
     },
     "receive": {
       "title": "Receive against PO",
+      "page_title": "Receive PO-{{id}}",
+      "not_available": "Receiving is not available in this status.",
       "branch": "Branch",
       "qty": "Qty to receive",
+      "unit_cost": "Unit cost",
+      "unit_cost_required": "Enter a unit cost greater than zero",
       "submit": "Post receipt",
-      "idempotency_note": "Protected by idempotency — safe to retry."
+      "idempotency_note": "Protected by idempotency — safe to retry.",
+      "workflow_hint": "For lines without a preset variant: split qty across rows and pick SKU/attributes per part.",
+      "deferred_hint": "Assign a variant for each qty split",
+      "variant": "Variant",
+      "variant_search_placeholder": "Search by SKU or attributes",
+      "variant_search_empty": "No matches",
+      "add_split": "Add split",
+      "allocated": "Allocated",
+      "variant_required": "Pick a variant and qty for each split",
+      "split_exceeds_remaining": "Split totals exceed remaining qty"
     }
   },
   "match": {

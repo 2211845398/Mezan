@@ -31,16 +31,32 @@
     "link_reversal": "Reversal #{{id}}",
     "reverse": "Reverse",
     "filter": {
-      "source_prefix": "Source prefix"
+      "source_prefix": "Source prefix",
+      "source_type": "Source type",
+      "all_sources": "All sources"
     },
     "total_rows": "Total: {{total}}",
     "col": {
-      "id": "No.",
+      "id": "JE #",
       "date": "Date",
       "source": "Source",
       "memo": "Description",
       "debit": "Debit",
-      "credit": "Credit"
+      "credit": "Credit",
+      "balanced": "OK"
+    },
+    "source": {
+      "pos_sale": "POS sale",
+      "purchase_receipt": "Purchase receipt",
+      "payroll": "Payroll",
+      "manual": "Manual entry",
+      "inventory_adjustment": "Inventory adjustment",
+      "sales_return": "Sales return",
+      "transfer": "Transfer",
+      "ar_payment": "AR payment",
+      "ap_payment": "AP payment",
+      "fx_revaluation": "FX revaluation",
+      "opening_balance": "Opening balance"
     },
     "line": {
       "account": "Account",
@@ -70,6 +86,9 @@
     "as_of": "As of",
     "export": "Export CSV",
     "totals": "Total debit: {{dr}} · Total credit: {{cr}}",
+    "totals_row": "Totals",
+    "balanced": "Balanced",
+    "unbalanced": "Unbalanced",
     "col": {
       "code": "Code",
       "name": "Name",
@@ -97,6 +116,9 @@
     "total_liabilities": "Total liabilities",
     "total_equity": "Total equity",
     "imbalance": "Assets − Liabilities − Equity",
+    "balance_check": "Balance check",
+    "balanced": "Balanced",
+    "difference": "Difference",
     "section": {
       "assets": "Assets",
       "liabilities": "Liabilities",
@@ -108,15 +130,20 @@
     "account": "Account",
     "col": {
       "date": "Date",
-      "je": "JE",
+      "je": "JE #",
       "desc": "Description",
-      "balance": "Balance"
+      "balance": "Running balance"
     }
   },
   "ar": {
     "title": "AR open items",
     "col": {
-      "open": "Open",
+      "ref": "Reference",
+      "description": "Description",
+      "doc_date": "Document date",
+      "due_date": "Due date",
+      "days_overdue": "Days overdue",
+      "open": "Open amount",
       "source": "Source",
       "status": "Status"
     },
@@ -126,6 +153,8 @@
       "closed": "Closed",
       "all": "All"
     },
+    "selection_summary": "{{count}} items selected — Total: {{total}}",
+    "deselect_all": "Clear selection",
     "apply_selected": "Apply payment",
     "drawer_title": "Apply AR payment",
     "tendered": "Tendered (max total)",
@@ -138,7 +167,12 @@
   "ap": {
     "title": "AP open items",
     "col": {
-      "open": "Open",
+      "ref": "Reference",
+      "description": "Description",
+      "doc_date": "Document date",
+      "due_date": "Due date",
+      "days_overdue": "Days overdue",
+      "open": "Open amount",
       "source": "Source",
       "status": "Status"
     },
@@ -148,24 +182,100 @@
       "closed": "Closed",
       "all": "All"
     },
+    "selection_summary": "{{count}} items selected — Total: {{total}}",
+    "deselect_all": "Clear selection",
     "apply_selected": "Apply payment",
     "drawer_title": "Apply AP payment",
     "submit": "Submit applications",
     "apply_ok": "Payment applied"
+  },
+  "operations": {
+    "title": "Accounting operations",
+    "subtitle": "Chart of accounts, vouchers, opening balances, FX revaluation, and production orders.",
+    "loading": "Loading…",
+    "tab": {
+      "tree": "Chart of accounts",
+      "vouchers": "Vouchers",
+      "opening": "Opening balances",
+      "fx": "FX revaluation",
+      "production": "Production"
+    },
+    "tree": {
+      "title": "Chart of accounts"
+    },
+    "voucher": {
+      "title": "Receipt / Payment voucher",
+      "date": "Date",
+      "amount": "Amount",
+      "description": "Description",
+      "customer": "Customer",
+      "supplier": "Supplier",
+      "no_entity": "No entity (unlinked)",
+      "receipt_section": "Receipt voucher (AR)",
+      "payment_section": "Payment voucher (AP)",
+      "post_receipt": "Post receipt",
+      "post_payment": "Post payment",
+      "receipt_ok": "Receipt voucher posted",
+      "payment_ok": "Payment voucher posted",
+      "receipt_default_desc": "Customer receipt",
+      "payment_default_desc": "Supplier payment"
+    },
+    "opening": {
+      "title": "Opening balance entry",
+      "date": "Date",
+      "amount": "Amount",
+      "debit_account": "Debit account",
+      "credit_account": "Credit account",
+      "description": "Description",
+      "post": "Post opening balance",
+      "ok": "Opening balance posted",
+      "default_desc": "Opening balance"
+    },
+    "fx": {
+      "title": "Currency revaluation",
+      "as_of": "As of date",
+      "preview": "Preview",
+      "post": "Post revaluation",
+      "preview_ok": "FX preview ready",
+      "run_ok": "FX revaluation posted",
+      "no_adjustments": "No revaluation adjustments for this date.",
+      "col": {
+        "code": "Code",
+        "name": "Account",
+        "book_amount": "Book amount",
+        "revalued_amount": "Revalued",
+        "fx_gain_loss": "FX Gain / Loss"
+      }
+    },
+    "production": {
+      "title": "Production orders & BoMs",
+      "product_label": "Finished product",
+      "version_label": "Version",
+      "empty": "No bill of materials yet."
+    }
   },
   "fiscal": {
     "title": "Fiscal periods",
     "hint": "Periods are global (calendar month). Branch filters apply to reports and postings, not to period rows here.",
     "col": {
       "key": "Period",
-      "status": "Status"
+      "start": "Start",
+      "end": "End",
+      "status": "Status",
+      "closed_at": "Closed on"
     },
-    "close": "Close",
+    "status_label": {
+      "open": "Open",
+      "soft_closed": "Soft closed",
+      "closed": "Closed"
+    },
+    "close": "Close period",
     "reopen": "Reopen",
-    "close_confirm_title": "Close fiscal period",
+    "close_confirm_title": "Close fiscal period?",
     "close_confirm_body": "Closing prevents new postings in this period. Type CLOSE to confirm.",
-    "reopen_confirm_title": "Reopen fiscal period",
-    "reopen_confirm_body": "Reopening allows posting again. Type REOPEN to confirm.",
+    "close_confirm_body_simple": "Closing prevents new postings in this period. You can reopen it later if needed.",
+    "reopen_confirm_title": "Reopen fiscal period?",
+    "reopen_confirm_body": "Reopening allows posting again in this period.",
     "closed_ok": "Period closed",
     "reopened_ok": "Period reopened"
   }

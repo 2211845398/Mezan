@@ -169,6 +169,21 @@ export function formatDateTime(value: Date | string, pattern = 'yyyy-MM-dd HH:mm
   return dateFormatDateTime(d, pattern);
 }
 
+/**
+ * Format a monetary value for display in tables and reports.
+ * Uses Western digits (latn), 2 decimal places, thousands grouping.
+ * Falls back gracefully for null/undefined/NaN.
+ */
+export function formatMoney(
+  value: string | number | null | undefined,
+  fractionDigits = 2,
+  locale?: NumericLocale,
+): string {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return '—';
+  return formatFixedDecimal(n, fractionDigits, locale);
+}
+
 /** MoneyInput: format canonical decimal string for display. */
 export function formatMoneyCanonicalDisplay(
   canonical: string,

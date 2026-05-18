@@ -5,22 +5,32 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PurchaseOrderLineBase(BaseModel):
     product_id: int
     variant_id: int | None = None
     qty: int = Field(gt=0)
-    unit_cost: Decimal = Field(gt=0)
 
 
 class PurchaseOrderLineCreate(PurchaseOrderLineBase):
-    pass
+    unit_cost: Decimal | None = Field(
+        default=None,
+        description="Optional on PO; required at goods receipt.",
+    )
+
+    @field_validator("unit_cost")
+    @classmethod
+    def _unit_cost_positive_when_set(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v <= 0:
+            raise ValueError("unit_cost must be positive when provided")
+        return v
 
 
 class PurchaseOrderLineRead(PurchaseOrderLineBase):
     id: int
+    unit_cost: Decimal | None = None
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 

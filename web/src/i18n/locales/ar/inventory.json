@@ -24,7 +24,8 @@
       "out": "أصناف نفد مخزونها",
       "reserved_units": "إجمالي الوحدات المحجوزة",
       "damaged_units": "إجمالي الوحدات التالفة",
-      "in_transit_units": "إجمالي الوحدات قيد النقل"
+      "in_transit_units": "إجمالي الوحدات قيد النقل",
+      "total_value": "إجمالي قيمة المخزون"
     },
     "search": { "label": "بحث منتج", "placeholder": "اسم أو رمز…", "button": "بحث" },
     "filter": {
@@ -118,6 +119,23 @@
       "reserve": "حجز",
       "release": "إلغاء حجز",
       "count_adjust": "تسوية جرد"
+    },
+    "filter": {
+      "kind": "نوع الحركة",
+      "all_kinds": "كل الأنواع",
+      "date_from": "من تاريخ",
+      "date_to": "إلى تاريخ",
+      "clear": "مسح الفلاتر"
+    },
+    "kind": {
+      "increase": "زيادة",
+      "decrease": "نقصان",
+      "damage": "تالف",
+      "count_adjustment": "تسوية جرد",
+      "receipt": "استلام",
+      "sale": "بيع",
+      "transfer_out": "تحويل صادر",
+      "transfer_in": "تحويل وارد"
     }
   },
   "transfers": {

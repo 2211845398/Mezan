@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { FormContainer } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,10 +21,10 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
-import {
-  getProduct,
-  searchProductVariantsForPurchasing,
-} from '@/features/catalog/api';
+import { getProduct } from '@/features/catalog/api';
+import PoLineProductPicker from '@/features/purchasing/components/PoLineProductPicker';
+import { poGoldOutlineButtonClass } from '@/features/purchasing/lib/poButtonStyles';
+import { supplierCurrencyLabel } from '@/features/purchasing/lib/supplierCurrencyLabel';
 import { fromISO, toISOStringUtc } from '@/lib/date';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { formatPersonName } from '@/lib/personName';
@@ -42,95 +43,17 @@ import { purchaseOrderQueryOptions, purchasingKeys, suppliersQueryOptions } from
 type LineDraft = {
   key: string;
   product_id: number;
-  variant_id: number;
   qty: number;
   pick_label: string;
 };
 
 function newLine(): LineDraft {
-  return { key: crypto.randomUUID(), product_id: 0, variant_id: 0, qty: 1, pick_label: '' };
+  return { key: crypto.randomUUID(), product_id: 0, qty: 1, pick_label: '' };
 }
 
 type ReorderLocationState = {
-  reorderLines?: Array<{ product_id: number; qty: number; unit_cost?: string }>;
+  reorderLines?: Array<{ product_id: number; qty: number }>;
 };
-
-type PoLineVariantPickerProps = {
-  disabled?: boolean;
-  pickLabel: string;
-  onPick: (row: { product_id: number; variant_id: number; pick_label: string }) => void;
-};
-
-function PoLineVariantPicker({ disabled, pickLabel, onPick }: PoLineVariantPickerProps) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
-  const [debounced, setDebounced] = useState('');
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebounced(q.trim()), 280);
-    return () => window.clearTimeout(t);
-  }, [q]);
-
-  const { data: hits = [], isFetching } = useQuery({
-    queryKey: ['purchasing', 'variant-search', debounced],
-    queryFn: () => searchProductVariantsForPurchasing({ q: debounced, limit: 50 }),
-    enabled: open && debounced.length > 0,
-  });
-
-  const inputValue = open ? q : pickLabel;
-
-  return (
-    <div className="relative">
-      <Input
-        disabled={disabled}
-        value={inputValue}
-        placeholder="ابحث بالاسم أو SKU أو الباركود"
-        onChange={(e) => {
-          setQ(e.target.value);
-          if (!open) setOpen(true);
-        }}
-        onFocus={() => {
-          setOpen(true);
-          setQ('');
-        }}
-        onBlur={() => {
-          window.setTimeout(() => setOpen(false), 180);
-        }}
-      />
-      {open && debounced.length > 0 ? (
-        <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 text-sm shadow-md">
-          {isFetching ? (
-            <li className="rounded-sm px-2 py-2 text-muted-foreground">…</li>
-          ) : hits.length === 0 ? (
-            <li className="rounded-sm px-2 py-2 text-muted-foreground">لا نتائج</li>
-          ) : (
-            hits.map((h) => (
-              <li key={h.variant_id}>
-                <button
-                  type="button"
-                  className="w-full rounded-sm px-2 py-2 text-start hover:bg-muted"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    onPick({
-                      product_id: h.product_id,
-                      variant_id: h.variant_id,
-                      pick_label: h.display_name,
-                    });
-                    setOpen(false);
-                    setQ('');
-                  }}
-                >
-                  <span className="font-medium">{h.display_name}</span>
-                  <span className="text-muted-foreground"> · {h.sku}</span>
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
 
 export type OrderFormProps = {
   variant?: 'page' | 'dialog';
@@ -158,31 +81,30 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     queryFn: () => listBranches({ include_archived: false }),
   });
 
-  const [supplierId, setSupplierId] = useState<string>('');
-  const [supplierName, setSupplierName] = useState('');
-  const [branchId, setBranchId] = useState<string>('');
+  const [supplierId, setSupplierId] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<LineDraft[]>([newLine()]);
+
+  const selectedSupplier = useMemo(
+    () => suppliers.find((s) => s.id === Number(supplierId)),
+    [supplierId, suppliers],
+  );
 
   useEffect(() => {
     reorderAppliedRef.current = false;
   }, [location.pathname, variant]);
 
   useEffect(() => {
-    if (!isNew || reorderAppliedRef.current) {
-      return;
-    }
+    if (!isNew || reorderAppliedRef.current) return;
     const st = (location.state as ReorderLocationState | null)?.reorderLines;
-    if (!st?.length) {
-      return;
-    }
+    if (!st?.length) return;
     reorderAppliedRef.current = true;
     setLines(
       st.map((ln) => ({
         key: crypto.randomUUID(),
         product_id: ln.product_id,
-        variant_id: 0,
         qty: ln.qty,
         pick_label: '',
       })),
@@ -191,11 +113,8 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
   }, [isNew, location.state, navigate]);
 
   useEffect(() => {
-    if (!existing) {
-      return;
-    }
+    if (!existing) return;
     setSupplierId(existing.supplier_id != null ? String(existing.supplier_id) : '');
-    setSupplierName(existing.supplier_name);
     setBranchId(existing.branch_id != null ? String(existing.branch_id) : '');
     setExpectedDate(existing.expected_at ? existing.expected_at.slice(0, 10) : '');
     setNotes(existing.notes ?? '');
@@ -205,12 +124,12 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
       const ids = [...new Set(rawLines.map((l) => l.product_id))];
       const names: Record<number, string> = {};
       await Promise.all(
-        ids.map(async (id) => {
+        ids.map(async (pid) => {
           try {
-            const p = await getProduct(id);
-            names[id] = p.name;
+            const p = await getProduct(pid);
+            names[pid] = p.name;
           } catch {
-            names[id] = `#${id}`;
+            names[pid] = `#${pid}`;
           }
         }),
       );
@@ -219,7 +138,6 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
         rawLines.map((ln) => ({
           key: String(ln.id),
           product_id: ln.product_id,
-          variant_id: typeof ln.variant_id === 'number' ? ln.variant_id : 0,
           qty: ln.qty,
           pick_label: names[ln.product_id] ?? `#${ln.product_id}`,
         })),
@@ -230,99 +148,82 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     };
   }, [existing]);
 
-  useEffect(() => {
+  const supplierDisplayName = useMemo(() => {
+    if (!selectedSupplier) return '';
+    return (
+      formatPersonName(
+        selectedSupplier.first_name,
+        selectedSupplier.father_name,
+        selectedSupplier.family_name,
+      ).trim() || selectedSupplier.code
+    );
+  }, [selectedSupplier]);
+
+  const buildPayloadLines = (): PurchaseOrderLineCreate[] => {
+    const filtered = lines.filter((l) => l.product_id > 0 && l.qty > 0);
+    if (filtered.length === 0) {
+      throw new Error('lines');
+    }
+    return filtered.map(({ product_id, qty }) => ({ product_id, qty }));
+  };
+
+  const buildHeader = () => {
     if (!supplierId) {
-      return;
+      throw new Error('supplier');
     }
-    const s = suppliers.find((x) => x.id === Number(supplierId));
-    if (s) {
-      setSupplierName(formatPersonName(s.first_name, s.father_name, s.family_name).trim() || '—');
-    }
-  }, [supplierId, suppliers]);
-
-  const supplierCurrencyId = useMemo(() => {
-    if (!supplierId) return null;
-    return suppliers.find((s) => s.id === Number(supplierId))?.currency_id ?? null;
-  }, [supplierId, suppliers]);
-
-  const buildPayloadLines = (): PurchaseOrderLineCreate[] =>
-    lines
-      .filter((l) => l.product_id > 0 && l.qty > 0)
-      .map(({ product_id, variant_id, qty }) => {
-        const row: PurchaseOrderLineCreate = {
-          product_id,
-          qty,
-          unit_cost: '0' as PurchaseOrderLineCreate['unit_cost'],
-        };
-        if (variant_id > 0) {
-          return { ...row, variant_id };
-        }
-        return row;
-      });
+    const expected_at =
+      expectedDate.trim() === ''
+        ? null
+        : toISOStringUtc(fromISO(`${expectedDate}T00:00:00.000Z`));
+    return {
+      supplier_name: supplierDisplayName || '—',
+      supplier_id: Number(supplierId),
+      branch_id: branchId ? Number(branchId) : null,
+      notes: notes.trim() || null,
+      expected_at,
+    };
+  };
 
   const saveDraft = useMutation({
     mutationFn: async () => {
       const payloadLines = buildPayloadLines();
-      const expected_at =
-        expectedDate.trim() === ''
-          ? null
-          : toISOStringUtc(fromISO(`${expectedDate}T00:00:00.000Z`));
+      const header = buildHeader();
       if (isNew) {
-        return createPurchaseOrder({
-          supplier_name: supplierName.trim() || '—',
-          supplier_id: supplierId ? Number(supplierId) : null,
-          branch_id: branchId ? Number(branchId) : null,
-          notes: notes.trim() || null,
-          expected_at,
-          lines: payloadLines,
-        });
+        return createPurchaseOrder({ ...header, lines: payloadLines });
       }
-      return updatePurchaseOrder(poId, {
-        supplier_name: supplierName.trim() || '—',
-        supplier_id: supplierId ? Number(supplierId) : null,
-        branch_id: branchId ? Number(branchId) : null,
-        notes: notes.trim() || null,
-        expected_at,
-        lines: payloadLines,
-      });
+      return updatePurchaseOrder(poId, { ...header, lines: payloadLines });
     },
     onMutate: async () => {
-      if (isNew || Number.isNaN(poId)) {
-        return {};
-      }
+      if (isNew || Number.isNaN(poId)) return {};
       await qc.cancelQueries({ queryKey: purchasingKeys.order(poId) });
       const prev = qc.getQueryData<PurchaseOrderRead>(purchasingKeys.order(poId));
-      if (!prev) {
-        return {};
-      }
+      if (!prev) return {};
       const payloadLines = buildPayloadLines();
-      const expected_at =
-        expectedDate.trim() === ''
-          ? null
-          : toISOStringUtc(fromISO(`${expectedDate}T00:00:00.000Z`));
+      const header = buildHeader();
       const optimisticLines: PurchaseOrderLineRead[] = payloadLines.map((pl, i) => ({
         id: prev.lines?.[i]?.id ?? -(i + 1),
         product_id: pl.product_id,
-        variant_id: pl.variant_id ?? null,
+        variant_id: null,
         qty: pl.qty,
-        unit_cost: '0',
+        unit_cost: undefined,
       }));
-      const optimistic: PurchaseOrderRead = {
-        ...prev,
-        supplier_name: supplierName.trim() || '—',
-        supplier_id: supplierId ? Number(supplierId) : null,
-        branch_id: branchId ? Number(branchId) : null,
-        notes: notes.trim() || null,
-        expected_at,
-        lines: optimisticLines,
-      };
-      qc.setQueryData(purchasingKeys.order(poId), optimistic);
+      qc.setQueryData(purchasingKeys.order(poId), { ...prev, ...header, lines: optimisticLines });
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
       const snap = ctx as { prev?: PurchaseOrderRead } | undefined;
       if (snap?.prev && !Number.isNaN(poId)) {
         qc.setQueryData(purchasingKeys.order(poId), snap.prev);
+      }
+      if (_err instanceof Error) {
+        if (_err.message === 'supplier') {
+          toast.error(t('orders.form.supplier_required'));
+          return;
+        }
+        if (_err.message === 'lines') {
+          toast.error(t('orders.form.lines_required'));
+          return;
+        }
       }
       notifyApiError(_err, t('errors.generic'));
     },
@@ -341,22 +242,10 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
 
   const send = useMutation({
     mutationFn: async () => {
-      if (isNew || Number.isNaN(poId)) {
-        throw new Error('save first');
-      }
+      if (isNew || Number.isNaN(poId)) throw new Error('save first');
       const payloadLines = buildPayloadLines();
-      const expected_at =
-        expectedDate.trim() === ''
-          ? null
-          : toISOStringUtc(fromISO(`${expectedDate}T00:00:00.000Z`));
-      await updatePurchaseOrder(poId, {
-        supplier_name: supplierName.trim() || '—',
-        supplier_id: supplierId ? Number(supplierId) : null,
-        branch_id: branchId ? Number(branchId) : null,
-        notes: notes.trim() || null,
-        expected_at,
-        lines: payloadLines,
-      });
+      const header = buildHeader();
+      await updatePurchaseOrder(poId, { ...header, lines: payloadLines });
       const idem = newIdempotencyKey();
       return sendPurchaseOrder(poId, { idempotency_key: idem }, idem);
     },
@@ -365,24 +254,30 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
       toast.success(t('orders.form.sent_toast'));
       navigate(`/purchasing/orders/${poId}`);
     },
-    onError: (error) => notifyApiError(error, t('errors.generic')),
+    onError: (error) => {
+      if (error instanceof Error) {
+        if (error.message === 'supplier') {
+          toast.error(t('orders.form.supplier_required'));
+          return;
+        }
+        if (error.message === 'lines') {
+          toast.error(t('orders.form.lines_required'));
+          return;
+        }
+      }
+      notifyApiError(error, t('errors.generic'));
+    },
   });
 
-  return (
-    <div className={cn('flex flex-col gap-4', variant === 'page' ? 'p-4' : '')}>
-      {variant === 'page' ? (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold">{isNew ? t('orders.new') : t('orders.edit')}</h1>
-          <Button type="button" variant="outline" asChild>
-            <Link to="/purchasing/orders">{t('orders.title')}</Link>
-          </Button>
-        </div>
-      ) : null}
-
-      <div className={cn('grid w-full gap-4', variant === 'page' ? 'max-w-3xl' : '')}>
+  const formBody = (
+    <div className="grid w-full gap-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="grid gap-2">
           <Label>{t('orders.form.supplier')}</Label>
-          <Select value={supplierId || '__none'} onValueChange={(v) => setSupplierId(v === '__none' ? '' : v)}>
+          <Select
+            value={supplierId || '__none'}
+            onValueChange={(v) => setSupplierId(v === '__none' ? '' : v)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="—" />
             </SelectTrigger>
@@ -396,17 +291,6 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
             </SelectContent>
           </Select>
         </div>
-        {!supplierId ? (
-          <div className="grid gap-2">
-            <Label htmlFor="supplier_name">{t('orders.form.supplier_name')}</Label>
-            <Input id="supplier_name" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
-          </div>
-        ) : null}
-        {supplierCurrencyId != null ? (
-          <p className="text-sm text-muted-foreground">
-            {t('orders.form.supplier_currency')}: {supplierCurrencyId}
-          </p>
-        ) : null}
         <div className="grid gap-2">
           <Label>{t('orders.form.branch')}</Label>
           <Select value={branchId || '__none'} onValueChange={(v) => setBranchId(v === '__none' ? '' : v)}>
@@ -427,95 +311,108 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
           <Label>{t('orders.form.expected_date')}</Label>
           <DateField value={expectedDate} onChange={setExpectedDate} />
         </div>
+      </div>
 
-        <div className="space-y-2">
-          <div className="font-medium">{t('orders.form.lines')}</div>
-          {lines.map((ln, idx) => (
-            <div key={ln.key} className="grid gap-2 rounded-md border p-3 md:grid-cols-12 md:items-end">
-              <div className="md:col-span-7">
-                <Label>{t('orders.form.product')}</Label>
-                <PoLineVariantPicker
-                  disabled={saveDraft.isPending}
-                  pickLabel={ln.pick_label}
-                  onPick={(row) => {
-                    setLines((prev) =>
-                      prev.map((x, i) =>
-                        i === idx
-                          ? {
-                              ...x,
-                              product_id: row.product_id,
-                              variant_id: row.variant_id,
-                              pick_label: row.pick_label,
-                            }
-                          : x,
-                      ),
-                    );
-                  }}
-                />
-              </div>
-              <div className="md:col-span-3">
-                <Label>{t('orders.form.qty')}</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={ln.qty}
-                  onChange={(e) =>
-                    setLines((prev) =>
-                      prev.map((x, i) => (i === idx ? { ...x, qty: Number(e.target.value) || 1 } : x)),
-                    )
-                  }
-                />
-              </div>
-              <div className="md:col-span-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
-                  aria-label="remove"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
+      {supplierId ? (
+        <p className="text-sm text-muted-foreground">
+          {t('orders.form.supplier_currency')}: {supplierCurrencyLabel(selectedSupplier, t)}
+        </p>
+      ) : null}
+
+      <div className="space-y-2">
+        <div className="font-medium">{t('orders.form.lines')}</div>
+        {lines.map((ln, idx) => (
+          <div key={ln.key} className="grid gap-2 rounded-md border p-3 md:grid-cols-12 md:items-end">
+            <div className="md:col-span-9">
+              <Label>{t('orders.form.product')}</Label>
+              <PoLineProductPicker
+                disabled={saveDraft.isPending}
+                pickLabel={ln.pick_label}
+                onPick={(row) => {
+                  setLines((prev) =>
+                    prev.map((x, i) =>
+                      i === idx
+                        ? { ...x, product_id: row.product_id, pick_label: row.pick_label }
+                        : x,
+                    ),
+                  );
+                }}
+              />
             </div>
-          ))}
+            <div className="md:col-span-2">
+              <Label>{t('orders.form.qty')}</Label>
+              <Input
+                type="number"
+                min={1}
+                value={ln.qty}
+                onChange={(e) =>
+                  setLines((prev) =>
+                    prev.map((x, i) => (i === idx ? { ...x, qty: Number(e.target.value) || 1 } : x)),
+                  )
+                }
+              />
+            </div>
+            <div className="md:col-span-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
+                aria-label="remove"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={() => setLines((prev) => [...prev, newLine()])}>
+          <Plus className="me-2 size-4" />
+          {t('orders.form.add_line')}
+        </Button>
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="notes">{t('orders.form.notes')}</Label>
+        <Textarea id="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={() => saveDraft.mutate()} disabled={saveDraft.isPending}>
+          {t('orders.form.save_draft')}
+        </Button>
+        {variant === 'dialog' && onDismiss ? (
+          <Button type="button" variant="ghost" onClick={onDismiss} disabled={saveDraft.isPending}>
+            {t('actions.cancel', { ns: 'common' })}
+          </Button>
+        ) : null}
+        {!isNew && !Number.isNaN(poId) ? (
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            onClick={() => setLines((prev) => [...prev, newLine()])}
+            className={cn(poGoldOutlineButtonClass)}
+            disabled={send.isPending || existing?.status !== 'draft'}
+            onClick={() => void send.mutateAsync()}
           >
-            <Plus className="me-2 size-4" />
-            {t('orders.form.add_line')}
+            {t('orders.form.send')}
           </Button>
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="notes">{t('orders.form.notes')}</Label>
-          <Textarea id="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={() => saveDraft.mutate()} disabled={saveDraft.isPending}>
-            {t('orders.form.save_draft')}
-          </Button>
-          {variant === 'dialog' && onDismiss ? (
-            <Button type="button" variant="ghost" onClick={onDismiss} disabled={saveDraft.isPending}>
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          ) : null}
-          {!isNew && !Number.isNaN(poId) ? (
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={send.isPending || existing?.status !== 'draft'}
-              onClick={() => void send.mutateAsync()}
-            >
-              {t('orders.form.send')}
-            </Button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </div>
+  );
+
+  if (variant === 'dialog') {
+    return <div className="flex flex-col gap-4">{formBody}</div>;
+  }
+
+  return (
+    <FormContainer maxWidth="2xl">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold">{isNew ? t('orders.new') : t('orders.edit')}</h1>
+        <Button type="button" variant="outline" asChild>
+          <Link to="/purchasing/orders">{t('orders.title')}</Link>
+        </Button>
+      </div>
+      {formBody}
+    </FormContainer>
   );
 }

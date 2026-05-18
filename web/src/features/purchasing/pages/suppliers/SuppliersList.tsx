@@ -2,13 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { usePermission } from '@/hooks/usePermission';
 import { formatPersonName } from '@/lib/personName';
 
@@ -20,9 +21,22 @@ export default function SuppliersList() {
   const { t } = useTranslation('purchasing');
   const canCreate = usePermission('suppliers', 'create');
   const canUpdate = usePermission('suppliers', 'update');
-  const [newSupplierOpen, setNewSupplierOpen] = useState(false);
-  const [newSupplierFormKey, setNewSupplierFormKey] = useState(0);
+
+  const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [newDialogKey, setNewDialogKey] = useState(0);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+
   const { data: rows = [], isLoading, isError, refetch } = useQuery(suppliersQueryOptions());
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const fullName = formatPersonName(r.first_name, r.father_name, r.family_name).toLowerCase();
+      return r.code.toLowerCase().includes(q) || fullName.includes(q);
+    });
+  }, [rows, search]);
 
   const columns = useMemo(
     () =>
@@ -33,9 +47,25 @@ export default function SuppliersList() {
           accessorFn: (row) =>
             [formatPersonName(row.first_name, row.father_name, row.family_name), row.code].filter(Boolean).join(' '),
           header: t('suppliers.col.name'),
-          cell: ({ row }) => formatPersonName(row.original.first_name, row.original.father_name, row.original.family_name) || '—',
+          cell: ({ row }) =>
+            formatPersonName(row.original.first_name, row.original.father_name, row.original.family_name) || '—',
         },
-        { id: 'currency_id', accessorKey: 'currency_id', header: t('suppliers.col.currency') },
+        {
+          id: 'contact',
+          header: t('suppliers.col.contact'),
+          cell: ({ row }) => {
+            const c = row.original.contact as Record<string, string | undefined> | undefined;
+            const phone = c?.phone;
+            const email = c?.email;
+            return phone ?? email ?? '—';
+          },
+        },
+        {
+          id: 'currency_id',
+          accessorKey: 'currency_id',
+          header: t('suppliers.col.currency'),
+          cell: ({ row }) => `#${row.original.currency_id}`,
+        },
         {
           id: 'tax_id',
           accessorKey: 'tax_id',
@@ -53,10 +83,14 @@ export default function SuppliersList() {
           header: '',
           cell: ({ row }) =>
             canUpdate ? (
-              <Button type="button" size="icon" variant="ghost" asChild>
-                <Link to={`/purchasing/suppliers/${row.original.id}/edit`} aria-label={t('suppliers.edit')}>
-                  <Pencil className="size-4" />
-                </Link>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setEditId(row.original.id)}
+                aria-label={t('suppliers.edit')}
+              >
+                <Pencil className="size-4" />
               </Button>
             ) : null,
         },
@@ -69,42 +103,72 @@ export default function SuppliersList() {
       <PageHeader
         title={t('suppliers.title')}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {canCreate ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  setNewSupplierFormKey((k) => k + 1);
-                  setNewSupplierOpen(true);
-                }}
-              >
-                <Plus className="me-2 size-4" />
-                {t('suppliers.new')}
-              </Button>
-            ) : null}
-          </div>
+          canCreate ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setNewDialogKey((k) => k + 1);
+                setNewDialogOpen(true);
+              }}
+            >
+              <Plus className="me-2 size-4" />
+              {t('suppliers.new')}
+            </Button>
+          ) : null
         }
       />
+
+      {/* Client-side search */}
+      <div className="max-w-sm space-y-1">
+        <Label htmlFor="sup-search">{t('suppliers.search_label')}</Label>
+        <Input
+          id="sup-search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('suppliers.search_placeholder')}
+        />
+      </div>
+
       <DataTable
         mode="client"
         columns={columns}
-        data={rows}
+        data={filtered}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
       />
 
+      {/* New supplier drawer */}
       <FloatingFormDialog
-        open={newSupplierOpen}
-        onOpenChange={setNewSupplierOpen}
+        open={newDialogOpen}
+        onOpenChange={setNewDialogOpen}
         title={t('suppliers.new')}
         maxWidth="lg"
       >
-        {newSupplierOpen ? (
+        {newDialogOpen ? (
           <SupplierForm
-            key={newSupplierFormKey}
+            key={newDialogKey}
             variant="dialog"
-            onDismiss={() => setNewSupplierOpen(false)}
+            onDismiss={() => setNewDialogOpen(false)}
+          />
+        ) : null}
+      </FloatingFormDialog>
+
+      {/* Edit supplier drawer */}
+      <FloatingFormDialog
+        open={editId != null}
+        onOpenChange={(open) => {
+          if (!open) setEditId(null);
+        }}
+        title={t('suppliers.edit')}
+        maxWidth="lg"
+      >
+        {editId != null ? (
+          <SupplierForm
+            key={`edit-${editId}`}
+            variant="dialog"
+            editId={editId}
+            onDismiss={() => setEditId(null)}
           />
         ) : null}
       </FloatingFormDialog>

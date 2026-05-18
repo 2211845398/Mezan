@@ -23,6 +23,7 @@ from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.fifo_valuation_service import create_cost_layer, get_valuation_policy
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
+from app.services.purchase_order_service import validate_variant_belongs_to_product
 
 
 async def _qty_received_by_po_line(db: AsyncSession, *, purchase_order_id: int) -> dict[int, int]:
@@ -100,10 +101,12 @@ async def receive_goods_for_purchase_order(
     if not lines:
         raise ValidationError("At least one receipt line is required")
 
-    planned: dict[int, int] = defaultdict(int)
+    receipt_entries: list[tuple[int, int, int | None, Decimal]] = []
     for raw in lines:
         pol_id = raw.get("purchase_order_line_id")
         qty = raw.get("qty")
+        request_variant_id = raw.get("variant_id")
+        unit_cost_raw = raw.get("unit_cost")
         if not isinstance(pol_id, int) or not isinstance(qty, int):
             raise ValidationError(
                 "Each line needs purchase_order_line_id (int) and qty (int)",
@@ -113,10 +116,35 @@ async def receive_goods_for_purchase_order(
             raise ValidationError(
                 "qty must be positive", details={"purchase_order_line_id": pol_id}
             )
-        planned[pol_id] += qty
+        if request_variant_id is not None and not isinstance(request_variant_id, int):
+            raise ValidationError(
+                "variant_id must be an int when provided",
+                details={"line": raw},
+            )
+        if unit_cost_raw is None:
+            raise ValidationError(
+                "unit_cost is required for each receipt line",
+                details={"purchase_order_line_id": pol_id},
+            )
+        try:
+            unit_cost = Decimal(str(unit_cost_raw))
+        except Exception as e:
+            raise ValidationError(
+                "unit_cost must be a positive number",
+                details={"line": raw},
+            ) from e
+        if unit_cost <= 0:
+            raise ValidationError(
+                "unit_cost must be positive",
+                details={"purchase_order_line_id": pol_id},
+            )
+        receipt_entries.append((pol_id, qty, request_variant_id, unit_cost))
 
-    receipt_lines_payload: list[tuple[int, int, Decimal, PurchaseOrderLine]] = []
-    for pol_id, qty in planned.items():
+    totals_by_pol: dict[int, int] = defaultdict(int)
+    for pol_id, qty, _, _ in receipt_entries:
+        totals_by_pol[pol_id] += qty
+
+    for pol_id, total_qty in totals_by_pol.items():
         pol = po_line_by_id.get(pol_id)
         if not pol:
             raise ValidationError(
@@ -124,18 +152,32 @@ async def receive_goods_for_purchase_order(
                 details={"purchase_order_line_id": pol_id},
             )
         already = received_so_far.get(pol_id, 0)
-        if already + qty > pol.qty:
+        if already + total_qty > pol.qty:
             raise ValidationError(
                 "Received quantity exceeds ordered quantity for line",
                 details={
                     "purchase_order_line_id": pol_id,
                     "ordered": pol.qty,
                     "already_received": already,
-                    "requested": qty,
+                    "requested": total_qty,
                 },
             )
-        unit_cost = pol.unit_cost
-        receipt_lines_payload.append((pol_id, qty, unit_cost, pol))
+
+    receipt_lines_payload: list[tuple[int, int, Decimal, PurchaseOrderLine, int]] = []
+    for pol_id, qty, request_variant_id, unit_cost in receipt_entries:
+        pol = po_line_by_id[pol_id]
+        if pol.variant_id is not None:
+            line_variant_id = int(pol.variant_id)
+        else:
+            if request_variant_id is None:
+                raise ValidationError(
+                    "variant_id is required when the PO line has no preset variant",
+                    details={"purchase_order_line_id": pol_id},
+                )
+            line_variant_id = await validate_variant_belongs_to_product(
+                db, product_id=pol.product_id, variant_id=request_variant_id
+            )
+        receipt_lines_payload.append((pol_id, qty, unit_cost, pol, line_variant_id))
 
     supplier_id = purchase_order.supplier_id
     supplier_name = purchase_order.supplier_name
@@ -159,8 +201,7 @@ async def receive_goods_for_purchase_order(
 
     valuation_pol = await get_valuation_policy(db)
 
-    for i, (pol_id, qty, unit_cost, pol) in enumerate(receipt_lines_payload):
-        line_variant_id = pol.variant_id
+    for i, (pol_id, qty, unit_cost, pol, line_variant_id) in enumerate(receipt_lines_payload):
         db.add(
             GoodsReceiptLine(
                 goods_receipt_id=receipt.id,

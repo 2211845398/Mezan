@@ -53,6 +53,8 @@ class SupplierRead(BaseModel):
     father_name: str | None
     family_name: str | None
     currency_id: int
+    currency_code: str | None = None
+    currency_name: str | None = None
     payables_account_id: int | None
     tax_id: str | None
     contact: dict[str, Any]

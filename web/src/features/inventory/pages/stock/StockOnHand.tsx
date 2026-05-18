@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
@@ -12,14 +13,16 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { TableCategoryTags } from '@/components/shared/TableCategoryTags';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { useCategoryTreeQuery } from '@/features/catalog/queries';
 import { purchasingKeys } from '@/features/purchasing/queries';
 import { usePermission } from '@/hooks/usePermission';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
+import { formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 import { postCreatePurchaseOrdersFromReorder } from '../../api';
 import { BranchStockFilterBar } from '../../components/BranchStockFilterBar';
@@ -38,11 +41,13 @@ function flattenCats(nodes: { id: number; name: string; children?: typeof nodes 
   return o;
 }
 
-function statusBadgeClass(status: string): string {
-  if (status === 'out_of_stock') return 'bg-destructive/15 text-destructive';
-  if (status === 'below_reorder') return 'bg-amber-500/15 text-amber-800 dark:text-amber-200';
-  if (status === 'ok') return 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200';
-  return 'bg-muted text-muted-foreground';
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
 }
 
 export default function StockOnHand() {
@@ -69,8 +74,10 @@ export default function StockOnHand() {
 
   const qText = searchParams.get('q') ?? '';
   const reorderOnly = searchParams.get('reorder_only') === '1';
+  const statusFilter = searchParams.get('status_filter') ?? '';
 
   const [qDraft, setQDraft] = useState(qText);
+  const debouncedQ = useDebounce(qDraft, 300);
 
   const [movementDialogOpen, setMovementDialogOpen] = useState(false);
   const [movementFormKey, setMovementFormKey] = useState(0);
@@ -93,6 +100,11 @@ export default function StockOnHand() {
     [setSearchParams],
   );
 
+  // Sync debounced search to URL
+  useEffect(() => {
+    setParam('q', debouncedQ.trim() || null);
+  }, [debouncedQ, setParam]);
+
   const queryParams = useMemo(
     () => ({
       branch_id: branchId ?? '',
@@ -113,20 +125,28 @@ export default function StockOnHand() {
   const cats = useMemo(() => flattenCats(tree), [tree]);
   const { data: rows = [], isLoading, isError, refetch } = useStockOnHandQuery(queryParams);
 
+  // Client-side status filter (applied on top of server data)
+  const filteredRows = useMemo(() => {
+    if (!statusFilter) return rows;
+    return rows.filter((r) => r.reorder_status === statusFilter);
+  }, [rows, statusFilter]);
+
   const kpis = useMemo(() => {
     let low = 0;
     let out = 0;
     let damaged = 0;
     let reserved = 0;
     let inTransit = 0;
+    let totalValue = 0;
     for (const r of rows) {
       if (r.reorder_status === 'below_reorder') low += 1;
       if (r.reorder_status === 'out_of_stock') out += 1;
       damaged += r.damaged;
       reserved += r.reserved;
       inTransit += r.in_transit_in + r.in_transit_out;
+      totalValue += Number(r.extended_cost ?? 0);
     }
-    return { low, out, damaged, reserved, inTransit };
+    return { low, out, damaged, reserved, inTransit, totalValue };
   }, [rows]);
 
   const createPoM = useMutation({
@@ -197,8 +217,29 @@ export default function StockOnHand() {
         { id: 'rsv', accessorKey: 'reserved', header: t('stock.col.reserved') },
         { id: 'dmg', accessorKey: 'damaged', header: t('stock.col.damaged') },
         { id: 'on_order', accessorKey: 'on_order', header: t('stock.col.on_order') },
-        { id: 'itin', accessorKey: 'in_transit_in', header: t('stock.col.in_transit_in') },
-        { id: 'itout', accessorKey: 'in_transit_out', header: t('stock.col.in_transit_out') },
+        {
+          id: 'st',
+          header: t('stock.col.status'),
+          cell: ({ row }) => (
+            <StatusBadge
+              status={row.original.reorder_status}
+              label={t(`stock.reorder_status.${row.original.reorder_status}`, row.original.reorder_status)}
+            />
+          ),
+        },
+        // Hidden by default: lower-priority columns still accessible via column visibility
+        {
+          id: 'itin',
+          accessorKey: 'in_transit_in',
+          header: t('stock.col.in_transit_in'),
+          meta: { defaultHidden: true },
+        },
+        {
+          id: 'itout',
+          accessorKey: 'in_transit_out',
+          header: t('stock.col.in_transit_out'),
+          meta: { defaultHidden: true },
+        },
         { id: 'rp', accessorKey: 'reorder_point', header: t('stock.col.reorder_point') },
         {
           id: 'cov',
@@ -206,21 +247,84 @@ export default function StockOnHand() {
           cell: ({ row }) => row.original.days_of_cover ?? '—',
         },
         {
-          id: 'st',
-          header: t('stock.col.status'),
+          id: 'uc',
+          accessorKey: 'unit_cost',
+          header: t('stock.col.unit_cost'),
+          meta: { defaultHidden: true },
           cell: ({ row }) => (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(row.original.reorder_status)}`}
-            >
-              {t(`stock.reorder_status.${row.original.reorder_status}`, row.original.reorder_status)}
-            </span>
+            <span className="num-latin tabular-nums">{formatMoney(row.original.unit_cost)}</span>
           ),
         },
-        { id: 'uc', accessorKey: 'unit_cost', header: t('stock.col.unit_cost') },
-        { id: 'ext', accessorKey: 'extended_cost', header: t('stock.col.extended') },
+        {
+          id: 'ext',
+          accessorKey: 'extended_cost',
+          header: t('stock.col.extended'),
+          meta: { defaultHidden: true },
+          cell: ({ row }) => (
+            <span className="num-latin tabular-nums">{formatMoney(row.original.extended_cost)}</span>
+          ),
+        },
       ]),
     [t],
   );
+
+  type KpiCard = {
+    label: string;
+    value: string | number;
+    statusFilter?: string;
+    reorderOnly?: boolean;
+    active?: boolean;
+    variant?: 'default' | 'warning' | 'danger' | 'success';
+  };
+
+  const kpiCards: KpiCard[] = [
+    {
+      label: t('stock.kpi.out'),
+      value: kpis.out,
+      statusFilter: 'out_of_stock',
+      active: statusFilter === 'out_of_stock',
+      variant: kpis.out > 0 ? 'danger' : 'default',
+    },
+    {
+      label: t('stock.kpi.low'),
+      value: kpis.low,
+      statusFilter: 'below_reorder',
+      active: statusFilter === 'below_reorder',
+      variant: kpis.low > 0 ? 'warning' : 'default',
+    },
+    {
+      label: t('stock.kpi.reserved_units'),
+      value: kpis.reserved,
+      variant: 'default',
+    },
+    {
+      label: t('stock.kpi.damaged_units'),
+      value: kpis.damaged,
+      variant: kpis.damaged > 0 ? 'warning' : 'default',
+    },
+    {
+      label: t('stock.kpi.in_transit_units'),
+      value: kpis.inTransit,
+      variant: 'default',
+    },
+    {
+      label: t('stock.kpi.total_value'),
+      value: formatMoney(kpis.totalValue),
+      variant: 'success',
+    },
+  ];
+
+  function handleKpiClick(card: KpiCard) {
+    if (card.statusFilter) {
+      if (statusFilter === card.statusFilter) {
+        setParam('status_filter', null);
+        setParam('reorder_only', null);
+      } else {
+        setParam('status_filter', card.statusFilter);
+        setParam('reorder_only', '1');
+      }
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -262,27 +366,37 @@ export default function StockOnHand() {
       />
       <p className="text-xs text-muted-foreground">{t('stock.wavg_note')}</p>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">{t('stock.kpi.low')}</p>
-          <p className="text-2xl font-semibold">{kpis.low}</p>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">{t('stock.kpi.out')}</p>
-          <p className="text-2xl font-semibold">{kpis.out}</p>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">{t('stock.kpi.reserved_units')}</p>
-          <p className="text-2xl font-semibold">{kpis.reserved}</p>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">{t('stock.kpi.damaged_units')}</p>
-          <p className="text-2xl font-semibold">{kpis.damaged}</p>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">{t('stock.kpi.in_transit_units')}</p>
-          <p className="text-2xl font-semibold">{kpis.inTransit}</p>
-        </div>
+      {/* KPI Strip — clickable cards filter the table */}
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {kpiCards.map((card) => (
+          <button
+            key={card.label}
+            type="button"
+            onClick={() => handleKpiClick(card)}
+            className={cn(
+              'rounded-lg border bg-card p-3 text-start transition-all',
+              card.statusFilter
+                ? 'cursor-pointer hover:shadow-sm hover:ring-2 hover:ring-primary/40'
+                : 'cursor-default',
+              card.active && 'ring-2 ring-primary shadow-sm',
+              card.variant === 'danger' && 'border-destructive/40',
+              card.variant === 'warning' && 'border-amber-400/40',
+              card.variant === 'success' && 'border-emerald-400/40',
+            )}
+          >
+            <p className="text-xs text-muted-foreground">{card.label}</p>
+            <p
+              className={cn(
+                'mt-1 text-xl font-semibold tabular-nums num-latin',
+                card.variant === 'danger' && card.value !== 0 && 'text-destructive',
+                card.variant === 'warning' && card.value !== 0 && 'text-amber-700 dark:text-amber-300',
+                card.variant === 'success' && 'text-emerald-700 dark:text-emerald-400',
+              )}
+            >
+              {card.value}
+            </p>
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-col gap-4">
@@ -297,33 +411,21 @@ export default function StockOnHand() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[200px] flex-1 space-y-1">
             <Label htmlFor="inv-q">{t('stock.search.label')}</Label>
-            <div className="flex gap-2">
-              <Input
-                id="inv-q"
-                value={qDraft}
-                onChange={(e) => setQDraft(e.target.value)}
-                placeholder={t('stock.search.placeholder')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setParam('q', qDraft.trim() || null);
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setParam('q', qDraft.trim() || null)}
-                className="border-secondary/60 bg-background font-medium text-secondary shadow-none hover:bg-muted/50 hover:text-secondary"
-              >
-                {t('stock.search.button')}
-              </Button>
-            </div>
+            <Input
+              id="inv-q"
+              value={qDraft}
+              onChange={(e) => setQDraft(e.target.value)}
+              placeholder={t('stock.search.placeholder')}
+            />
           </div>
           <div className="flex items-center gap-2">
             <Switch
               id="reorder-only"
               checked={reorderOnly}
-              onCheckedChange={(v) => setParam('reorder_only', v ? '1' : null)}
+              onCheckedChange={(v) => {
+                setParam('reorder_only', v ? '1' : null);
+                if (!v) setParam('status_filter', null);
+              }}
             />
             <Label htmlFor="reorder-only">{t('stock.filter.reorder_only')}</Label>
           </div>
@@ -334,7 +436,7 @@ export default function StockOnHand() {
         mode="client"
         showSearch={false}
         columns={columns}
-        data={rows}
+        data={filteredRows}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
@@ -355,7 +457,6 @@ export default function StockOnHand() {
           />
         ) : null}
       </FloatingFormDialog>
-
     </div>
   );
 }

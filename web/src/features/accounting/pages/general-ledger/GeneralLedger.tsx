@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -19,11 +20,20 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { now, utcCalendarDayKey } from '@/lib/date';
+import { formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 import type { GeneralLedgerLineRead } from '../../api';
 import AccountPicker from '../../components/AccountPicker';
 import { runningBalancesForGlLines } from '../../lib/glRunningBalance';
 import { generalLedgerQueryOptions } from '../../queries';
+
+function drCrLabel(balance: string): { label: string; cls: string } {
+  const n = Number(balance);
+  if (n > 0) return { label: `(Dr)`, cls: 'text-emerald-700 dark:text-emerald-400' };
+  if (n < 0) return { label: `(Cr)`, cls: 'text-destructive' };
+  return { label: '(Nil)', cls: 'text-muted-foreground' };
+}
 
 export default function GeneralLedger() {
   const { t } = useTranslation('accounting');
@@ -94,28 +104,63 @@ export default function GeneralLedger() {
           header: t('gl.col.date'),
           cell: ({ row }) => row.original.entry_date?.slice(0, 10),
         },
-        { id: 'j', header: t('gl.col.je'), cell: ({ row }) => row.original.journal_entry_id },
         {
-          id: 'desc',
-          header: t('gl.col.desc'),
+          id: 'j',
+          header: t('gl.col.je'),
           cell: ({ row }) => (
-            <Button variant="link" className="h-auto p-0" asChild>
+            <Button variant="link" className="h-auto p-0 num-latin" asChild>
               <Link to={`/accounting/journal/${row.original.journal_entry_id}`}>
-                {row.original.description}
+                #{row.original.journal_entry_id}
               </Link>
             </Button>
           ),
         },
-        { id: 'dr', header: t('journal.col.debit'), cell: ({ row }) => String(row.original.debit) },
-        { id: 'cr', header: t('journal.col.credit'), cell: ({ row }) => String(row.original.credit) },
-        { id: 'run', header: t('gl.col.balance'), cell: ({ row }) => row.original._run },
+        {
+          id: 'desc',
+          header: t('gl.col.desc'),
+          cell: ({ row }) => row.original.description,
+        },
+        {
+          id: 'dr',
+          header: t('journal.col.debit'),
+          cell: ({ row }) => (
+            <span className="block text-end tabular-nums num-latin">
+              {row.original.debit !== '0' && row.original.debit !== '0.0000'
+                ? formatMoney(row.original.debit)
+                : ''}
+            </span>
+          ),
+        },
+        {
+          id: 'cr',
+          header: t('journal.col.credit'),
+          cell: ({ row }) => (
+            <span className="block text-end tabular-nums num-latin">
+              {row.original.credit !== '0' && row.original.credit !== '0.0000'
+                ? formatMoney(row.original.credit)
+                : ''}
+            </span>
+          ),
+        },
+        {
+          id: 'run',
+          header: t('gl.col.balance'),
+          cell: ({ row }) => {
+            const { label, cls } = drCrLabel(row.original._run);
+            return (
+              <span className={cn('block text-end tabular-nums num-latin', cls)}>
+                {formatMoney(Math.abs(Number(row.original._run)))} {label}
+              </span>
+            );
+          },
+        },
       ]),
     [t],
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">{t('gl.title')}</h1>
+    <div className="flex flex-col gap-4 p-6">
+      <PageHeader title={t('gl.title')} />
       <div className="grid max-w-md gap-1">
         <Label>{t('gl.account')}</Label>
         <AccountPicker value={accountId} onChange={setAccountId} />

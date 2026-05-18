@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -17,6 +19,8 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
+import { formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 import type { OpenItemRead } from '../../api';
 import { apOpenItemsQueryOptions } from '../../queries';
@@ -50,6 +54,11 @@ export default function ApOpenItems() {
     [rows, sel],
   );
 
+  const selectionTotal = useMemo(
+    () => selectedItems.reduce((acc, r) => acc + Number(r.amount_open), 0),
+    [selectedItems],
+  );
+
   const columns = useMemo(
     () =>
       defineColumns<OpenItemRead>()([
@@ -67,21 +76,68 @@ export default function ApOpenItems() {
               />
             ) : null,
         },
-        { id: 'id', accessorKey: 'id', header: 'ID' },
+        {
+          id: 'ref',
+          header: t('ap.col.ref'),
+          cell: ({ row }) => (
+            <span className="num-latin font-mono text-sm">
+              {row.original.source_type}-{row.original.source_id}
+            </span>
+          ),
+        },
+        {
+          id: 'desc',
+          header: t('ap.col.description'),
+          cell: ({ row }) => row.original.description ?? '—',
+        },
+        {
+          id: 'doc_date',
+          header: t('ap.col.doc_date'),
+          cell: ({ row }) => row.original.document_date?.slice(0, 10) ?? '—',
+        },
+        {
+          id: 'due_date',
+          header: t('ap.col.due_date'),
+          cell: ({ row }) => row.original.due_date?.slice(0, 10) ?? '—',
+        },
+        {
+          id: 'overdue',
+          header: t('ap.col.days_overdue'),
+          cell: ({ row }) => {
+            const d = row.original.days_overdue;
+            if (d == null || d <= 0) return '—';
+            return (
+              <span className="font-medium text-destructive tabular-nums">{d}</span>
+            );
+          },
+        },
         {
           id: 'open',
           header: t('ap.col.open'),
-          cell: ({ row }) => String(row.original.amount_open),
+          cell: ({ row }) => (
+            <span className="tabular-nums num-latin text-end block">
+              {formatMoney(row.original.amount_open)}
+            </span>
+          ),
         },
-        { id: 'src', header: t('ap.col.source'), cell: ({ row }) => row.original.source_id },
-        { id: 'st', accessorKey: 'status', header: t('ap.col.status') },
+        {
+          id: 'st',
+          accessorKey: 'status',
+          header: t('ap.col.status'),
+          cell: ({ row }) => (
+            <StatusBadge
+              status={row.original.status}
+              label={t(`ap.status.${row.original.status}`, row.original.status)}
+            />
+          ),
+        },
       ]),
     [canApply, sel, t],
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">{t('ap.title')}</h1>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader title={t('ap.title')} />
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('toolbar.branch')}</Label>
@@ -112,12 +168,8 @@ export default function ApOpenItems() {
             </SelectContent>
           </Select>
         </div>
-        {canApply && sel.length > 0 ? (
-          <Button type="button" onClick={() => setOpenDr(true)}>
-            {t('ap.apply_selected')}
-          </Button>
-        ) : null}
       </div>
+
       <DataTable
         mode="client"
         columns={columns}
@@ -126,6 +178,29 @@ export default function ApOpenItems() {
         isError={isError}
         onRetry={() => void refetch()}
       />
+
+      {/* Sticky bulk action bar */}
+      {canApply && sel.length > 0 ? (
+        <div
+          className={cn(
+            'fixed inset-x-0 bottom-0 z-50 flex items-center justify-between gap-4',
+            'border-t bg-background/95 px-6 py-3 shadow-lg backdrop-blur-sm',
+          )}
+        >
+          <p className="text-sm text-muted-foreground">
+            {t('ap.selection_summary', { count: sel.length, total: formatMoney(selectionTotal) })}
+          </p>
+          <div className="flex gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setSel([])}>
+              {t('ap.deselect_all')}
+            </Button>
+            <Button type="button" size="sm" onClick={() => setOpenDr(true)}>
+              {t('ap.apply_selected')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <ApApplyPaymentDrawer open={openDr} onOpenChange={setOpenDr} items={selectedItems} />
     </div>
   );

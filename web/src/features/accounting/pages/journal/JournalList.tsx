@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { subDays } from 'date-fns';
-import { Eye } from 'lucide-react';
+import { CheckCircle2, Eye, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -8,9 +8,8 @@ import { Link } from 'react-router-dom';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
-import { CreateButton,PageHeader } from '@/components/shared/PageHeader';
+import { CreateButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -23,9 +22,24 @@ import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
 import { now, utcCalendarDayKey } from '@/lib/date';
+import { formatMoney } from '@/lib/format';
 
 import type { JournalEntryListItemRead } from '../../api';
 import { journalListQueryOptions } from '../../queries';
+
+const SOURCE_TYPES = [
+  'pos_sale',
+  'purchase_receipt',
+  'payroll',
+  'manual',
+  'inventory_adjustment',
+  'sales_return',
+  'transfer',
+  'ar_payment',
+  'ap_payment',
+  'fx_revaluation',
+  'opening_balance',
+] as const;
 
 function defaultDateRange() {
   const to = now();
@@ -39,7 +53,7 @@ export default function JournalList() {
   const [dateFrom, setDateFrom] = useState(df0);
   const [dateTo, setDateTo] = useState(dt0);
   const [branch, setBranch] = useState('__all');
-  const [source, setSource] = useState('');
+  const [source, setSource] = useState('__all');
   const [page] = useState(0);
   const pageSize = 30;
   const canCreate = usePermission('accounting', 'create');
@@ -52,6 +66,8 @@ export default function JournalList() {
     branch === '__all'
       ? undefined
       : Number(branch) || undefined;
+
+  // Reactive: listArgs changes whenever any filter changes — TanStack Query auto-refetches
   const listArgs = useMemo(() => {
     const p: {
       date_from: string;
@@ -62,10 +78,10 @@ export default function JournalList() {
       source_type?: string;
     } = { date_from: dateFrom, date_to: dateTo, page, pageSize };
     if (b !== undefined) p.branch_id = b;
-    const st = source.trim();
-    if (st) p.source_type = st;
+    if (source !== '__all') p.source_type = source;
     return p;
   }, [dateFrom, dateTo, b, source, page, pageSize]);
+
   const { data, isLoading, isError, refetch } = useQuery(
     journalListQueryOptions(listArgs),
   );
@@ -75,23 +91,55 @@ export default function JournalList() {
   const columns = useMemo(
     () =>
       defineColumns<JournalEntryListItemRead>()([
-        { id: 'id', header: t('journal.col.id'), cell: ({ row }) => String(row.original.id) },
+        {
+          id: 'id',
+          header: t('journal.col.id'),
+          cell: ({ row }) => (
+            <Button variant="link" className="h-auto p-0 num-latin" asChild>
+              <Link to={`/accounting/journal/${row.original.id}`}>
+                #{row.original.id}
+              </Link>
+            </Button>
+          ),
+        },
         {
           id: 'date',
           header: t('journal.col.date'),
-          cell: ({ row }) => String(row.original.entry_date),
+          cell: ({ row }) => String(row.original.entry_date).slice(0, 10),
         },
         { id: 'source', header: t('journal.col.source'), cell: ({ row }) => row.original.source_type },
         { id: 'memo', header: t('journal.col.memo'), cell: ({ row }) => row.original.description },
         {
           id: 'dr',
           header: t('journal.col.debit'),
-          cell: ({ row }) => String(row.original.total_debit),
+          cell: ({ row }) => (
+            <span className="block text-end tabular-nums num-latin">
+              {formatMoney(row.original.total_debit)}
+            </span>
+          ),
         },
         {
           id: 'cr',
           header: t('journal.col.credit'),
-          cell: ({ row }) => String(row.original.total_credit),
+          cell: ({ row }) => (
+            <span className="block text-end tabular-nums num-latin">
+              {formatMoney(row.original.total_credit)}
+            </span>
+          ),
+        },
+        {
+          id: 'bal',
+          header: t('journal.col.balanced'),
+          cell: ({ row }) => {
+            const dr = Number(row.original.total_debit);
+            const cr = Number(row.original.total_credit);
+            const ok = Math.abs(dr - cr) < 0.01;
+            return ok ? (
+              <CheckCircle2 className="size-4 text-emerald-600" aria-label="balanced" />
+            ) : (
+              <XCircle className="size-4 text-destructive" aria-label="unbalanced" />
+            );
+          },
         },
         {
           id: 'a',
@@ -130,8 +178,20 @@ export default function JournalList() {
           <DateField value={dateTo} onChange={setDateTo} />
         </div>
         <div className="grid gap-1">
-          <Label>{t('journal.filter.source_prefix')}</Label>
-          <Input value={source} onChange={(e) => setSource(e.target.value)} className="w-[200px]" />
+          <Label>{t('journal.filter.source_type')}</Label>
+          <Select value={source} onValueChange={setSource}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">{t('journal.filter.all_sources')}</SelectItem>
+              {SOURCE_TYPES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {t(`journal.source.${s}`, s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid gap-1">
           <Label>{t('toolbar.branch')}</Label>
@@ -149,9 +209,6 @@ export default function JournalList() {
             </SelectContent>
           </Select>
         </div>
-        <Button type="button" onClick={() => void refetch()}>
-          {t('toolbar.apply')}
-        </Button>
       </div>
       <p className="text-sm text-muted-foreground">
         {t('journal.total_rows', { total })}

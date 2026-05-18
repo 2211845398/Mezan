@@ -24,7 +24,8 @@
       "out": "Items out of stock",
       "reserved_units": "Total reserved units",
       "damaged_units": "Total damaged units",
-      "in_transit_units": "Total units in transit"
+      "in_transit_units": "Total units in transit",
+      "total_value": "Total inventory value"
     },
     "search": { "label": "Search product", "placeholder": "Name or SKU…", "button": "Search" },
     "filter": {
@@ -118,6 +119,23 @@
       "reserve": "Reserve",
       "release": "Release reservation",
       "count_adjust": "Count adjustment"
+    },
+    "filter": {
+      "kind": "Movement type",
+      "all_kinds": "All types",
+      "date_from": "From date",
+      "date_to": "To date",
+      "clear": "Clear filters"
+    },
+    "kind": {
+      "increase": "Increase",
+      "decrease": "Decrease",
+      "damage": "Damage",
+      "count_adjustment": "Count adjustment",
+      "receipt": "Receipt",
+      "sale": "Sale",
+      "transfer_out": "Transfer out",
+      "transfer_in": "Transfer in"
     }
   },
   "transfers": {

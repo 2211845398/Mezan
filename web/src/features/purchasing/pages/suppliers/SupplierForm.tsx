@@ -46,9 +46,11 @@ export type SupplierFormValues = z.infer<ReturnType<typeof supplierFormSchema>>;
 export type SupplierFormProps = {
   variant?: 'page' | 'dialog';
   onDismiss?: () => void;
+  /** When passed in dialog mode, this ID is used instead of URL param for editing. */
+  editId?: number;
 };
 
-export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFormProps = {}) {
+export default function SupplierForm({ variant = 'page', onDismiss, editId }: SupplierFormProps = {}) {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation('purchasing');
   const { t: tc } = useTranslation('common');
@@ -56,8 +58,9 @@ export default function SupplierForm({ variant = 'page', onDismiss }: SupplierFo
   const location = useLocation();
   const qc = useQueryClient();
   const pathnameIsNew = /\/purchasing\/suppliers\/new\/?$/.test(location.pathname);
-  const isNew = variant === 'dialog' ? true : pathnameIsNew || id === 'new';
-  const supplierId = !isNew && id ? Number(id) : NaN;
+  // In dialog mode: if editId is provided, it's an edit; otherwise it's new
+  const isNew = variant === 'dialog' ? editId == null : pathnameIsNew || id === 'new';
+  const supplierId = editId != null ? editId : (!isNew && id ? Number(id) : NaN);
 
   const { data: existing } = useQuery({
     ...supplierQueryOptions(supplierId),

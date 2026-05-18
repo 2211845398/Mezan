@@ -17,6 +17,7 @@ from app.services.inventory_reporting_service import (
     _consumption_30d_map,
     _in_transit_in_map,
     _in_transit_out_map,
+    _on_order_qty_for_branch_product,
     _open_po_qty_map,
     _reorder_status,
 )
@@ -55,12 +56,14 @@ async def get_product_stock_card(db: AsyncSession, *, product_id: int) -> StockC
         rv = int(sl.reserved)
         dm = int(sl.damaged)
         available = oh - rv - dm
-        key = (sl.branch_id, product_id)
-        on_order = on_order_m.get(key, 0)
-        in_in = in_in_m.get(key, 0)
-        in_out = out_m.get(key, 0)
+        branch_key = (sl.branch_id, product_id, sl.variant_id)
+        on_order = _on_order_qty_for_branch_product(
+            on_order_m, branch_id=sl.branch_id, product_id=product_id
+        )
+        in_in = in_in_m.get(branch_key, 0)
+        in_out = out_m.get(branch_key, 0)
         cover = available + on_order + in_in
-        sold_30 = cons_m.get(key, 0)
+        sold_30 = cons_m.get(branch_key, 0)
         rate = sold_30 / 30.0 if sold_30 else 0.0
         days_cover: float | None = None
         if rate > 0 and available >= 0:

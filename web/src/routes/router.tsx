@@ -92,6 +92,9 @@ const InventoryScansDetailRedirect = lazy(
 const PurchasingOrdersList = lazy(() => import('@/features/purchasing/pages/orders/OrdersList'));
 const PurchasingOrderForm = lazy(() => import('@/features/purchasing/pages/orders/OrderForm'));
 const PurchasingOrderDetail = lazy(() => import('@/features/purchasing/pages/orders/OrderDetail'));
+const PurchasingGoodsReceiptPage = lazy(
+  () => import('@/features/purchasing/pages/receipts/GoodsReceiptPage'),
+);
 const PurchasingSuppliersList = lazy(() => import('@/features/purchasing/pages/suppliers/SuppliersList'));
 const PurchasingSupplierForm = lazy(() => import('@/features/purchasing/pages/suppliers/SupplierForm'));
 const InvoiceScanQueue = lazy(() => import('@/features/invoice_scans/pages/InvoiceScanQueue'));
@@ -467,6 +470,14 @@ export const router = createBrowserRouter([
                     element: (
                       <RequirePermission resource="purchase_orders" action="update">
                         {withSuspense(PurchasingOrderForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id/receive',
+                    element: (
+                      <RequirePermission resource="purchase_orders" action="update">
+                        {withSuspense(PurchasingGoodsReceiptPage)}
                       </RequirePermission>
                     ),
                   },

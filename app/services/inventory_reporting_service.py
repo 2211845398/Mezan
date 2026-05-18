@@ -27,12 +27,26 @@ from app.utils.variant_display import variant_attributes_summary
 COST_Q = Decimal("0.0001")
 OPEN_PO_STATUSES: tuple[str, ...] = ("draft", "sent", "tracked")
 
+# branch_id, product_id, variant_id (None = PO line without preset variant)
+OpenPoQtyKey = tuple[int, int, int | None]
+
 
 def _q(value: Decimal) -> Decimal:
     return value.quantize(COST_Q)
 
 
-async def _open_po_qty_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
+def _on_order_qty_for_branch_product(
+    on_order_m: dict[OpenPoQtyKey, int], *, branch_id: int, product_id: int
+) -> int:
+    """Sum open PO qty for a product at a branch (variant-specific + deferred-variant lines)."""
+    return sum(
+        qty
+        for (bid, pid, _vid), qty in on_order_m.items()
+        if bid == branch_id and pid == product_id
+    )
+
+
+async def _open_po_qty_map(db: AsyncSession) -> dict[OpenPoQtyKey, int]:
     stmt = (
         select(
             PurchaseOrder.branch_id,
@@ -48,11 +62,12 @@ async def _open_po_qty_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
         .group_by(PurchaseOrder.branch_id, PurchaseOrderLine.product_id, PurchaseOrderLine.variant_id)
     )
     res = await db.execute(stmt)
-    out: dict[tuple[int, int, int], int] = {}
+    out: dict[OpenPoQtyKey, int] = {}
     for bid, pid, vid, qty in res.all():
         if bid is None:
             continue
-        out[(int(bid), int(pid), int(vid))] = int(qty)
+        safe_vid = int(vid) if vid is not None else None
+        out[(int(bid), int(pid), safe_vid)] = int(qty)
     return out
 
 
@@ -202,10 +217,13 @@ async def list_stock_on_hand(
             dm = int(sl.damaged)
             available = oh - rv - dm
             key = (sl.branch_id, prod.id, sl.variant_id)
-            on_order = on_order_m.get(key, 0)
+            on_order_variant = on_order_m.get(key, 0)
+            on_order_product = _on_order_qty_for_branch_product(
+                on_order_m, branch_id=sl.branch_id, product_id=prod.id
+            )
             in_in = in_in_m.get(key, 0)
             in_out = out_m.get(key, 0)
-            cover = available + on_order + in_in
+            cover = available + on_order_product + in_in
             sold_30 = cons_m.get(key, 0)
             rate = sold_30 / 30.0 if sold_30 else 0.0
             days_cover: float | None = None
@@ -244,7 +262,7 @@ async def list_stock_on_hand(
                     available=available,
                     unit_cost=uc,
                     extended_cost=ext,
-                    on_order=on_order,
+                    on_order=on_order_variant,
                     in_transit_in=in_in,
                     in_transit_out=in_out,
                     reorder_point=rp,
