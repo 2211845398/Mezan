@@ -40,6 +40,8 @@ describe('W-5.7 CRM', () => {
           family_name: null,
           email: null,
           is_temporary: false,
+          is_active: true,
+          account_status: 'active',
           default_currency_id: null,
           receivables_account_id: null,
           created_at: '2024-01-01T00:00:00Z',

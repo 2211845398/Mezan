@@ -3588,6 +3588,8 @@ export interface components {
             code: string;
             /** Amount */
             amount: string;
+            /** Loyalty Points Redeemed */
+            loyalty_points_redeemed?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -3596,8 +3598,15 @@ export interface components {
         };
         /** CartDiscountRequest */
         CartDiscountRequest: {
+            /**
+             * Mode
+             * @default code
+             */
+            mode?: "code" | "loyalty";
             /** Code */
-            code: string;
+            code?: string | null;
+            /** Loyalty Points */
+            loyalty_points?: number | null;
         };
         /** CartLineRead */
         CartLineRead: {
@@ -3973,6 +3982,8 @@ export interface components {
             is_temporary: boolean;
             /** Is Active */
             is_active: boolean;
+            /** Account Status */
+            account_status: "active" | "pending_activation" | "suspended";
             /** Default Currency Id */
             default_currency_id?: number | null;
             /** Receivables Account Id */
@@ -4010,6 +4021,8 @@ export interface components {
             is_temporary: boolean;
             /** Is Active */
             is_active: boolean;
+            /** Account Status */
+            account_status: "active" | "pending_activation" | "suspended";
             /** Loyalty Balance */
             loyalty_balance: number;
             /** Lifetime Spend */
@@ -4044,6 +4057,8 @@ export interface components {
             is_temporary: boolean;
             /** Is Active */
             is_active: boolean;
+            /** Account Status */
+            account_status: "active" | "pending_activation" | "suspended";
         };
         /** CustomerSalesInvoiceListItem */
         CustomerSalesInvoiceListItem: {
@@ -4098,6 +4113,8 @@ export interface components {
             is_temporary?: boolean | null;
             /** Is Active */
             is_active?: boolean | null;
+            /** Account Status */
+            account_status?: "active" | "pending_activation" | "suspended" | null;
             /** Default Currency Id */
             default_currency_id?: number | null;
             /** Receivables Account Id */
@@ -7081,6 +7098,11 @@ export interface components {
             last_login_at?: string | null;
             /** Employee Profile Id */
             employee_profile_id?: number | null;
+            /**
+             * Bootstrap Admin Protected
+             * @default false
+             */
+            bootstrap_admin_protected?: boolean;
         };
         /**
          * UserRoleAssign
@@ -10534,7 +10556,7 @@ export interface operations {
                 limit?: number;
                 offset?: number;
                 search?: string | null;
-                activation?: "all" | "active" | "pending";
+                activation?: "all" | "active" | "pending" | "suspended";
                 pos_ready?: boolean;
             };
             header?: never;

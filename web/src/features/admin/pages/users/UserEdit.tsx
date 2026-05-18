@@ -78,11 +78,12 @@ export default function UserEdit() {
 
   useEffect(() => {
     if (!user) return;
+    const locked = user.bootstrap_admin_protected === true;
     form.reset({
       first_name: user.first_name,
       father_name: user.father_name,
       family_name: user.family_name,
-      status: user.status,
+      status: locked ? 'active' : user.status,
       branch_id: user.branch_id,
     });
   }, [user, form]);
@@ -94,8 +95,10 @@ export default function UserEdit() {
     return <RouteLoader />;
   }
 
+  const bootstrapLocked = user.bootstrap_admin_protected === true;
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4">
+    <div className="mx-auto max-w-4xl space-y-6 px-5 py-6 sm:px-8 sm:py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{t('users.edit_title')}</h1>
         <Button variant="outline" className={floatingFormCloseButtonClassName} asChild>
@@ -103,7 +106,7 @@ export default function UserEdit() {
         </Button>
       </div>
 
-      <section className="bg-card space-y-5 rounded-2xl border p-4 shadow-sm md:p-6">
+      <section className="bg-card space-y-5 rounded-2xl border px-6 py-6 shadow-sm sm:px-8 sm:py-8">
         <h2 className="text-lg font-semibold">{t('users.edit_form_section')}</h2>
 
         <Form {...form}>
@@ -116,7 +119,7 @@ export default function UserEdit() {
                   first_name: v.first_name == null || v.first_name === '' ? null : v.first_name,
                   father_name: v.father_name == null || v.father_name === '' ? null : v.father_name,
                   family_name: v.family_name == null || v.family_name === '' ? null : v.family_name,
-                  status: v.status,
+                  status: bootstrapLocked ? 'active' : v.status,
                   branch_id: v.branch_id == null ? null : v.branch_id,
                 });
                 notify.success(tc('toasts.saved'));
@@ -185,30 +188,41 @@ export default function UserEdit() {
                 )}
               />
 
-              <FormField
-                name="status"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('users.col.status')}</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={!canUpdate}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {statusOptions.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {bootstrapLocked ? (
+                <div className="space-y-1">
+                  <Label>{t('users.col.status')}</Label>
+                  <Input
+                    readOnly
+                    value={t('users.user_status.active')}
+                    className="bg-muted/50 text-muted-foreground cursor-not-allowed"
+                  />
+                </div>
+              ) : (
+                <FormField
+                  name="status"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('users.col.status')}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!canUpdate}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {statusOptions.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {t(`users.user_status.${s}`, { defaultValue: s })}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 name="branch_id"
@@ -253,7 +267,8 @@ export default function UserEdit() {
                             {r.role_code}
                           </span>
                         ) : null}
-                        {canUpdate ? (
+                        {canUpdate &&
+                        !(bootstrapLocked && String(r.role_code).toUpperCase() === 'ADMIN') ? (
                           <Button
                             type="button"
                             variant="ghost"
@@ -282,8 +297,8 @@ export default function UserEdit() {
                 </div>
               </div>
 
-              {canUpdate ? (
-                <div className="bg-muted/30 flex flex-col gap-3 rounded-xl border border-dashed p-3 sm:flex-row sm:items-end">
+              {canUpdate && !bootstrapLocked ? (
+                <div className="bg-muted/30 flex flex-col gap-3 rounded-xl border border-dashed p-4 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1 space-y-1">
                     <Label className="text-sm">{t('users.add_role')}</Label>
                     <RoleIdCombobox value={addRoleId} onChange={setAddRoleId} />
@@ -315,32 +330,36 @@ export default function UserEdit() {
                 <Button type="submit" className={floatingFormApproveButtonClassName} disabled={update.isPending}>
                   {t('actions.save')}
                 </Button>
-                <Separator orientation="vertical" className="h-8" />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={floatingFormCloseButtonClassName}
-                  onClick={() =>
-                    void requestReset
-                      .mutateAsync(userId)
-                      .then(() => notify.success(tc('toasts.email_sent')))
-                      .catch((error) => notifyApiError(error, tc('errors.generic')))
-                  }
-                >
-                  {t('users.reset_password')}
-                </Button>
-                <Separator orientation="vertical" className="h-8" />
-                <Button type="button" variant="outline" className={floatingFormCloseButtonClassName} asChild>
-                  <Link to={`/admin/users/${userId}/permissions`}>{t('users.view_permissions')}</Link>
-                </Button>
-                <Separator orientation="vertical" className="h-8" />
-                <Button
-                  type="button"
-                  className={floatingFormDangerButtonClassName}
-                  onClick={() => setDeactivateOpen(true)}
-                >
-                  {t('users.deactivate')}
-                </Button>
+                {!bootstrapLocked ? (
+                  <>
+                    <Separator orientation="vertical" className="h-8" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={floatingFormCloseButtonClassName}
+                      onClick={() =>
+                        void requestReset
+                          .mutateAsync(userId)
+                          .then(() => notify.success(tc('toasts.email_sent')))
+                          .catch((error) => notifyApiError(error, tc('errors.generic')))
+                      }
+                    >
+                      {t('users.reset_password')}
+                    </Button>
+                    <Separator orientation="vertical" className="h-8" />
+                    <Button type="button" variant="outline" className={floatingFormCloseButtonClassName} asChild>
+                      <Link to={`/admin/users/${userId}/permissions`}>{t('users.view_permissions')}</Link>
+                    </Button>
+                    <Separator orientation="vertical" className="h-8" />
+                    <Button
+                      type="button"
+                      className={floatingFormDangerButtonClassName}
+                      onClick={() => setDeactivateOpen(true)}
+                    >
+                      {t('users.deactivate')}
+                    </Button>
+                  </>
+                ) : null}
               </div>
             ) : null}
           </form>
@@ -348,8 +367,10 @@ export default function UserEdit() {
       </section>
 
       <DangerConfirmDialog
-        open={deactivateOpen}
-        onOpenChange={setDeactivateOpen}
+        open={deactivateOpen && !bootstrapLocked}
+        onOpenChange={(open) => {
+          if (!bootstrapLocked) setDeactivateOpen(open);
+        }}
         title={t('users.deactivate_title')}
         description={t('users.deactivate_desc')}
         confirmKeyword="DELETE"

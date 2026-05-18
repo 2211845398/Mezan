@@ -11,6 +11,7 @@ import {
   applyCartDiscount,
   capturePayment,
   type CartRead,
+  type CartDiscountBody,
   changeCartState,
   closeShift,
   createCart,
@@ -319,7 +320,7 @@ export function useUpdateLineQty(cartId: number) {
 export function useApplyDiscount(cartId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { code: string }) => applyCartDiscount(cartId, body),
+    mutationFn: (body: CartDiscountBody) => applyCartDiscount(cartId, body),
     onSuccess: (data) => {
       qc.setQueryData(cartKeys.detail(cartId), data);
     },

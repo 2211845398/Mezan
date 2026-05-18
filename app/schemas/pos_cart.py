@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class CartCreateRequest(BaseModel):
@@ -21,7 +23,23 @@ class CartLineUpsertRequest(BaseModel):
 
 
 class CartDiscountRequest(BaseModel):
-    code: str = Field(min_length=1, max_length=64)
+    mode: Literal["code", "loyalty"] = Field(default="code")
+    code: str | None = Field(default=None, max_length=64)
+    loyalty_points: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _validate_mode(self) -> CartDiscountRequest:
+        if self.mode == "loyalty":
+            if self.loyalty_points is None:
+                raise ValueError("loyalty_points is required when mode is loyalty")
+        else:
+            if not self.code or not str(self.code).strip():
+                raise ValueError("code is required when mode is code")
+        return self
+
+
+class CartCustomerPatch(BaseModel):
+    customer_id: int | None = None
 
 
 class CartStateRequest(BaseModel):
@@ -49,6 +67,7 @@ class CartDiscountRead(BaseModel):
     id: int
     code: str
     amount: Decimal
+    loyalty_points_redeemed: int | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})

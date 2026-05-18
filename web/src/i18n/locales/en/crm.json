@@ -65,8 +65,11 @@
     "top_product_qty": "Qty: {{qty}}",
     "top_products_empty": "Not enough purchase history yet.",
     "filter_all": "All",
+    "filter_active": "Active",
     "filter_pending": "Pending activation",
-    "filter_segment_label": "Activation filter",
+    "filter_suspended": "Suspended",
+    "filter_segment_label": "Status filter",
+    "temporary_profile_hint": "“Temporary profile” is for retention/cleanup, not POS activation. New CRM customers are always created as Active.",
     "onboarding_title": "Complete your profile",
     "onboarding_subtitle": "Enter your details to finish setup. You will appear at checkout after a manager activates your account.",
     "onboarding_done": "Profile saved",
@@ -74,7 +77,8 @@
     "onboarding_missing_token": "Invalid or missing link. Ask the store for a new QR code.",
     "status": {
       "active": "Active",
-      "pending": "Pending activation"
+      "pending": "Pending activation",
+      "suspended": "Suspended"
     }
   },
   "loyalty": {
@@ -119,14 +123,10 @@
     "edit_title": "Edit discount rule",
     "required": "Name and code are required",
     "percent_label": "Discount percentage",
-    "percent_hint": "Enter the number only (e.g. 20 means 20%).",
     "percent_invalid": "Enter a percentage between 1 and 100.",
-    "end_before_start": "End date must be after the start date.",
-    "code_pos_hint": "This code is entered at the POS using “Apply discount”.",
-    "scope_all_hint": "The discount applies to all products and categories.",
-    "start_day": "Start day (optional — defaults to today)",
-    "end_day": "End day (optional)",
-    "dates_day_hint": "Starts at the beginning of the start day and runs through the end of the end day (no time picker).",
+    "end_before_start": "End day cannot be before the start day.",
+    "start_day": "Start day",
+    "end_day": "End day",
     "unsupported_type": "This rule is not a percentage discount and cannot be edited in this form.",
     "value": "Value",
     "buy_qty": "Buy quantity",
@@ -136,10 +136,16 @@
     "end": "End (optional)",
     "activate": "Activate",
     "deactivate": "Deactivate",
+    "rule_status": {
+      "draft": "Draft",
+      "active": "Active",
+      "expired": "Expired",
+      "disabled": "Disabled"
+    },
     "col": {
       "code": "Code",
       "name": "Name",
-      "type": "Type",
+      "discount_value": "Discount value",
       "status": "Status",
       "start": "Start"
     },

@@ -9,8 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ValidationError
-from app.models.customer_profile import CustomerOnboardingToken, CustomerProfile
-from app.utils.security import hash_token
+from app.models.customer_profile import CustomerAccountStatus, CustomerOnboardingToken, CustomerProfile
+from app.services.customer_account_status import sync_is_active_from_account_status
 
 
 async def create_temporary_customer(
@@ -19,6 +19,7 @@ async def create_temporary_customer(
     customer = CustomerProfile(
         phone=phone,
         is_temporary=True,
+        account_status=CustomerAccountStatus.PENDING_ACTIVATION,
         is_active=False,
         created_by_user_id=created_by_user_id,
     )
@@ -66,6 +67,8 @@ async def complete_onboarding(
         customer.family_name = family_name.strip() or None
     customer.email = email or customer.email
     customer.is_temporary = False
+    customer.account_status = CustomerAccountStatus.ACTIVE
+    sync_is_active_from_account_status(customer)
     rec.used = True
     await db.commit()
     await db.refresh(customer)

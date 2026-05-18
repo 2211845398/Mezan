@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useOnline } from '@/hooks/useOnline';
 
-import type { CartRead } from '../api';
+import type { CartDiscountBody, CartRead } from '../api';
 import { CartTotals } from './CartTotals';
 import { DiscountPicker } from './DiscountPicker';
 
@@ -23,7 +23,9 @@ export type RegisterTotalsColumnProps = {
   canRegisterReturn?: boolean;
   returnSubmitPending?: boolean;
   onRegisterReturn?: () => void | Promise<void>;
-  onApplyDiscount: (code: string) => Promise<void>;
+  /** Loyalty balance for the cart customer (detail API); null if no customer or not loaded. */
+  customerLoyaltyBalance: number | null;
+  onApplyDiscount: (body: CartDiscountBody) => Promise<void>;
   onCheckout: () => void | Promise<void>;
   onPark: () => void | Promise<void>;
   /** Park current sale and open a new empty cart (same as toolbar park + new). */
@@ -46,6 +48,7 @@ export function RegisterTotalsColumn({
   canRegisterReturn = false,
   returnSubmitPending = false,
   onRegisterReturn,
+  customerLoyaltyBalance,
   onApplyDiscount,
   onCheckout,
   onPark,
@@ -84,6 +87,7 @@ export function RegisterTotalsColumn({
         {canDiscount ? (
           <DiscountPicker
             disabled={!editable}
+            customerLoyaltyBalance={customerLoyaltyBalance}
             onApply={onApplyDiscount}
             triggerClassName="min-h-11 w-full bg-[#82a2f7] text-white shadow-md shadow-blue-500/15 hover:bg-[#728fe0] hover:text-white"
           />

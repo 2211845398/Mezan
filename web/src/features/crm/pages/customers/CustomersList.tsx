@@ -24,13 +24,18 @@ export default function CustomersList() {
   const [search, setSearch] = useState('');
   const [applied, setApplied] = useState('');
   const [page, setPage] = useState(0);
-  const [activation, setActivation] = useState<'all' | 'pending'>('all');
+  const [activation, setActivation] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const pageSize = 30;
   const canCreate = usePermission('customers', 'create');
   const listArgs = useMemo(() => {
-    const p: { limit: number; offset: number; search?: string; activation: 'all' | 'pending' } = {
+    const p: {
+      limit: number;
+      offset: number;
+      search?: string;
+      activation: 'all' | 'active' | 'pending' | 'suspended';
+    } = {
       limit: pageSize,
       offset: page * pageSize,
       activation,
@@ -65,16 +70,28 @@ export default function CustomersList() {
         {
           id: 'st',
           header: t('customers.col.status'),
-          cell: ({ row }) =>
-            row.original.is_active ? (
-              <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:text-emerald-100">
-                {t('customers.status.active')}
+          cell: ({ row }) => {
+            const s = row.original.account_status;
+            if (s === 'active') {
+              return (
+                <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:text-emerald-100">
+                  {t('customers.status.active')}
+                </span>
+              );
+            }
+            if (s === 'pending_activation') {
+              return (
+                <span className="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-950 dark:text-amber-100">
+                  {t('customers.status.pending')}
+                </span>
+              );
+            }
+            return (
+              <span className="inline-flex rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-900 dark:text-red-100">
+                {t('customers.status.suspended')}
               </span>
-            ) : (
-              <span className="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-950 dark:text-amber-100">
-                {t('customers.status.pending')}
-              </span>
-            ),
+            );
+          },
         },
         {
           id: 'a',
@@ -144,6 +161,17 @@ export default function CustomersList() {
               </Button>
               <Button
                 type="button"
+                variant={activation === 'active' ? 'default' : 'ghost'}
+                className="h-full min-h-0 shrink-0 rounded-md px-3 py-0 shadow-none"
+                onClick={() => {
+                  setActivation('active');
+                  setPage(0);
+                }}
+              >
+                {t('customers.filter_active')}
+              </Button>
+              <Button
+                type="button"
                 variant={activation === 'pending' ? 'default' : 'ghost'}
                 className="h-full min-h-0 shrink-0 rounded-md px-3 py-0 shadow-none"
                 onClick={() => {
@@ -152,6 +180,17 @@ export default function CustomersList() {
                 }}
               >
                 {t('customers.filter_pending')}
+              </Button>
+              <Button
+                type="button"
+                variant={activation === 'suspended' ? 'default' : 'ghost'}
+                className="h-full min-h-0 shrink-0 rounded-md px-3 py-0 shadow-none"
+                onClick={() => {
+                  setActivation('suspended');
+                  setPage(0);
+                }}
+              >
+                {t('customers.filter_suspended')}
               </Button>
             </div>
             {canCreate ? (

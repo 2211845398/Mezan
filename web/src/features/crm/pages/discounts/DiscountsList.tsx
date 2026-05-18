@@ -28,6 +28,20 @@ function sortDiscounts(rows: DiscountRuleRead[]): DiscountRuleRead[] {
   });
 }
 
+function formatDiscountValueDisplay(r: DiscountRuleRead): string {
+  const dt = String(r.discount_type);
+  if (dt === 'percentage') {
+    const n = Number.parseFloat(String(r.value).replace(',', '.'));
+    return Number.isFinite(n) ? `${n}%` : r.value;
+  }
+  if (dt === 'bogo') {
+    const buy = r.buy_qty ?? '—';
+    const get = r.get_qty ?? '—';
+    return `${buy} → ${get}`;
+  }
+  return r.value;
+}
+
 export default function DiscountsList() {
   const { t } = useTranslation('crm');
   const { t: tc } = useTranslation('common');
@@ -84,8 +98,18 @@ export default function DiscountsList() {
       defineColumns<DiscountRuleRead>()([
         { id: 'c', accessorKey: 'code', header: t('discounts.col.code') },
         { id: 'n', accessorKey: 'name', header: t('discounts.col.name') },
-        { id: 'ty', accessorKey: 'discount_type', header: t('discounts.col.type') },
-        { id: 'st', accessorKey: 'status', header: t('discounts.col.status') },
+        {
+          id: 'val',
+          accessorKey: 'value',
+          header: t('discounts.col.discount_value'),
+          cell: ({ row }) => formatDiscountValueDisplay(row.original),
+        },
+        {
+          id: 'st',
+          accessorKey: 'status',
+          header: t('discounts.col.status'),
+          cell: ({ row }) => t(`discounts.rule_status.${row.original.status}`),
+        },
         {
           id: 'sd',
           accessorKey: 'start_date',

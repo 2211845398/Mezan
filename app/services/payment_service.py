@@ -17,6 +17,7 @@ from app.services.accounting_service import get_accounting_settings
 from app.services.payments.providers.base import PaymentProvider
 from app.services.payments.providers.in_store import InStoreLedgerProvider
 from app.services.payments.providers.mock import MockPaymentProvider
+from app.services.pos_customer_guard import assert_customer_active_for_pos
 from app.utils.money import q2
 
 _FX_QUANT = Decimal("0.00000001")
@@ -164,6 +165,7 @@ async def capture_payment(
                     "Partial cash requires a customer on the cart to record the balance as receivable",
                     details={"cart_id": intent.cart_id},
                 )
+            await assert_customer_active_for_pos(db, cart_row.customer_id)
     result = await provider.capture(
         external_id=intent.external_id or "",
         amount=amount,

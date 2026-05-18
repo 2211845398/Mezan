@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table';
 import { formatIso } from '@/lib/date';
 
+import { formatNotificationRunStatus } from '../../lib/notificationRunStatusLabel';
 import { useNotificationRuns } from '../../queries';
 
 export default function RunsList() {
@@ -22,13 +23,13 @@ export default function RunsList() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>id</TableHead>
-            <TableHead>schedule</TableHead>
-            <TableHead>status</TableHead>
+            <TableHead>{t('notifications.col.run_id')}</TableHead>
+            <TableHead>{t('notifications.schedule')}</TableHead>
+            <TableHead>{t('notifications.status')}</TableHead>
             <TableHead>{t('notifications.col.started')}</TableHead>
             <TableHead>{t('notifications.col.finished')}</TableHead>
             <TableHead>{t('notifications.col.enqueued')}</TableHead>
-            <TableHead>error</TableHead>
+            <TableHead>{t('notifications.col.error')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -47,7 +48,7 @@ export default function RunsList() {
               <TableRow key={r.id}>
                 <TableCell>{r.id}</TableCell>
                 <TableCell>{r.schedule_id}</TableCell>
-                <TableCell>{r.status}</TableCell>
+                <TableCell>{formatNotificationRunStatus(t, r.status)}</TableCell>
                 <TableCell>{formatIso(r.started_at, 'yyyy-MM-dd HH:mm')}</TableCell>
                 <TableCell>
                   {r.finished_at ? formatIso(r.finished_at, 'yyyy-MM-dd HH:mm') : '—'}

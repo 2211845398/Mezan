@@ -49,6 +49,7 @@ class UserRead(BaseModel):
     avatar_url: str | None = None
     last_login_at: datetime | None = None
     employee_profile_id: int | None = None
+    bootstrap_admin_protected: bool = False
 
 
 class UserOnboardingRead(BaseModel):

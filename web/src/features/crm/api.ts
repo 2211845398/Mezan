@@ -52,7 +52,7 @@ export async function listCustomers(params?: {
   limit?: number;
   offset?: number;
   search?: string;
-  activation?: 'all' | 'active' | 'pending';
+  activation?: 'all' | 'active' | 'pending' | 'suspended';
   pos_ready?: boolean;
 }): Promise<CustomerListResponse> {
   const { data } = await apiClient.get<CustomerListResponse>('/customers', { params });

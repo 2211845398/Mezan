@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontal, Pencil, Plus } from 'lucide-react';
+import { MoreHorizontal, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -211,11 +211,10 @@ export default function UsersList() {
                         navigate(`/admin/users/${u.id}`);
                       }}
                     >
-                      <Pencil className="me-2 size-4" />
                       {t('actions.edit')}
                     </DropdownMenuItem>
                   ) : null}
-                  {canUpdate ? (
+                  {canUpdate && !u.bootstrap_admin_protected ? (
                     <DropdownMenuItem
                       onClick={() => {
                         setDeactivateUser(u);
@@ -224,7 +223,7 @@ export default function UsersList() {
                       {t('users.deactivate')}
                     </DropdownMenuItem>
                   ) : null}
-                  {canUpdate ? (
+                  {canUpdate && !u.bootstrap_admin_protected ? (
                     <DropdownMenuItem
                       onClick={() =>
                         void requestReset
@@ -236,7 +235,7 @@ export default function UsersList() {
                       {t('users.reset_password')}
                     </DropdownMenuItem>
                   ) : null}
-                  {canUpdate ? (
+                  {canUpdate && !u.bootstrap_admin_protected ? (
                     <DropdownMenuItem
                       className="cursor-pointer"
                       onSelect={() => navigate(`/admin/users/${u.id}/permissions`)}

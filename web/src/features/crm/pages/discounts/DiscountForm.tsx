@@ -148,6 +148,11 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
       toast.error(t('discounts.unsupported_type'));
       return;
     }
+    const effectiveStartYmd = startDay.trim() || todayYmd;
+    if (endDay.trim() && endDay.trim() < effectiveStartYmd) {
+      toast.error(t('discounts.end_before_start'));
+      return;
+    }
     if (isEdit) void mUpdate.mutate();
     else void mCreate.mutate();
   };
@@ -174,7 +179,6 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
           disabled={isEdit}
           autoComplete="off"
         />
-        <p className="text-xs text-muted-foreground">{t('discounts.code_pos_hint')}</p>
       </div>
 
       <div className="grid gap-1">
@@ -185,7 +189,6 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
             value={percentStr}
             onChange={(e) => setPercentStr(e.target.value)}
             className="pe-10"
-            aria-describedby="disc-pct-hint"
           />
           <span
             className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
@@ -194,12 +197,7 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
             %
           </span>
         </div>
-        <p id="disc-pct-hint" className="text-xs text-muted-foreground">
-          {t('discounts.percent_hint')}
-        </p>
       </div>
-
-      <p className="text-xs text-muted-foreground">{t('discounts.scope_all_hint')}</p>
 
       <div className="grid gap-1">
         <Label>{t('discounts.start_day')}</Label>
@@ -208,7 +206,6 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
       <div className="grid gap-1">
         <Label>{t('discounts.end_day')}</Label>
         <Input type="date" value={endDay} onChange={(e) => setEndDay(e.target.value)} />
-        <p className="text-xs text-muted-foreground">{t('discounts.dates_day_hint')}</p>
       </div>
 
       <div className="flex flex-wrap gap-2 pt-1">

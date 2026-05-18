@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { useBranch } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { customerDetailQueryOptions, crmKeys } from '@/features/crm/queries';
 import { useOnline } from '@/hooks/useOnline';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
@@ -128,6 +129,18 @@ function RegisterSession({
   const cancelCart = useCancelCart(cartId);
   const updateCustomer = useUpdateCartCustomer(cartId);
   const qc = useQueryClient();
+
+  const cartCustomerId = cart?.customer_id ?? null;
+  const customerLoyaltyQuery = useQuery({
+    ...customerDetailQueryOptions(cartCustomerId ?? 0),
+    enabled: cartCustomerId != null && cartCustomerId > 0,
+  });
+  const customerLoyaltyBalance =
+    cartCustomerId == null
+      ? null
+      : customerLoyaltyQuery.isSuccess
+        ? customerLoyaltyQuery.data.loyalty_balance
+        : null;
   const submitReturnMut = useSubmitReturnMutation();
 
   const abortCheckoutIfLocked = useCallback(async () => {
@@ -311,9 +324,13 @@ function RegisterSession({
           canRegisterReturn={canRegisterReturn}
           returnSubmitPending={submitReturnMut.isPending}
           onRegisterReturn={() => void registerReturn()}
-          onApplyDiscount={async (code) => {
+          customerLoyaltyBalance={customerLoyaltyBalance}
+          onApplyDiscount={async (body) => {
             try {
-              await applyDisc.mutateAsync({ code });
+              await applyDisc.mutateAsync(body);
+              if (cartCustomerId) {
+                void qc.invalidateQueries({ queryKey: crmKeys.customer(cartCustomerId) });
+              }
             } catch (error) {
               notifyApiError(error);
             }

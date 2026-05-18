@@ -23,7 +23,7 @@ from app.schemas.users import (
     UserRead,
     UserUpdate,
 )
-from app.services import audit_service, auth_service
+from app.services import audit_service, auth_service, bootstrap_admin_protection
 from app.services.effective_permissions import (
     list_onboarding_assignee_users,
     user_can_act_as_onboarding_assignee,
@@ -96,12 +96,12 @@ async def create_user(
         action="user.created",
         resource_type="user",
         resource_id=str(user.id),
-        new_value=UserRead.model_validate(user).model_dump(),
+        new_value=bootstrap_admin_protection.user_read_with_protection_flag(user).model_dump(),
         user_id=current_user.id,
         request=request,
     )
     await db.commit()
-    return user
+    return bootstrap_admin_protection.user_read_with_protection_flag(user)
 
 
 @router.get("/users", response_model=list[UserRead])
@@ -113,7 +113,7 @@ async def list_users(
     """List all users. Requires users:read permission."""
     result = await db.execute(select(User))
     users = result.scalars().all()
-    return users
+    return [bootstrap_admin_protection.user_read_with_protection_flag(u) for u in users]
 
 
 @router.get("/users/onboarding-assignees", response_model=list[UserRead])
@@ -124,7 +124,7 @@ async def list_onboarding_assignees(
 ) -> list[UserRead]:
     """Users eligible to be assigned as onboarding reviewer (active + effective HR permissions)."""
     rows = await list_onboarding_assignee_users(db)
-    return rows
+    return [bootstrap_admin_protection.user_read_with_protection_flag(u) for u in rows]
 
 
 @router.get("/users/{user_id}", response_model=UserRead)
@@ -139,7 +139,7 @@ async def get_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return user
+    return bootstrap_admin_protection.user_read_with_protection_flag(user)
 
 
 @router.patch("/users/{user_id}", response_model=UserRead)
@@ -156,7 +156,7 @@ async def update_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    old_value = UserRead.model_validate(user).model_dump()
+    old_value = bootstrap_admin_protection.user_read_with_protection_flag(user).model_dump()
     if body.first_name is not None:
         user.first_name = body.first_name
     if body.father_name is not None:
@@ -164,6 +164,7 @@ async def update_user(
     if body.family_name is not None:
         user.family_name = body.family_name
     if body.status is not None:
+        bootstrap_admin_protection.assert_bootstrap_admin_may_not_be_deactivated(user, body.status)
         user.status = body.status
     if body.branch_id is not None:
         user.branch_id = body.branch_id
@@ -175,12 +176,12 @@ async def update_user(
         resource_type="user",
         resource_id=str(user.id),
         old_value=old_value,
-        new_value=UserRead.model_validate(user).model_dump(),
+        new_value=bootstrap_admin_protection.user_read_with_protection_flag(user).model_dump(),
         user_id=current_user.id,
         request=request,
     )
     await db.commit()
-    return user
+    return bootstrap_admin_protection.user_read_with_protection_flag(user)
 
 
 @router.get("/users/{user_id}/roles")
@@ -218,8 +219,10 @@ async def add_user_role(
 ) -> dict:
     """Assign a role to a user (optional branch). Requires users:update."""
     result = await db.execute(select(User).where(User.id == user_id))
-    if not result.scalar_one_or_none():
+    user = result.scalar_one_or_none()
+    if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    bootstrap_admin_protection.assert_bootstrap_admin_may_not_add_roles(user)
     result = await db.execute(select(Role).where(Role.id == body.role_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
@@ -257,6 +260,16 @@ async def remove_user_role(
     _: None = require_permission("users", "update"),
 ) -> None:
     """Remove a role assignment (same keys as assign). Requires users:update."""
+    ures = await db.execute(select(User).where(User.id == user_id))
+    target_user = ures.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    rres = await db.execute(select(Role).where(Role.id == body.role_id))
+    role = rres.scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+    bootstrap_admin_protection.assert_bootstrap_admin_admin_role_not_removed(target_user, role.code)
+
     q = select(UserRole).where(
         UserRole.user_id == user_id,
         UserRole.role_id == body.role_id,
@@ -297,6 +310,7 @@ async def admin_request_password_reset(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    bootstrap_admin_protection.assert_bootstrap_admin_password_reset_forbidden(user)
     await auth_service.request_password_reset(db, str(user.email))
     await audit_service.log(
         session=db,
@@ -351,7 +365,7 @@ async def patch_pending_onboarding_subject(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("onboarding", "update"),
-) -> User:
+) -> UserRead:
     """Update subject user's name, branch, or org-level role while onboarding is pending."""
     from app.models.user_onboarding import UserOnboarding
 
@@ -371,7 +385,7 @@ async def patch_pending_onboarding_subject(
     user_before = old_user.scalar_one_or_none()
     if not user_before:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    old_value = UserRead.model_validate(user_before).model_dump()
+    old_value = bootstrap_admin_protection.user_read_with_protection_flag(user_before).model_dump()
 
     user = await update_pending_onboarding_subject(db, onboarding_id=onboarding_id, body=body)
     await audit_service.log(
@@ -380,13 +394,13 @@ async def patch_pending_onboarding_subject(
         resource_type="user",
         resource_id=str(user.id),
         old_value=old_value,
-        new_value=UserRead.model_validate(user).model_dump(),
+        new_value=bootstrap_admin_protection.user_read_with_protection_flag(user).model_dump(),
         user_id=current_user.id,
         request=request,
     )
     await db.commit()
     await db.refresh(user)
-    return user
+    return bootstrap_admin_protection.user_read_with_protection_flag(user)
 
 
 @router.post(
@@ -509,6 +523,11 @@ async def list_permission_overrides(
     _: None = Depends(get_current_user),
     __: None = require_permission("users", "read"),
 ) -> list[UserPermissionOverrideRead]:
+    ures = await db.execute(select(User).where(User.id == user_id))
+    target = ures.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    bootstrap_admin_protection.assert_bootstrap_admin_permission_overrides_forbidden(target)
     rows = await list_user_permission_overrides(db, user_id=user_id)
     return [UserPermissionOverrideRead.model_validate(r) for r in rows]
 
@@ -522,6 +541,11 @@ async def upsert_permission_override_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("users", "update"),
 ) -> UserPermissionOverrideRead:
+    ures = await db.execute(select(User).where(User.id == user_id))
+    target = ures.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    bootstrap_admin_protection.assert_bootstrap_admin_permission_overrides_forbidden(target)
     row = await upsert_user_permission_override(
         db,
         user_id=user_id,
@@ -555,6 +579,11 @@ async def delete_permission_override_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("users", "update"),
 ) -> None:
+    ures = await db.execute(select(User).where(User.id == user_id))
+    target = ures.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    bootstrap_admin_protection.assert_bootstrap_admin_permission_overrides_forbidden(target)
     await delete_user_permission_override(db, user_id=user_id, override_id=override_id)
     await audit_service.log(
         session=db,

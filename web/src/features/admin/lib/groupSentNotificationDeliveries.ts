@@ -67,8 +67,11 @@ export function formatGroupedDeliveryStatus(
     if (n > 0) parts.push(`${n} ${t(`notifications.delivery_status.${key}`)}`);
   }
   for (const [k, n] of Object.entries(counts)) {
-    if (ordered.has(k)) continue;
-    if (n > 0) parts.push(`${n} ${k}`);
+    const kl = k.toLowerCase();
+    if (ordered.has(kl)) continue;
+    if (n > 0) {
+      parts.push(`${n} ${t(`notifications.delivery_status.${kl}`, { defaultValue: k })}`);
+    }
   }
   return parts.length > 0 ? parts.join(t('notifications.status_aggregate_sep')) : '—';
 }

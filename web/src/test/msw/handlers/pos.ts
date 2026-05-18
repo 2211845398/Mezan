@@ -38,6 +38,27 @@ let paymentIntentId = 7000;
 const capturedKeys = new Set<string>();
 
 export const posHandlers = [
+  http.get(`${BASE}/customers/:customerId`, ({ params }) => {
+    const id = Number(params.customerId);
+    return HttpResponse.json({
+      id,
+      phone: '0500000000',
+      first_name: 'MSW',
+      father_name: null,
+      family_name: 'Customer',
+      email: null,
+      is_temporary: false,
+      is_active: true,
+      account_status: 'active',
+      default_currency_id: 1,
+      receivables_account_id: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      loyalty_balance: id === 42 ? 500 : 12,
+      lifetime_spend: '0.00',
+    });
+  }),
+
   http.get(`${BASE}/terminals`, () =>
     HttpResponse.json([
       {
@@ -83,6 +104,24 @@ export const posHandlers = [
     return HttpResponse.json(cart);
   }),
 
+  http.patch(`${BASE}/pos/carts/:cartId`, async ({ params, request }) => {
+    const body = (await request.json()) as { customer_id?: number | null };
+    if (Number(params.cartId) !== cart.id) {
+      return HttpResponse.json({ detail: 'not found' }, { status: 404 });
+    }
+    if (body.customer_id === 999) {
+      return HttpResponse.json(
+        {
+          message: 'Customer is not active for POS operations',
+          details: { code: 'customer_inactive_pos' },
+        },
+        { status: 422 },
+      );
+    }
+    cart = { ...cart, customer_id: body.customer_id ?? null };
+    return HttpResponse.json(cart);
+  }),
+
   http.post(`${BASE}/pos/carts/:cartId/lines`, async ({ params, request }) => {
     const body = (await request.json()) as { product_id: number; qty: number };
     if (Number(params.cartId) !== cart.id) {
@@ -110,11 +149,42 @@ export const posHandlers = [
   }),
 
   http.post(`${BASE}/pos/carts/:cartId/discounts`, async ({ params, request }) => {
-    const body = (await request.json()) as { code: string };
+    const body = (await request.json()) as {
+      mode?: string;
+      code?: string | null;
+      loyalty_points?: number | null;
+    };
     if (Number(params.cartId) !== cart.id) {
       return HttpResponse.json({ message: 'not found' }, { status: 404 });
     }
+    const mode = body.mode ?? (body.loyalty_points != null ? 'loyalty' : 'code');
     const sub = Number.parseFloat(String(cart.subtotal));
+
+    if (mode === 'loyalty') {
+      const pts = Number(body.loyalty_points);
+      if (!cart.customer_id) {
+        return HttpResponse.json({ message: 'Loyalty discount requires a customer on the cart' }, { status: 422 });
+      }
+      if (!Number.isFinite(pts) || pts < 1) {
+        return HttpResponse.json({ message: 'Invalid loyalty points' }, { status: 422 });
+      }
+      const discAmt = Math.min(sub, pts * 0.01);
+      const line = {
+        id: 9901,
+        code: '__POS_LOYALTY__',
+        amount: discAmt.toFixed(2),
+        loyalty_points_redeemed: pts,
+        created_at: '2026-04-22T10:00:00Z',
+      };
+      cart = {
+        ...cart,
+        discounts: [line],
+        discount_total: discAmt.toFixed(2),
+        total: (sub - discAmt).toFixed(2),
+      };
+      return HttpResponse.json(cart);
+    }
+
     const disc = Math.min(10, sub * 0.1);
     cart = {
       ...cart,

@@ -16,6 +16,7 @@ import {
   groupSentNotificationDeliveries,
   sentNotificationBatchKey,
 } from '../../lib/groupSentNotificationDeliveries';
+import { formatNotificationRunStatus } from '../../lib/notificationRunStatusLabel';
 import { formatNotificationDeliveryTargetGroup } from '../../lib/notificationDeliveryTargetGroup';
 import { useNotificationDeliveries, useNotificationRuns } from '../../queries';
 
@@ -95,7 +96,7 @@ export default function NotificationHistory() {
               <TableHead>{t('notifications.status')}</TableHead>
               <TableHead>{t('notifications.col.started')}</TableHead>
               <TableHead>{t('notifications.col.enqueued')}</TableHead>
-              <TableHead>error</TableHead>
+              <TableHead>{t('notifications.col.error')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -113,7 +114,7 @@ export default function NotificationHistory() {
               runs.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell>{row.schedule_id}</TableCell>
-                  <TableCell>{row.status}</TableCell>
+                  <TableCell>{formatNotificationRunStatus(t, row.status)}</TableCell>
                   <TableCell>{formatIso(row.started_at, 'yyyy-MM-dd HH:mm')}</TableCell>
                   <TableCell>{row.deliveries_enqueued}</TableCell>
                   <TableCell className="max-w-xs truncate text-xs text-destructive">

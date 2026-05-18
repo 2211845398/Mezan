@@ -41,6 +41,8 @@ import {
 } from '../../queries';
 import ManualAdjustmentDrawer from './ManualAdjustmentDrawer';
 
+type AccountStatus = 'active' | 'pending_activation' | 'suspended';
+
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const cid = id ? Number(id) : NaN;
@@ -65,7 +67,7 @@ export default function CustomerDetail() {
   const [profileFatherName, setProfileFatherName] = useState('');
   const [profileFamilyName, setProfileFamilyName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
-  const [profileActive, setProfileActive] = useState(true);
+  const [profileAccountStatus, setProfileAccountStatus] = useState<AccountStatus>('active');
 
   useEffect(() => {
     if (!customer) return;
@@ -73,7 +75,7 @@ export default function CustomerDetail() {
     setProfileFatherName(customer.father_name ?? '');
     setProfileFamilyName(customer.family_name ?? '');
     setProfileEmail(customer.email ?? '');
-    setProfileActive(customer.is_active);
+    setProfileAccountStatus(customer.account_status as AccountStatus);
   }, [customer]);
 
   const saveProfile = useMutation({
@@ -83,7 +85,7 @@ export default function CustomerDetail() {
         father_name: profileFatherName.trim() || null,
         family_name: profileFamilyName.trim() || null,
         email: profileEmail.trim() || null,
-        is_active: profileActive,
+        account_status: profileAccountStatus,
       }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: crmKeys.customer(cid) });
@@ -289,8 +291,8 @@ export default function CustomerDetail() {
                         {t('customers.col.status')}
                       </Label>
                       <Select
-                        value={profileActive ? 'true' : 'false'}
-                        onValueChange={(v) => setProfileActive(v === 'true')}
+                        value={profileAccountStatus}
+                        onValueChange={(v) => setProfileAccountStatus(v as AccountStatus)}
                       >
                         <SelectTrigger
                           id="prof-status"
@@ -304,8 +306,11 @@ export default function CustomerDetail() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent dir={i18n.dir()}>
-                          <SelectItem value="true">{t('customers.active_label')}</SelectItem>
-                          <SelectItem value="false">{t('customers.inactive_label')}</SelectItem>
+                          <SelectItem value="active">{t('customers.status.active')}</SelectItem>
+                          <SelectItem value="pending_activation">
+                            {t('customers.status.pending')}
+                          </SelectItem>
+                          <SelectItem value="suspended">{t('customers.status.suspended')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -324,7 +329,11 @@ export default function CustomerDetail() {
                     dir={i18n.dir()}
                   >
                     <span className="shrink-0 text-start font-medium">
-                      {profileActive ? t('customers.active_label') : t('customers.inactive_label')}
+                      {customer.account_status === 'active'
+                        ? t('customers.status.active')
+                        : customer.account_status === 'pending_activation'
+                          ? t('customers.status.pending')
+                          : t('customers.status.suspended')}
                     </span>
                   </div>
                 )}

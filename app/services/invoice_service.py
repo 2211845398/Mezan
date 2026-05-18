@@ -13,10 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
 from app.models.ar_open_item import ArOpenItem
 from app.models.category import Category
-from app.models.pos_cart import PosCart, PosCartLine
+from app.models.pos_cart import PosCart, PosCartDiscount, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
 from app.models.branch import Branch
-from app.models.customer_profile import CustomerProfile
+from app.models.customer_profile import CustomerAccountStatus, CustomerProfile
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
@@ -39,6 +39,7 @@ from app.services.loyalty_dsl_service import calculate_loyalty_for_purchase
 from app.services.loyalty_service import adjust_points
 from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
+from app.services.pos_customer_guard import assert_customer_active_for_pos
 from app.services.shift_service import add_cash_event
 from app.utils.money import q2
 from app.utils.person_name import display_person_name
@@ -74,6 +75,8 @@ async def finalize_paid_cart(
     await db.refresh(payment_intent)
     if payment_intent.status != "succeeded":
         raise StateTransitionError("Payment is not completed")
+    if cart.customer_id is not None:
+        await assert_customer_active_for_pos(db, cart.customer_id)
     line_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
     lines = [ln for ln in line_res.scalars().all() if int(ln.qty or 0) > 0]
     if not lines:
@@ -168,36 +171,63 @@ async def finalize_paid_cart(
     await post_sales_invoice_gl(db, invoice=invoice, lines=list(sil_res.scalars().all()))
 
     if cart.customer_id:
-        category_codes: list[str] = []
-        if lines:
-            pids = [ln.product_id for ln in lines]
-            cat_stmt = (
-                select(Category.slug)
-                .join(Product, Product.category_id == Category.id)
-                .where(Product.id.in_(pids))
-                .distinct()
+        loyalty_disc_res = await db.execute(
+            select(PosCartDiscount).where(
+                PosCartDiscount.cart_id == cart.id,
+                PosCartDiscount.loyalty_points_redeemed.is_not(None),
             )
-            crows = await db.execute(cat_stmt)
-            category_codes = sorted(
-                {(str(row[0]).strip().upper()) for row in crows.all() if row[0]}
-            )
-        calc = calculate_loyalty_for_purchase(
-            cart_total=invoice.total,
-            category_codes=category_codes,
-            is_weekend=issued_at.weekday() >= 5,
         )
-        points = int(calc["calculation"]["total_points"])
-        if points > 0:
+        for ld in loyalty_disc_res.scalars().all():
+            pts = int(ld.loyalty_points_redeemed or 0)
+            if pts <= 0:
+                continue
             await adjust_points(
                 db,
                 customer_id=cart.customer_id,
-                points=points,
-                entry_type=LedgerEntryType.CREDIT,
-                reason_code=LedgerReasonCode.PURCHASE,
+                points=pts,
+                entry_type=LedgerEntryType.DEBIT,
+                reason_code=LedgerReasonCode.REDEMPTION,
                 auditor_id=user_id,
                 reference_id=f"INV-{invoice.id}",
-                note=f"Purchase loyalty: {points} points",
+                note="POS loyalty redemption",
             )
+
+    if cart.customer_id:
+        cust_res = await db.execute(
+            select(CustomerProfile.account_status).where(CustomerProfile.id == cart.customer_id)
+        )
+        cust_status = cust_res.scalar_one_or_none()
+        if cust_status == CustomerAccountStatus.ACTIVE:
+            category_codes: list[str] = []
+            if lines:
+                pids = [ln.product_id for ln in lines]
+                cat_stmt = (
+                    select(Category.slug)
+                    .join(Product, Product.category_id == Category.id)
+                    .where(Product.id.in_(pids))
+                    .distinct()
+                )
+                crows = await db.execute(cat_stmt)
+                category_codes = sorted(
+                    {(str(row[0]).strip().upper()) for row in crows.all() if row[0]}
+                )
+            calc = calculate_loyalty_for_purchase(
+                cart_total=invoice.total,
+                category_codes=category_codes,
+                is_weekend=issued_at.weekday() >= 5,
+            )
+            points = int(calc["calculation"]["total_points"])
+            if points > 0:
+                await adjust_points(
+                    db,
+                    customer_id=cart.customer_id,
+                    points=points,
+                    entry_type=LedgerEntryType.CREDIT,
+                    reason_code=LedgerReasonCode.PURCHASE,
+                    auditor_id=user_id,
+                    reference_id=f"INV-{invoice.id}",
+                    note=f"Purchase loyalty: {points} points",
+                )
 
     cart.status = "paid"
     cart.paid_at = issued_at

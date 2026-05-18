@@ -8,11 +8,21 @@ import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import { isLibyanMobilePhone, isNonEmptyValidEmail, normalizeLyPhoneInput } from '@/lib/validation/contact';
 
 import { createCustomer, updateCustomer } from '../../api';
 import { crmKeys, customerDetailQueryOptions } from '../../queries';
+
+type AccountStatus = 'active' | 'pending_activation' | 'suspended';
 
 export type CustomerFormProps = {
   variant?: 'page' | 'dialog';
@@ -27,7 +37,7 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
     variant === 'dialog'
       ? false
       : Boolean(id) && location.pathname.endsWith('/edit') && !Number.isNaN(editId);
-  const { t } = useTranslation('crm');
+  const { t, i18n } = useTranslation('crm');
   const { t: tc } = useTranslation('common');
   const nav = useNavigate();
   const qc = useQueryClient();
@@ -41,7 +51,7 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
   const [familyName, setFamilyName] = useState('');
   const [email, setEmail] = useState('');
   const [temporary, setTemporary] = useState(false);
-  const [active, setActive] = useState(true);
+  const [accountStatus, setAccountStatus] = useState<AccountStatus>('active');
 
   useEffect(() => {
     if (existing) {
@@ -51,7 +61,7 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
       setFamilyName(existing.family_name ?? '');
       setEmail(existing.email ?? '');
       setTemporary(existing.is_temporary);
-      setActive(existing.is_active);
+      setAccountStatus(existing.account_status as AccountStatus);
     }
   }, [existing]);
 
@@ -63,7 +73,7 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
         father_name: fatherName || null,
         family_name: familyName || null,
         email: email || null,
-        is_temporary: temporary,
+        is_temporary: false,
         default_currency_id: null,
         receivables_account_id: null,
       }),
@@ -87,7 +97,7 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
         family_name: familyName || null,
         email: email || null,
         is_temporary: temporary,
-        is_active: active,
+        account_status: accountStatus,
       }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: crmKeys.root });
@@ -148,14 +158,33 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
         <Label>{t('customers.email')}</Label>
         <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
       </div>
-      <div className="flex items-center gap-2">
-        <Switch id="tmp" checked={temporary} onCheckedChange={setTemporary} />
-        <Label htmlFor="tmp">{t('customers.temporary')}</Label>
-      </div>
       {isEdit ? (
         <div className="flex items-center gap-2">
-          <Switch id="act" checked={active} onCheckedChange={setActive} />
-          <Label htmlFor="act">{t('customers.active_label')}</Label>
+          <Switch id="tmp" checked={temporary} onCheckedChange={setTemporary} />
+          <Label htmlFor="tmp">{t('customers.temporary')}</Label>
+        </div>
+      ) : null}
+      {isEdit ? (
+        <div className="grid w-full gap-1" dir={i18n.dir()}>
+          <Label htmlFor="form-account-status">{t('customers.col.status')}</Label>
+          <Select value={accountStatus} onValueChange={(v) => setAccountStatus(v as AccountStatus)}>
+            <SelectTrigger
+              id="form-account-status"
+              dir={i18n.dir()}
+              className={cn(
+                'w-full',
+                i18n.dir() === 'rtl' &&
+                  'text-start [&>span]:block [&>span]:w-full [&>span]:min-w-0 [&>span]:text-start',
+              )}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent dir={i18n.dir()}>
+              <SelectItem value="active">{t('customers.status.active')}</SelectItem>
+              <SelectItem value="pending_activation">{t('customers.status.pending')}</SelectItem>
+              <SelectItem value="suspended">{t('customers.status.suspended')}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       ) : null}
       <div className="flex gap-2">

@@ -116,6 +116,7 @@ export default function UserPermissionOverrides() {
   const { data: user, isLoading: userLoading, isError: userError } = useUser(userId, {
     enabled: Number.isFinite(userId),
   });
+  const bootstrapLocked = user?.bootstrap_admin_protected === true;
   const { data: permissionsData, isLoading: permLoading } = usePermissions({
     enabled: Number.isFinite(userId),
   });
@@ -126,7 +127,7 @@ export default function UserPermissionOverrides() {
   });
   const { data: overrides = [], isLoading: ovLoading, refetch: refetchOverrides } =
     usePermissionOverrides(userId, {
-      enabled: Number.isFinite(userId),
+      enabled: Number.isFinite(userId) && !!user && !bootstrapLocked,
     });
   const { data: branches = [] } = useBranches(true);
   const del = useDeleteOverride(userId);
@@ -250,7 +251,23 @@ export default function UserPermissionOverrides() {
   if (!Number.isFinite(userId) || userError) {
     return <p className="p-4 text-destructive">{t('users.not_found')}</p>;
   }
-  if (userLoading || !user || permLoading || ovLoading) {
+  if (userLoading || !user) {
+    return <RouteLoader />;
+  }
+  if (bootstrapLocked) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-4 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">{t('users.perm_overrides_title')}</h1>
+          <Button variant="outline" className={floatingFormCloseButtonClassName} asChild>
+            <Link to={`/admin/users/${userId}`}>{t('actions.back')}</Link>
+          </Button>
+        </div>
+        <p className="text-muted-foreground text-sm">{t('users.perm_overrides_bootstrap_forbidden')}</p>
+      </div>
+    );
+  }
+  if (permLoading || ovLoading) {
     return <RouteLoader />;
   }
 

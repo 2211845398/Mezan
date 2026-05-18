@@ -8,11 +8,16 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
-from app.models.customer_profile import CustomerProfile
+from app.models.customer_profile import CustomerAccountStatus, CustomerProfile
 from app.models.loyalty import LoyaltyLedger
 from app.models.sales_invoice import SalesInvoice
 from app.utils.money import q2
 from app.utils.person_name import person_name_sql_expr
+
+from app.services.customer_account_status import (
+    parse_account_status,
+    sync_is_active_from_account_status,
+)
 
 
 async def _loyalty_balance_scalar(db: AsyncSession, customer_id: int) -> int:
@@ -55,11 +60,13 @@ async def list_customers(
 ) -> tuple[list[tuple[CustomerProfile, int, Decimal]], int]:
     filters = []
     if pos_ready:
-        filters.append(CustomerProfile.is_active.is_(True))
+        filters.append(CustomerProfile.account_status == CustomerAccountStatus.ACTIVE)
     elif activation == "active":
-        filters.append(CustomerProfile.is_active.is_(True))
+        filters.append(CustomerProfile.account_status == CustomerAccountStatus.ACTIVE)
     elif activation == "pending":
-        filters.append(CustomerProfile.is_active.is_(False))
+        filters.append(CustomerProfile.account_status == CustomerAccountStatus.PENDING_ACTIVATION)
+    elif activation == "suspended":
+        filters.append(CustomerProfile.account_status == CustomerAccountStatus.SUSPENDED)
     if search and search.strip():
         q = f"%{search.strip()}%"
         disp = person_name_sql_expr(
@@ -134,14 +141,37 @@ async def update_customer_profile(
         "email",
         "is_temporary",
         "is_active",
+        "account_status",
         "default_currency_id",
         "receivables_account_id",
     }
     c = await get_customer_or_404(db, customer_id)
+    account_explicit = "account_status" in data
+    legacy_active = "is_active" in data and data["is_active"] is not None
+
     for k, v in data.items():
         if k not in allowed:
             continue
+        if k == "account_status":
+            if v is None:
+                continue
+            c.account_status = parse_account_status(str(v))
+            sync_is_active_from_account_status(c)
+            continue
+        if k == "is_active" and account_explicit:
+            continue
         setattr(c, k, v)
+
+    if legacy_active and not account_explicit:
+        if data.get("is_active") is True:
+            c.account_status = CustomerAccountStatus.ACTIVE
+        else:
+            if c.is_temporary:
+                c.account_status = CustomerAccountStatus.PENDING_ACTIVATION
+            else:
+                c.account_status = CustomerAccountStatus.SUSPENDED
+        sync_is_active_from_account_status(c)
+
     await db.flush()
     await db.refresh(c)
     return c
@@ -169,7 +199,8 @@ async def create_staff_customer(
         family_name=family_name,
         email=email,
         is_temporary=is_temporary,
-        is_active=not is_temporary,
+        account_status=CustomerAccountStatus.ACTIVE,
+        is_active=True,
         default_currency_id=default_currency_id,
         receivables_account_id=receivables_account_id,
         created_by_user_id=created_by_user_id,

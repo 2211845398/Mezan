@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.models.customer_profile import CustomerAccountStatus
 from app.utils.contact_validation import parse_optional_email
 from app.utils.libyan_phone import require_libyan_mobile
+
+CustomerAccountStatusLiteral = Literal["active", "pending_activation", "suspended"]
 
 
 class CustomerCreateTemporaryRequest(BaseModel):
@@ -56,8 +60,16 @@ class CustomerRead(BaseModel):
     email: str | None
     is_temporary: bool
     is_active: bool
+    account_status: CustomerAccountStatusLiteral
 
     model_config = {"from_attributes": True}
+
+    @field_validator("account_status", mode="before")
+    @classmethod
+    def _account_status_str(cls, v: object) -> object:
+        if isinstance(v, CustomerAccountStatus):
+            return v.value
+        return v
 
 
 class CustomerCreateStaff(BaseModel):
@@ -102,6 +114,7 @@ class CustomerUpdate(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     is_temporary: bool | None = None
     is_active: bool | None = None
+    account_status: CustomerAccountStatusLiteral | None = None
     default_currency_id: int | None = None
     receivables_account_id: int | None = None
 
@@ -127,10 +140,18 @@ class CustomerListItemRead(BaseModel):
     email: str | None
     is_temporary: bool
     is_active: bool
+    account_status: CustomerAccountStatusLiteral
     loyalty_balance: int
     lifetime_spend: Decimal
 
     model_config = ConfigDict(json_encoders={Decimal: str})
+
+    @field_validator("account_status", mode="before")
+    @classmethod
+    def _account_status_str(cls, v: object) -> object:
+        if isinstance(v, CustomerAccountStatus):
+            return v.value
+        return v
 
 
 class CustomerDetailRead(BaseModel):
@@ -142,6 +163,7 @@ class CustomerDetailRead(BaseModel):
     email: str | None
     is_temporary: bool
     is_active: bool
+    account_status: CustomerAccountStatusLiteral
     default_currency_id: int | None = None
     receivables_account_id: int | None = None
     created_at: datetime
@@ -150,6 +172,13 @@ class CustomerDetailRead(BaseModel):
     lifetime_spend: Decimal
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+    @field_validator("account_status", mode="before")
+    @classmethod
+    def _account_status_str(cls, v: object) -> object:
+        if isinstance(v, CustomerAccountStatus):
+            return v.value
+        return v
 
 
 class CustomerListResponse(BaseModel):

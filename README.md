@@ -130,7 +130,7 @@ uv run python -m app.scripts.seed
 docker-compose exec api uv run python -m app.scripts.seed
 ```
 
-If you want a default admin account to be created during manual or startup seeding, set both `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD`.
+If you want a default admin account to be created during manual or startup seeding, set both `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD`. While that email matches a user in the database, the API keeps that account **active** (it rejects other account statuses), refuses to remove its `ADMIN` role assignment, rejects assigning additional roles, and blocks admin-initiated password-reset requests and permission-override APIs for that user (so the deployment always keeps one reachable full-access administrator).
 
 ## Dev database bootstrap
 

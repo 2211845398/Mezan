@@ -71,6 +71,7 @@ from app.core.errors import AppError
 from app.core.rate_limit import limiter
 from app.db.database import close_db
 from app.services.backup_service import backup_scheduler_loop
+from app.services.customer_gc_service import customer_gc_scheduler_loop
 from app.services.notifications.service import notification_scheduler_loop
 
 logger = logging.getLogger(__name__)
@@ -150,8 +151,10 @@ async def lifespan(app: FastAPI):
     # Startup (schema: use Alembic only; do not create_all on boot)
     backup_stop_event = asyncio.Event()
     notifications_stop_event = asyncio.Event()
+    customer_gc_stop_event = asyncio.Event()
     backup_task: asyncio.Task | None = None
     notifications_task: asyncio.Task | None = None
+    customer_gc_task: asyncio.Task | None = None
     _audit_route_permissions(app)
     if settings.SEED_ON_STARTUP:
         try:
@@ -177,11 +180,16 @@ async def lifespan(app: FastAPI):
         notifications_task = asyncio.create_task(
             notification_scheduler_loop(notifications_stop_event)
         )
+    if settings.CUSTOMER_GC_ENABLED:
+        customer_gc_task = asyncio.create_task(
+            customer_gc_scheduler_loop(customer_gc_stop_event)
+        )
     yield
     # Shutdown
     backup_stop_event.set()
     notifications_stop_event.set()
-    for task in (backup_task, notifications_task):
+    customer_gc_stop_event.set()
+    for task in (backup_task, notifications_task, customer_gc_task):
         if task:
             task.cancel()
             try:

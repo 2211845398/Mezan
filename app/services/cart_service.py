@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import ROUND_FLOOR, Decimal
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,11 +15,17 @@ from app.models.pos_shift import PosShift
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.schemas.pos_cart import CartDiscountRead, CartLineRead, CartRead
+from app.services.accounting_service import get_accounting_settings
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.catalog_service import map_effective_output_tax_rates, resolve_default_variant_id
 from app.services.discount_service import get_discount_rule_by_code, validate_discount
+from app.services.loyalty_service import get_customer_balance
+from app.services.pos_customer_guard import assert_customer_active_for_pos
 from app.services.pricing_service import get_active_sell_price
 from app.utils.money import q2
+
+# Reserved POS cart discount code for loyalty redemption (not a CRM promotion code).
+LOYALTY_CART_DISCOUNT_CODE = "__POS_LOYALTY__"
 
 
 def _discount_amount_from_rule(*, rule: DiscountRule, eligible_subtotal: Decimal) -> Decimal:
@@ -127,6 +133,9 @@ async def create_cart(
         shift = s_res.scalar_one_or_none()
         if not shift:
             raise ValidationError("Shift not found, does not belong to terminal, or is not open")
+
+    if customer_id is not None:
+        await assert_customer_active_for_pos(db, customer_id)
 
     # Epic 21.1: Generate per-branch-per-day cart number
     daily_cart_number = await _next_daily_cart_number(db, terminal.branch_id)
@@ -327,6 +336,11 @@ async def apply_discount(
         raise StateTransitionError("Cart is not active")
 
     trimmed = code.strip()
+    if trimmed == LOYALTY_CART_DISCOUNT_CODE:
+        raise ValidationError(
+            "This discount code is reserved for loyalty redemption",
+            details={"code": trimmed},
+        )
     dup = await db.execute(
         select(PosCartDiscount.id)
         .where(PosCartDiscount.cart_id == cart.id, PosCartDiscount.code == trimmed)
@@ -388,6 +402,124 @@ async def apply_discount(
             customer_id=cart.customer_id,
             discount_amount=discount_amount,
             applied_by_user_id=created_by_user_id,
+        )
+    )
+    await db.flush()
+    await _recalc_totals(db, cart)
+    await db.commit()
+    await db.refresh(cart)
+    return cart
+
+
+async def apply_loyalty_discount(
+    db: AsyncSession, *, cart_id: int, loyalty_points: int, created_by_user_id: int
+) -> PosCart:
+    """Apply a cart discount funded by loyalty points (ledger debit happens at invoice finalize)."""
+    res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
+    cart = res.scalar_one_or_none()
+    if not cart:
+        raise NotFoundError("Cart not found")
+    if cart.status != "active":
+        raise StateTransitionError("Cart is not active")
+    if cart.customer_id is None:
+        raise ValidationError(
+            "Loyalty discount requires a customer on the cart",
+            details={"cart_id": cart_id},
+        )
+    await assert_customer_active_for_pos(db, cart.customer_id)
+
+    balance = await get_customer_balance(db, cart.customer_id)
+    if loyalty_points > balance:
+        raise ValidationError(
+            "Insufficient loyalty points for this redemption",
+            details={"balance": balance, "requested": loyalty_points},
+        )
+
+    settings = await get_accounting_settings(db)
+    per_point = q2(Decimal(str(settings.default_loyalty_point_value)))
+    if per_point <= 0:
+        raise ValidationError(
+            "Loyalty point value is not configured",
+            details={"default_loyalty_point_value": str(settings.default_loyalty_point_value)},
+        )
+
+    lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
+    lines = list(lines_res.scalars().all())
+    positive_lines = [ln for ln in lines if int(ln.qty or 0) > 0]
+    subtotal_net = q2(
+        sum(q2(ln.unit_price * Decimal(int(ln.qty))) for ln in positive_lines)
+    )
+    if subtotal_net <= 0:
+        raise ValidationError(
+            "Cart has no positive line subtotal for loyalty discount",
+            details={"cart_id": cart_id},
+        )
+
+    disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart.id))
+    discounts = list(disc_res.scalars().all())
+    other_discount_total = q2(
+        sum(
+            (
+                d.amount
+                for d in discounts
+                if d.code != LOYALTY_CART_DISCOUNT_CODE and d.loyalty_points_redeemed is None
+            ),
+            Decimal("0.00"),
+        )
+    )
+    eligible = q2(subtotal_net - other_discount_total)
+    if eligible <= 0:
+        raise ValidationError(
+            "No remaining subtotal available for loyalty discount after other discounts",
+            details={"eligible_subtotal": str(eligible)},
+        )
+
+    max_points_by_cart = int((eligible / per_point).to_integral_value(rounding=ROUND_FLOOR))
+    if max_points_by_cart < 1:
+        raise ValidationError(
+            "Cart subtotal is too small for the configured loyalty point value",
+            details={"eligible_subtotal": str(eligible), "per_point": str(per_point)},
+        )
+
+    actual_points = min(loyalty_points, balance, max_points_by_cart)
+    if actual_points < loyalty_points:
+        raise ValidationError(
+            "Requested loyalty points exceed what can be applied to this cart",
+            details={
+                "requested": loyalty_points,
+                "allowed": actual_points,
+                "balance": balance,
+                "max_by_cart": max_points_by_cart,
+            },
+        )
+
+    discount_amount = q2(Decimal(actual_points) * per_point)
+    if discount_amount <= 0:
+        raise ValidationError("Calculated loyalty discount amount is zero")
+
+    for d in discounts:
+        if d.code == LOYALTY_CART_DISCOUNT_CODE or d.loyalty_points_redeemed is not None:
+            await db.delete(d)
+
+    db.add(
+        PosCartDiscount(
+            cart_id=cart.id,
+            code=LOYALTY_CART_DISCOUNT_CODE,
+            amount=discount_amount,
+            loyalty_points_redeemed=actual_points,
+        )
+    )
+    db.add(
+        PosCartEvent(
+            cart_id=cart.id,
+            event_type="discount_applied",
+            payload={
+                "mode": "loyalty",
+                "loyalty_points": actual_points,
+                "amount": str(discount_amount),
+                "per_point": str(per_point),
+            },
+            created_by_user_id=created_by_user_id,
         )
     )
     await db.flush()
@@ -472,7 +604,13 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
         )
 
     disc_reads = [
-        CartDiscountRead(id=d.id, code=d.code, amount=d.amount, created_at=d.created_at)
+        CartDiscountRead(
+            id=d.id,
+            code=d.code,
+            amount=d.amount,
+            loyalty_points_redeemed=d.loyalty_points_redeemed,
+            created_at=d.created_at,
+        )
         for d in discounts
     ]
 
@@ -490,6 +628,27 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
         lines=line_reads,
         discounts=disc_reads,
     )
+
+
+async def patch_cart_customer(
+    db: AsyncSession, *, cart_id: int, customer_id: int | None
+) -> PosCart:
+    """Set cart customer; clears or replaces customer_id after eligibility checks."""
+    c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
+    cart = c_res.scalar_one_or_none()
+    if not cart:
+        raise NotFoundError("Cart not found")
+    if cart.status not in ("active", "parked", "checkout_locked"):
+        raise StateTransitionError(
+            "Cannot modify cart customer in current status",
+            details={"status": cart.status},
+        )
+    if customer_id is not None:
+        await assert_customer_active_for_pos(db, customer_id)
+    cart.customer_id = customer_id
+    await db.commit()
+    await db.refresh(cart)
+    return cart
 
 
 async def deduct_exchange_cart_for_return(

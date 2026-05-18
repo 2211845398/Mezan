@@ -27,7 +27,7 @@ export function customersListQueryOptions(args: {
   limit: number;
   offset: number;
   search?: string;
-  activation?: 'all' | 'active' | 'pending';
+  activation?: 'all' | 'active' | 'pending' | 'suspended';
 }) {
   return queryOptions({
     queryKey: crmKeys.customers(args),

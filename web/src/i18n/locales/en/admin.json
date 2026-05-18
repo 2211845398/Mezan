@@ -52,6 +52,7 @@
     "reset_password": "Send password reset",
     "user_information": "User information",
     "view_permissions": "Permission overrides",
+    "perm_overrides_bootstrap_forbidden": "Permission overrides are not available for the primary bootstrap administrator.",
     "perm_overrides_title": "Permission overrides",
     "effective_permissions": "Effective permissions (client-side)",
     "override_matrix_heading": "Global overrides",
@@ -280,13 +281,20 @@
       "failed": "Failed",
       "skipped": "In app only"
     },
+    "run_status": {
+      "started": "Started",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
     "col": {
       "active": "Active",
       "title_tpl": "Title template",
       "started": "Started",
       "finished": "Finished",
       "enqueued": "Deliveries enqueued",
-      "target_group": "Target group"
+      "target_group": "Target group",
+      "error": "Error",
+      "run_id": "ID"
     }
   }
 }

@@ -17,7 +17,7 @@ type CartRead = paths['/api/v1/pos/carts/{cart_id}']['get']['responses']['200'][
 type CreateCartBody = paths['/api/v1/pos/carts']['post']['requestBody']['content']['application/json'];
 type CartLineBody =
   paths['/api/v1/pos/carts/{cart_id}/lines']['post']['requestBody']['content']['application/json'];
-type CartDiscountBody =
+export type CartDiscountBody =
   paths['/api/v1/pos/carts/{cart_id}/discounts']['post']['requestBody']['content']['application/json'];
 type CartStateBody =
   paths['/api/v1/pos/carts/{cart_id}/state']['post']['requestBody']['content']['application/json'];

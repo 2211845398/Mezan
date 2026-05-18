@@ -117,6 +117,21 @@ class Settings(BaseSettings):
         default=None, description="Inline FCM service-account JSON string"
     )
 
+    # Temporary customer GC (CRM): delete abandoned temp profiles after N days when safe.
+    CUSTOMER_GC_ENABLED: bool = Field(
+        default=True,
+        description="Run daily garbage collection for stale temporary customers",
+    )
+    CUSTOMER_GC_TICK_SECONDS: int = Field(
+        default=3600,
+        description="How often the GC loop wakes to check the once-per-day run (min 60)",
+    )
+    CUSTOMER_GC_RETENTION_DAYS: int = Field(
+        default=30,
+        ge=1,
+        description="Minimum age (days) before a temporary customer may be deleted",
+    )
+
     # Profile avatars (stored on disk; served via /api/v1/static/avatars)
     AVATAR_UPLOAD_DIR: str = Field(
         default="data/uploads/avatars",
