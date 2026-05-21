@@ -4569,6 +4569,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Notes */
+            notes?: string | null;
             /** Lines */
             lines?: components["schemas"]["GoodsReceiptLineRead"][];
         };
@@ -4591,6 +4593,8 @@ export interface components {
             lines: components["schemas"]["GoodsReceiptReceiveLine"][];
             /** Idempotency Key */
             idempotency_key: string;
+            /** Notes */
+            notes?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -6107,6 +6111,8 @@ export interface components {
             supplier_id?: number | null;
             /** Branch Id */
             branch_id?: number | null;
+            /** Branch Name */
+            branch_name?: string | null;
             /** Notes */
             notes?: string | null;
             /** Expected At */

@@ -2,6 +2,7 @@
 
 from app.api.v1.accounting import router as accounting_router
 from app.api.v1.ai_advisory import router as ai_advisory_router
+from app.api.v1.attributes import router as attributes_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.backups import router as backups_router
@@ -10,6 +11,7 @@ from app.api.v1.carts import router as carts_router
 from app.api.v1.catalog import router as catalog_router
 from app.api.v1.chart_accounts import router as chart_accounts_router
 from app.api.v1.config import router as config_router
+from app.api.v1.currencies import router as currencies_router
 from app.api.v1.customer_performance import router as customer_performance_router
 from app.api.v1.customers import router as customers_router
 from app.api.v1.discounts import router as discounts_router
@@ -28,6 +30,7 @@ from app.api.v1.loyalty_rules import router as loyalty_rules_router
 from app.api.v1.marketing import router as marketing_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.payments import router as payments_router
+from app.api.v1.payment_terms import router as payment_terms_router
 from app.api.v1.payroll import router as payroll_router
 from app.api.v1.pos_shifts import router as pos_shifts_router
 from app.api.v1.price_lists import router as price_lists_router
@@ -44,6 +47,7 @@ from app.api.v1.vouchers import router as vouchers_router
 __all__ = [
     "accounting_router",
     "ai_advisory_router",
+    "attributes_router",
     "audit_router",
     "auth_router",
     "backups_router",
@@ -52,6 +56,7 @@ __all__ = [
     "carts_router",
     "chart_accounts_router",
     "config_router",
+    "currencies_router",
     "customer_performance_router",
     "customers_router",
     "discounts_router",
@@ -69,6 +74,7 @@ __all__ = [
     "marketing_router",
     "notifications_router",
     "payroll_router",
+    "payment_terms_router",
     "payments_router",
     "price_lists_router",
     "pos_shifts_router",

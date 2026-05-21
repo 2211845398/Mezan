@@ -14,6 +14,8 @@ from app.models.branch import Branch
 from app.models.branch_product_costs import BranchProductCost
 from app.models.branch_sequence import BranchSequence
 from app.models.category import Category
+from app.models.catalog_attribute import CatalogAttribute
+from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.chart_accounts import AccountType, ChartAccount
 from app.models.currency import Currency
@@ -43,6 +45,7 @@ from app.models.notifications import (
 )
 from app.models.password_reset_token import PasswordResetToken
 from app.models.payslip import Payslip, PayslipStatus
+from app.models.payment_terms import PaymentTerm
 from app.models.permission import Permission
 from app.models.pos_cart import CartDaySequence, PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_expense import PosExpense
@@ -55,6 +58,7 @@ from app.models.product_category import ProductCategory
 from app.models.product_tax_definition import ProductTaxDefinition
 from app.models.tax_definition import TaxDefinition
 from app.models.product_variant import ProductVariant
+from app.models.product_variant_attribute import ProductVariantAttribute
 from app.models.product_price import ProductPrice
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
@@ -92,6 +96,8 @@ __all__ = [
     "BranchSequence",
     "BranchProductCost",
     "Category",
+    "CatalogAttribute",
+    "CatalogAttributeValue",
     "ChartAccount",
     "CategoryAttributeDef",
     "Currency",
@@ -126,6 +132,7 @@ __all__ = [
     "JournalEntry",
     "JournalEntryLine",
     "PasswordResetToken",
+    "PaymentTerm",
     "Permission",
     "POSTerminal",
     "CartDaySequence",
@@ -161,6 +168,7 @@ __all__ = [
     "ProductTaxDefinition",
     "ProductPrice",
     "ProductVariant",
+    "ProductVariantAttribute",
     "PurchaseOrder",
     "PurchaseOrderLine",
     "StockLevel",

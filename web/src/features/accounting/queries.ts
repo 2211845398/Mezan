@@ -33,7 +33,33 @@ export const accountingKeys = {
   fiscal: () => [...accountingKeys.root, 'fiscal'] as const,
   chartAccountsTree: () => [...accountingKeys.root, 'chart-accounts', 'tree'] as const,
   boms: () => [...accountingKeys.root, 'boms'] as const,
+  currencies: (includeInactive?: boolean) =>
+    [...accountingKeys.root, 'currencies', includeInactive ?? false] as const,
+  settings: () => [...accountingKeys.root, 'settings'] as const,
+  paymentTerms: (activeOnly?: boolean) =>
+    [...accountingKeys.root, 'payment-terms', activeOnly ?? true] as const,
 };
+
+export function currenciesQueryOptions(includeInactive = false) {
+  return queryOptions({
+    queryKey: accountingKeys.currencies(includeInactive),
+    queryFn: () => api.listCurrencies(includeInactive),
+  });
+}
+
+export function accountingSettingsQueryOptions() {
+  return queryOptions({
+    queryKey: accountingKeys.settings(),
+    queryFn: () => api.getAccountingSettings(),
+  });
+}
+
+export function paymentTermsQueryOptions(activeOnly = true) {
+  return queryOptions({
+    queryKey: accountingKeys.paymentTerms(activeOnly),
+    queryFn: () => api.listPaymentTerms(activeOnly),
+  });
+}
 
 export function journalListQueryOptions(args: {
   date_from: string;

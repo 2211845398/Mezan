@@ -155,14 +155,13 @@ async def test_happy_user_journey(
     base_currency_id = settings_result.scalar_one()
 
     # Supplier (used later for purchase orders / AP attribution).
-    supplier_code = f"SUP-{uuid.uuid4().hex[:6]}"
     sup = await client.post(
         "/api/v1/suppliers",
         headers=headers,
         json={
-            "code": supplier_code,
-            "name": "Acme Imports Ltd.",
-            "currency_id": base_currency_id,
+            "first_name": "Acme",
+            "family_name": "Imports",
+            "currency_code": "USD",
             "payables_account_id": None,
         },
     )

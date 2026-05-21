@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,7 +17,9 @@ from app.schemas.goods_receipts import (
     GoodsReceiptRead,
     GoodsReceiptReceiveRequest,
 )
+from app.services import audit_service
 from app.services.goods_receipt_service import receive_goods_for_purchase_order
+from app.services.purchase_order_service import load_purchase_order, purchase_order_to_read_one
 
 router = APIRouter()
 
@@ -31,6 +33,7 @@ def _receipt_read_schema(receipt: GoodsReceipt) -> GoodsReceiptRead:
         supplier_id=receipt.supplier_id,
         source_invoice_scan_id=receipt.source_invoice_scan_id,
         created_by_user_id=receipt.created_by_user_id,
+        notes=receipt.notes,
         created_at=receipt.created_at,
         lines=[GoodsReceiptLineRead.model_validate(ln) for ln in receipt.lines],
     )
@@ -81,19 +84,34 @@ async def get_goods_receipt_endpoint(
     response_model=GoodsReceiptRead,
 )
 async def receive_goods_endpoint(
+    request: Request,
     purchase_order_id: int,
     body: GoodsReceiptReceiveRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("purchase_orders", "update"),
 ) -> GoodsReceiptRead:
-    receipt = await receive_goods_for_purchase_order(
+    receipt, po_auto_closed = await receive_goods_for_purchase_order(
         db,
         purchase_order_id=purchase_order_id,
         branch_id=body.branch_id,
         lines=[ln.model_dump() for ln in body.lines],
         idempotency_key=body.idempotency_key,
         created_by_user_id=current_user.id,
+        notes=body.notes,
     )
+    if po_auto_closed:
+        po = await load_purchase_order(db, purchase_order_id)
+        po_read = await purchase_order_to_read_one(db, po)
+        await audit_service.log(
+            session=db,
+            action="purchase_order.closed",
+            resource_type="purchase_order",
+            resource_id=str(po.id),
+            new_value=po_read.model_dump(),
+            user_id=current_user.id,
+            request=request,
+        )
+        await db.commit()
     loaded = await _load_receipt_with_lines(db, receipt.id)
     return _receipt_read_schema(loaded)

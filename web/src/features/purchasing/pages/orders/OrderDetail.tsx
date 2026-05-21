@@ -17,8 +17,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { listBranches } from '@/features/admin/api';
+import { adminKeys } from '@/features/admin/queries';
 import { getProductWithVariants } from '@/features/catalog/api';
+import PoReceiptsSection from '@/features/purchasing/components/PoReceiptsSection';
 import { poGoldOutlineButtonClass } from '@/features/purchasing/lib/poButtonStyles';
+import { aggregateReceivedUnitCostByPoLine } from '@/features/purchasing/lib/aggregateReceivedUnitCostByPoLine';
+import { formatMoney } from '@/lib/format';
 import { usePermission } from '@/hooks/usePermission';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { cn } from '@/lib/utils';
@@ -26,7 +31,6 @@ import { cn } from '@/lib/utils';
 import {
   cancelPurchaseOrder,
   closePurchaseOrder,
-  type GoodsReceiptRead,
   sendPurchaseOrder,
   trackPurchaseOrder,
 } from '../../api';
@@ -47,7 +51,7 @@ export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const poId = id ? Number(id) : NaN;
   const { t } = useTranslation('purchasing');
-  const { t: tc } = useTranslation('common');
+  const { t: tc, i18n } = useTranslation('common');
   const qc = useQueryClient();
   const canUpdate = usePermission('purchase_orders', 'update');
 
@@ -102,6 +106,16 @@ export default function OrderDetail() {
   });
 
   const receivedByLine = useMemo(() => aggregateReceivedQtyByPoLine(receipts), [receipts]);
+  const unitCostByLine = useMemo(() => aggregateReceivedUnitCostByPoLine(receipts), [receipts]);
+
+  const { data: branches = [] } = useQuery({
+    queryKey: adminKeys.branches(false),
+    queryFn: () => listBranches({ include_archived: false }),
+  });
+  const branchesById = useMemo(
+    () => Object.fromEntries(branches.map((b) => [b.id, b.name])),
+    [branches],
+  );
 
   const productIds = useMemo(
     () => [...new Set((po?.lines ?? []).map((l) => l.product_id))],
@@ -143,12 +157,21 @@ export default function OrderDetail() {
     return Math.max(0, ln.qty - got) === 0;
   });
 
-  const showReceiveActions =
+  const showReceive =
     canUpdate &&
     (po.status === 'sent' || po.status === 'tracked') &&
     !allFullyReceived &&
     po.status !== 'closed' &&
     po.status !== 'cancelled';
+
+  /** Only before «قيد التنفيذ» — redundant once status is already tracked. */
+  const showTrack =
+    canUpdate && po.status === 'sent' && !allFullyReceived && po.status !== 'cancelled';
+
+  const showCloseEarly =
+    canUpdate &&
+    (po.status === 'sent' || po.status === 'tracked') &&
+    !allFullyReceived;
 
   const stepperSteps = PO_STEPS.map((key) => ({
     key,
@@ -161,13 +184,12 @@ export default function OrderDetail() {
         title={`PO-${po.id}`}
         subtitle={po.supplier_name}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <BackButton to="/purchasing/orders" label={tc('actions.back')} />
-            {canUpdate && po.status === 'draft' ? (
-              <Button type="button" variant="outline" asChild>
-                <Link to={`/purchasing/orders/${po.id}/edit`}>{t('orders.edit')}</Link>
-              </Button>
-            ) : null}
+          <div
+            className={cn(
+              'flex flex-wrap gap-2',
+              i18n.dir() === 'ltr' && 'flex-row-reverse',
+            )}
+          >
             {canUpdate && po.status === 'draft' ? (
               <Button type="button" onClick={() => void sendM.mutate()} disabled={sendM.isPending}>
                 {t('orders.detail_page.send')}
@@ -183,7 +205,12 @@ export default function OrderDetail() {
                 {t('orders.detail_page.cancel')}
               </Button>
             ) : null}
-            {showReceiveActions ? (
+            {canUpdate && po.status === 'draft' ? (
+              <Button type="button" variant="outline" asChild>
+                <Link to={`/purchasing/orders/${po.id}/edit`}>{t('orders.edit')}</Link>
+              </Button>
+            ) : null}
+            {showTrack ? (
               <Button
                 type="button"
                 variant="outline"
@@ -194,29 +221,36 @@ export default function OrderDetail() {
                 {t('orders.detail_page.track')}
               </Button>
             ) : null}
-            {showReceiveActions ? (
+            {showReceive ? (
               <Button type="button" asChild>
                 <Link to={`/purchasing/orders/${po.id}/receive`}>{t('orders.detail_page.receive')}</Link>
               </Button>
             ) : null}
-            {canUpdate && (po.status === 'sent' || po.status === 'tracked') && !allFullyReceived ? (
+            {showCloseEarly ? (
               <Button type="button" variant="outline" onClick={() => void closeM.mutate()} disabled={closeM.isPending}>
                 {t('orders.detail_page.close')}
               </Button>
             ) : null}
+            <BackButton to="/purchasing/orders" label={tc('actions.back')} />
           </div>
         }
       />
 
       <StatusStepper steps={stepperSteps} current={poStepperCurrent(po.status)} />
 
+      <SectionCard title={t('orders.notes_section.order_title')}>
+        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+          {po.notes?.trim() ? po.notes : t('orders.notes_section.empty')}
+        </p>
+      </SectionCard>
+
       <SectionCard title={t('orders.detail_page.lines')}>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>#</TableHead>
+              <TableHead>{t('orders.detail_page.line_no')}</TableHead>
               <TableHead>{t('orders.form.product')}</TableHead>
-              <TableHead>{t('orders.detail_page.variant_col')}</TableHead>
+              <TableHead>{t('orders.detail_page.unit_cost_col')}</TableHead>
               <TableHead>{t('orders.form.qty')}</TableHead>
               <TableHead>{t('orders.detail_page.received_col')}</TableHead>
               <TableHead>{t('orders.detail_page.remaining')}</TableHead>
@@ -230,10 +264,10 @@ export default function OrderDetail() {
                 <TableRow key={ln.id}>
                   <TableCell>{ln.id}</TableCell>
                   <TableCell>{productLabels[ln.product_id] ?? `#${ln.product_id}`}</TableCell>
-                  <TableCell>
-                    {ln.variant_id != null && ln.variant_id > 0
-                      ? variantLabels[ln.variant_id] ?? `#${ln.variant_id}`
-                      : t('orders.detail_page.variant_at_receive')}
+                  <TableCell className="tabular-nums num-latin">
+                    {unitCostByLine[ln.id] != null
+                      ? formatMoney(unitCostByLine[ln.id]!)
+                      : t('orders.detail_page.unit_cost_at_receive')}
                   </TableCell>
                   <TableCell>{ln.qty}</TableCell>
                   <TableCell>{got}</TableCell>
@@ -246,26 +280,12 @@ export default function OrderDetail() {
       </SectionCard>
 
       <SectionCard title={t('orders.detail_page.receipts')}>
-        {receipts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">—</p>
-        ) : (
-          receipts.map((r: GoodsReceiptRead) => (
-            <div key={r.id} className="mb-4 rounded-md border p-3 text-sm last:mb-0">
-              <div>
-                #{r.id} · {r.created_at?.slice(0, 19)}
-              </div>
-              <ul className="ms-4 list-disc">
-                {(r.lines ?? []).map((ln) => (
-                  <li key={ln.id}>
-                    {productLabels[ln.product_id] ?? ln.product_id}
-                    {ln.variant_id != null ? ` · ${variantLabels[ln.variant_id] ?? ln.variant_id}` : ''} ×{' '}
-                    {ln.qty} @ {ln.unit_cost}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))
-        )}
+        <PoReceiptsSection
+          receipts={receipts}
+          productLabels={productLabels}
+          variantLabels={variantLabels}
+          branchesById={branchesById}
+        />
       </SectionCard>
     </div>
   );

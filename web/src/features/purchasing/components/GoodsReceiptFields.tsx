@@ -7,6 +7,7 @@ import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -19,6 +20,8 @@ import { newIdempotencyKey } from '@/lib/idempotency';
 
 import { type PurchaseOrderRead, receiveGoodsForPurchaseOrder } from '../api';
 import { aggregateReceivedQtyByPoLine } from '../lib/aggregateReceivedQtyByPoLine';
+import { computeReceiveLineProgress } from '../lib/receiveLineProgress';
+import ReceiveLineProgressHint from './ReceiveLineProgressHint';
 import { purchasingKeys } from '../queries';
 import PoReceiveVariantSplitRows, {
   type ReceiveSplitRow,
@@ -50,6 +53,7 @@ export default function GoodsReceiptFields({
   const [recvQty, setRecvQty] = useState<Record<number, string>>({});
   const [recvUnitCost, setRecvUnitCost] = useState<Record<number, string>>({});
   const [splitsByLine, setSplitsByLine] = useState<Record<number, ReceiveSplitRow[]>>({});
+  const [receiptNotes, setReceiptNotes] = useState('');
   const idempotencyKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -121,19 +125,24 @@ export default function GoodsReceiptFields({
       }
 
       if (!branch_id || lines.length === 0) {
+        toast.error(t('orders.receive.no_lines'));
         throw new Error('branch and qty');
       }
 
       const idem = idempotencyKeyRef.current ?? newIdempotencyKey();
       idempotencyKeyRef.current = idem;
+      const notes = receiptNotes.trim() || null;
       return receiveGoodsForPurchaseOrder(po.id, {
         branch_id,
         lines,
         idempotency_key: idem,
+        notes,
       });
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
+      idempotencyKeyRef.current = newIdempotencyKey();
+      setReceiptNotes('');
       toast.success(t('orders.detail_page.receipt_ok'));
       await onPosted?.();
     },
@@ -209,12 +218,14 @@ export default function GoodsReceiptFields({
         const label = productLabels[ln.product_id] ?? `#${ln.product_id}`;
 
         if (ln.variant_id != null && ln.variant_id > 0) {
+          const sessionQty = Number(recvQty[ln.id] ?? 0);
+          const progress = computeReceiveLineProgress(ln.qty, already, sessionQty);
           return (
-            <div key={ln.id} className="grid gap-2 rounded-md border p-3 md:grid-cols-2">
+            <div key={ln.id} className="grid gap-2 rounded-md border p-3">
+              <p className="text-sm font-medium">{label}</p>
+              <div className="grid gap-2 md:grid-cols-2">
               <div>
-                <Label>
-                  {label} — {t('orders.receive.qty')} ({t('orders.detail_page.remaining')}: {remaining})
-                </Label>
+                <Label>{t('orders.receive.qty')}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -235,6 +246,8 @@ export default function GoodsReceiptFields({
                   onChange={(e) => setRecvUnitCost((prev) => ({ ...prev, [ln.id]: e.target.value }))}
                 />
               </div>
+              </div>
+              <ReceiveLineProgressHint progress={progress} />
             </div>
           );
         }
@@ -244,6 +257,8 @@ export default function GoodsReceiptFields({
             key={ln.id}
             productId={ln.product_id}
             productLabel={label}
+            ordered={ln.qty}
+            alreadyReceived={already}
             remaining={remaining}
             rows={splitsByLine[ln.id] ?? []}
             disabled={pending}
@@ -251,6 +266,30 @@ export default function GoodsReceiptFields({
           />
         );
       })}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 rounded-md border bg-card p-3">
+          <Label className="text-xs font-medium text-muted-foreground">
+            {t('orders.notes_section.order_title')}
+          </Label>
+          <p className="max-h-20 overflow-y-auto whitespace-pre-wrap text-xs text-muted-foreground">
+            {po.notes?.trim() ? po.notes : t('orders.notes_section.empty')}
+          </p>
+        </div>
+        <div className="space-y-1.5 rounded-md border bg-card p-3">
+          <Label className="text-xs font-medium text-muted-foreground">
+            {t('orders.notes_section.receipt_title')}
+          </Label>
+          <Textarea
+            rows={2}
+            disabled={pending}
+            value={receiptNotes}
+            onChange={(e) => setReceiptNotes(e.target.value)}
+            placeholder={t('orders.notes_section.placeholder')}
+            className="min-h-[3.5rem] resize-y text-sm"
+          />
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={pending} onClick={handleSubmit}>

@@ -7,9 +7,23 @@ export type PurchaseOrderUpdate = components['schemas']['PurchaseOrderUpdate'];
 export type PurchaseOrderLineCreate = components['schemas']['PurchaseOrderLineCreate'];
 export type PurchaseOrderLineRead = components['schemas']['PurchaseOrderLineRead'];
 export type PurchaseOrderSendRequest = components['schemas']['PurchaseOrderSendRequest'];
-export type SupplierRead = components['schemas']['SupplierRead'];
-export type SupplierCreate = components['schemas']['SupplierCreate'];
-export type SupplierUpdate = components['schemas']['SupplierUpdate'];
+export type SupplierRead = components['schemas']['SupplierRead'] & {
+  payment_terms_id?: number | null;
+};
+export type SupplierCreatePayload = {
+  code?: string | null;
+  first_name: string;
+  father_name?: string | null;
+  family_name?: string | null;
+  currency_id?: number;
+  currency_code?: string;
+  payables_account_id?: number | null;
+  tax_id?: string | null;
+  contact?: Record<string, string>;
+  payment_terms?: string | null;
+  payment_terms_id?: number | null;
+};
+export type SupplierUpdatePayload = Partial<SupplierCreatePayload>;
 export type GoodsReceiptRead = components['schemas']['GoodsReceiptRead'];
 export type GoodsReceiptReceiveRequest = components['schemas']['GoodsReceiptReceiveRequest'];
 import {
@@ -94,12 +108,12 @@ export async function getSupplier(id: number): Promise<SupplierRead> {
   return data;
 }
 
-export async function createSupplier(body: SupplierCreate): Promise<SupplierRead> {
+export async function createSupplier(body: SupplierCreatePayload): Promise<SupplierRead> {
   const { data } = await apiClient.post<SupplierRead>('/suppliers', body);
   return data;
 }
 
-export async function updateSupplier(id: number, body: SupplierUpdate): Promise<SupplierRead> {
+export async function updateSupplier(id: number, body: SupplierUpdatePayload): Promise<SupplierRead> {
   const { data } = await apiClient.patch<SupplierRead>(`/suppliers/${id}`, body);
   return data;
 }

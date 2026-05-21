@@ -48,3 +48,8 @@ class ProductVariant(Base):
     )
 
     product = relationship("Product", back_populates="variants")
+    variant_attributes = relationship(
+        "ProductVariantAttribute",
+        back_populates="variant",
+        cascade="all, delete-orphan",
+    )

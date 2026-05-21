@@ -6,6 +6,8 @@
     "catalog_products": "المنتجات",
     "catalog_taxes": "الضرائب",
     "catalog_categories": "الفئات",
+    "catalog_attributes": "سمات المنتج",
+    "admin_catalog_attributes": "سمات المنتج (قاموس الكتالوج)",
     "inventory": "المخزون",
     "inventory_stock": "المخزون والأرصدة",
     "inventory_adjustments": "حركات المخزون",
@@ -36,6 +38,8 @@
     "accounting_ap": "الذمم الدائنة",
     "accounting_fiscal_periods": "الفترات المالية",
     "accounting_operations": "عمليات المحاسبة",
+    "accounting_currencies": "العملات",
+    "accounting_payment_terms": "شروط الدفع",
     "crm": "العملاء",
     "crm_customers": "العملاء",
     "crm_loyalty": "الولاء",
@@ -191,9 +195,12 @@
   },
   "apiErrors": {
     "email_already_exists": "هذا البريد الإلكتروني مسجّل مسبقًا.",
-    "onboarding_assignee_ineligible": "يجب أن يكون المراجع مستخدمًا نشطًا ولديه صلاحية إكمال الضبط وبيانات الموظفين."
+    "onboarding_assignee_ineligible": "يجب أن يكون المراجع مستخدمًا نشطًا ولديه صلاحية إكمال الضبط وبيانات الموظفين.",
+    "control_account_posting": "لا يمكن الترحيل على حساب ملخص؛ استخدم حسابًا ورقيًّا (مثل 2010 ذمم دائنة تجارية).",
+    "variant_inventory_activity": "لا يمكن حذف المتغير «{{label}}» لارتباطه بحركات مخزنية."
   },
   "actions": {
+    "back": "الصفحة السابقة",
     "save": "حفظ",
     "cancel": "إلغاء",
     "confirm": "تأكيد",

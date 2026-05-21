@@ -393,6 +393,27 @@ async def get_chart_account_tree_for_branch(
     return [enrich(n) for n in tree]
 
 
+async def resolve_posting_account_id(db: AsyncSession, account_id: int) -> int:
+    """Ensure account_id is an active leaf (posting) account; return it for GL lines."""
+    account = await _get_account_with_parents(db, account_id)
+    if account is None:
+        raise ValidationError(
+            "Unknown chart account for journal line",
+            details={"account_id": account_id},
+        )
+    if not account.active:
+        raise ValidationError(
+            "Cannot post to an inactive chart account",
+            details={"account_id": account_id},
+        )
+    if account.is_control:
+        raise ValidationError(
+            "Cannot post to a control (summary) account; use a leaf/posting account",
+            details={"account_id": account_id, "code": account.code},
+        )
+    return int(account.id)
+
+
 async def validate_accounts_for_journal_posting(
     db: AsyncSession, *, account_ids: list[int]
 ) -> None:

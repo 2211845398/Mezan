@@ -45,6 +45,21 @@ async def _qty_received_by_po_line(db: AsyncSession, *, purchase_order_id: int) 
     return {int(r[0]): int(r[1]) for r in res.all() if r[0] is not None}
 
 
+async def _auto_close_po_if_fully_received(
+    db: AsyncSession, *, purchase_order: PurchaseOrder
+) -> bool:
+    """Close PO when every line has been fully received (sent/tracked → closed)."""
+    if purchase_order.status not in {"sent", "tracked"}:
+        return False
+    if not purchase_order.lines:
+        return False
+    received = await _qty_received_by_po_line(db, purchase_order_id=purchase_order.id)
+    if not all(received.get(ln.id, 0) >= ln.qty for ln in purchase_order.lines):
+        return False
+    purchase_order.status = "closed"
+    return True
+
+
 async def receive_goods_for_purchase_order(
     db: AsyncSession,
     *,
@@ -53,7 +68,8 @@ async def receive_goods_for_purchase_order(
     lines: list[dict[str, Any]],
     idempotency_key: str,
     created_by_user_id: int | None,
-) -> GoodsReceipt:
+    notes: str | None = None,
+) -> tuple[GoodsReceipt, bool]:
     if len(idempotency_key) < 8:
         raise ValidationError(
             "idempotency_key must be at least 8 characters",
@@ -70,7 +86,18 @@ async def receive_goods_for_purchase_order(
                 "Idempotency key already used for a different receipt",
                 details={"goods_receipt_id": prior.id},
             )
-        return prior
+        po_res = await db.execute(
+            select(PurchaseOrder)
+            .options(selectinload(PurchaseOrder.lines))
+            .where(PurchaseOrder.id == purchase_order_id)
+        )
+        po_for_close = po_res.scalar_one_or_none()
+        po_closed = False
+        if po_for_close is not None:
+            po_closed = await _auto_close_po_if_fully_received(db, purchase_order=po_for_close)
+            if po_closed:
+                await db.commit()
+        return prior, po_closed
 
     po = await db.execute(
         select(PurchaseOrder)
@@ -187,6 +214,7 @@ async def receive_goods_for_purchase_order(
         if sup:
             supplier_name = display_person_name(sup.first_name, sup.father_name, sup.family_name)
 
+    receipt_notes = (notes or "").strip() or None
     receipt = GoodsReceipt(
         branch_id=branch_id,
         purchase_order_id=purchase_order_id,
@@ -195,6 +223,7 @@ async def receive_goods_for_purchase_order(
         source_invoice_scan_id=None,
         idempotency_key=idempotency_key,
         created_by_user_id=created_by_user_id,
+        notes=receipt_notes,
     )
     db.add(receipt)
     await db.flush()
@@ -255,6 +284,7 @@ async def receive_goods_for_purchase_order(
             )
 
     await post_goods_receipt_gl(db, receipt=receipt)
+    po_closed = await _auto_close_po_if_fully_received(db, purchase_order=purchase_order)
     await db.commit()
     await db.refresh(receipt)
-    return receipt
+    return receipt, po_closed

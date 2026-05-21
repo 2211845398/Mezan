@@ -338,6 +338,8 @@ async def create_category_attribute_def(
                 options=rec.options,
                 validation=rec.validation,
                 sort_order=rec.sort_order,
+                attribute_id=rec.attribute_id,
+                use_for_variants=rec.use_for_variants,
             )
             db.add(child)
         await db.commit()
@@ -386,6 +388,8 @@ async def update_category_attribute_def(
                 child_rec.options = rec.options
                 child_rec.validation = rec.validation
                 child_rec.sort_order = rec.sort_order
+                child_rec.attribute_id = rec.attribute_id
+                child_rec.use_for_variants = rec.use_for_variants
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
@@ -1045,14 +1049,24 @@ async def search_product_variants_for_purchasing(
     q: str | None,
     limit: int = 50,
     offset: int = 0,
+    attribute_value_id: int | None = None,
 ) -> list[ProductVariantPurchasingSearchItem]:
     """Search active variants joined to active products (PO / receiving pickers)."""
     qs = (q or "").strip()
+    from app.models.product_variant_attribute import ProductVariantAttribute
+
     stmt = (
         select(ProductVariant, Product)
         .join(Product, Product.id == ProductVariant.product_id)
         .where(Product.status == "active", ProductVariant.active.is_(True))
     )
+    if attribute_value_id is not None:
+        stmt = stmt.where(
+            exists().where(
+                ProductVariantAttribute.variant_id == ProductVariant.id,
+                ProductVariantAttribute.attribute_value_id == attribute_value_id,
+            )
+        )
     if qs:
         like = f"%{qs}%"
         prefix = f"{qs}%"

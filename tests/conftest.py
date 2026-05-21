@@ -7,8 +7,6 @@ from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.sql.sqltypes import Enum as SQLAlchemyEnum
-
 from alembic import command
 from app.main import app
 from app.models.branch import Branch
@@ -26,30 +24,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI_PATH = REPO_ROOT / "alembic.ini"
 
 
-def _patch_sqlalchemy_enum_value_compat() -> None:
-    # Alembic stores enum values like "asset", while SQLAlchemy may expect enum names.
-    if getattr(SQLAlchemyEnum, "_mezan_value_compat_patched", False):
-        return
+from app.db.enum_compat import patch_sqlalchemy_enum_value_compat
 
-    original = SQLAlchemyEnum._object_value_for_elem
-
-    def _object_value_for_elem(self, elem):
-        try:
-            return original(self, elem)
-        except LookupError:
-            enum_class = getattr(self, "enum_class", None)
-            if enum_class is not None and isinstance(elem, str):
-                try:
-                    return enum_class(elem)
-                except ValueError:
-                    pass
-            raise
-
-    SQLAlchemyEnum._object_value_for_elem = _object_value_for_elem
-    SQLAlchemyEnum._mezan_value_compat_patched = True
-
-
-_patch_sqlalchemy_enum_value_compat()
+patch_sqlalchemy_enum_value_compat()
 
 
 def _test_db_url() -> str | None:

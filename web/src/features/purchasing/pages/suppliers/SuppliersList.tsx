@@ -13,12 +13,17 @@ import { Label } from '@/components/ui/label';
 import { usePermission } from '@/hooks/usePermission';
 import { formatPersonName } from '@/lib/personName';
 
+import { paymentTermsQueryOptions } from '@/features/accounting/queries';
+
+import { supplierCurrencyLabel } from '../../lib/supplierCurrencyLabel';
+import { supplierPaymentTermsLabel } from '../../lib/supplierPaymentTermsLabel';
 import type { SupplierRead } from '../../api';
 import { suppliersQueryOptions } from '../../queries';
 import SupplierForm from './SupplierForm';
 
 export default function SuppliersList() {
-  const { t } = useTranslation('purchasing');
+  const { t, i18n } = useTranslation('purchasing');
+  const isAr = i18n.language.startsWith('ar');
   const canCreate = usePermission('suppliers', 'create');
   const canUpdate = usePermission('suppliers', 'update');
 
@@ -28,6 +33,7 @@ export default function SuppliersList() {
   const [search, setSearch] = useState('');
 
   const { data: rows = [], isLoading, isError, refetch } = useQuery(suppliersQueryOptions());
+  const { data: paymentTerms = [] } = useQuery(paymentTermsQueryOptions(false));
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -61,10 +67,9 @@ export default function SuppliersList() {
           },
         },
         {
-          id: 'currency_id',
-          accessorKey: 'currency_id',
+          id: 'currency',
           header: t('suppliers.col.currency'),
-          cell: ({ row }) => `#${row.original.currency_id}`,
+          cell: ({ row }) => supplierCurrencyLabel(row.original, t),
         },
         {
           id: 'tax_id',
@@ -76,7 +81,7 @@ export default function SuppliersList() {
           id: 'payment_terms',
           accessorKey: 'payment_terms',
           header: t('suppliers.col.payment_terms'),
-          cell: ({ row }) => row.original.payment_terms ?? '—',
+          cell: ({ row }) => supplierPaymentTermsLabel(row.original, paymentTerms, isAr),
         },
         {
           id: 'actions',
@@ -95,11 +100,11 @@ export default function SuppliersList() {
             ) : null,
         },
       ]),
-    [canUpdate, t],
+    [canUpdate, isAr, paymentTerms, t],
   );
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-4 p-6">
       <PageHeader
         title={t('suppliers.title')}
         actions={
@@ -118,17 +123,6 @@ export default function SuppliersList() {
         }
       />
 
-      {/* Client-side search */}
-      <div className="max-w-sm space-y-1">
-        <Label htmlFor="sup-search">{t('suppliers.search_label')}</Label>
-        <Input
-          id="sup-search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('suppliers.search_placeholder')}
-        />
-      </div>
-
       <DataTable
         mode="client"
         columns={columns}
@@ -136,6 +130,18 @@ export default function SuppliersList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        showSearch={false}
+        toolbarLeading={
+          <div className="space-y-1.5">
+            <Label htmlFor="sup-search">{t('suppliers.search_label')}</Label>
+            <Input
+              id="sup-search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('suppliers.search_placeholder')}
+            />
+          </div>
+        }
       />
 
       {/* New supplier drawer */}

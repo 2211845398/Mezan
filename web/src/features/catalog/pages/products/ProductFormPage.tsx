@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -22,17 +22,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePermission } from '@/hooks/usePermission';
 import { cn } from '@/lib/utils';
 
+import type { CatalogAttributeValueRead, VariantDraftRow } from '../../api';
 import {
   createProduct,
+  getProductWithVariants,
+  listCatalogAttributeValues,
+  listCatalogAttributes,
   listTaxDefinitions,
+  previewGenerateVariants,
+  syncProductVariants,
   updateProduct,
 } from '../../api';
+import { ProductVariantAxesEditor, type VariantAxisLine } from '../../components/ProductVariantAxesEditor';
 import { BarcodeRepeater } from '../../components/BarcodeRepeater';
 import { ProductImageUploadField } from '../../components/ProductImageUploadField';
-import { catalogKeys, useCategoryAttributesQuery, useCategoryTreeQuery, useProductQuery } from '../../queries';
+import { axesToPayload, mergePreviewWithDraftRows } from '../../lib/variantSyncHelpers';
+import { rebuildAxesFromValueIds } from '../../lib/rebuildVariantAxes';
+import { catalogKeys, useCategoryTreeQuery, useProductQuery } from '../../queries';
 
 function flattenCategoryTree(
   nodes: { id: number; name: string; is_active?: boolean; children?: typeof nodes }[],
@@ -69,10 +79,13 @@ function buildProductFormSchema(isNew: boolean) {
 
 type ProductFormValues = z.infer<ReturnType<typeof buildProductFormSchema>>;
 
+type ProductTab = 'productData' | 'attributes';
+
 export default function ProductFormPage() {
   const { t } = useTranslation('catalog');
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const params = useParams<{ productId: string }>();
   const qc = useQueryClient();
   const canCreate = usePermission('catalog', 'create');
@@ -82,6 +95,9 @@ export default function ProductFormPage() {
   const rawProductId = isNew ? null : Number(params.productId);
   const productIdValid =
     !isNew && rawProductId !== null && !Number.isNaN(rawProductId) && rawProductId > 0;
+
+  const activeTab: ProductTab =
+    searchParams.get('tab') === 'attributes' ? 'attributes' : 'productData';
 
   const formSchema = useMemo(() => buildProductFormSchema(isNew), [isNew]);
 
@@ -153,8 +169,58 @@ export default function ProductFormPage() {
     }
   }, [watchedPrimary, form]);
 
-  const categoryForAttrs = form.watch('category_id');
-  const { data: defs } = useCategoryAttributesQuery(categoryForAttrs > 0 ? categoryForAttrs : null);
+  const [axes, setAxes] = useState<VariantAxisLine[]>([]);
+  const [variantRows, setVariantRows] = useState<VariantDraftRow[]>([]);
+  const watchedSku = form.watch('sku');
+  const watchedName = form.watch('name');
+
+  useEffect(() => {
+    if (isNew || !productIdValid || !rawProductId) {
+      setAxes([]);
+      setVariantRows([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const res = await getProductWithVariants(rawProductId);
+      if (cancelled) {
+        return;
+      }
+      const nonDefault = res.variants.filter((v) => {
+        const av = v.attribute_values ?? {};
+        return !av._default;
+      });
+      const drafts: VariantDraftRow[] = nonDefault.map((v) => ({
+        id: v.id,
+        attribute_value_ids: v.attribute_value_ids ?? [],
+        sku: v.sku,
+        barcode: v.barcode ?? '',
+        active: v.active,
+        display_label: v.sku,
+      }));
+      setVariantRows(drafts);
+
+      const allValueIds = [...new Set(drafts.flatMap((d) => d.attribute_value_ids))];
+      if (allValueIds.length === 0) {
+        setAxes([]);
+        return;
+      }
+      const attrs = await listCatalogAttributes();
+      const valueIndex = new Map<number, CatalogAttributeValueRead>();
+      for (const a of attrs) {
+        const vals = await listCatalogAttributeValues(a.id);
+        for (const v of vals) {
+          valueIndex.set(v.id, v);
+        }
+      }
+      if (!cancelled) {
+        setAxes(rebuildAxesFromValueIds(allValueIds, valueIndex));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isNew, productIdValid, rawProductId]);
 
   const tagOptions = useMemo(() => flat.filter((c) => c.id !== watchedPrimary), [flat, watchedPrimary]);
 
@@ -165,6 +231,8 @@ export default function ProductFormPage() {
       const imageTrimmed = v.image_url?.trim() ?? '';
       const taxIds = [...new Set(v.tax_definition_ids)].sort((a, b) => a - b);
       const vatOut = taxIds.length > 0 ? '0' : v.output_vat_rate;
+
+      let productId: number;
 
       if (isNew) {
         const body: Parameters<typeof createProduct>[0] = {
@@ -182,34 +250,72 @@ export default function ProductFormPage() {
           standard_cost: null,
           sell_price: null,
         };
-        return createProduct(body);
+        const created = await createProduct(body);
+        productId = created.id;
+      } else {
+        if (!product) {
+          throw new Error('missing product');
+        }
+        const ubody: Parameters<typeof updateProduct>[1] = {
+          category_id: v.category_id,
+          name: v.name,
+          sku: v.sku.trim(),
+          barcode: v.barcode || null,
+          status: v.isActive ? 'active' : 'archived',
+          attributes: attrs,
+          output_vat_rate: vatOut,
+          sell_price_currency_id: null,
+          category_ids: extraTags,
+          tax_definition_ids: taxIds,
+          image_url: imageTrimmed === '' ? null : imageTrimmed,
+          standard_cost: null,
+          sell_price: null,
+        };
+        const updated = await updateProduct(product.id, ubody);
+        productId = updated.id;
       }
-      if (!product) {
-        throw new Error('missing product');
+
+      const payload = axesToPayload(axes);
+      let syncCount = 0;
+
+      if (Object.keys(payload).length > 0) {
+        const preview = await previewGenerateVariants(productId, payload);
+        const rows = mergePreviewWithDraftRows(preview.rows, variantRows);
+        const result = await syncProductVariants(
+          productId,
+          rows.map((r) => ({
+            id: r.id,
+            attribute_value_ids: r.attribute_value_ids,
+            sku: r.sku,
+            barcode: r.barcode || null,
+            active: r.active,
+          })),
+        );
+        syncCount = result.created + result.updated;
+        setVariantRows(rows);
+      } else {
+        await syncProductVariants(productId, []);
+        syncCount = 1;
       }
-      const ubody: Parameters<typeof updateProduct>[1] = {
-        category_id: v.category_id,
-        name: v.name,
-        sku: v.sku.trim(),
-        barcode: v.barcode || null,
-        status: v.isActive ? 'active' : 'archived',
-        attributes: attrs,
-        output_vat_rate: vatOut,
-        sell_price_currency_id: null,
-        category_ids: extraTags,
-        tax_definition_ids: taxIds,
-        image_url: imageTrimmed === '' ? null : imageTrimmed,
-        standard_cost: null,
-        sell_price: null,
-      };
-      return updateProduct(product.id, ubody);
+
+      return { productId, syncCount, wasNew: isNew };
     },
-    onSuccess: () => {
+    onSuccess: ({ productId, syncCount, wasNew }) => {
       void qc.invalidateQueries({ queryKey: catalogKeys.root });
+      if (wasNew) {
+        toast.success(t('products.save_variants_ok', { count: syncCount }));
+        navigate(`/catalog/products/${productId}/edit?tab=attributes`, { replace: true });
+        return;
+      }
       toast.success(t('products.save_ok'));
-      navigate('/catalog/products');
+      setSearchParams({ tab: 'attributes' });
     },
-    onError: (error) => notifyApiError(error, t('errors.generic')),
+    onError: (error) => {
+      notifyApiError(error, t('errors.generic'));
+      if (activeTab !== 'attributes') {
+        setSearchParams({ tab: 'attributes' });
+      }
+    },
   });
 
   const toggleTax = (id: number, checked: boolean) => {
@@ -271,185 +377,206 @@ export default function ProductFormPage() {
         <FormProvider {...form}>
           <form onSubmit={form.handleSubmit((v) => saveM.mutate(v))} className="space-y-6">
             <FormContainer maxWidth="full" className="max-w-6xl px-0 py-0">
-              <div className="grid gap-6 lg:grid-cols-12 lg:items-stretch">
-                <div className="flex flex-col gap-6 lg:col-span-7">
-                  <SectionCard title={t('products.section.main')}>
-                    <FormField
-                      control={form.control}
-                      name="output_vat_rate"
-                      render={({ field }) => (
-                        <FormItem className="hidden">
-                          <FormControl>
-                            <input type="hidden" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem className="sm:col-span-2">
-                            <FormLabel className="text-sm">{t('products.field.name')}</FormLabel>
-                            <FormControl>
-                              <Input {...field} className="h-8 text-sm" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <div className="rounded-md border border-dashed bg-muted/15 p-3 sm:col-span-2">
-                        <p className="text-sm font-medium">{t('products.tax.title')}</p>
-                        {activeTaxOptions.length === 0 ? (
-                          <p className="mt-2 text-xs text-muted-foreground">{t('products.tax.empty_defs')}</p>
-                        ) : (
-                          <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-md border border-border/60 bg-background/50 p-2">
-                            {activeTaxOptions.map((d) => {
-                              const checked = form.watch('tax_definition_ids').includes(d.id);
-                              const pct = (Number.parseFloat(String(d.rate)) * 100).toFixed(2);
-                              return (
-                                <button
-                                  key={d.id}
-                                  type="button"
-                                  className={cn(
-                                    'rounded-full border px-2.5 py-1 text-start text-xs transition-colors',
-                                    checked
-                                      ? 'border-primary bg-primary/10 font-medium text-foreground shadow-sm'
-                                      : 'border-border bg-background text-foreground hover:bg-muted/60',
-                                  )}
-                                  onClick={() => toggleTax(d.id, !checked)}
-                                >
-                                  <span>{d.name}</span>
-                                  <span className="ms-1 num-latin text-muted-foreground">({pct}%)</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </SectionCard>
+              <Tabs
+                value={activeTab}
+                onValueChange={(v) => setSearchParams(v === 'attributes' ? { tab: 'attributes' } : {})}
+              >
+                <TabsList className="mb-4">
+                  <TabsTrigger value="productData">{t('products.tabs.product_data')}</TabsTrigger>
+                  <TabsTrigger value="attributes">{t('products.tabs.attributes')}</TabsTrigger>
+                </TabsList>
 
-                  <SectionCard title={t('products.section.attributes')}>
-                    <div className="rounded-md border border-dashed bg-muted/15 p-3">
-                      <p className="text-sm font-medium">{t('products.variant_attrs_title')}</p>
-                      {defs && defs.length > 0 ? (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {defs.map((d) => (
-                            <span
-                              key={d.id}
-                              className="rounded-full border border-border/60 bg-background px-2.5 py-0.5 text-xs"
-                            >
-                              {d.label}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </SectionCard>
-                </div>
-
-                <div className="flex flex-col gap-6 lg:col-span-5">
-                  <SectionCard title={t('products.section.categories')}>
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="category_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm">{t('products.field.primary_category')}</FormLabel>
-                            <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value)}>
+                <TabsContent value="productData" className="mt-0">
+                  <div className="grid gap-6 lg:grid-cols-12 lg:items-stretch">
+                    <div className="flex flex-col gap-6 lg:col-span-7">
+                      <SectionCard title={t('products.section.main')}>
+                        <FormField
+                          control={form.control}
+                          name="output_vat_rate"
+                          render={({ field }) => (
+                            <FormItem className="hidden">
                               <FormControl>
-                                <SelectTrigger className="h-8 text-sm">
-                                  <SelectValue />
-                                </SelectTrigger>
+                                <input type="hidden" {...field} />
                               </FormControl>
-                              <SelectContent>
-                                {flat.map((c) => (
-                                  <SelectItem key={c.id} value={String(c.id)}>
-                                    {c.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <div className="space-y-2">
-                        <Label className="text-sm">{t('products.field.additional_categories')}</Label>
-                        <p className="text-muted-foreground text-xs">{t('products.tags_help')}</p>
-                        {tagOptions.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">{t('products.tags_empty')}</p>
-                        ) : (
-                          <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-md border bg-muted/20 p-3">
-                            {tagOptions.map((c) => {
-                              const checked = form.watch('tag_category_ids').includes(c.id);
-                              return (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  className={cn(
-                                    'rounded-full border px-2.5 py-1 text-start text-xs transition-colors',
-                                    checked
-                                      ? 'border-primary bg-primary/10 font-medium text-foreground shadow-sm'
-                                      : 'border-border bg-background text-foreground hover:bg-muted/60',
-                                  )}
-                                  onClick={() => toggleTag(c.id, !checked)}
-                                >
-                                  {c.label}
-                                </button>
-                              );
-                            })}
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem className="sm:col-span-2">
+                                <FormLabel className="text-sm">{t('products.field.name')}</FormLabel>
+                                <FormControl>
+                                  <Input {...field} className="h-8 text-sm" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          {isNew ? (
+                            <FormField
+                              control={form.control}
+                              name="sku"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-sm">{t('products.field.sku')}</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} className="h-8 text-sm" placeholder={t('products.sku_auto_hint')} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          ) : null}
+                          <div className="rounded-md border border-dashed bg-muted/15 p-3 sm:col-span-2">
+                            <p className="text-sm font-medium">{t('products.tax.title')}</p>
+                            {activeTaxOptions.length === 0 ? (
+                              <p className="mt-2 text-xs text-muted-foreground">{t('products.tax.empty_defs')}</p>
+                            ) : (
+                              <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-md border border-border/60 bg-background/50 p-2">
+                                {activeTaxOptions.map((d) => {
+                                  const checked = form.watch('tax_definition_ids').includes(d.id);
+                                  const pct = (Number.parseFloat(String(d.rate)) * 100).toFixed(2);
+                                  return (
+                                    <button
+                                      key={d.id}
+                                      type="button"
+                                      className={cn(
+                                        'rounded-full border px-2.5 py-1 text-start text-xs transition-colors',
+                                        checked
+                                          ? 'border-primary bg-primary/10 font-medium text-foreground shadow-sm'
+                                          : 'border-border bg-background text-foreground hover:bg-muted/60',
+                                      )}
+                                      onClick={() => toggleTax(d.id, !checked)}
+                                    >
+                                      <span>{d.name}</span>
+                                      <span className="ms-1 num-latin text-muted-foreground">({pct}%)</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      </SectionCard>
                     </div>
-                  </SectionCard>
 
-                  <SectionCard title={t('products.section.presentation')}>
-                    <div className="space-y-5">
-                      <FormField
-                        control={form.control}
-                        name="image_url"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <ProductImageUploadField
-                                value={field.value ?? ''}
-                                onChange={field.onChange}
-                                inputId="product-form-image"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      {!isNew ? (
-                        <div>
-                          <BarcodeRepeater
-                            value={form.watch('barcode') ?? ''}
-                            onChange={(b) => form.setValue('barcode', b)}
+                    <div className="flex flex-col gap-6 lg:col-span-5">
+                      <SectionCard title={t('products.section.categories')}>
+                        <div className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="category_id"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-sm">{t('products.field.primary_category')}</FormLabel>
+                                <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value)}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-8 text-sm">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {flat.map((c) => (
+                                      <SelectItem key={c.id} value={String(c.id)}>
+                                        {c.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="space-y-2">
+                            <Label className="text-sm">{t('products.field.additional_categories')}</Label>
+                            <p className="text-muted-foreground text-xs">{t('products.tags_help')}</p>
+                            {tagOptions.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">{t('products.tags_empty')}</p>
+                            ) : (
+                              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-md border bg-muted/20 p-3">
+                                {tagOptions.map((c) => {
+                                  const checked = form.watch('tag_category_ids').includes(c.id);
+                                  return (
+                                    <button
+                                      key={c.id}
+                                      type="button"
+                                      className={cn(
+                                        'rounded-full border px-2.5 py-1 text-start text-xs transition-colors',
+                                        checked
+                                          ? 'border-primary bg-primary/10 font-medium text-foreground shadow-sm'
+                                          : 'border-border bg-background text-foreground hover:bg-muted/60',
+                                      )}
+                                      onClick={() => toggleTag(c.id, !checked)}
+                                    >
+                                      {c.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </SectionCard>
+
+                      <SectionCard title={t('products.section.presentation')}>
+                        <div className="space-y-5">
+                          <FormField
+                            control={form.control}
+                            name="image_url"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <ProductImageUploadField
+                                    value={field.value ?? ''}
+                                    onChange={field.onChange}
+                                    inputId="product-form-image"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          {!isNew ? (
+                            <BarcodeRepeater
+                              value={form.watch('barcode') ?? ''}
+                              onChange={(b) => form.setValue('barcode', b)}
+                            />
+                          ) : null}
+                          <FormField
+                            control={form.control}
+                            name="isActive"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center justify-between rounded-md border px-3 py-2">
+                                <FormLabel className="!mt-0 text-sm">{t('products.field.active')}</FormLabel>
+                                <FormControl>
+                                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                              </FormItem>
+                            )}
                           />
                         </div>
-                      ) : null}
-                      <FormField
-                        control={form.control}
-                        name="isActive"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between rounded-md border px-3 py-2">
-                            <FormLabel className="!mt-0 text-sm">{t('products.field.active')}</FormLabel>
-                            <FormControl>
-                              <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                      </SectionCard>
                     </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="attributes" className="mt-0">
+                  <SectionCard title={t('products.tabs.attributes')}>
+                    <ProductVariantAxesEditor
+                      productId={isNew ? null : rawProductId}
+                      productName={watchedName}
+                      axes={axes}
+                      onAxesChange={setAxes}
+                      variantRows={variantRows}
+                      onVariantRowsChange={setVariantRows}
+                      disabled={saveM.isPending}
+                    />
                   </SectionCard>
-                </div>
-              </div>
+                </TabsContent>
+              </Tabs>
 
               <div className="mt-6 flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => navigate('/catalog/products')}>

@@ -19,6 +19,7 @@ export function Toolbar<TData>({
   onDensityChange,
   onExport,
   toolbarExtras,
+  toolbarLeading,
   showSearch = true,
 }: {
   table: Table<TData>;
@@ -28,6 +29,8 @@ export function Toolbar<TData>({
   onDensityChange: (next: Density) => void;
   onExport?: ((table: Table<TData>) => void) | undefined;
   toolbarExtras?: ReactNode;
+  /** Replaces the built-in search slot (e.g. page-specific filter on the start side). */
+  toolbarLeading?: ReactNode;
   showSearch?: boolean;
 }) {
   const { t } = useTranslation();
@@ -35,10 +38,13 @@ export function Toolbar<TData>({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-end gap-3 pb-3',
-        showSearch === false ? 'justify-end' : 'justify-between',
+        'flex flex-wrap items-center gap-3 pb-3',
+        showSearch === false && !toolbarLeading ? 'justify-end' : 'justify-between',
       )}
     >
+      {toolbarLeading ? (
+        <div className="w-full min-w-0 max-w-sm flex-1">{toolbarLeading}</div>
+      ) : null}
       {showSearch !== false ? (
         <div className="relative w-full max-w-xs">
           <Search

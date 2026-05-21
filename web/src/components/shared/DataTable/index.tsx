@@ -67,6 +67,8 @@ export type DataTableProps<TData> = {
   /** Export button in the toolbar. The body is the consumer's responsibility. */
   onExport?: ((table: ReturnType<typeof useReactTable<TData>>) => void) | undefined;
   toolbarExtras?: ReactNode;
+  /** Content on the toolbar start side when built-in search is hidden. */
+  toolbarLeading?: ReactNode;
   /** Hide built-in pagination (e.g. when the parent drives offset/limit via API). */
   showPagination?: boolean;
   /** Hide the global search field (short static lists). */
@@ -101,6 +103,7 @@ export function DataTable<TData>({
   onRowSelectionChange,
   onExport,
   toolbarExtras,
+  toolbarLeading,
   showSearch = true,
   showPagination = true,
   renderActionBar,
@@ -330,6 +333,7 @@ export function DataTable<TData>({
         onDensityChange={setDensity}
         onExport={onExport}
         toolbarExtras={toolbarExtras}
+        toolbarLeading={toolbarLeading}
         showSearch={showSearch}
       />
 

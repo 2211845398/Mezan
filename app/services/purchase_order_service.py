@@ -11,11 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
+from app.models.branch import Branch
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.suppliers import Supplier
+from app.schemas.purchase_orders import PurchaseOrderRead
 from app.utils.person_name import display_person_name
 
 TERMINAL_STATUSES = frozenset({"closed", "cancelled"})
@@ -61,6 +63,11 @@ async def _get_po(db: AsyncSession, po_id: int) -> PurchaseOrder:
     return po
 
 
+async def load_purchase_order(db: AsyncSession, po_id: int) -> PurchaseOrder:
+    """Load PO with lines eagerly (required before Pydantic from_attributes in async)."""
+    return await _get_po(db, po_id)
+
+
 async def _ensure_products_exist(db: AsyncSession, product_ids: set[int]) -> None:
     if not product_ids:
         return
@@ -71,6 +78,43 @@ async def _ensure_products_exist(db: AsyncSession, product_ids: set[int]) -> Non
         raise ValidationError(
             "Unknown products in PO lines", details={"missing_product_ids": missing}
         )
+
+
+async def branch_names_by_id(db: AsyncSession, branch_ids: set[int]) -> dict[int, str]:
+    if not branch_ids:
+        return {}
+    result = await db.execute(
+        select(Branch.id, Branch.name).where(Branch.id.in_(branch_ids))
+    )
+    return {int(bid): str(name) for bid, name in result.all()}
+
+
+def purchase_order_to_read(
+    po: PurchaseOrder, *, branch_name: str | None = None
+) -> PurchaseOrderRead:
+    return PurchaseOrderRead.model_validate(po).model_copy(update={"branch_name": branch_name})
+
+
+async def purchase_orders_to_read(
+    db: AsyncSession, rows: list[PurchaseOrder]
+) -> list[PurchaseOrderRead]:
+    branch_ids = {int(r.branch_id) for r in rows if r.branch_id is not None}
+    bmap = await branch_names_by_id(db, branch_ids)
+    return [
+        purchase_order_to_read(
+            r,
+            branch_name=bmap.get(int(r.branch_id)) if r.branch_id is not None else None,
+        )
+        for r in rows
+    ]
+
+
+async def purchase_order_to_read_one(db: AsyncSession, po: PurchaseOrder) -> PurchaseOrderRead:
+    branch_name: str | None = None
+    if po.branch_id is not None:
+        bmap = await branch_names_by_id(db, {int(po.branch_id)})
+        branch_name = bmap.get(int(po.branch_id))
+    return purchase_order_to_read(po, branch_name=branch_name)
 
 
 async def _resolve_supplier_name(db: AsyncSession, data: dict[str, Any]) -> dict[str, Any]:

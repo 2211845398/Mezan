@@ -1,5 +1,9 @@
 """FastAPI application entry point."""
 
+from app.db.enum_compat import patch_sqlalchemy_enum_value_compat
+
+patch_sqlalchemy_enum_value_compat()
+
 import asyncio
 import logging
 import uuid
@@ -27,6 +31,7 @@ from app.api.error_handlers import (
 from app.api.v1 import (
     accounting_router,
     ai_advisory_router,
+    attributes_router,
     audit_router,
     auth_router,
     backups_router,
@@ -35,6 +40,7 @@ from app.api.v1 import (
     catalog_router,
     chart_accounts_router,
     config_router,
+    currencies_router,
     customer_performance_router,
     customers_router,
     discounts_router,
@@ -51,6 +57,7 @@ from app.api.v1 import (
     loyalty_rules_router,
     marketing_router,
     notifications_router,
+    payment_terms_router,
     payments_router,
     payroll_router,
     pos_shifts_router,
@@ -270,6 +277,7 @@ app.include_router(branches_router, prefix="/api/v1", tags=["branches"])
 app.include_router(terminals_router, prefix="/api/v1", tags=["terminals"])
 app.include_router(roles_router, prefix="/api/v1", tags=["roles"])
 app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(attributes_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(price_lists_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["purchase_orders"])
 app.include_router(goods_receipts_router, prefix="/api/v1", tags=["goods_receipts"])
@@ -297,6 +305,8 @@ app.include_router(accounting_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(executive_bi_router, prefix="/api/v1", tags=["executive_bi"])
 app.include_router(chart_accounts_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(fx_revaluation_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(currencies_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(payment_terms_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(vouchers_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(customer_performance_router, prefix="/api/v1", tags=["customers"])
 app.include_router(suppliers_router, prefix="/api/v1", tags=["suppliers"])

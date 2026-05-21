@@ -36,10 +36,12 @@ async def create_supplier_endpoint(
         father_name=body.father_name,
         family_name=body.family_name,
         currency_id=body.currency_id,
+        currency_code=body.currency_code,
         payables_account_id=body.payables_account_id,
         tax_id=body.tax_id,
         contact=body.contact,
         payment_terms=body.payment_terms,
+        payment_terms_id=body.payment_terms_id,
     )
     cur_res = await db.execute(select(Currency).where(Currency.id == s.currency_id))
     cur = cur_res.scalar_one_or_none()

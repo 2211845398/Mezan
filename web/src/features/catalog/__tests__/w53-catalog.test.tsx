@@ -125,6 +125,45 @@ describe('W-5.3 catalog API wiring', () => {
     expect(res.image_url).toContain('catalog-category-images');
   });
 
+  it('listCatalogAttributes calls GET /catalog/attributes', async () => {
+    const mod = await import('../api');
+    server.use(
+      http.get(`${API}/catalog/attributes`, () =>
+        HttpResponse.json([
+          { id: 1, code: 'color', name: 'Color', sort_order: 0, metadata: null },
+        ]),
+      ),
+    );
+    const rows = await mod.listCatalogAttributes();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.code).toBe('color');
+  });
+
+  it('previewGenerateVariants posts axes to preview-generate', async () => {
+    const mod = await import('../api');
+    server.use(
+      http.post(`${API}/products/6/variants/preview-generate`, async ({ request }) => {
+        const body = (await request.json()) as { axes: Record<string, number[]> };
+        expect(body.axes['1']).toEqual([10, 11]);
+        return HttpResponse.json({
+          rows: [
+            {
+              attribute_value_ids: [10, 20],
+              suggested_sku: 'PRD-6-RED-S',
+              display_label: 'Shirt — Red — S',
+              exists: false,
+              attribute_summary: [],
+            },
+          ],
+          count: 1,
+        });
+      }),
+    );
+    const res = await mod.previewGenerateVariants(6, { 1: [10, 11] });
+    expect(res.count).toBe(1);
+    expect(res.rows[0]?.suggested_sku).toBe('PRD-6-RED-S');
+  });
+
   it('uploadProductImage posts to /products/images and returns image_url', async () => {
     const mod = await import('../api');
     server.use(

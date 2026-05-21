@@ -17,6 +17,7 @@ from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceL
 from app.models.suppliers import Supplier
 from app.models.transfer_batch import TransferBatch
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
+from app.services.chart_account_service import resolve_posting_account_id
 from app.services.fifo_valuation_service import consume_layers_fifo, get_valuation_policy
 from app.services.inventory_valuation_service import get_unit_cost_for_sale
 from app.utils.money import q2
@@ -537,6 +538,11 @@ async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> N
         if sup and sup.payables_account_id:
             ap_account = sup.payables_account_id
 
+    inventory_account_id = await resolve_posting_account_id(
+        db, settings.default_inventory_account_id
+    )
+    ap_account_id = await resolve_posting_account_id(db, ap_account)
+
     entry_date = receipt.created_at.date() if receipt.created_at else date.today()
     await post_journal_entry(
         db,
@@ -547,14 +553,14 @@ async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> N
         idempotency_key=f"goods_receipt:{receipt.id}:ap_inventory",
         lines=[
             {
-                "account_id": settings.default_inventory_account_id,
+                "account_id": inventory_account_id,
                 "branch_id": receipt.branch_id,
                 "debit": total_ext,
                 "credit": Decimal("0"),
                 "memo": "Inventory receipt",
             },
             {
-                "account_id": ap_account,
+                "account_id": ap_account_id,
                 "branch_id": receipt.branch_id,
                 "debit": Decimal("0"),
                 "credit": total_ext,

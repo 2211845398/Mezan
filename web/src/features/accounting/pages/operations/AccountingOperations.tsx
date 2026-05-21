@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { SectionCard } from '@/components/shared/ContentSurface';
@@ -324,6 +325,11 @@ export default function AccountingOperations() {
 
         <TabsContent value="fx" className="mt-4">
           <SectionCard title={t('operations.fx.title')}>
+            <p className="mb-3 text-sm text-muted-foreground">
+              <Link className="underline" to="/accounting/currencies">
+                {t('currencies.link_fx', { ns: 'accounting' })}
+              </Link>
+            </p>
             <div className="flex flex-wrap items-end gap-3">
               <div className="grid gap-1">
                 <Label>{t('operations.fx.as_of')}</Label>

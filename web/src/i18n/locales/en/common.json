@@ -6,6 +6,8 @@
     "catalog_products": "Products",
     "catalog_taxes": "Taxes",
     "catalog_categories": "Categories",
+    "catalog_attributes": "Product attributes",
+    "admin_catalog_attributes": "Product attributes (catalog dictionary)",
     "inventory": "Inventory",
     "inventory_stock": "Stock & balances",
     "inventory_adjustments": "Inventory adjustments",
@@ -36,6 +38,8 @@
     "accounting_ap": "Accounts payable",
     "accounting_fiscal_periods": "Fiscal periods",
     "accounting_operations": "Accounting operations",
+    "accounting_currencies": "Currencies",
+    "accounting_payment_terms": "Payment terms",
     "crm": "CRM",
     "crm_customers": "Customers",
     "crm_loyalty": "Loyalty",
@@ -191,9 +195,12 @@
   },
   "apiErrors": {
     "email_already_exists": "This email is already registered.",
-    "onboarding_assignee_ineligible": "The selected reviewer must be an active user with permission to manage onboarding and employee records."
+    "onboarding_assignee_ineligible": "The selected reviewer must be an active user with permission to manage onboarding and employee records.",
+    "control_account_posting": "Cannot post to a summary (control) account; use a leaf posting account (e.g. 2010 Trade Payables).",
+    "variant_inventory_activity": "Cannot remove variant \"{{label}}\" because it is linked to inventory activity."
   },
   "actions": {
+    "back": "Back",
     "save": "Save",
     "cancel": "Cancel",
     "confirm": "Confirm",

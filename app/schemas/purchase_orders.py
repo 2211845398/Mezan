@@ -59,6 +59,7 @@ class PurchaseOrderUpdate(BaseModel):
 class PurchaseOrderRead(PurchaseOrderBase):
     id: int
     supplier_id: int | None = None
+    branch_name: str | None = None
     status: str
     sent_at: datetime | None
     created_by_user_id: int | None

@@ -69,6 +69,7 @@ const CatalogProductsList = lazy(() => import('@/features/catalog/pages/products
 const CatalogProductFormPage = lazy(() => import('@/features/catalog/pages/products/ProductFormPage'));
 const CatalogTaxesList = lazy(() => import('@/features/catalog/pages/taxes/TaxesList'));
 const CatalogCategoriesTree = lazy(() => import('@/features/catalog/pages/categories/CategoriesTree'));
+const CatalogAttributesPage = lazy(() => import('@/features/catalog/pages/attributes/AttributesPage'));
 const CatalogCategoryProperties = lazy(
   () => import('@/features/catalog/pages/categories/CategoryPropertiesPage'),
 );
@@ -118,6 +119,10 @@ const AccountingFiscalPeriodsList = lazy(
   () => import('@/features/accounting/pages/fiscal-periods/FiscalPeriodsList'),
 );
 const AccountingOperations = lazy(() => import('@/features/accounting/pages/operations/AccountingOperations'));
+const AccountingCurrencies = lazy(() => import('@/features/accounting/pages/currencies/CurrenciesPage'));
+const AccountingPaymentTerms = lazy(
+  () => import('@/features/accounting/pages/payment-terms/PaymentTermsList'),
+);
 
 const CrmCustomersList = lazy(() => import('@/features/crm/pages/customers/CustomersList'));
 const CrmCustomerForm = lazy(() => import('@/features/crm/pages/customers/CustomerForm'));
@@ -317,6 +322,10 @@ export const router = createBrowserRouter([
                     {withSuspense(CatalogTaxesList)}
                   </RequirePermission>
                 ),
+              },
+              {
+                path: 'attributes',
+                element: <Navigate to="/admin/catalog-attributes" replace />,
               },
               {
                 path: 'categories',
@@ -850,6 +859,22 @@ export const router = createBrowserRouter([
                   </RequirePermission>
                 ),
               },
+              {
+                path: 'currencies',
+                element: (
+                  <RequirePermission resource="accounting" action="read">
+                    {withSuspense(AccountingCurrencies)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'payment-terms',
+                element: (
+                  <RequirePermission resource="accounting" action="read">
+                    {withSuspense(AccountingPaymentTerms)}
+                  </RequirePermission>
+                ),
+              },
             ],
           },
 
@@ -1113,6 +1138,14 @@ export const router = createBrowserRouter([
                 element: (
                   <RequirePermission resource="backups" action="read">
                     {withSuspense(AdminBackupsList)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'catalog-attributes',
+                element: (
+                  <RequirePermission resource="catalog" action="read">
+                    {withSuspense(CatalogAttributesPage)}
                   </RequirePermission>
                 ),
               },

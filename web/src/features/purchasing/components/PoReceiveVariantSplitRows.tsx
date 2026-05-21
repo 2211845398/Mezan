@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+import { computeReceiveLineProgress } from '../lib/receiveLineProgress';
+import ReceiveLineProgressHint from './ReceiveLineProgressHint';
 import PoReceiveVariantSelect from './PoReceiveVariantSelect';
 
 export type ReceiveSplitRow = {
@@ -18,6 +20,8 @@ export type ReceiveSplitRow = {
 type Props = {
   productId: number;
   productLabel: string;
+  ordered: number;
+  alreadyReceived: number;
   remaining: number;
   rows: ReceiveSplitRow[];
   onChange: (rows: ReceiveSplitRow[]) => void;
@@ -31,6 +35,8 @@ export function newReceiveSplitRow(): ReceiveSplitRow {
 export default function PoReceiveVariantSplitRows({
   productId,
   productLabel,
+  ordered,
+  alreadyReceived,
   remaining,
   rows,
   onChange,
@@ -39,13 +45,11 @@ export default function PoReceiveVariantSplitRows({
   const { t } = useTranslation('purchasing');
 
   const allocated = rows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+  const progress = computeReceiveLineProgress(ordered, alreadyReceived, allocated);
 
   return (
     <div className="space-y-2 rounded-md border border-dashed p-3">
       <p className="text-sm font-medium">{productLabel}</p>
-      <p className="text-xs text-muted-foreground">
-        {t('orders.detail_page.remaining')}: {remaining} · {t('orders.receive.allocated')}: {allocated}
-      </p>
       {rows.map((row, idx) => (
         <div key={row.key} className="grid gap-2 md:grid-cols-12 md:items-end">
           <div className="md:col-span-5">
@@ -103,6 +107,7 @@ export default function PoReceiveVariantSplitRows({
           </div>
         </div>
       ))}
+      <ReceiveLineProgressHint progress={progress} />
       <Button
         type="button"
         variant="outline"

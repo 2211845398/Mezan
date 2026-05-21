@@ -43,7 +43,8 @@
       "pricing": "Pricing",
       "categories": "Categories",
       "presentation": "Image & status",
-      "attributes": "Dynamic attributes"
+      "attributes": "Dynamic attributes",
+      "attributes_and_variants": "Attributes & variants"
     },
     "field": {
       "category": "Category",
@@ -64,7 +65,50 @@
       "future_hint": "A future tax engine will manage tags and automatic calculation. The current value is kept until then.",
       "empty_defs": "No tax definitions yet. Create them under Catalog → Taxes."
     },
+    "tabs": {
+      "product_data": "Product data",
+      "attributes": "Attributes"
+    },
+    "axes": {
+      "hint": "Add a row per attribute (e.g. color, size) and pick values for this product. All combinations are generated on save.",
+      "attribute": "Attribute",
+      "pick_attribute": "Select attribute…",
+      "pick_values": "Select values…",
+      "add_line": "Add row",
+      "no_attributes": "No catalog attributes yet.",
+      "no_values": "No values yet.",
+      "create_attribute": "Create \"{{name}}\"",
+      "create_value": "Create \"{{name}}\"",
+      "draft_preview": "{{count}} variants will be generated when you save the product.",
+      "draft_simple": "No attributes: one default variant is created on save."
+    },
+    "save_variants_ok": "Product saved; {{count}} variants generated",
     "variant_attrs_title": "Variant / piece attributes",
+    "variants": {
+      "title": "Product variants",
+      "hint": "Edit barcode and SKU per variant after generation.",
+      "no_axes": "Enable «Use for variant generation» and link a catalog attribute on the category page.",
+      "setup_link": "Configure on category",
+      "unlinked_defs": "Attributes not ready for variants:",
+      "product_level_attrs": "Product attributes (descriptive)",
+      "variant_axes": "Variant axes",
+      "add_axis": "Add attribute axis",
+      "generate": "Generate variants",
+      "generated": "Generated {{count}} variant rows",
+      "values_label": "Values for this axis",
+      "add_value": "Add new value",
+      "new_value_placeholder": "e.g. Red",
+      "value_added": "Value added to catalog",
+      "save_product_first": "Save the product first, then generate variants.",
+      "sku_hint": "Base SKU: {{sku}}",
+      "grid_empty": "No variants yet. Add axes and click Generate.",
+      "col": {
+        "variant": "Variant",
+        "sku": "SKU",
+        "barcode": "Barcode",
+        "active": "Active"
+      }
+    },
     "tags_help": "You can select additional categories when the product belongs to more than one category.",
     "col": {
       "sku": "SKU",
@@ -177,6 +221,21 @@
     "attr_select_property_ph": "Select a property…",
     "attr_preset_key_fixed_hint": "The technical key is fixed for the selected property.",
     "attr_select_needs_options": "Add at least one option for a single-choice field.",
+    "attr_use_for_variants": "Use for variant generation",
+    "attr_use_for_variants_hint": "Values come from the attribute catalog, not free text on the product.",
+    "attr_catalog_link": "Catalog attribute",
+    "attr_catalog_link_ph": "Select attribute…",
+    "attr_catalog_create": "New catalog attribute",
+    "attr_catalog_create_title": "Create catalog attribute",
+    "attr_catalog_name": "Name",
+    "attr_catalog_name_ph": "e.g. Color",
+    "attr_catalog_code": "Code (optional)",
+    "attr_catalog_values_hint": "Add values (Red, Blue…) on the product form or under Catalog → Product attributes.",
+    "attr_catalog_link_required": "Link a catalog attribute when variant generation is enabled.",
+    "attr_catalog_created": "Catalog attribute created",
+    "attr_variant_badge": "Variant axis",
+    "attr_catalog_linked": "Catalog",
+    "attr_catalog_unlinked": "Not linked",
     "attr_presets": {
       "COLOR": "Color",
       "SIZE": "Size",
@@ -205,5 +264,16 @@
       "date": "Date",
       "select": "Single choice"
     }
+  },
+  "globalAttributes": {
+    "title": "Product attributes (catalog)",
+    "lead": "Central attributes (color, size…) and their values. Link them on the category page, then generate variants on the product.",
+    "empty": "No attributes yet. Create one, then add values (Red, S, …).",
+    "add_attribute": "New attribute",
+    "add_value": "New value",
+    "value_label": "Label",
+    "no_values": "No values yet.",
+    "created": "Attribute created",
+    "value_added": "Value added"
   }
 }

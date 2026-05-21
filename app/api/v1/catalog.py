@@ -31,7 +31,17 @@ from app.schemas.catalog import (
     TaxDefinitionRead,
     TaxDefinitionUpdate,
 )
+from app.schemas.variant_generation import (
+    VariantPreviewRequest,
+    VariantPreviewResponse,
+    VariantSyncRequest,
+    VariantSyncResponse,
+)
 from app.services import audit_service
+from app.services.variant_attribute_service import (
+    preview_generate_variants,
+    sync_product_variants,
+)
 from app.services.catalog_service import (
     archive_product,
     archive_tax_definition,
@@ -415,6 +425,7 @@ async def archive_tax_definition_endpoint(
 )
 async def search_product_variants_endpoint(
     q: str | None = None,
+    attribute_value_id: int | None = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -427,7 +438,9 @@ async def search_product_variants_endpoint(
     ),
 ) -> list[ProductVariantPurchasingSearchItem]:
     """Search stock-keeping variants for purchasing line pickers (display name = product)."""
-    return await search_product_variants_for_purchasing(db, q=q, limit=limit, offset=offset)
+    return await search_product_variants_for_purchasing(
+        db, q=q, limit=limit, offset=offset, attribute_value_id=attribute_value_id
+    )
 
 
 # Products
@@ -667,6 +680,50 @@ async def filter_products_by_attributes_endpoint(
     return await products_to_reads(db, rows)
 
 
+@router.post(
+    "/products/{product_id}/variants/preview-generate",
+    response_model=VariantPreviewResponse,
+)
+async def preview_generate_variants_endpoint(
+    product_id: int,
+    body: VariantPreviewRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("catalog", "read"),
+) -> VariantPreviewResponse:
+    return await preview_generate_variants(db, product_id=product_id, body=body)
+
+
+@router.post(
+    "/products/{product_id}/variants/sync",
+    response_model=VariantSyncResponse,
+)
+async def sync_product_variants_endpoint(
+    product_id: int,
+    body: VariantSyncRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("catalog", "update"),
+) -> VariantSyncResponse:
+    result = await sync_product_variants(db, product_id=product_id, body=body)
+    await audit_service.log(
+        session=db,
+        action="product.variants_synced",
+        resource_type="product",
+        resource_id=str(product_id),
+        user_id=current_user.id,
+        request=request,
+        details={
+            "created": result.created,
+            "updated": result.updated,
+            "deactivated": result.deactivated,
+        },
+    )
+    await db.commit()
+    return result
+
+
 # Epic 18.10: Variant-aware product detail
 @router.get("/products/{product_id}/with-variants")
 async def get_product_with_variants_endpoint(
@@ -683,6 +740,7 @@ async def get_product_with_variants_endpoint(
     from app.core.errors import ValidationError
     from app.models.branch_product_costs import BranchProductCost
     from app.models.product_variant import ProductVariant
+    from app.models.product_variant_attribute import ProductVariantAttribute
     from app.models.stock_level import StockLevel
     from app.services.pricing_service import get_active_sell_price
 
@@ -699,6 +757,18 @@ async def get_product_with_variants_endpoint(
         select(ProductVariant).where(ProductVariant.product_id == product_id)
     )
     variants = variants_res.scalars().all()
+
+    variant_ids = [int(v.id) for v in variants]
+    pva_map: dict[int, list[int]] = {vid: [] for vid in variant_ids}
+    if variant_ids:
+        pva_res = await db.execute(
+            select(
+                ProductVariantAttribute.variant_id,
+                ProductVariantAttribute.attribute_value_id,
+            ).where(ProductVariantAttribute.variant_id.in_(variant_ids))
+        )
+        for vid, val_id in pva_res.all():
+            pva_map[int(vid)].append(int(val_id))
 
     variants_data = []
     for v in variants:
@@ -721,6 +791,7 @@ async def get_product_with_variants_endpoint(
             "sku": v.sku,
             "barcode": v.barcode,
             "attribute_values": v.attribute_values,
+            "attribute_value_ids": sorted(pva_map.get(int(v.id), [])),
             "active": v.active,
             "stock_by_branch": stock_by_branch,
             "last_cost_by_branch": cost_by_branch,

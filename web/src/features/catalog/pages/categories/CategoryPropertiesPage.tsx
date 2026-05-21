@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ImageIcon, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -43,7 +43,11 @@ export default function CategoryPropertiesPage() {
   const categoryIdNum = Number(categoryIdParam);
   const idOk = Number.isFinite(categoryIdNum) && categoryIdNum > 0;
 
-  const [tab, setTab] = useState<TabId>('overview');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState<TabId>(
+    initialTab === 'attributes' || initialTab === 'children' ? initialTab : 'overview',
+  );
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data: tree = [] } = useCategoryTreeQuery();

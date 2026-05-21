@@ -245,7 +245,8 @@
 | **CORS `*` with credentials in dev** | Active | Medium | Explicit trusted origins per environment |
 | **Default `SECRET_KEY` in Compose** | Active | Medium | Fail-fast in prod if default detected |
 | **No FIFO/LIFO cost layers** | Accepted | Low | Weighted-average is sufficient for v1 |
-| **No multi-currency GL** | Addressed (Epic 20.1–20.2); AR/AP revaluation posts via `post_journal_entry` |
+| **No multi-currency GL** | Addressed (Epic 20.1–20.2, 24.1–24.2); currency master UI + AR/AP revaluation |
+| **No currency / payment-terms admin UI** | Closed (Epic 24) |
 | **No cash flow statement** | Planned | Low | Epic 17 |
 
 ### Web Frontend Gaps
@@ -358,6 +359,10 @@ Resolves `D-7`, `GAP-CAT-005..007`, `GAP-INV-007`. Blocking dependency for Epic 
 - [x] **18.10** Variant-aware product detail API: `GET /catalog/products/{id}/with-variants` returns product with variants, stock per variant, last cost per variant.
 - [x] **18.11** Variant wiring (Phase 2 Workstream B): session-scoped cache in `resolve_default_variant_id`; POS cart lines keyed by `(product_id, variant_id)`; optional `variant_id` on cart upsert / stock adjustment / PO lines; WAVG `apply_receipt_to_weighted_average` and transfer receive use explicit variant; GL (`post_sales_invoice_gl`, `post_sales_return_gl`, `post_transfer_batch_receive_gl`) uses per-line variant for COGS / inventory at source WAVG.
 - [x] **18.12** Default variant on product create (`create_product` → `ProductVariant` with `_default` marker); `GET /api/v1/product-variants/search` for purchasing line pickers; `GET /api/v1/products?branch_id=&in_stock_only=` for POS sellable grid; PO service validates explicit `variant_id` matches `product_id`.
+- [x] **18.13** Relational variant axes: `attributes`, `attribute_values`, `product_variant_attributes`; `category_attribute_defs.attribute_id` + `use_for_variants` (migration `j3k4l5m6n7o8`).
+- [x] **18.14** Catalog attribute master API: `GET/POST /catalog/attributes`, values CRUD, pivot backfill script.
+- [x] **18.15** Variant generator: `variant_combinator`, `POST .../variants/preview-generate`, `POST .../variants/sync`; search by `attribute_value_id`.
+- [x] **18.16** `ProductFormPage` Odoo-style tabs (product data | attributes): creatable axis lines, auto-generate on save, variants grid on edit; catalog dictionary admin at `/admin/catalog-attributes`; `validate_catalog_axes` + inventory-activity guard on sync.
 
 #### Epic 19 — Accounting Core Hardening
 Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The largest backend epic of Phase 2.
@@ -374,6 +379,12 @@ Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The larges
 - [x] **19.8** Soft-close fiscal period state machine: `open → soft_closed → closed` (and `soft_closed → open`); `ensure_period_open` blocks normal GL in `soft_closed`; journal reversals use `allow_in_soft_close` (`GAP-ACC-013`).
 - [x] **19.9** Chart of Accounts admin backend: tree editor API (`/accounting/chart-accounts/tree`), CRUD endpoints, drag-drop move support, depth/type validation (`GAP-ACC-003`).
 - [x] **19.10** Frontend AP/AR drawers / accounting operations workspace (frontend task); backend GL posting confirmed working via `voucher_service.py`.
+
+#### Epic 24 — Currencies, Supplier UX, Payment Terms
+- [x] **24.1** Currency master API: `GET/POST/PATCH /accounting/currencies`, rate update, `GET/PATCH /accounting/settings` (base currency with AR/AP guards).
+- [x] **24.2** Web: `/accounting/currencies`, `CurrencySelect`, navigation + i18n; FX operations link to currency management.
+- [x] **24.3** Supplier form: remove manual code field; server `SUP-######` generation; `currency_code` picker; payment terms from master API.
+- [x] **24.4** Payment terms master: table `payment_terms`, API, `/accounting/payment-terms` UI; AP `due_date` derived from supplier terms on `create_ap_open_item`.
 
 #### Epic 20 — Multi-Currency, Production Orders, FIFO
 - [x] **20.1** Multi-currency journal lines: add `currency_code`, `transaction_amount`, `fx_rate` columns (`GAP-ACC-012`).

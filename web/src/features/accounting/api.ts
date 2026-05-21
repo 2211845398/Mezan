@@ -227,3 +227,96 @@ export async function listBoms(): Promise<Array<Record<string, unknown>>> {
   const { data } = await apiClient.get<Array<Record<string, unknown>>>('/production/boms');
   return data;
 }
+
+export type CurrencyRead = {
+  id: number;
+  code: string;
+  name: string;
+  decimal_places: number;
+  suffix: string | null;
+  exchange_rate_to_base: string | null;
+  active: boolean;
+  is_base: boolean;
+};
+
+export type AccountingSettingsRead = {
+  base_currency_id: number;
+  base_currency_code: string;
+  base_currency_name: string;
+};
+
+export type PaymentTermRead = {
+  id: number;
+  code: string;
+  name_en: string;
+  name_ar: string;
+  days: number;
+  active: boolean;
+  created_at: string;
+};
+
+export async function listCurrencies(includeInactive = false): Promise<CurrencyRead[]> {
+  const { data } = await apiClient.get<CurrencyRead[]>('/accounting/currencies', {
+    params: { include_inactive: includeInactive },
+  });
+  return data;
+}
+
+export async function createCurrency(body: {
+  code: string;
+  name: string;
+  decimal_places?: number;
+  suffix?: string | null;
+  exchange_rate_to_base?: string | null;
+}): Promise<CurrencyRead> {
+  const { data } = await apiClient.post<CurrencyRead>('/accounting/currencies', body);
+  return data;
+}
+
+export async function updateCurrencyRate(
+  currencyId: number,
+  exchange_rate_to_base: string,
+): Promise<CurrencyRead> {
+  const { data } = await apiClient.patch<CurrencyRead>(`/accounting/currencies/${currencyId}/rate`, {
+    exchange_rate_to_base,
+  });
+  return data;
+}
+
+export async function getAccountingSettings(): Promise<AccountingSettingsRead> {
+  const { data } = await apiClient.get<AccountingSettingsRead>('/accounting/settings');
+  return data;
+}
+
+export async function updateAccountingSettings(body: {
+  base_currency_id: number;
+}): Promise<AccountingSettingsRead> {
+  const { data } = await apiClient.patch<AccountingSettingsRead>('/accounting/settings', body);
+  return data;
+}
+
+export async function listPaymentTerms(activeOnly = true): Promise<PaymentTermRead[]> {
+  const { data } = await apiClient.get<PaymentTermRead[]>('/accounting/payment-terms', {
+    params: { active_only: activeOnly },
+  });
+  return data;
+}
+
+export async function createPaymentTerm(body: {
+  code: string;
+  name_en: string;
+  name_ar: string;
+  days: number;
+  active?: boolean;
+}): Promise<PaymentTermRead> {
+  const { data } = await apiClient.post<PaymentTermRead>('/accounting/payment-terms', body);
+  return data;
+}
+
+export async function updatePaymentTerm(
+  termId: number,
+  body: Partial<{ name_en: string; name_ar: string; days: number; active: boolean }>,
+): Promise<PaymentTermRead> {
+  const { data } = await apiClient.patch<PaymentTermRead>(`/accounting/payment-terms/${termId}`, body);
+  return data;
+}

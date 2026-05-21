@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { FormContainer } from '@/components/shared/ContentSurface';
+import { SectionCard } from '@/components/shared/ContentSurface';
+import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +63,13 @@ export type OrderFormProps = {
 
 export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProps = {}) {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation('purchasing');
+  const { t, i18n } = useTranslation('purchasing');
+  const fieldDir = i18n.dir();
+  const localeSelectTriggerClass = cn(
+    'h-9 min-w-0 [&>span]:line-clamp-none',
+    fieldDir === 'rtl' &&
+      'text-start [&>span]:block [&>span]:w-full [&>span]:min-w-0 [&>span]:text-start',
+  );
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
@@ -270,18 +277,19 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
   });
 
   const formBody = (
-    <div className="grid w-full gap-4">
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="grid gap-2">
+    <div className="flex w-full flex-col gap-4">
+      <SectionCard title={t('orders.form.header_section')}>
+        <div className="grid gap-4 md:grid-cols-12">
+        <div className="grid gap-2 md:col-span-8" dir={fieldDir}>
           <Label>{t('orders.form.supplier')}</Label>
           <Select
             value={supplierId || '__none'}
             onValueChange={(v) => setSupplierId(v === '__none' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger dir={fieldDir} className={localeSelectTriggerClass}>
               <SelectValue placeholder="—" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent dir={fieldDir}>
               <SelectItem value="__none">—</SelectItem>
               {suppliers.map((s) => (
                 <SelectItem key={s.id} value={String(s.id)}>
@@ -291,13 +299,22 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-2">
+        <div className="grid gap-2 md:col-span-4">
+          <Label>{t('orders.form.supplier_currency')}</Label>
+          <Input
+            readOnly
+            tabIndex={-1}
+            className="h-9 cursor-default bg-muted/50 text-start"
+            value={supplierId ? supplierCurrencyLabel(selectedSupplier, t) : '—'}
+          />
+        </div>
+        <div className="grid gap-2 md:col-span-7" dir={fieldDir}>
           <Label>{t('orders.form.branch')}</Label>
           <Select value={branchId || '__none'} onValueChange={(v) => setBranchId(v === '__none' ? '' : v)}>
-            <SelectTrigger>
+            <SelectTrigger dir={fieldDir} className={localeSelectTriggerClass}>
               <SelectValue placeholder={t('orders.form.branch_hint')} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent dir={fieldDir}>
               <SelectItem value="__none">—</SelectItem>
               {branches.map((b) => (
                 <SelectItem key={b.id} value={String(b.id)}>
@@ -307,22 +324,20 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-2">
+        <div className="grid gap-2 md:col-span-5">
           <Label>{t('orders.form.expected_date')}</Label>
           <DateField value={expectedDate} onChange={setExpectedDate} />
         </div>
-      </div>
+        </div>
+      </SectionCard>
 
-      {supplierId ? (
-        <p className="text-sm text-muted-foreground">
-          {t('orders.form.supplier_currency')}: {supplierCurrencyLabel(selectedSupplier, t)}
-        </p>
-      ) : null}
-
-      <div className="space-y-2">
-        <div className="font-medium">{t('orders.form.lines')}</div>
+      <SectionCard title={t('orders.form.lines')}>
+        <div className="space-y-3">
         {lines.map((ln, idx) => (
-          <div key={ln.key} className="grid gap-2 rounded-md border p-3 md:grid-cols-12 md:items-end">
+          <div
+            key={ln.key}
+            className="grid gap-3 rounded-lg border bg-muted/30 p-3 md:grid-cols-12 md:items-end"
+          >
             <div className="md:col-span-9">
               <Label>{t('orders.form.product')}</Label>
               <PoLineProductPicker
@@ -365,23 +380,29 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
             </div>
           </div>
         ))}
-        <Button type="button" variant="outline" size="sm" onClick={() => setLines((prev) => [...prev, newLine()])}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => setLines((prev) => [...prev, newLine()])}
+        >
           <Plus className="me-2 size-4" />
           {t('orders.form.add_line')}
         </Button>
-      </div>
+        </div>
+      </SectionCard>
 
-      <div className="grid gap-2">
-        <Label htmlFor="notes">{t('orders.form.notes')}</Label>
-        <Textarea id="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </div>
+      <SectionCard title={t('orders.form.notes')}>
+        <Textarea id="notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </SectionCard>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center justify-start gap-2 border-t pt-4">
         <Button type="button" onClick={() => saveDraft.mutate()} disabled={saveDraft.isPending}>
           {t('orders.form.save_draft')}
         </Button>
         {variant === 'dialog' && onDismiss ? (
-          <Button type="button" variant="ghost" onClick={onDismiss} disabled={saveDraft.isPending}>
+          <Button type="button" variant="outline" onClick={onDismiss} disabled={saveDraft.isPending}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>
         ) : null}
@@ -405,14 +426,12 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
   }
 
   return (
-    <FormContainer maxWidth="2xl">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{isNew ? t('orders.new') : t('orders.edit')}</h1>
-        <Button type="button" variant="outline" asChild>
-          <Link to="/purchasing/orders">{t('orders.title')}</Link>
-        </Button>
-      </div>
-      {formBody}
-    </FormContainer>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        title={isNew ? t('orders.new') : t('orders.edit')}
+        actions={<BackButton to="/purchasing/orders" label={t('orders.title')} />}
+      />
+      <div className="me-auto flex w-full max-w-6xl flex-col gap-4">{formBody}</div>
+    </div>
   );
 }

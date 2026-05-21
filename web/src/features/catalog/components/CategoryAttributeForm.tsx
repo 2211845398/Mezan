@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,8 +39,14 @@ import {
   type CategoryAttrDef,
   createCategoryAttribute,
   deleteCategoryAttribute,
+  listCatalogAttributes,
   updateCategoryAttribute,
 } from '../api';
+import {
+  CatalogAttributeLinkFields,
+  catalogAttributeName,
+  type CatalogAttributeLinkState,
+} from './CatalogAttributeLinkFields';
 import { catalogKeys } from '../queries';
 import {
   CATEGORY_ATTR_PRESETS,
@@ -97,8 +103,17 @@ export function CategoryAttributeForm({ categoryId, defs, canUpdate }: CategoryA
   const [editRequired, setEditRequired] = useState(false);
   const [editPriority, setEditPriority] = useState<DisplayPriority>('high');
   const [editOptionsCsv, setEditOptionsCsv] = useState('');
+  const [editLink, setEditLink] = useState<CatalogAttributeLinkState>({
+    useForVariants: false,
+    attributeId: null,
+  });
 
   const [deleteTarget, setDeleteTarget] = useState<CategoryAttrDef | null>(null);
+
+  const { data: catalogAttrs = [] } = useQuery({
+    queryKey: [...catalogKeys.root, 'catalogAttributes'],
+    queryFn: listCatalogAttributes,
+  });
 
   useEffect(() => {
     setEditOpen(false);
@@ -124,6 +139,10 @@ export function CategoryAttributeForm({ categoryId, defs, canUpdate }: CategoryA
     setEditRequired(d.required);
     setEditPriority(sortOrderToPriority(d.sort_order ?? 0));
     setEditOptionsCsv(selectOptionsPreview(d) || '');
+    setEditLink({
+      useForVariants: Boolean(d.use_for_variants),
+      attributeId: d.attribute_id ?? null,
+    });
     setEditOpen(true);
   };
 
@@ -137,12 +156,18 @@ export function CategoryAttributeForm({ categoryId, defs, canUpdate }: CategoryA
               .map((s) => s.trim())
               .filter(Boolean)
           : [];
+      const effectiveType = editLink.useForVariants ? 'select' : editType;
+      if (editLink.useForVariants && editLink.attributeId == null) {
+        throw new Error('catalog_link_required');
+      }
       return updateCategoryAttribute(categoryId, editing.id, {
         label: editLabel.trim(),
-        type: editType,
+        type: effectiveType,
         required: editRequired,
         sort_order: DISPLAY_PRIORITY_SORT[editPriority],
-        options: editType === 'select' && values.length ? { values } : null,
+        options: effectiveType === 'select' && values.length && !editLink.useForVariants ? { values } : null,
+        use_for_variants: editLink.useForVariants,
+        attribute_id: editLink.useForVariants ? editLink.attributeId : null,
       });
     },
     onSuccess: async () => {
@@ -151,7 +176,13 @@ export function CategoryAttributeForm({ categoryId, defs, canUpdate }: CategoryA
       await invalidate();
       toast.success(t('categories.attr_updated'));
     },
-    onError: (e) => notifyApiError(e, t('errors.generic')),
+    onError: (e) => {
+      if (e instanceof Error && e.message === 'catalog_link_required') {
+        toast.error(t('categories.attr_catalog_link_required'));
+        return;
+      }
+      notifyApiError(e, t('errors.generic'));
+    },
   });
 
   return (
@@ -184,10 +215,18 @@ export function CategoryAttributeForm({ categoryId, defs, canUpdate }: CategoryA
                         <Badge variant="outline" className={attrListBadgeClass}>
                           {d.required ? t('categories.attr_required') : t('categories.attr_optional')}
                         </Badge>
+                        {d.use_for_variants ? (
+                          <Badge variant="secondary" className={attrListBadgeClass}>
+                            {t('categories.attr_variant_badge')}
+                          </Badge>
+                        ) : null}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {t('categories.attr_display_priority')}: {priLabel}
-                        {opts ? ` · ${t('categories.attr_options')}: ${opts}` : null}
+                        {d.use_for_variants
+                          ? ` · ${t('categories.attr_catalog_linked')}: ${catalogAttributeName(catalogAttrs, d.attribute_id) ?? t('categories.attr_catalog_unlinked')}`
+                          : null}
+                        {!d.use_for_variants && opts ? ` · ${t('categories.attr_options')}: ${opts}` : null}
                       </p>
                     </div>
                     {canUpdate ? (
@@ -281,7 +320,11 @@ export function CategoryAttributeForm({ categoryId, defs, canUpdate }: CategoryA
               </div>
               <div className="space-y-1">
                 <Label className="text-sm">{t('categories.attr_field_type')}</Label>
-                <Select value={editType} onValueChange={setEditType}>
+                <Select
+                  value={editLink.useForVariants ? 'select' : editType}
+                  onValueChange={setEditType}
+                  disabled={editLink.useForVariants}
+                >
                   <SelectTrigger className="h-9 w-full text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -313,7 +356,16 @@ export function CategoryAttributeForm({ categoryId, defs, canUpdate }: CategoryA
               <Label className="text-sm">{t('categories.attr_field_required')}</Label>
               <Switch checked={editRequired} onCheckedChange={setEditRequired} />
             </div>
-            {editType === 'select' ? (
+            <CatalogAttributeLinkFields
+              value={editLink}
+              onChange={setEditLink}
+              onUseForVariantsChange={(enabled) => {
+                if (enabled) {
+                  setEditType('select');
+                }
+              }}
+            />
+            {editType === 'select' && !editLink.useForVariants ? (
               <div className="space-y-1">
                 <Label className="text-sm">{t('categories.attr_field_select_options')}</Label>
                 <Input
@@ -383,6 +435,10 @@ function CategoryAttributeAddForm({
   const [required, setRequired] = useState(false);
   const [priority, setPriority] = useState<DisplayPriority>('high');
   const [selectOptionsCsv, setSelectOptionsCsv] = useState('S,M,L,XL');
+  const [addLink, setAddLink] = useState<CatalogAttributeLinkState>({
+    useForVariants: false,
+    attributeId: null,
+  });
 
   const usedKeys = useMemo(() => new Set(defs.map((d) => d.key.toUpperCase())), [defs]);
 
@@ -392,6 +448,7 @@ function CategoryAttributeAddForm({
     setRequired(false);
     setPriority('high');
     setSelectOptionsCsv('S,M,L,XL');
+    setAddLink({ useForVariants: false, attributeId: null });
   }, [categoryId]);
 
   useEffect(() => {
@@ -448,7 +505,11 @@ function CategoryAttributeAddForm({
           </div>
           <div className="space-y-1">
             <Label className="text-sm">{t('categories.attr_field_type')}</Label>
-            <Select value={type} onValueChange={setType} disabled={!presetKey}>
+            <Select
+              value={addLink.useForVariants ? 'select' : type}
+              onValueChange={setType}
+              disabled={!presetKey || addLink.useForVariants}
+            >
               <SelectTrigger className="h-9 w-full text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -479,7 +540,7 @@ function CategoryAttributeAddForm({
             <Label className="text-sm">{t('categories.attr_field_required')}</Label>
             <Switch checked={required} onCheckedChange={setRequired} disabled={!presetKey} />
           </div>
-          {type === 'select' ? (
+          {type === 'select' && !addLink.useForVariants ? (
             <div className="space-y-1 sm:col-span-2">
               <Label className="text-sm" htmlFor="add-attr-opts">
                 {t('categories.attr_field_select_options')}
@@ -494,6 +555,18 @@ function CategoryAttributeAddForm({
               />
             </div>
           ) : null}
+          <div className="sm:col-span-2">
+            <CatalogAttributeLinkFields
+              value={addLink}
+              onChange={setAddLink}
+              disabled={!presetKey}
+              onUseForVariantsChange={(enabled) => {
+                if (enabled) {
+                  setType('select');
+                }
+              }}
+            />
+          </div>
         </div>
         <div className="flex justify-end pt-1">
           <Button
@@ -513,23 +586,33 @@ function CategoryAttributeAddForm({
                         .map((s) => s.trim())
                         .filter(Boolean)
                     : [];
-                if (type === 'select' && values.length === 0) {
+                const effectiveType = addLink.useForVariants ? 'select' : type.trim() || 'text';
+                if (!addLink.useForVariants && effectiveType === 'select' && values.length === 0) {
                   toast.error(t('categories.attr_select_needs_options'));
+                  return;
+                }
+                if (addLink.useForVariants && addLink.attributeId == null) {
+                  toast.error(t('categories.attr_catalog_link_required'));
                   return;
                 }
                 await createCategoryAttribute(categoryId, {
                   key: presetKey,
                   label: labelFromPreset,
-                  type: type.trim() || 'text',
+                  type: effectiveType,
                   required,
                   sort_order: DISPLAY_PRIORITY_SORT[priority],
-                  ...(type === 'select' && values.length ? { options: { values } } : {}),
+                  use_for_variants: addLink.useForVariants,
+                  attribute_id: addLink.useForVariants ? addLink.attributeId : null,
+                  ...(effectiveType === 'select' && values.length && !addLink.useForVariants
+                    ? { options: { values } }
+                    : {}),
                 });
                 setPresetKey('');
                 setType('text');
                 setRequired(false);
                 setPriority('high');
                 setSelectOptionsCsv('S,M,L,XL');
+                setAddLink({ useForVariants: false, attributeId: null });
                 onDone();
                 toast.success(t('categories.attr_added'));
               } catch (error) {

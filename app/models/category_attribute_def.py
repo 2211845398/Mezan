@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,6 +34,18 @@ class CategoryAttributeDef(Base):
     options: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     validation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    attribute_id: Mapped[int | None] = mapped_column(
+        ForeignKey("attributes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        doc="When set, links this category key to the global attribute catalog.",
+    )
+    use_for_variants: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        doc="When true, this attribute participates in variant Cartesian generation.",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
@@ -51,3 +63,4 @@ class CategoryAttributeDef(Base):
         back_populates="attribute_defs",
         foreign_keys="CategoryAttributeDef.category_id",
     )
+    catalog_attribute = relationship("CatalogAttribute", foreign_keys=[attribute_id])

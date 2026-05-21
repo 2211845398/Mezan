@@ -27,6 +27,7 @@ class GoodsReceiptRead(BaseModel):
     supplier_id: int | None
     source_invoice_scan_id: int | None
     created_by_user_id: int | None
+    notes: str | None = None
     created_at: datetime
     lines: list[GoodsReceiptLineRead] = Field(default_factory=list)
 
@@ -47,3 +48,4 @@ class GoodsReceiptReceiveRequest(BaseModel):
     branch_id: int
     lines: list[GoodsReceiptReceiveLine] = Field(min_length=1)
     idempotency_key: str = Field(min_length=8, max_length=128)
+    notes: str | None = Field(default=None, max_length=1024)

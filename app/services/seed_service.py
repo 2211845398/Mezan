@@ -379,13 +379,26 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
     acc_res = await db.execute(select(ChartAccount).where(ChartAccount.code.in_(codes)))
     by_code = {a.code: a for a in acc_res.scalars().all()}
 
+    trade_ap = ChartAccount(
+        code="2010",
+        name="Trade Payables",
+        account_type=AccountType.LIABILITY,
+        parent_id=by_code["2000"].id,
+        is_control=False,
+        is_system=True,
+        active=True,
+    )
+    db.add(trade_ap)
+    await db.flush()
+    by_code["2010"] = trade_ap
+
     db.add(
         AccountingSettings(
             id=1,
             base_currency_id=cur.id,
             default_cash_account_id=by_code["1000"].id,
             default_ar_account_id=by_code["1100"].id,
-            default_ap_account_id=by_code["2000"].id,
+            default_ap_account_id=by_code["2010"].id,
             default_inventory_account_id=by_code["1200"].id,
             default_cogs_account_id=by_code["5000"].id,
             default_sales_revenue_account_id=by_code["4000"].id,

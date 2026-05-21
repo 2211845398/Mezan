@@ -12,14 +12,19 @@ from sqlalchemy import select
 from app.core.errors import ValidationError
 from app.models.branch import Branch
 from app.models.category import Category
+from app.models.chart_accounts import ChartAccount
+from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
+from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.stock_level import StockLevel
+from app.services.accounting_service import get_accounting_settings
 from app.services.goods_receipt_service import receive_goods_for_purchase_order
 from app.services.purchase_order_service import create_po, mark_po_sent
+from app.services.seed_service import seed_accounting_defaults
 
 
 @pytest.mark.asyncio
@@ -249,7 +254,7 @@ async def test_receive_splits_qty_across_variants(db_session) -> None:
     await mark_po_sent(db_session, po_id=po.id)
     pol_id = po.lines[0].id
 
-    receipt = await receive_goods_for_purchase_order(
+    receipt, po_closed = await receive_goods_for_purchase_order(
         db_session,
         purchase_order_id=po.id,
         branch_id=branch.id,
@@ -270,6 +275,7 @@ async def test_receive_splits_qty_across_variants(db_session) -> None:
         idempotency_key=f"gr-split-{uuid.uuid4().hex}",
         created_by_user_id=None,
     )
+    assert po_closed is True
 
     res = await db_session.execute(
         select(GoodsReceiptLine).where(GoodsReceiptLine.goods_receipt_id == receipt.id)
@@ -358,7 +364,7 @@ async def test_receive_uses_po_line_variant_when_preset(db_session) -> None:
     await mark_po_sent(db_session, po_id=po.id)
     pol_id = po.lines[0].id
 
-    receipt = await receive_goods_for_purchase_order(
+    receipt, po_closed = await receive_goods_for_purchase_order(
         db_session,
         purchase_order_id=po.id,
         branch_id=branch.id,
@@ -366,6 +372,7 @@ async def test_receive_uses_po_line_variant_when_preset(db_session) -> None:
         idempotency_key=f"gr-preset-{uuid.uuid4().hex}",
         created_by_user_id=None,
     )
+    assert po_closed is True
 
     res = await db_session.execute(
         select(GoodsReceiptLine).where(GoodsReceiptLine.goods_receipt_id == receipt.id)
@@ -373,6 +380,317 @@ async def test_receive_uses_po_line_variant_when_preset(db_session) -> None:
     gr_lines = list(res.scalars().all())
     assert len(gr_lines) == 1
     assert gr_lines[0].variant_id == v_only.id
+
+    po_row = await db_session.get(PurchaseOrder, po.id)
+    assert po_row is not None
+    assert po_row.status == "closed"
+
+
+@pytest.mark.asyncio
+async def test_partial_receive_does_not_auto_close_po(db_session) -> None:
+    branch = Branch(
+        name="Recv Branch5",
+        code=f"RB5-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add(branch)
+    await db_session.flush()
+
+    category = Category(
+        name="POV Cat5",
+        slug=f"pov5-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add(category)
+    await db_session.flush()
+
+    product = Product(
+        category_id=category.id,
+        name="Shirt5",
+        sku=f"sh5-{uuid.uuid4().hex[:6]}",
+        status="active",
+        attributes={},
+        standard_cost=Decimal("5.0000"),
+        output_vat_rate=Decimal("0"),
+    )
+    db_session.add(product)
+    await db_session.flush()
+
+    v_only = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-ONLY",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(v_only)
+    await db_session.flush()
+
+    po = await create_po(
+        db_session,
+        created_by_user_id=None,
+        data={
+            "supplier_name": "Supplier",
+            "branch_id": branch.id,
+            "lines": [{"product_id": product.id, "variant_id": v_only.id, "qty": 10}],
+        },
+    )
+    await mark_po_sent(db_session, po_id=po.id)
+    pol_id = po.lines[0].id
+
+    _, po_closed = await receive_goods_for_purchase_order(
+        db_session,
+        purchase_order_id=po.id,
+        branch_id=branch.id,
+        lines=[{"purchase_order_line_id": pol_id, "qty": 4, "unit_cost": Decimal("6.5")}],
+        idempotency_key=f"gr-partial-{uuid.uuid4().hex}",
+        created_by_user_id=None,
+    )
+    assert po_closed is False
+    po_row = await db_session.get(PurchaseOrder, po.id)
+    assert po_row is not None
+    assert po_row.status == "sent"
+
+
+@pytest.mark.asyncio
+async def test_receive_posts_gl_on_leaf_ap_account(db_session) -> None:
+    await seed_accounting_defaults(db_session)
+    settings = await get_accounting_settings(db_session)
+
+    ap_leaf = await db_session.execute(select(ChartAccount).where(ChartAccount.code == "2010"))
+    leaf = ap_leaf.scalar_one_or_none()
+    assert leaf is not None
+    assert settings.default_ap_account_id == leaf.id
+
+    branch = Branch(
+        name="GL Recv",
+        code=f"GL-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add(branch)
+    await db_session.flush()
+
+    category = Category(
+        name="GL Cat",
+        slug=f"glc-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add(category)
+    await db_session.flush()
+
+    product = Product(
+        category_id=category.id,
+        name="GL Shirt",
+        sku=f"gl-{uuid.uuid4().hex[:6]}",
+        status="active",
+        attributes={},
+        standard_cost=Decimal("5.0000"),
+        output_vat_rate=Decimal("0"),
+    )
+    db_session.add(product)
+    await db_session.flush()
+
+    variant = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(variant)
+    await db_session.flush()
+
+    po = await create_po(
+        db_session,
+        created_by_user_id=None,
+        data={
+            "supplier_name": "GL Supplier",
+            "branch_id": branch.id,
+            "lines": [{"product_id": product.id, "variant_id": variant.id, "qty": 2}],
+        },
+    )
+    await mark_po_sent(db_session, po_id=po.id)
+    pol_id = po.lines[0].id
+
+    receipt, _ = await receive_goods_for_purchase_order(
+        db_session,
+        purchase_order_id=po.id,
+        branch_id=branch.id,
+        lines=[{"purchase_order_line_id": pol_id, "qty": 2, "unit_cost": Decimal("10")}],
+        idempotency_key=f"gr-gl-{uuid.uuid4().hex}",
+        created_by_user_id=None,
+    )
+
+    je_res = await db_session.execute(
+        select(JournalEntry).where(
+            JournalEntry.idempotency_key == f"goods_receipt:{receipt.id}:ap_inventory"
+        )
+    )
+    je = je_res.scalar_one_or_none()
+    assert je is not None
+
+    cr_res = await db_session.execute(
+        select(JournalEntryLine).where(
+            JournalEntryLine.journal_entry_id == je.id,
+            JournalEntryLine.credit > 0,
+        )
+    )
+    cr_line = cr_res.scalar_one()
+    assert cr_line.account_id == leaf.id
+
+
+@pytest.mark.asyncio
+async def test_receive_fails_when_default_ap_is_control(db_session) -> None:
+    await seed_accounting_defaults(db_session)
+    settings = await get_accounting_settings(db_session)
+
+    ctrl_res = await db_session.execute(select(ChartAccount).where(ChartAccount.code == "2000"))
+    control = ctrl_res.scalar_one_or_none()
+    assert control is not None
+    assert control.is_control is True
+
+    original_ap = settings.default_ap_account_id
+    settings.default_ap_account_id = control.id
+    await db_session.flush()
+
+    branch = Branch(
+        name="GL Fail",
+        code=f"GF-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add(branch)
+    await db_session.flush()
+
+    category = Category(
+        name="GF Cat",
+        slug=f"gfc-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add(category)
+    await db_session.flush()
+
+    product = Product(
+        category_id=category.id,
+        name="GF Product",
+        sku=f"gf-{uuid.uuid4().hex[:6]}",
+        status="active",
+        attributes={},
+        standard_cost=Decimal("3.0000"),
+        output_vat_rate=Decimal("0"),
+    )
+    db_session.add(product)
+    await db_session.flush()
+
+    variant = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(variant)
+    await db_session.flush()
+
+    po = await create_po(
+        db_session,
+        created_by_user_id=None,
+        data={
+            "supplier_name": "GF Supplier",
+            "branch_id": branch.id,
+            "lines": [{"product_id": product.id, "variant_id": variant.id, "qty": 1}],
+        },
+    )
+    await mark_po_sent(db_session, po_id=po.id)
+    pol_id = po.lines[0].id
+
+    with pytest.raises(ValidationError, match="control"):
+        await receive_goods_for_purchase_order(
+            db_session,
+            purchase_order_id=po.id,
+            branch_id=branch.id,
+            lines=[{"purchase_order_line_id": pol_id, "qty": 1, "unit_cost": Decimal("5")}],
+            idempotency_key=f"gr-ctrl-{uuid.uuid4().hex}",
+            created_by_user_id=None,
+        )
+
+    settings.default_ap_account_id = original_ap
+
+
+@pytest.mark.asyncio
+async def test_receive_stores_receipt_notes(db_session) -> None:
+    await seed_accounting_defaults(db_session)
+
+    branch = Branch(
+        name="Notes Recv",
+        code=f"NR-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add(branch)
+    await db_session.flush()
+
+    category = Category(
+        name="NR Cat",
+        slug=f"nrc-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add(category)
+    await db_session.flush()
+
+    product = Product(
+        category_id=category.id,
+        name="NR Product",
+        sku=f"nr-{uuid.uuid4().hex[:6]}",
+        status="active",
+        attributes={},
+        standard_cost=Decimal("4.0000"),
+        output_vat_rate=Decimal("0"),
+    )
+    db_session.add(product)
+    await db_session.flush()
+
+    variant = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(variant)
+    await db_session.flush()
+
+    po = await create_po(
+        db_session,
+        created_by_user_id=None,
+        data={
+            "supplier_name": "NR Supplier",
+            "branch_id": branch.id,
+            "lines": [{"product_id": product.id, "variant_id": variant.id, "qty": 1}],
+        },
+    )
+    await mark_po_sent(db_session, po_id=po.id)
+    pol_id = po.lines[0].id
+
+    receipt, _ = await receive_goods_for_purchase_order(
+        db_session,
+        purchase_order_id=po.id,
+        branch_id=branch.id,
+        lines=[{"purchase_order_line_id": pol_id, "qty": 1, "unit_cost": Decimal("8")}],
+        idempotency_key=f"gr-notes-{uuid.uuid4().hex}",
+        created_by_user_id=None,
+        notes="  شحنة جزئية  ",
+    )
+
+    row = await db_session.get(GoodsReceipt, receipt.id)
+    assert row is not None
+    assert row.notes == "شحنة جزئية"
 
 
 @pytest.mark.asyncio

@@ -25,7 +25,13 @@ class ChartAccount(Base):
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     account_type: Mapped[AccountType] = mapped_column(
-        Enum(AccountType, native_enum=False), nullable=False, index=True
+        Enum(
+            AccountType,
+            native_enum=False,
+            values_callable=lambda cls: [m.value for m in cls],
+        ),
+        nullable=False,
+        index=True,
     )
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("chart_accounts.id", ondelete="SET NULL"), nullable=True, index=True

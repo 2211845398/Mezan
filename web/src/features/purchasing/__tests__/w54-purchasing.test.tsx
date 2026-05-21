@@ -11,6 +11,7 @@ import { renderWithProviders, screen, userEvent } from '@/test/utils';
 
 import type { GoodsReceiptRead } from '../api';
 import { aggregateReceivedQtyByPoLine } from '../lib/aggregateReceivedQtyByPoLine';
+import { aggregateReceivedUnitCostByPoLine } from '../lib/aggregateReceivedUnitCostByPoLine';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string) || '/api/v1';
 
@@ -36,12 +37,61 @@ describe('W-5.4 purchasing', () => {
         created_by_user_id: null,
         created_at: '',
         lines: [
-          { id: 1, purchase_order_line_id: 10, product_id: 1, qty: 2, unit_cost: '1' },
-          { id: 2, purchase_order_line_id: 10, product_id: 1, qty: 1, unit_cost: '1' },
+          {
+            id: 1,
+            purchase_order_line_id: 10,
+            product_id: 1,
+            variant_id: 1,
+            qty: 2,
+            unit_cost: '2',
+          },
+          {
+            id: 2,
+            purchase_order_line_id: 10,
+            product_id: 1,
+            variant_id: 1,
+            qty: 1,
+            unit_cost: '4',
+          },
         ],
       },
     ] as GoodsReceiptRead[]);
     expect(agg[10]).toBe(3);
+  });
+
+  it('aggregateReceivedUnitCostByPoLine returns weighted average unit cost', () => {
+    const costs = aggregateReceivedUnitCostByPoLine([
+      {
+        id: 1,
+        purchase_order_id: 9,
+        branch_id: 1,
+        supplier_name: null,
+        supplier_id: null,
+        source_invoice_scan_id: null,
+        created_by_user_id: null,
+        created_at: '',
+        lines: [
+          {
+            id: 1,
+            purchase_order_line_id: 10,
+            product_id: 1,
+            variant_id: 1,
+            qty: 2,
+            unit_cost: '2',
+          },
+          {
+            id: 2,
+            purchase_order_line_id: 10,
+            product_id: 1,
+            variant_id: 1,
+            qty: 1,
+            unit_cost: '4',
+          },
+        ],
+      },
+    ] as GoodsReceiptRead[]);
+    // (2*2 + 1*4) / 3 = 8/3 ≈ 2.6667
+    expect(costs[10]).toBe('2.6667');
   });
 
   it('sendPurchaseOrder posts body idempotency_key', async () => {

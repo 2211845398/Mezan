@@ -22,12 +22,15 @@
       "first_name": "First name",
       "father_name": "Father's name",
       "family_name": "Family name",
-      "currency_id": "Currency ID",
+      "currency_code": "Currency",
+      "code_display": "Supplier code",
       "tax_id": "Tax ID",
       "payment_terms": "Payment terms",
       "contact_phone": "Contact phone",
       "contact_email": "Contact email",
-      "payables_account_id": "Payables account ID",
+      "payables_account_id": "Payables account",
+      "payables_hint": "When left empty, the default accounts payable account is used.",
+      "validation_summary": "Please fix the highlighted fields before saving.",
       "save": "Save",
       "created": "Supplier saved"
     }
@@ -54,6 +57,7 @@
     "filter_status": "Status",
     "all_statuses": "All",
     "form": {
+      "header_section": "Order details",
       "supplier": "Supplier",
       "supplier_name": "Supplier name",
       "expected_date": "Expected date",
@@ -88,15 +92,25 @@
       "send": "Send",
       "cancel": "Cancel",
       "track": "Mark tracked",
-      "close": "Close",
+      "close": "Close without full receipt",
       "partial_receive": "Partial receive",
       "full_receive_hint": "Set received qty per line",
       "receipt_ok": "Goods received; inventory and GL updated.",
       "closed_ok": "Order closed",
       "remaining": "Remaining",
+      "line_no": "No.",
       "received_col": "Received",
       "variant_col": "Variant",
-      "variant_at_receive": "Set at receipt"
+      "variant_at_receive": "Set at receipt",
+      "unit_cost_col": "Unit cost",
+      "unit_cost_at_receive": "Set at receipt",
+      "receipt_number": "Receipt #{{id}}",
+      "receipt_date": "Date",
+      "receipt_branch": "Branch",
+      "receipt_line_total": "Total",
+      "receipt_total": "Receipt total",
+      "receipt_sku": "SKU / variant",
+      "receipt_po_line": "Line #{{id}}"
     },
     "status": {
       "draft": "Draft",
@@ -123,7 +137,19 @@
       "add_split": "Add split",
       "allocated": "Allocated",
       "variant_required": "Pick a variant and qty for each split",
-      "split_exceeds_remaining": "Split totals exceed remaining qty"
+      "split_exceeds_remaining": "Split totals exceed remaining qty",
+      "progress_expected": "Expected: {{count}}",
+      "progress_received": "Received: {{count}}",
+      "progress_open": "Remaining: {{count}}",
+      "progress_exceeds": "Exceeds remaining",
+      "no_lines": "Enter qty and unit cost for at least one line"
+    },
+    "notes_section": {
+      "order_title": "Order notes",
+      "receipt_title": "Notes for this receipt",
+      "receipt_on_receipt": "Receipt notes",
+      "empty": "—",
+      "placeholder": "Optional notes for this receipt…"
     }
   },
   "match": {

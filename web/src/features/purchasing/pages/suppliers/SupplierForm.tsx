@@ -19,7 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { chartAccountsQueryOptions } from '@/features/accounting/queries';
+import CurrencySelect from '@/features/accounting/components/CurrencySelect';
+import { filterPayableSupplierAccounts } from '@/features/accounting/lib/payableAccountOptions';
+import {
+  accountingSettingsQueryOptions,
+  chartAccountsQueryOptions,
+  paymentTermsQueryOptions,
+} from '@/features/accounting/queries';
 import { zodLibyanPhoneOptional, zodOptionalNonEmptyEmail, normalizeLyPhoneInput } from '@/lib/validation/contact';
 import { cn } from '@/lib/utils';
 
@@ -28,14 +34,13 @@ import { purchasingKeys, supplierQueryOptions } from '../../queries';
 
 function supplierFormSchema(tc: TFunction<'common'>) {
   return z.object({
-    code: z.string().min(1).max(64),
     first_name: z.string().min(1).max(255),
     father_name: z.string().max(255),
     family_name: z.string().max(255),
-    currency_id: z.coerce.number().int().positive(),
+    currency_code: z.string().min(3).max(3),
     payables_account_id: z.string().optional(),
     tax_id: z.string().max(64).optional().nullable(),
-    payment_terms: z.string().max(512).optional().nullable(),
+    payment_terms_id: z.string().optional(),
     contact_phone: zodLibyanPhoneOptional(tc('errors.validation_phone_ly')),
     contact_email: zodOptionalNonEmptyEmail(tc('errors.validation_email')),
   });
@@ -50,15 +55,20 @@ export type SupplierFormProps = {
   editId?: number;
 };
 
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-sm text-destructive">{message}</p>;
+}
+
 export default function SupplierForm({ variant = 'page', onDismiss, editId }: SupplierFormProps = {}) {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation('purchasing');
+  const { t, i18n } = useTranslation('purchasing');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
+  const isAr = i18n.language.startsWith('ar');
   const pathnameIsNew = /\/purchasing\/suppliers\/new\/?$/.test(location.pathname);
-  // In dialog mode: if editId is provided, it's an edit; otherwise it's new
   const isNew = variant === 'dialog' ? editId == null : pathnameIsNew || id === 'new';
   const supplierId = editId != null ? editId : (!isNew && id ? Number(id) : NaN);
 
@@ -68,43 +78,62 @@ export default function SupplierForm({ variant = 'page', onDismiss, editId }: Su
   });
 
   const { data: accounts = [] } = useQuery(chartAccountsQueryOptions());
+  const payableAccounts = useMemo(() => filterPayableSupplierAccounts(accounts), [accounts]);
+  const { data: paymentTerms = [] } = useQuery(paymentTermsQueryOptions(true));
+  const { data: settings } = useQuery(accountingSettingsQueryOptions());
+
+  const defaultCurrency = settings?.base_currency_code ?? 'USD';
 
   const schema = useMemo(() => supplierFormSchema(tc), [tc]);
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(schema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
     defaultValues: {
-      code: isNew ? `SUP-${Math.floor(Date.now() / 1000)}` : '',
       first_name: '',
       father_name: '',
       family_name: '',
-      currency_id: 1,
+      currency_code: defaultCurrency,
       payables_account_id: '',
       tax_id: '',
-      payment_terms: '',
+      payment_terms_id: '',
       contact_phone: '',
       contact_email: '',
     },
   });
+
+  const errors = form.formState.errors;
+
+  useEffect(() => {
+    if (settings?.base_currency_code && isNew && !form.formState.isDirty) {
+      form.setValue('currency_code', settings.base_currency_code);
+    }
+  }, [settings?.base_currency_code, isNew, form]);
 
   useEffect(() => {
     if (!existing) {
       return;
     }
     const c = existing.contact as Record<string, string | undefined> | undefined;
+    let payablesId =
+      existing.payables_account_id != null ? String(existing.payables_account_id) : '';
+    if (payablesId && !payableAccounts.some((a) => String(a.id) === payablesId)) {
+      payablesId = '';
+    }
     form.reset({
-      code: existing.code,
       first_name: existing.first_name ?? '',
       father_name: existing.father_name ?? '',
       family_name: existing.family_name ?? '',
-      currency_id: existing.currency_id,
-      payables_account_id: existing.payables_account_id != null ? String(existing.payables_account_id) : '',
+      currency_code: existing.currency_code ?? defaultCurrency,
+      payables_account_id: payablesId,
       tax_id: existing.tax_id ?? '',
-      payment_terms: existing.payment_terms ?? '',
+      payment_terms_id:
+        existing.payment_terms_id != null ? String(existing.payment_terms_id) : '',
       contact_phone: c?.phone ?? '',
       contact_email: c?.email ?? '',
     });
-  }, [existing, form]);
+  }, [existing, form, defaultCurrency, payableAccounts]);
 
   const save = useMutation({
     mutationFn: async (values: SupplierFormValues) => {
@@ -115,29 +144,22 @@ export default function SupplierForm({ variant = 'page', onDismiss, editId }: Su
       if (em) contact.email = em;
       const payRaw = values.payables_account_id?.trim();
       const pay = payRaw ? Number(payRaw) : null;
-      if (isNew) {
-        return createSupplier({
-          code: values.code,
-          first_name: values.first_name.trim(),
-          father_name: values.father_name.trim() || null,
-          family_name: values.family_name.trim() || null,
-          currency_id: values.currency_id,
-          payables_account_id: pay,
-          tax_id: values.tax_id || null,
-          payment_terms: values.payment_terms || null,
-          contact,
-        });
-      }
-      return updateSupplier(supplierId, {
+      const ptRaw = values.payment_terms_id?.trim();
+      const payment_terms_id = ptRaw ? Number(ptRaw) : null;
+      const payload = {
         first_name: values.first_name.trim(),
         father_name: values.father_name.trim() || null,
         family_name: values.family_name.trim() || null,
-        currency_id: values.currency_id,
+        currency_code: values.currency_code.trim().toUpperCase(),
         payables_account_id: pay,
         tax_id: values.tax_id || null,
-        payment_terms: values.payment_terms || null,
+        payment_terms_id,
         contact,
-      });
+      };
+      if (isNew) {
+        return createSupplier(payload);
+      }
+      return updateSupplier(supplierId, payload);
     },
     onSuccess: (row) => {
       void qc.invalidateQueries({ queryKey: purchasingKeys.suppliers() });
@@ -153,11 +175,20 @@ export default function SupplierForm({ variant = 'page', onDismiss, editId }: Su
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
+  const onInvalid = () => {
+    toast.error(t('suppliers.form.validation_summary'));
+  };
+
   return (
     <div className={cn('mx-auto flex w-full max-w-lg flex-col gap-4', variant === 'page' ? 'p-4' : '')}>
       {variant === 'page' ? (
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-semibold">{isNew ? t('suppliers.new') : t('suppliers.edit')}</h1>
+          {!isNew && existing?.code ? (
+            <span className="text-sm text-muted-foreground">
+              {t('suppliers.form.code_display')}: {existing.code}
+            </span>
+          ) : null}
           <Button type="button" variant="outline" asChild>
             <Link to="/purchasing/suppliers">{t('suppliers.title')}</Link>
           </Button>
@@ -165,18 +196,17 @@ export default function SupplierForm({ variant = 'page', onDismiss, editId }: Su
       ) : null}
       <form
         className="flex flex-col gap-3"
-        onSubmit={form.handleSubmit((v) => save.mutate(v))}
+        onSubmit={form.handleSubmit((v) => save.mutate(v), onInvalid)}
+        noValidate
       >
         <div className="grid gap-2">
-          <Label htmlFor="code">{t('suppliers.form.code')}</Label>
-          <Input id="code" disabled={!isNew} {...form.register('code')} />
-          {isNew ? (
-            <p className="text-xs text-muted-foreground">Auto-generated fallback. Proper code generation requires backend update.</p>
-          ) : null}
-        </div>
-        <div className="grid gap-2">
           <Label htmlFor="sup-fn">{t('suppliers.form.first_name')}</Label>
-          <Input id="sup-fn" {...form.register('first_name')} />
+          <Input
+            id="sup-fn"
+            aria-invalid={errors.first_name ? true : undefined}
+            {...form.register('first_name')}
+          />
+          <FieldError message={errors.first_name?.message} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="sup-father">{t('suppliers.form.father_name')}</Label>
@@ -187,58 +217,86 @@ export default function SupplierForm({ variant = 'page', onDismiss, editId }: Su
           <Input id="sup-family" {...form.register('family_name')} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="currency_id">{t('suppliers.form.currency_id')}</Label>
-          <Input id="currency_id" type="number" {...form.register('currency_id')} />
+          <Label htmlFor="currency_code">{t('suppliers.form.currency_code')}</Label>
+          <CurrencySelect
+            value={form.watch('currency_code')}
+            onValueChange={(v) =>
+              form.setValue('currency_code', v, { shouldDirty: true, shouldValidate: true })
+            }
+          />
+          <FieldError message={errors.currency_code?.message} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="tax_id">{t('suppliers.form.tax_id')}</Label>
           <Input id="tax_id" {...form.register('tax_id')} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="payment_terms">{t('suppliers.form.payment_terms')}</Label>
+          <Label htmlFor="payment_terms_id">{t('suppliers.form.payment_terms')}</Label>
           <Select
-            value={form.watch('payment_terms') || '__none'}
-            onValueChange={(v) => form.setValue('payment_terms', v === '__none' ? '' : v, { shouldDirty: true, shouldValidate: true })}
+            value={form.watch('payment_terms_id') || '__none'}
+            onValueChange={(v) =>
+              form.setValue('payment_terms_id', v === '__none' ? '' : v, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none">—</SelectItem>
-              <SelectItem value="Net 0">Net 0 (Due on receipt)</SelectItem>
-              <SelectItem value="Net 15">Net 15</SelectItem>
-              <SelectItem value="Net 30">Net 30</SelectItem>
-              <SelectItem value="Net 45">Net 45</SelectItem>
-              <SelectItem value="Net 60">Net 60</SelectItem>
+              {paymentTerms.map((pt) => (
+                <SelectItem key={pt.id} value={String(pt.id)}>
+                  {isAr ? pt.name_ar : pt.name_en} ({pt.days})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="contact_phone">{t('suppliers.form.contact_phone')}</Label>
-          <Input id="contact_phone" {...form.register('contact_phone')} />
+          <Input
+            id="contact_phone"
+            aria-invalid={errors.contact_phone ? true : undefined}
+            {...form.register('contact_phone')}
+          />
+          <FieldError message={errors.contact_phone?.message} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="contact_email">{t('suppliers.form.contact_email')}</Label>
-          <Input id="contact_email" type="email" {...form.register('contact_email')} />
+          <Input
+            id="contact_email"
+            type="email"
+            aria-invalid={errors.contact_email ? true : undefined}
+            {...form.register('contact_email')}
+          />
+          <FieldError message={errors.contact_email?.message} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="payables_account_id">{t('suppliers.form.payables_account_id')}</Label>
           <Select
             value={form.watch('payables_account_id') || '__none'}
-            onValueChange={(v) => form.setValue('payables_account_id', v === '__none' ? '' : v, { shouldDirty: true, shouldValidate: true })}
+            onValueChange={(v) =>
+              form.setValue('payables_account_id', v === '__none' ? '' : v, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none">—</SelectItem>
-              {accounts.map((a) => (
+              {payableAccounts.map((a) => (
                 <SelectItem key={a.id} value={String(a.id)}>
                   {a.code} - {a.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">{t('suppliers.form.payables_hint')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={save.isPending}>

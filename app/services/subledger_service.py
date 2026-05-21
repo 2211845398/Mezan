@@ -15,6 +15,7 @@ from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
 from app.models.ar_payment_application import ArPaymentApplication
 from app.services.document_posting_service import post_ap_payment_gl, post_ar_cash_receipt_gl
+from app.services.payment_terms_service import due_date_from_supplier
 
 
 def _d(value: Decimal | int | str) -> Decimal:
@@ -91,6 +92,12 @@ async def create_ap_open_item(db: AsyncSession, *, data: dict) -> ApOpenItem:
     amount_total = _d(data["amount_total"])
     if amount_total <= Decimal("0.00"):
         raise ValidationError("amount_total must be greater than zero")
+    due_date = await due_date_from_supplier(
+        db,
+        supplier_id=data.get("supplier_id"),
+        document_date=data["document_date"],
+        explicit_due_date=data.get("due_date"),
+    )
     cc = (data.get("currency_code") or "USD").strip()
     if data.get("fx_rate") is not None:
         fx_rate: Decimal | None = Decimal(str(data["fx_rate"])).quantize(
@@ -105,7 +112,7 @@ async def create_ap_open_item(db: AsyncSession, *, data: dict) -> ApOpenItem:
         source_id=data["source_id"],
         description=data.get("description"),
         document_date=data["document_date"],
-        due_date=data.get("due_date"),
+        due_date=due_date,
         currency_code=cc,
         fx_rate=fx_rate,
         amount_total=amount_total,

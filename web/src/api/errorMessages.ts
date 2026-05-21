@@ -149,6 +149,8 @@ export function getApiErrorMessage(
 const LEGACY_DETAIL_TO_API_KEY: Record<string, string> = {
   'Email already exists': 'email_already_exists',
   EmailAlreadyExists: 'email_already_exists',
+  'Cannot post to a control (summary) account; use a leaf/posting account':
+    'control_account_posting',
 };
 
 /**
@@ -163,6 +165,15 @@ export function getLocalizedApiErrorMessage(
   const fb = fallback ?? t('errors.generic');
 
   if (error instanceof ApiError) {
+    if (error.status === 409 && isRecord(error.details)) {
+      const label = error.details.display_label;
+      if (typeof label === 'string' && label.trim()) {
+        const key = 'apiErrors.variant_inventory_activity' as const;
+        const translated = t(key, { label: label.trim() });
+        if (translated !== key) return translated;
+      }
+    }
+
     const machine = detailsMachineCode(error.details);
     if (machine && machine !== 'validation_error') {
       const key = `apiErrors.${machine}` as const;

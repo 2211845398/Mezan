@@ -231,4 +231,25 @@ describe('API error message extraction', () => {
 
     expect(getApiErrorMessage(err, 'Please try again.')).toBe('Please try again.');
   });
+
+  it('localized control account GL message maps to Arabic copy', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 400,
+        data: {
+          error: {
+            code: 'bad_request',
+            message: 'Request failed',
+            details: {
+              detail:
+                'Cannot post to a control (summary) account; use a leaf/posting account',
+            },
+          },
+        },
+      },
+      null,
+    );
+    const t = i18n.getFixedT('ar', 'common');
+    expect(getLocalizedApiErrorMessage(err, t)).toBe(t('apiErrors.control_account_posting'));
+  });
 });

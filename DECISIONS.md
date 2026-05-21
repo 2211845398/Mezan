@@ -11,25 +11,23 @@
 
 **Rationale:** Proper stock-keeping requires distinct entities for each color/size combination. The JSON attributes approach cannot reliably track cost layers or prevent cross-contamination between red and black shirts of the same product.
 
-**Schema sketch (locked):**
+**Schema sketch (updated May 2026 — relational variant axes):**
 ```sql
-product_variants(
-  id PK,
-  product_id FK → products,
-  sku VARCHAR UNIQUE NOT NULL,
-  barcode VARCHAR UNIQUE,
-  attribute_values JSONB,        -- {color: "red", size: "M"}
-  active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
-)
+attributes(id, code UNIQUE, name, sort_order, metadata JSONB)
+attribute_values(id, attribute_id FK, code, label, metadata JSONB, UNIQUE(attribute_id, code))
+product_variants(id, product_id, sku, barcode, attribute_values JSONB, active, ...)
+product_variant_attributes(variant_id, attribute_id, attribute_value_id, UNIQUE(variant_id, attribute_id))
+category_attribute_defs(..., attribute_id FK nullable, use_for_variants BOOLEAN)
 ```
+
+**Source of truth:** `product_variant_attributes` + `attribute_values`. `product_variants.attribute_values` JSONB is a denormalized read cache synced from the pivot (deprecated for writes).
 
 **Implementation notes:**
 - Phase-migrate all `*_lines` tables to add nullable `variant_id`.
-- Backfill: create one variant per existing product.
+- Backfill: create one variant per existing product; script `backfill_variant_attribute_pivot.py` for pivot from legacy JSONB.
 - After backfill verification, mark `variant_id` NOT NULL.
-- `stock_movement`, `stock_level`, `branch_product_costs`, `pos_cart_line`, `sales_invoice_line`, `purchase_order_line`, `goods_receipt_line`, `transfer_line`, `inventory_adjustment_line` — all migrate to `variant_id`.
+- Variant generator: Cartesian product on `attribute_value_id` lists; APIs `preview-generate` and `sync` on `/products/{id}/variants/`.
+- `stock_movement`, `stock_level`, `branch_product_costs`, `pos_cart_line`, `sales_invoice_line`, `purchase_order_line`, `goods_receipt_line`, `transfer_line` — all use `variant_id`.
 
 ---
 

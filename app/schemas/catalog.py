@@ -77,6 +77,8 @@ class CategoryAttributeDefBase(BaseModel):
     options: dict[str, Any] | None = None
     validation: dict[str, Any] | None = None
     sort_order: int = 0
+    attribute_id: int | None = None
+    use_for_variants: bool = False
 
 
 class CategoryAttributeDefCreate(CategoryAttributeDefBase):
@@ -90,6 +92,8 @@ class CategoryAttributeDefUpdate(BaseModel):
     options: dict[str, Any] | None = None
     validation: dict[str, Any] | None = None
     sort_order: int | None = None
+    attribute_id: int | None = None
+    use_for_variants: bool | None = None
 
 
 class CategoryAttributeDefRead(CategoryAttributeDefBase):

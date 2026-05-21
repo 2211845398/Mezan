@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import Integer, Numeric, String
+from sqlalchemy import Boolean, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -22,3 +22,4 @@ class Currency(Base):
     exchange_rate_to_base: Mapped[Decimal | None] = mapped_column(
         Numeric(18, 8), nullable=True, default=None
     )
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

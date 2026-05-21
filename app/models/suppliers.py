@@ -31,6 +31,9 @@ class Supplier(Base):
         JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
     )
     payment_terms: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    payment_terms_id: Mapped[int | None] = mapped_column(
+        ForeignKey("payment_terms.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

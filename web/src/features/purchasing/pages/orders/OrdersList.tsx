@@ -86,9 +86,7 @@ export default function OrdersList() {
         {
           id: 'branch',
           header: t('orders.col.branch'),
-          cell: ({ row }) =>
-            (row.original as PurchaseOrderRead & { branch_name?: string }).branch_name ??
-            (row.original.branch_id ? `#${row.original.branch_id}` : '—'),
+          cell: ({ row }) => row.original.branch_name?.trim() || '—',
         },
         {
           id: 'status',
@@ -174,7 +172,7 @@ export default function OrdersList() {
   ];
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-4 p-6">
       <PageHeader
         title={t('orders.title')}
         actions={
@@ -207,24 +205,7 @@ export default function OrdersList() {
         ))}
       </div>
 
-      {/* Status filter */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Label className="shrink-0">{t('orders.filter_status')}</Label>
-        <Select value={status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder={t('orders.all_statuses')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('orders.all_statuses')}</SelectItem>
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {t(`orders.status.${s}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
+      <div className="mt-[75px]">
       <DataTable
         mode="client"
         columns={columns}
@@ -232,7 +213,26 @@ export default function OrdersList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        toolbarExtras={
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="shrink-0 text-sm leading-none">{t('orders.filter_status')}</Label>
+            <Select value={status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
+              <SelectTrigger className="h-9 w-[200px]">
+                <SelectValue placeholder={t('orders.all_statuses')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('orders.all_statuses')}</SelectItem>
+                {STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {t(`orders.status.${s}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        }
       />
+      </div>
     </div>
   );
 }

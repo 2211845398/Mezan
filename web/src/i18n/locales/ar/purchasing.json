@@ -22,12 +22,15 @@
       "first_name": "الاسم الأول",
       "father_name": "اسم الأب",
       "family_name": "اللقب",
-      "currency_id": "معرّف العملة",
+      "currency_code": "العملة",
+      "code_display": "رمز المورد",
       "tax_id": "الرقم الضريبي",
       "payment_terms": "شروط الدفع",
       "contact_phone": "هاتف الاتصال",
       "contact_email": "البريد الإلكتروني",
-      "payables_account_id": "معرّف حساب الذمم الدائنة",
+      "payables_account_id": "حساب الذمم الدائنة",
+      "payables_hint": "عند تركه فارغاً يُستخدم حساب الذمم الدائنة الافتراضي.",
+      "validation_summary": "راجع الحقول المميزة وأصلح الأخطاء قبل الحفظ.",
       "save": "حفظ",
       "created": "تم حفظ المورد"
     }
@@ -54,6 +57,7 @@
     "filter_status": "الحالة",
     "all_statuses": "الكل",
     "form": {
+      "header_section": "بيانات الأمر",
       "supplier": "المورد",
       "supplier_name": "اسم المورد",
       "expected_date": "التاريخ المتوقع",
@@ -88,15 +92,25 @@
       "send": "إرسال",
       "cancel": "إلغاء",
       "track": "تعليم كمتابَع",
-      "close": "إغلاق",
+      "close": "إغلاق دون استلام كامل",
       "partial_receive": "استلام جزئي",
       "full_receive_hint": "حدد الكمية المستلمة لكل سطر",
       "receipt_ok": "تم الاستلام وتحديث المخزون والقيود.",
       "closed_ok": "تم إغلاق الأمر",
       "remaining": "المتبقي",
+      "line_no": "رقم",
       "received_col": "المستلم",
       "variant_col": "المتغير",
-      "variant_at_receive": "يُحدَّد عند الاستلام"
+      "variant_at_receive": "يُحدَّد عند الاستلام",
+      "unit_cost_col": "تكلفة الوحدة",
+      "unit_cost_at_receive": "تُحدَّد عند الاستلام",
+      "receipt_number": "إيصال #{{id}}",
+      "receipt_date": "التاريخ",
+      "receipt_branch": "الفرع",
+      "receipt_line_total": "الإجمالي",
+      "receipt_total": "إجمالي الإيصال",
+      "receipt_sku": "SKU / المتغير",
+      "receipt_po_line": "بند #{{id}}"
     },
     "status": {
       "draft": "مسودة",
@@ -123,7 +137,19 @@
       "add_split": "إضافة جزء",
       "allocated": "المُوزَّع",
       "variant_required": "اختر متغيراً وكمية لكل جزء",
-      "split_exceeds_remaining": "مجموع الأجزاء يتجاوز الكمية المتبقية"
+      "split_exceeds_remaining": "مجموع الأجزاء يتجاوز الكمية المتبقية",
+      "progress_expected": "المتوقع: {{count}}",
+      "progress_received": "المستلم: {{count}}",
+      "progress_open": "المتبقي: {{count}}",
+      "progress_exceeds": "يتجاوز المتبقي",
+      "no_lines": "أدخل كمية وتكلفة لبند واحد على الأقل"
+    },
+    "notes_section": {
+      "order_title": "ملاحظات الأمر",
+      "receipt_title": "ملاحظات هذا الاستلام",
+      "receipt_on_receipt": "ملاحظات الاستلام",
+      "empty": "—",
+      "placeholder": "ملاحظات اختيارية لهذا الاستلام…"
     }
   },
   "match": {

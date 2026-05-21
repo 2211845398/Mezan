@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { SectionCard } from '@/components/shared/ContentSurface';
@@ -86,10 +87,14 @@ export default function GoodsReceiptPage() {
               if (po.status === 'sent') {
                 try {
                   await trackPurchaseOrder(poId);
-                  await qc.invalidateQueries({ queryKey: purchasingKeys.root });
                 } catch {
                   /* optional auto-track */
                 }
+              }
+              await qc.invalidateQueries({ queryKey: purchasingKeys.root });
+              const updated = await qc.fetchQuery(purchaseOrderQueryOptions(poId));
+              if (updated?.status === 'closed') {
+                toast.success(t('orders.detail_page.closed_ok'));
               }
               navigate(`/purchasing/orders/${poId}`);
             }}

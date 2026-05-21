@@ -23,6 +23,8 @@ from app.services.purchase_order_service import (
     mark_po_closed,
     mark_po_sent,
     mark_po_tracked,
+    purchase_order_to_read_one,
+    purchase_orders_to_read,
     update_po,
 )
 
@@ -50,7 +52,7 @@ async def create_po_endpoint(
         request=request,
     )
     await db.commit()
-    return PurchaseOrderRead.model_validate(po)
+    return await purchase_order_to_read_one(db, po)
 
 
 @router.get("/purchase-orders", response_model=list[PurchaseOrderRead])
@@ -63,7 +65,7 @@ async def list_pos_endpoint(
     __: None = require_permission("purchase_orders", "read"),
 ) -> list[PurchaseOrderRead]:
     rows = await list_pos(db, limit=limit, offset=offset, status=status)
-    return [PurchaseOrderRead.model_validate(r) for r in rows]
+    return await purchase_orders_to_read(db, rows)
 
 
 @router.get("/purchase-orders/{po_id}", response_model=PurchaseOrderRead)
@@ -74,7 +76,7 @@ async def get_po_endpoint(
     __: None = require_permission("purchase_orders", "read"),
 ) -> PurchaseOrderRead:
     po = await get_po(db, po_id)
-    return PurchaseOrderRead.model_validate(po)
+    return await purchase_order_to_read_one(db, po)
 
 
 @router.patch("/purchase-orders/{po_id}", response_model=PurchaseOrderRead)
@@ -97,7 +99,7 @@ async def update_po_endpoint(
         request=request,
     )
     await db.commit()
-    return PurchaseOrderRead.model_validate(po)
+    return await purchase_order_to_read_one(db, po)
 
 
 @router.post("/purchase-orders/{po_id}/send", response_model=PurchaseOrderRead)
@@ -123,7 +125,7 @@ async def send_po_endpoint(
             request=request,
         )
         await db.commit()
-    return PurchaseOrderRead.model_validate(po)
+    return await purchase_order_to_read_one(db, po)
 
 
 @router.post("/purchase-orders/{po_id}/track", response_model=PurchaseOrderRead)
@@ -145,7 +147,7 @@ async def track_po_endpoint(
         request=request,
     )
     await db.commit()
-    return PurchaseOrderRead.model_validate(po)
+    return await purchase_order_to_read_one(db, po)
 
 
 @router.post("/purchase-orders/{po_id}/cancel", response_model=PurchaseOrderRead)
@@ -167,7 +169,7 @@ async def cancel_po_endpoint(
         request=request,
     )
     await db.commit()
-    return PurchaseOrderRead.model_validate(po)
+    return await purchase_order_to_read_one(db, po)
 
 
 @router.post("/purchase-orders/{po_id}/close", response_model=PurchaseOrderRead)
@@ -189,4 +191,4 @@ async def close_po_endpoint(
         request=request,
     )
     await db.commit()
-    return PurchaseOrderRead.model_validate(po)
+    return await purchase_order_to_read_one(db, po)

@@ -13,10 +13,63 @@ type CategoryCreate = paths['/api/v1/categories']['post']['requestBody']['conten
 type CategoryUpdate = paths['/api/v1/categories/{category_id}']['patch']['requestBody']['content']['application/json'];
 type CategoryTreeNode = paths['/api/v1/categories/tree']['get']['responses']['200']['content']['application/json'][number];
 type AttrDef = paths['/api/v1/categories/{category_id}/attributes']['get']['responses']['200']['content']['application/json'][number];
-export type CategoryAttrDef = AttrDef;
-type AttrDefCreate = paths['/api/v1/categories/{category_id}/attributes']['post']['requestBody']['content']['application/json'];
-type AttrDefUpdate =
+export type CategoryAttrDef = AttrDef & {
+  attribute_id?: number | null;
+  use_for_variants?: boolean;
+};
+
+export type CatalogAttributeRead = {
+  id: number;
+  code: string;
+  name: string;
+  sort_order: number;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type CatalogAttributeValueRead = {
+  id: number;
+  attribute_id: number;
+  code: string;
+  label: string;
+  sort_order: number;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type VariantPreviewRow = {
+  attribute_value_ids: number[];
+  suggested_sku: string;
+  display_label: string;
+  exists: boolean;
+  attribute_summary: {
+    attribute_id: number;
+    attribute_value_id: number;
+    attribute_code: string;
+    value_code: string;
+    label: string;
+  }[];
+};
+
+export type VariantDraftRow = {
+  id: number | null;
+  attribute_value_ids: number[];
+  sku: string;
+  barcode: string;
+  active: boolean;
+  display_label: string;
+};
+type AttrDefCreateBase =
+  paths['/api/v1/categories/{category_id}/attributes']['post']['requestBody']['content']['application/json'];
+type AttrDefUpdateBase =
   paths['/api/v1/categories/{category_id}/attributes/{attr_id}']['patch']['requestBody']['content']['application/json'];
+
+export type CategoryAttrDefCreate = AttrDefCreateBase & {
+  attribute_id?: number | null;
+  use_for_variants?: boolean;
+};
+export type CategoryAttrDefUpdate = AttrDefUpdateBase & {
+  attribute_id?: number | null;
+  use_for_variants?: boolean;
+};
 
 export type {
   AttrDef,
@@ -94,6 +147,7 @@ export type ProductWithVariantsVariantRow = {
   sku: string;
   barcode: string | null;
   attribute_values: Record<string, unknown> | null;
+  attribute_value_ids?: number[];
   active: boolean;
 };
 
@@ -273,4 +327,63 @@ export function getDisplayPrice(p: ProductRead): string {
 
 export function getBarcodeCount(p: ProductRead): number {
   return p.barcode ? 1 : 0;
+}
+
+export async function listCatalogAttributes(): Promise<CatalogAttributeRead[]> {
+  const { data } = await apiClient.get<CatalogAttributeRead[]>('/catalog/attributes');
+  return data;
+}
+
+export async function createCatalogAttribute(body: {
+  code?: string | null;
+  name: string;
+  sort_order?: number;
+}): Promise<CatalogAttributeRead> {
+  const { data } = await apiClient.post<CatalogAttributeRead>('/catalog/attributes', body);
+  return data;
+}
+
+export async function listCatalogAttributeValues(
+  attributeId: number,
+): Promise<CatalogAttributeValueRead[]> {
+  const { data } = await apiClient.get<CatalogAttributeValueRead[]>(
+    `/catalog/attributes/${attributeId}/values`,
+  );
+  return data;
+}
+
+export async function createCatalogAttributeValue(
+  attributeId: number,
+  body: { code?: string | null; label: string; sort_order?: number },
+): Promise<CatalogAttributeValueRead> {
+  const { data } = await apiClient.post<CatalogAttributeValueRead>(
+    `/catalog/attributes/${attributeId}/values`,
+    body,
+  );
+  return data;
+}
+
+export async function previewGenerateVariants(
+  productId: number,
+  axes: Record<number, number[]>,
+): Promise<{ rows: VariantPreviewRow[]; count: number }> {
+  const { data } = await apiClient.post<{ rows: VariantPreviewRow[]; count: number }>(
+    `/products/${productId}/variants/preview-generate`,
+    { axes },
+  );
+  return data;
+}
+
+export async function syncProductVariants(
+  productId: number,
+  variants: {
+    id: number | null;
+    attribute_value_ids: number[];
+    sku: string;
+    barcode: string | null;
+    active: boolean;
+  }[],
+): Promise<{ created: number; updated: number; deactivated: number; variant_ids: number[] }> {
+  const { data } = await apiClient.post(`/products/${productId}/variants/sync`, { variants });
+  return data;
 }

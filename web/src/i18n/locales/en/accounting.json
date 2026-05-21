@@ -278,5 +278,62 @@
     "reopen_confirm_body": "Reopening allows posting again in this period.",
     "closed_ok": "Period closed",
     "reopened_ok": "Period reopened"
+  },
+  "currencies": {
+    "title": "Currencies",
+    "description": "Manage currencies, exchange rates to base, and company base currency.",
+    "add": "Add currency",
+    "empty": "No currencies yet.",
+    "select_placeholder": "Select currency",
+    "base_badge": "Base",
+    "current_base": "Company base currency",
+    "link_fx": "FX revaluation",
+    "fx_hint": "Update exchange rates here for day-to-day valuation. Run FX revaluation at period close from Accounting operations.",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "rate": "Rate to base",
+      "base": "Base",
+      "active": "Active"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "edit_rate": "Edit rate",
+    "edit_rate_title": "Rate for {{code}}",
+    "set_base": "Set as base",
+    "created": "Currency added",
+    "rate_updated": "Exchange rate updated",
+    "base_updated": "Base currency updated",
+    "base_confirm_title": "Change base currency?",
+    "base_confirm_body": "This is a rare administrative action. Open foreign-currency AR/AP must be settled or revalued first. The new base currency rate will be set to 1.",
+    "base_confirm_action": "Change base",
+    "form": {
+      "code": "Currency code (ISO)",
+      "name": "Name",
+      "rate": "Exchange rate to base",
+      "rate_hint": "Units of base currency per 1 unit of this currency. Leave empty for base-like setup.",
+      "save": "Save"
+    }
+  },
+  "payment_terms": {
+    "title": "Payment terms",
+    "description": "Define when supplier payments are due (used for AP due dates).",
+    "add": "Add term",
+    "edit": "Edit term",
+    "empty": "No payment terms.",
+    "saved": "Payment term saved",
+    "col": {
+      "code": "Code",
+      "name": "Label",
+      "days": "Days",
+      "active": "Active"
+    },
+    "form": {
+      "code": "Code",
+      "name_en": "Name (English)",
+      "name_ar": "Name (Arabic)",
+      "days": "Due days after invoice",
+      "save": "Save"
+    }
   }
 }
