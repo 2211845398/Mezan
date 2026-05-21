@@ -111,7 +111,7 @@ export default function CustomerDetail() {
 
   const { data: arItems = [], isLoading: arLoading } = useQuery({
     ...arOpenItemsQueryOptions({
-      branch_id: activeBranchId ?? undefined,
+      ...(activeBranchId != null ? { branch_id: activeBranchId } : {}),
       status: 'open',
     }),
     enabled:

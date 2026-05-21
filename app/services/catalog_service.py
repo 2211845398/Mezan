@@ -816,13 +816,26 @@ async def product_to_read(db: AsyncSession, product: Product) -> ProductRead:
     merged = {product.category_id, *tag_map.get(product.id, [])}
     tax_fields = await _tax_effective_rates_and_ids(db, [product])
     eff, tids = tax_fields[product.id]
+    variant_counts = await _variant_counts_for_products(db, [product.id])
     return ProductRead.model_validate(product).model_copy(
         update={
             "category_ids": sorted(merged),
             "tax_definition_ids": tids,
             "output_vat_rate": eff,
+            "variant_count": variant_counts.get(product.id, 0),
         }
     )
+
+
+async def _variant_counts_for_products(db: AsyncSession, product_ids: list[int]) -> dict[int, int]:
+    if not product_ids:
+        return {}
+    res = await db.execute(
+        select(ProductVariant.product_id, func.count())
+        .where(ProductVariant.product_id.in_(product_ids))
+        .group_by(ProductVariant.product_id)
+    )
+    return {int(pid): int(n) for pid, n in res.all()}
 
 
 async def products_to_reads(db: AsyncSession, products: list[Product]) -> list[ProductRead]:
@@ -831,6 +844,7 @@ async def products_to_reads(db: AsyncSession, products: list[Product]) -> list[P
     ids = [p.id for p in products]
     tag_map = await _product_tag_map(db, ids)
     tax_fields = await _tax_effective_rates_and_ids(db, products)
+    variant_counts = await _variant_counts_for_products(db, ids)
     out: list[ProductRead] = []
     for p in products:
         merged = {p.category_id, *tag_map.get(p.id, [])}
@@ -841,6 +855,7 @@ async def products_to_reads(db: AsyncSession, products: list[Product]) -> list[P
                     "category_ids": sorted(merged),
                     "tax_definition_ids": tids,
                     "output_vat_rate": eff,
+                    "variant_count": variant_counts.get(p.id, 0),
                 }
             )
         )
@@ -863,11 +878,14 @@ async def _ensure_default_product_variant(db: AsyncSession, product: Product) ->
     if existing.scalar_one_or_none() is not None:
         return
     now = datetime.now(UTC)
+    from app.utils.variant_combination_key import DEFAULT_VARIANT_COMBINATION_KEY
+
     db.add(
         ProductVariant(
             product_id=product.id,
             sku=product.sku,
             barcode=product.barcode,
+            combination_key=DEFAULT_VARIANT_COMBINATION_KEY,
             attribute_values={"_default": True},
             active=product.status == "active",
             created_at=now,

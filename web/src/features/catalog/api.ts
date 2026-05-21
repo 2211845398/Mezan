@@ -5,7 +5,10 @@ type ProductReadBase = paths['/api/v1/products']['get']['responses']['200']['con
 type ProductCreateBase = paths['/api/v1/products']['post']['requestBody']['content']['application/json'];
 type ProductUpdateBase = paths['/api/v1/products/{product_id}']['patch']['requestBody']['content']['application/json'];
 
-export type ProductRead = ProductReadBase & { tax_definition_ids?: number[] };
+export type ProductRead = ProductReadBase & {
+  tax_definition_ids?: number[];
+  variant_count?: number;
+};
 export type ProductCreate = ProductCreateBase & { tax_definition_ids?: number[] | null };
 export type ProductUpdate = ProductUpdateBase & { tax_definition_ids?: number[] | null };
 type CategoryRead = paths['/api/v1/categories']['get']['responses']['200']['content']['application/json'][number];
@@ -24,6 +27,7 @@ export type CatalogAttributeRead = {
   name: string;
   sort_order: number;
   metadata?: Record<string, unknown> | null;
+  value_count?: number | null;
 };
 
 export type CatalogAttributeValueRead = {
@@ -33,6 +37,7 @@ export type CatalogAttributeValueRead = {
   label: string;
   sort_order: number;
   metadata?: Record<string, unknown> | null;
+  usage_count?: number | null;
 };
 
 export type VariantPreviewRow = {
@@ -55,7 +60,16 @@ export type VariantDraftRow = {
   sku: string;
   barcode: string;
   active: boolean;
+  price_extra: string;
   display_label: string;
+};
+
+export type ProductAxisLineRead = {
+  attribute_id: number;
+  attribute_code: string;
+  attribute_name: string;
+  sort_order: number;
+  value_ids: number[];
 };
 type AttrDefCreateBase =
   paths['/api/v1/categories/{category_id}/attributes']['post']['requestBody']['content']['application/json'];
@@ -149,10 +163,17 @@ export type ProductWithVariantsVariantRow = {
   attribute_values: Record<string, unknown> | null;
   attribute_value_ids?: number[];
   active: boolean;
+  price_extra?: string | number;
+  display_label?: string;
+  combination_key?: string;
+  stock_by_branch?: Record<number, number>;
+  last_cost_by_branch?: Record<number, string | number>;
+  sell_price?: string | number | null;
 };
 
 export type ProductWithVariantsResponse = {
   product: ProductRead;
+  axes: ProductAxisLineRead[];
   variants: ProductWithVariantsVariantRow[];
   variant_count: number;
 };
@@ -295,7 +316,7 @@ export async function listCategoryAttributes(
 
 export async function createCategoryAttribute(
   categoryId: number,
-  body: AttrDefCreate,
+  body: CategoryAttrDefCreate,
 ): Promise<AttrDef> {
   const { data } = await apiClient.post<AttrDef>(`/categories/${categoryId}/attributes`, body);
   return data;
@@ -304,7 +325,7 @@ export async function createCategoryAttribute(
 export async function updateCategoryAttribute(
   categoryId: number,
   attrId: number,
-  body: AttrDefUpdate,
+  body: CategoryAttrDefUpdate,
 ): Promise<AttrDef> {
   const { data } = await apiClient.patch<AttrDef>(
     `/categories/${categoryId}/attributes/${attrId}`,
@@ -343,6 +364,18 @@ export async function createCatalogAttribute(body: {
   return data;
 }
 
+export async function updateCatalogAttribute(
+  id: number,
+  body: { name?: string; sort_order?: number },
+): Promise<CatalogAttributeRead> {
+  const { data } = await apiClient.patch<CatalogAttributeRead>(`/catalog/attributes/${id}`, body);
+  return data;
+}
+
+export async function deleteCatalogAttribute(id: number): Promise<void> {
+  await apiClient.delete(`/catalog/attributes/${id}`);
+}
+
 export async function listCatalogAttributeValues(
   attributeId: number,
 ): Promise<CatalogAttributeValueRead[]> {
@@ -363,6 +396,33 @@ export async function createCatalogAttributeValue(
   return data;
 }
 
+export async function updateCatalogAttributeValue(
+  attributeId: number,
+  valueId: number,
+  body: { label?: string; sort_order?: number },
+): Promise<CatalogAttributeValueRead> {
+  const { data } = await apiClient.patch<CatalogAttributeValueRead>(
+    `/catalog/attributes/${attributeId}/values/${valueId}`,
+    body,
+  );
+  return data;
+}
+
+export async function deleteCatalogAttributeValue(attributeId: number, valueId: number): Promise<void> {
+  await apiClient.delete(`/catalog/attributes/${attributeId}/values/${valueId}`);
+}
+
+export async function mergeCatalogAttributeValues(
+  attributeId: number,
+  body: { target_value_id: number; source_value_ids: number[] },
+): Promise<CatalogAttributeValueRead> {
+  const { data } = await apiClient.post<CatalogAttributeValueRead>(
+    `/catalog/attributes/${attributeId}/values/merge`,
+    body,
+  );
+  return data;
+}
+
 export async function previewGenerateVariants(
   productId: number,
   axes: Record<number, number[]>,
@@ -376,14 +436,18 @@ export async function previewGenerateVariants(
 
 export async function syncProductVariants(
   productId: number,
-  variants: {
-    id: number | null;
-    attribute_value_ids: number[];
-    sku: string;
-    barcode: string | null;
-    active: boolean;
-  }[],
+  body: {
+    axes?: Record<number, number[]>;
+    variants: {
+      id: number | null;
+      attribute_value_ids: number[];
+      sku: string;
+      barcode: string | null;
+      active: boolean;
+      price_extra?: string | number;
+    }[];
+  },
 ): Promise<{ created: number; updated: number; deactivated: number; variant_ids: number[] }> {
-  const { data } = await apiClient.post(`/products/${productId}/variants/sync`, { variants });
+  const { data } = await apiClient.post(`/products/${productId}/variants/sync`, body);
   return data;
 }

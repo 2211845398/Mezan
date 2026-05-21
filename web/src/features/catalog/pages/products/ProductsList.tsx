@@ -199,6 +199,15 @@ export default function ProductsList() {
           ),
         },
         {
+          id: 'variants',
+          header: t('products.col.variants'),
+          cell: ({ row }) => (
+            <span className="num-latin tabular-nums" dir="ltr">
+              {row.original.variant_count ?? 0}
+            </span>
+          ),
+        },
+        {
           id: 'status',
           header: t('products.col.status'),
           cell: ({ row }) => t(`products.status.${row.original.status === 'archived' ? 'archived' : 'active'}`),

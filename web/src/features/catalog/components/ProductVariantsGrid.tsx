@@ -18,7 +18,7 @@ import type { VariantDraftRow } from '../api';
 type Props = {
   rows: VariantDraftRow[];
   productName: string;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   onRowsChange: (rows: VariantDraftRow[]) => void;
 };
 
@@ -47,6 +47,7 @@ export function ProductVariantsGrid({ rows, productName, disabled, onRowsChange 
             <TableHead>{t('products.variants.col.variant')}</TableHead>
             <TableHead>{t('products.variants.col.sku')}</TableHead>
             <TableHead>{t('products.variants.col.barcode')}</TableHead>
+            <TableHead>{t('products.variants.col.price_extra')}</TableHead>
             <TableHead className="w-20">{t('products.variants.col.active')}</TableHead>
             <TableHead className="w-10" />
           </TableRow>
@@ -69,7 +70,20 @@ export function ProductVariantsGrid({ rows, productName, disabled, onRowsChange 
                   value={row.barcode}
                   disabled={disabled}
                   placeholder="—"
+                  autoComplete="off"
                   onChange={(e) => patchRow(idx, { barcode: e.target.value })}
+                />
+              </TableCell>
+              <TableCell>
+                <Input
+                  className="h-8 num-latin text-xs"
+                  dir="ltr"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={row.price_extra}
+                  disabled={disabled}
+                  onChange={(e) => patchRow(idx, { price_extra: e.target.value })}
                 />
               </TableCell>
               <TableCell>

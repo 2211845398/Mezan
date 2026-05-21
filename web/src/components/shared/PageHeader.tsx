@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type PageHeaderProps = {
-  title: string;
-  subtitle?: string;
+  title: ReactNode;
+  subtitle?: string | undefined;
+  /** Alias for `subtitle` (accounting list pages). */
+  description?: string | undefined;
   actions?: ReactNode;
   className?: string;
 };
@@ -16,12 +18,13 @@ export type PageHeaderProps = {
  * Consistent page header for CRUD screens.
  * Uses logical margin/padding for RTL-first layouts.
  */
-export function PageHeader({ title, subtitle, actions, className }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, description, actions, className }: PageHeaderProps) {
+  const sub = subtitle ?? description;
   return (
     <div className={cn('flex flex-wrap items-center justify-between gap-4', className)}>
       <div className="flex min-w-0 flex-col gap-1">
         <h1 className="text-xl font-semibold leading-tight">{title}</h1>
-        {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+        {sub ? <p className="text-sm text-muted-foreground">{sub}</p> : null}
       </div>
       {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
     </div>

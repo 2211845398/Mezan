@@ -363,6 +363,7 @@ Resolves `D-7`, `GAP-CAT-005..007`, `GAP-INV-007`. Blocking dependency for Epic 
 - [x] **18.14** Catalog attribute master API: `GET/POST /catalog/attributes`, values CRUD, pivot backfill script.
 - [x] **18.15** Variant generator: `variant_combinator`, `POST .../variants/preview-generate`, `POST .../variants/sync`; search by `attribute_value_id`.
 - [x] **18.16** `ProductFormPage` Odoo-style tabs (product data | attributes): creatable axis lines, auto-generate on save, variants grid on edit; catalog dictionary admin at `/admin/catalog-attributes`; `validate_catalog_axes` + inventory-activity guard on sync.
+- [x] **18.17** Odoo template axes: `product_attribute_lines` + `product_attribute_line_values`; `product_variants.combination_key` + `price_extra`; `sync_product_variant_configuration`; dictionary CRUD/merge at `/catalog/attributes`; `ProductDataTab` / `ProductAttributesTab`; variant count on product list.
 
 #### Epic 19 — Accounting Core Hardening
 Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The largest backend epic of Phase 2.

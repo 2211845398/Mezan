@@ -266,5 +266,9 @@ class ProductRead(ProductBase):
         default_factory=list,
         description="Linked catalog tax definition ids (junction table).",
     )
+    variant_count: int = Field(
+        default=0,
+        description="Number of product variants (stock-keeping units) for this template.",
+    )
 
     model_config = {"from_attributes": True}

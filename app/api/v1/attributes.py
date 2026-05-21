@@ -11,6 +11,7 @@ from app.schemas.attributes import (
     CatalogAttributeRead,
     CatalogAttributeUpdate,
     CatalogAttributeValueCreate,
+    CatalogAttributeValueMergeRequest,
     CatalogAttributeValueRead,
     CatalogAttributeValueUpdate,
 )
@@ -18,9 +19,12 @@ from app.services import audit_service
 from app.services.attribute_service import (
     create_attribute,
     create_attribute_value,
+    delete_attribute,
+    delete_attribute_value,
     get_attribute,
     list_attribute_values,
     list_attributes,
+    merge_attribute_values,
     update_attribute,
     update_attribute_value,
 )
@@ -57,10 +61,31 @@ async def create_attribute_endpoint(
         resource_id=str(row.id),
         user_id=current_user.id,
         request=request,
-        details={"code": row.code},
+        new_value={"code": row.code},
     )
     await db.commit()
     return row
+
+
+@router.delete("/catalog/attributes/{attribute_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_attribute_endpoint(
+    attribute_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("catalog", "delete"),
+) -> None:
+    await delete_attribute(db, attribute_id)
+    await audit_service.log(
+        session=db,
+        action="catalog_attribute.delete",
+        resource_type="catalog_attribute",
+        resource_id=str(attribute_id),
+        user_id=current_user.id,
+        request=request,
+        new_value={},
+    )
+    await db.commit()
 
 
 @router.patch("/catalog/attributes/{attribute_id}", response_model=CatalogAttributeRead)
@@ -80,7 +105,7 @@ async def update_attribute_endpoint(
         resource_id=str(attribute_id),
         user_id=current_user.id,
         request=request,
-        details={},
+        new_value={},
     )
     await db.commit()
     return row
@@ -121,10 +146,61 @@ async def create_attribute_value_endpoint(
         resource_id=str(row.id),
         user_id=current_user.id,
         request=request,
-        details={"attribute_id": attribute_id, "code": row.code},
+        new_value={"attribute_id": attribute_id, "code": row.code},
     )
     await db.commit()
     return row
+
+
+@router.post(
+    "/catalog/attributes/{attribute_id}/values/merge",
+    response_model=CatalogAttributeValueRead,
+)
+async def merge_attribute_values_endpoint(
+    attribute_id: int,
+    body: CatalogAttributeValueMergeRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("catalog", "update"),
+) -> CatalogAttributeValueRead:
+    row = await merge_attribute_values(db, attribute_id, body)
+    await audit_service.log(
+        session=db,
+        action="catalog_attribute_value.merge",
+        resource_type="catalog_attribute_value",
+        resource_id=str(body.target_value_id),
+        user_id=current_user.id,
+        request=request,
+        new_value={"source_value_ids": body.source_value_ids},
+    )
+    await db.commit()
+    return row
+
+
+@router.delete(
+    "/catalog/attributes/{attribute_id}/values/{value_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_attribute_value_endpoint(
+    attribute_id: int,
+    value_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("catalog", "delete"),
+) -> None:
+    await delete_attribute_value(db, attribute_id, value_id)
+    await audit_service.log(
+        session=db,
+        action="catalog_attribute_value.delete",
+        resource_type="catalog_attribute_value",
+        resource_id=str(value_id),
+        user_id=current_user.id,
+        request=request,
+        new_value={"attribute_id": attribute_id},
+    )
+    await db.commit()
 
 
 @router.patch(
@@ -148,7 +224,7 @@ async def update_attribute_value_endpoint(
         resource_id=str(value_id),
         user_id=current_user.id,
         request=request,
-        details={"attribute_id": attribute_id},
+        new_value={"attribute_id": attribute_id},
     )
     await db.commit()
     return row

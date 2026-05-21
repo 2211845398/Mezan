@@ -312,7 +312,9 @@ export default function PendingOnboardingDetail() {
               <DateField
                 value={contractEnd}
                 onChange={setContractEnd}
-                minSelectableDate={contractStart.trim() || undefined}
+                {...(contractStart.trim()
+                  ? { minSelectableDate: contractStart.trim() }
+                  : {})}
               />
             </div>
           </div>

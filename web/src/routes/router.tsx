@@ -325,7 +325,11 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'attributes',
-                element: <Navigate to="/admin/catalog-attributes" replace />,
+                element: (
+                  <RequirePermission resource="catalog" action="read">
+                    {withSuspense(CatalogAttributesPage)}
+                  </RequirePermission>
+                ),
               },
               {
                 path: 'categories',
@@ -1143,11 +1147,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'catalog-attributes',
-                element: (
-                  <RequirePermission resource="catalog" action="read">
-                    {withSuspense(CatalogAttributesPage)}
-                  </RequirePermission>
-                ),
+                element: <Navigate to="/catalog/attributes" replace />,
               },
               {
                 path: 'notifications',

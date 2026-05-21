@@ -91,7 +91,6 @@ export function TenderDrawer({
     }
   }, [open]);
 
-  const total = Number.parseFloat(cart.total);
   const totalDec = new Decimal(cart.total);
   const tenderedDec = tendered ? new Decimal(tendered) : null;
   const shortfall =

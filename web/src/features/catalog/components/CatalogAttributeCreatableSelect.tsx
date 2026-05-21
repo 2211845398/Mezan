@@ -22,7 +22,7 @@ import { catalogKeys } from '../queries';
 type Props = {
   value: number | null;
   excludeAttributeIds?: number[];
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   onChange: (attributeId: number) => void;
 };
 

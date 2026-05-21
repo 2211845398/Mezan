@@ -16,6 +16,7 @@ class CatalogAttributeRead(BaseModel):
     name: str
     sort_order: int
     metadata: dict[str, Any] | None = None
+    value_count: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -61,6 +62,7 @@ class CatalogAttributeValueRead(BaseModel):
     label: str
     sort_order: int
     metadata: dict[str, Any] | None = None
+    usage_count: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -98,3 +100,11 @@ class CatalogAttributeValueUpdate(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=255)
     sort_order: int | None = None
     metadata: dict[str, Any] | None = None
+
+
+class CatalogAttributeValueMergeRequest(BaseModel):
+    target_value_id: int = Field(description="Canonical value to keep")
+    source_value_ids: list[int] = Field(
+        min_length=1,
+        description="Duplicate values to merge into the target",
+    )

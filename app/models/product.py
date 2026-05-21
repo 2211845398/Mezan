@@ -64,3 +64,8 @@ class Product(Base):
         cascade="all, delete-orphan",
         lazy="dynamic",
     )
+    attribute_lines = relationship(
+        "ProductAttributeLine",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )

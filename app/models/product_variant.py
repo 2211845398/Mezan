@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from decimal import Decimal
+
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,6 +24,11 @@ class ProductVariant(Base):
     __table_args__ = (
         UniqueConstraint("sku", name="uq_product_variants_sku"),
         UniqueConstraint("barcode", name="uq_product_variants_barcode", deferrable="INITIALLY DEFERRED"),
+        UniqueConstraint(
+            "product_id",
+            "combination_key",
+            name="uq_product_variants_product_combination",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -32,6 +39,8 @@ class ProductVariant(Base):
     )
     sku: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     barcode: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True, index=True)
+    combination_key: Mapped[str] = mapped_column(String(512), nullable=False, default="_default", index=True)
+    price_extra: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False, default=Decimal("0"))
     # Distinguishing attributes: {"color": "red", "size": "M"}
     attribute_values: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     active: Mapped[bool] = mapped_column(default=True, nullable=False)

@@ -19,6 +19,9 @@ export type CategoryImageUploadFieldProps = {
   /** Optional stable id for the hidden file input (e.g. when multiple fields on one page). */
   inputId?: string;
   className?: string;
+  /** Upload buttons + hint only (thumbnail shown elsewhere). */
+  layout?: 'default' | 'controls-only';
+  showLabel?: boolean;
 };
 
 export function CategoryImageUploadField({
@@ -27,6 +30,8 @@ export function CategoryImageUploadField({
   disabled,
   inputId: inputIdProp,
   className,
+  layout = 'default',
+  showLabel = true,
 }: CategoryImageUploadFieldProps) {
   const { t } = useTranslation('catalog');
   const reactId = useId();
@@ -77,9 +82,54 @@ export function CategoryImageUploadField({
     uploadM.mutate(file);
   }
 
+  const controls = (
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <input
+        id={inputId}
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        disabled={disabled || uploadM.isPending}
+        onChange={onFileChange}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2 border-secondary/60"
+          disabled={disabled || uploadM.isPending}
+          onClick={() => fileRef.current?.click()}
+        >
+          <Camera className="size-4 shrink-0" aria-hidden />
+          {uploadM.isPending ? t('loading') : t('categories.image_upload_button')}
+        </Button>
+        {value.trim() !== '' && !disabled ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-muted-foreground"
+            disabled={uploadM.isPending}
+            onClick={() => onChange('')}
+          >
+            <X className="size-4" aria-hidden />
+            {t('categories.image_remove')}
+          </Button>
+        ) : null}
+      </div>
+      <p className="text-muted-foreground text-xs">{t('categories.image_hint')}</p>
+    </div>
+  );
+
+  if (layout === 'controls-only') {
+    return <div className={cn('min-w-0 flex-1', className)}>{controls}</div>;
+  }
+
   return (
     <div className={cn('space-y-2', className)}>
-      <Label htmlFor={inputId}>{t('categories.field.image_upload')}</Label>
+      {showLabel ? <Label htmlFor={inputId}>{t('categories.field.image_upload')}</Label> : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <div
           className={cn(
@@ -98,44 +148,7 @@ export function CategoryImageUploadField({
             </div>
           ) : null}
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <input
-            id={inputId}
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            disabled={disabled || uploadM.isPending}
-            onChange={onFileChange}
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2 border-secondary/60"
-              disabled={disabled || uploadM.isPending}
-              onClick={() => fileRef.current?.click()}
-            >
-              <Camera className="size-4 shrink-0" aria-hidden />
-              {uploadM.isPending ? t('loading') : t('categories.image_upload_button')}
-            </Button>
-            {value.trim() !== '' && !disabled ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="gap-1 text-muted-foreground"
-                disabled={uploadM.isPending}
-                onClick={() => onChange('')}
-              >
-                <X className="size-4" aria-hidden />
-                {t('categories.image_remove')}
-              </Button>
-            ) : null}
-          </div>
-          <p className="text-muted-foreground text-xs">{t('categories.image_hint')}</p>
-        </div>
+        {controls}
       </div>
     </div>
   );

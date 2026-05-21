@@ -121,7 +121,7 @@ describe('W-5.4 purchasing', () => {
     const key = 'b'.repeat(12);
     await mod.receiveGoodsForPurchaseOrder(9, {
       branch_id: 1,
-      lines: [{ purchase_order_line_id: 2, qty: 1 }],
+      lines: [{ purchase_order_line_id: 2, qty: 1, unit_cost: '1' }],
       idempotency_key: key,
     });
     expect(body).toMatchObject({
@@ -150,7 +150,13 @@ describe('W-5.4 purchasing', () => {
       created_by_user_id: number | null;
       created_at: string;
       updated_at: string;
-      lines: { id: number; product_id: number; qty: number; unit_cost: string }[];
+      lines: {
+        id: number;
+        product_id: number;
+        qty: number;
+        unit_cost: string;
+        variant_id?: number | null;
+      }[];
     };
     const createdIso = toISOStringUtc(now());
     po = {
@@ -165,9 +171,16 @@ describe('W-5.4 purchasing', () => {
       created_by_user_id: 1,
       created_at: createdIso,
       updated_at: createdIso,
-      lines: [{ id: 20, product_id: 1, qty: 10, unit_cost: '2' }],
+      lines: [{ id: 20, product_id: 1, qty: 10, unit_cost: '2', variant_id: 5 }],
     };
     server.use(
+      http.get(`${API}/products/1/with-variants`, () =>
+        HttpResponse.json({
+          product: { id: 1, name: 'Widget', sku: 'W1', is_active: true },
+          variants: [{ id: 5, sku: 'W1-5', combination_key: '5', price_extra: '0', is_active: true }],
+          axes: [],
+        }),
+      ),
       http.get(`${API}/branches`, () =>
         HttpResponse.json([
           {
@@ -215,10 +228,12 @@ describe('W-5.4 purchasing', () => {
     );
 
     const { default: OrderDetail } = await import('../pages/orders/OrderDetail');
+    const { default: GoodsReceiptPage } = await import('../pages/receipts/GoodsReceiptPage');
     const user = userEvent.setup();
     renderWithProviders(
       <Routes>
         <Route path="/purchasing/orders/:id" element={<OrderDetail />} />
+        <Route path="/purchasing/orders/:id/receive" element={<GoodsReceiptPage />} />
       </Routes>,
       { initialEntries: ['/purchasing/orders/5'] },
     );
@@ -226,11 +241,12 @@ describe('W-5.4 purchasing', () => {
     await screen.findByText(/PO-5/);
 
     await user.click(screen.getByRole('button', { name: /send/i }));
-    expect(await screen.findByRole('button', { name: /receive goods/i })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /receive goods/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /receive goods/i }));
-    await screen.findByRole('dialog');
+    await user.click(screen.getByRole('link', { name: /receive goods/i }));
+    await screen.findByRole('button', { name: /post receipt/i });
 
+    await screen.findByText('Widget');
     const spinners = screen.getAllByRole('spinbutton');
     await user.clear(spinners[0]!);
     await user.type(spinners[0]!, '3');

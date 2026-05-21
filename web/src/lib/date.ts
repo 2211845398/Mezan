@@ -90,7 +90,9 @@ function localCalendarDateFromYmd(ymd: string): Date {
   if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
     throw new RangeError(`Invalid YYYY-MM-DD: ${ymd}`);
   }
-  const [y, m, d] = parts;
+  const y = parts[0]!;
+  const m = parts[1]!;
+  const d = parts[2]!;
   return new Date(y, m - 1, d);
 }
 

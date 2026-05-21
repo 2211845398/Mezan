@@ -24,11 +24,12 @@ export function aggregateReceivedUnitCostByPoLine(
   for (const polId of Object.keys(qtyByLine)) {
     const id = Number(polId);
     const qty = qtyByLine[id];
-    if (qty.lte(0)) {
+    const cost = costByLine[id];
+    if (qty == null || cost == null || qty.lte(0)) {
       out[id] = null;
       continue;
     }
-    out[id] = costByLine[id]!.div(qty).toFixed(4);
+    out[id] = cost.div(qty).toFixed(4);
   }
   return out;
 }

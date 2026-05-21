@@ -31,6 +31,7 @@ export function mergePreviewWithDraftRows(
       sku: ex?.sku?.trim() ? ex.sku : pr.suggested_sku,
       barcode: ex?.barcode ?? '',
       active: ex?.active ?? true,
+      price_extra: ex?.price_extra ?? '0',
       display_label: pr.display_label,
     };
   });

@@ -21,6 +21,8 @@ export type MoneyInputProps = Omit<
   value?: string;
   /** Fires on every keystroke with the sanitised canonical string. */
   onChange?: (value: string) => void;
+  /** Alias for `onChange` (controlled string state). */
+  onValueChange?: (value: string) => void;
   currency?: string;
   fractionDigits?: number;
 };
@@ -46,9 +48,10 @@ function formatDisplay(
 
 export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
   (
-    { value = '', onChange, currency, fractionDigits = 2, className, disabled, ...rest },
+    { value = '', onChange, onValueChange, currency, fractionDigits = 2, className, disabled, ...rest },
     ref,
   ) => {
+    const emit = onChange ?? onValueChange;
     const locale = getNumericLocale();
     const [focused, setFocused] = React.useState(false);
     const [draft, setDraft] = React.useState<string>(value);
@@ -91,16 +94,16 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
               const d = new Decimal(draft || '0');
               const quantised = d.toFixed(fractionDigits, Decimal.ROUND_HALF_UP);
               setDraft(quantised);
-              onChange?.(quantised);
+              emit?.(quantised);
             } catch {
-              onChange?.(draft);
+              emit?.(draft);
             }
             rest.onBlur?.(e);
           }}
           onChange={(e) => {
             const next = sanitiseInput(e.target.value);
             setDraft(next);
-            onChange?.(next);
+            emit?.(next);
           }}
           {...rest}
         />

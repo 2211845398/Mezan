@@ -87,6 +87,10 @@ export type DataTableProps<TData> = {
   tableDir?: 'rtl' | 'ltr';
   /** Stable row id for client tables (e.g. variant-level stock rows). */
   getRowId?: (row: TData) => string;
+  /** Plain-text empty state when `emptyState` is not provided. */
+  emptyMessage?: string | undefined;
+  /** Extra class names merged onto each body row. */
+  getRowClassName?: (row: TData) => string | undefined;
 };
 
 export function DataTable<TData>({
@@ -113,6 +117,8 @@ export function DataTable<TData>({
   tableClassName,
   tableDir,
   getRowId,
+  emptyMessage,
+  getRowClassName,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
 
@@ -208,7 +214,7 @@ export function DataTable<TData>({
   ) : isError ? (
     <TableError onRetry={onRetry} />
   ) : rows.length === 0 ? (
-    (emptyState ?? <TableEmpty />)
+    (emptyState ?? (emptyMessage ? <TableEmpty description={emptyMessage} /> : <TableEmpty />))
   ) : (
     <div ref={scrollRef} className="relative w-full overflow-auto">
       <Table className={tableClassName}>
@@ -267,7 +273,7 @@ export function DataTable<TData>({
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? 'selected' : undefined}
-                    className={rowClass}
+                    className={cn(rowClass, getRowClassName?.(row.original))}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
@@ -300,7 +306,7 @@ export function DataTable<TData>({
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() ? 'selected' : undefined}
-                className={rowClass}
+                className={cn(rowClass, getRowClassName?.(row.original))}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell

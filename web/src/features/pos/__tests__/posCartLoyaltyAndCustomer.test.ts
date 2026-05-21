@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 
+import { ValidationError } from '@/api/errors';
 import { applyCartDiscount, createCart, addCartLine, updateCartCustomer } from '@/features/pos/api';
 import { resetPosFixtures, seedOpenShift } from '@/test/msw/handlers/pos';
 
@@ -11,9 +12,9 @@ describe('POS cart — MSW loyalty discount & inactive customer patch', () => {
 
   it('PATCH customer 999 is rejected as inactive for POS', async () => {
     const cart = await createCart({ terminal_id: 10, shift_id: 501 });
-    await expect(updateCartCustomer(cart.id, 999)).rejects.toMatchObject({
-      response: { status: 422 },
-    });
+    await expect(updateCartCustomer(cart.id, 999)).rejects.toSatisfy(
+      (err: unknown) => err instanceof ValidationError && err.status === 422,
+    );
   });
 
   it('POST loyalty discount applies when cart has customer and lines', async () => {

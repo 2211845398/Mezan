@@ -77,7 +77,7 @@ export function CategoryCreateDialog({ open, onOpenChange, parentId }: CategoryC
           </div>
           <div className="space-y-1">
             <Label>{t('categories.field.slug')}</Label>
-            <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
+            <Input value={slug} onChange={(e) => setSlug(e.target.value)} dir={i18n.dir()} className="font-mono text-sm" />
           </div>
           <CategoryImageUploadField
             value={imageUrl}

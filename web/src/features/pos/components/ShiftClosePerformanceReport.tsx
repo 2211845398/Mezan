@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import type { TFunction } from 'i18next';
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -63,7 +64,7 @@ export function varianceDeficitSurplus(
   return { deficit: '—', surplus: '—' };
 }
 
-function durationLabel(vm: ShiftCloseReportViewModel, t: (k: string, o?: Record<string, unknown>) => string) {
+function durationLabel(vm: ShiftCloseReportViewModel, t: TFunction<'pos'>) {
   const start = fromISO(vm.openedAtIso);
   const end = fromISO(vm.endAtIso);
   const ms = Math.max(0, end.getTime() - start.getTime());
@@ -76,7 +77,7 @@ function durationLabel(vm: ShiftCloseReportViewModel, t: (k: string, o?: Record<
 
 export function shiftCloseReportPeriodLabels(
   vm: ShiftCloseReportViewModel,
-  t: (k: string, o?: Record<string, unknown>) => string,
+  t: TFunction<'pos'>,
 ) {
   const opened = formatDateTime(fromISO(vm.openedAtIso), 'yyyy-MM-dd HH:mm');
   const ended = formatDateTime(fromISO(vm.endAtIso), 'yyyy-MM-dd HH:mm');

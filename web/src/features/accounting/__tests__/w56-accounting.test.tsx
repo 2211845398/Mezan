@@ -161,10 +161,10 @@ describe('W-5.6 accounting', () => {
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Total debit: 40.00 · Total credit: 40.00', { exact: true }),
-      ).toBeInTheDocument();
+      expect(screen.getByText(i18n.t('tb.totals_row', { ns: 'accounting' }))).toBeInTheDocument();
     });
+    const debitCells = screen.getAllByText('40.00');
+    expect(debitCells.length).toBeGreaterThanOrEqual(2);
     unmount();
   });
 

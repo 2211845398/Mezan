@@ -9,7 +9,7 @@ type Props = {
   productId: number;
   value: string;
   onChange: (variantId: number, label: string) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 };
 
 export default function PoReceiveVariantSelect({ productId, value, onChange, disabled }: Props) {

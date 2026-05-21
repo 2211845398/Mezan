@@ -67,8 +67,10 @@
     },
     "tabs": {
       "product_data": "Product data",
-      "attributes": "Attributes"
+      "attributes": "Attributes",
+      "attributes_variants": "Attributes & variants"
     },
+    "barcode_on_variants_hint": "Barcodes are managed per variant on the Attributes & variants tab.",
     "axes": {
       "hint": "Add a row per attribute (e.g. color, size) and pick values for this product. All combinations are generated on save.",
       "attribute": "Attribute",
@@ -106,6 +108,7 @@
         "variant": "Variant",
         "sku": "SKU",
         "barcode": "Barcode",
+        "price_extra": "Extra price",
         "active": "Active"
       }
     },
@@ -116,6 +119,7 @@
       "category": "Category",
       "categories": "Categories",
       "barcode_count": "Barcodes",
+      "variants": "Variants",
       "default_price": "Sell price",
       "cost": "Purchase cost",
       "status": "Status",
@@ -191,6 +195,7 @@
       "slug": "Slug",
       "image_url": "Image URL",
       "image_upload": "Cover image",
+      "status": "Status",
       "active_state_on": "Active",
       "active_state_off": "Archived"
     },
@@ -263,17 +268,33 @@
       "bool": "Yes / No",
       "date": "Date",
       "select": "Single choice"
-    }
+    },
+    "variant_axes_moved": "Variant axes are configured per product under"
   },
   "globalAttributes": {
-    "title": "Product attributes (catalog)",
-    "lead": "Central attributes (color, size…) and their values. Link them on the category page, then generate variants on the product.",
+    "title": "Product attributes",
+    "lead": "Global dictionary for variant axes (color, size, …). Staff pick values on each product; use this page to clean duplicates.",
     "empty": "No attributes yet. Create one, then add values (Red, S, …).",
     "add_attribute": "New attribute",
     "add_value": "New value",
     "value_label": "Label",
     "no_values": "No values yet.",
     "created": "Attribute created",
-    "value_added": "Value added"
+    "updated": "Attribute updated",
+    "deleted": "Attribute deleted",
+    "value_added": "Value added",
+    "value_updated": "Value updated",
+    "value_deleted": "Value deleted",
+    "edit_attribute": "Edit attribute",
+    "edit_value": "Edit value",
+    "merge_title": "Merge duplicate values",
+    "merge_desc": "All products and variants using the selected duplicates will point to the canonical value.",
+    "merge_button": "Merge duplicates",
+    "merge_sources_label": "Values to merge",
+    "merge_pick": "Merge duplicates into one value",
+    "merge_target_ph": "Keep this value…",
+    "merge_action": "Merge selected",
+    "merge_confirm": "Merge",
+    "merged": "Values merged"
   }
 }

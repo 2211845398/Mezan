@@ -38,9 +38,11 @@ from app.schemas.variant_generation import (
     VariantSyncResponse,
 )
 from app.services import audit_service
+from app.schemas.variant_generation import ProductWithVariantsRead
 from app.services.variant_attribute_service import (
+    get_product_with_variants,
     preview_generate_variants,
-    sync_product_variants,
+    sync_product_variant_configuration,
 )
 from app.services.catalog_service import (
     archive_product,
@@ -706,7 +708,7 @@ async def sync_product_variants_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("catalog", "update"),
 ) -> VariantSyncResponse:
-    result = await sync_product_variants(db, product_id=product_id, body=body)
+    result = await sync_product_variant_configuration(db, product_id=product_id, body=body)
     await audit_service.log(
         session=db,
         action="product.variants_synced",
@@ -725,7 +727,7 @@ async def sync_product_variants_endpoint(
 
 
 # Epic 18.10: Variant-aware product detail
-@router.get("/products/{product_id}/with-variants")
+@router.get("/products/{product_id}/with-variants", response_model=ProductWithVariantsRead)
 async def get_product_with_variants_endpoint(
     product_id: int,
     db: AsyncSession = Depends(get_db),
@@ -735,71 +737,6 @@ async def get_product_with_variants_endpoint(
         ("inventory", "read"),
         ("inventory", "update"),
     ),
-) -> dict:
-    """Get product with variants, stock per variant, and last cost per variant."""
-    from app.core.errors import ValidationError
-    from app.models.branch_product_costs import BranchProductCost
-    from app.models.product_variant import ProductVariant
-    from app.models.product_variant_attribute import ProductVariantAttribute
-    from app.models.stock_level import StockLevel
-    from app.services.pricing_service import get_active_sell_price
-
-    product = await get_product(db, product_id)
-    base_read = await product_to_read(db, product)
-
-    try:
-        product_sell_price = await get_active_sell_price(db, product_id=product_id)
-    except ValidationError:
-        product_sell_price = None
-
-    # Get variants
-    variants_res = await db.execute(
-        select(ProductVariant).where(ProductVariant.product_id == product_id)
-    )
-    variants = variants_res.scalars().all()
-
-    variant_ids = [int(v.id) for v in variants]
-    pva_map: dict[int, list[int]] = {vid: [] for vid in variant_ids}
-    if variant_ids:
-        pva_res = await db.execute(
-            select(
-                ProductVariantAttribute.variant_id,
-                ProductVariantAttribute.attribute_value_id,
-            ).where(ProductVariantAttribute.variant_id.in_(variant_ids))
-        )
-        for vid, val_id in pva_res.all():
-            pva_map[int(vid)].append(int(val_id))
-
-    variants_data = []
-    for v in variants:
-        # Get stock for this variant
-        stock_res = await db.execute(
-            select(StockLevel).where(StockLevel.variant_id == v.id)
-        )
-        stock_levels = stock_res.scalars().all()
-        stock_by_branch = {s.branch_id: s.on_hand for s in stock_levels}
-
-        # Get last cost for this variant
-        cost_res = await db.execute(
-            select(BranchProductCost).where(BranchProductCost.variant_id == v.id)
-        )
-        costs = cost_res.scalars().all()
-        cost_by_branch = {c.branch_id: c.average_unit_cost for c in costs}
-
-        variants_data.append({
-            "id": v.id,
-            "sku": v.sku,
-            "barcode": v.barcode,
-            "attribute_values": v.attribute_values,
-            "attribute_value_ids": sorted(pva_map.get(int(v.id), [])),
-            "active": v.active,
-            "stock_by_branch": stock_by_branch,
-            "last_cost_by_branch": cost_by_branch,
-            "sell_price": product_sell_price,
-        })
-
-    return {
-        "product": base_read.model_dump(),
-        "variants": variants_data,
-        "variant_count": len(variants_data),
-    }
+) -> ProductWithVariantsRead:
+    """Get product template with saved axes, variants, stock, and costs."""
+    return await get_product_with_variants(db, product_id)

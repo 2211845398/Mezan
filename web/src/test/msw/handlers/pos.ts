@@ -22,7 +22,7 @@ function emptyCart(id: number, terminalId: number, shiftId: number) {
     terminal_id: terminalId,
     branch_id: 1,
     shift_id: shiftId,
-    customer_id: null,
+    customer_id: null as number | null,
     status: 'active',
     subtotal: '0',
     discount_total: '0',
@@ -130,6 +130,7 @@ export const posHandlers = [
     const line = {
       id: body.product_id,
       product_id: body.product_id,
+      variant_id: 0,
       product_name: `Product ${body.product_id}`,
       product_sku: `SKU-${body.product_id}`,
       barcode: null,
@@ -200,16 +201,16 @@ export const posHandlers = [
       return HttpResponse.json({ message: 'not found' }, { status: 404 });
     }
     if (body.action === 'lock') {
-      const hasLine =
-        Array.isArray(cart.lines) && cart.lines.some((ln: { qty?: number }) => (ln?.qty ?? 0) > 0);
+      const lines = cart.lines as { qty?: number }[];
+      const hasLine = Array.isArray(lines) && lines.some((ln) => (ln.qty ?? 0) > 0);
       if (!hasLine) {
         return HttpResponse.json({ message: 'Cannot lock empty cart' }, { status: 422 });
       }
       cart = { ...cart, status: 'checkout_locked' };
     }
     if (body.action === 'park') {
-      const hasLine =
-        Array.isArray(cart.lines) && cart.lines.some((ln: { qty?: number }) => (ln?.qty ?? 0) > 0);
+      const lines = cart.lines as { qty?: number }[];
+      const hasLine = Array.isArray(lines) && lines.some((ln) => (ln.qty ?? 0) > 0);
       if (!hasLine) {
         return HttpResponse.json({ message: 'Cannot park empty cart' }, { status: 422 });
       }

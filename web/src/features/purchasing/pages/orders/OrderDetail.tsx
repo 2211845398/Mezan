@@ -158,15 +158,10 @@ export default function OrderDetail() {
   });
 
   const showReceive =
-    canUpdate &&
-    (po.status === 'sent' || po.status === 'tracked') &&
-    !allFullyReceived &&
-    po.status !== 'closed' &&
-    po.status !== 'cancelled';
+    canUpdate && (po.status === 'sent' || po.status === 'tracked') && !allFullyReceived;
 
   /** Only before «قيد التنفيذ» — redundant once status is already tracked. */
-  const showTrack =
-    canUpdate && po.status === 'sent' && !allFullyReceived && po.status !== 'cancelled';
+  const showTrack = canUpdate && po.status === 'sent' && !allFullyReceived;
 
   const showCloseEarly =
     canUpdate &&

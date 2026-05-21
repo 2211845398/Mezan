@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 type Step = {
   key: string;
   label: string;
-  sublabel?: string;
+  sublabel?: string | undefined;
 };
 
 type Props = {

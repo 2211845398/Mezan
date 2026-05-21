@@ -118,6 +118,13 @@ export const navigation: NavItem[] = [
         href: '/catalog/categories',
         permission: { resource: 'catalog', action: 'read' },
       },
+      {
+        key: 'catalog-attributes',
+        labelKey: 'nav.catalog_attributes',
+        icon: SlidersHorizontal,
+        href: '/catalog/attributes',
+        permission: { resource: 'catalog', action: 'read' },
+      },
     ],
   },
   {
@@ -465,13 +472,6 @@ export const navigation: NavItem[] = [
         icon: Bell,
         href: '/admin/notifications',
         permission: { resource: 'notifications', action: 'read' },
-      },
-      {
-        key: 'admin-catalog-attributes',
-        labelKey: 'nav.admin_catalog_attributes',
-        icon: SlidersHorizontal,
-        href: '/admin/catalog-attributes',
-        permission: { resource: 'catalog', action: 'read' },
       },
     ],
   },

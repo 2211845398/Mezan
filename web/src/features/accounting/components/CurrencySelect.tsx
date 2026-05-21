@@ -14,8 +14,8 @@ import { currenciesQueryOptions } from '../queries';
 type CurrencySelectProps = {
   value: string;
   onValueChange: (code: string) => void;
-  disabled?: boolean;
-  placeholder?: string;
+  disabled?: boolean | undefined;
+  placeholder?: string | undefined;
 };
 
 export default function CurrencySelect({
@@ -27,8 +27,13 @@ export default function CurrencySelect({
   const { t } = useTranslation('accounting');
   const { data: currencies = [], isLoading } = useQuery(currenciesQueryOptions(false));
 
+  const selectValue = value.trim() === '' ? undefined : value;
   return (
-    <Select value={value || undefined} onValueChange={onValueChange} disabled={disabled || isLoading}>
+    <Select
+      {...(selectValue !== undefined ? { value: selectValue } : {})}
+      onValueChange={onValueChange}
+      disabled={Boolean(disabled) || isLoading}
+    >
       <SelectTrigger>
         <SelectValue placeholder={placeholder ?? t('currencies.select_placeholder')} />
       </SelectTrigger>

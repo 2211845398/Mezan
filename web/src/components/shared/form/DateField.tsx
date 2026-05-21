@@ -19,15 +19,15 @@ import { cn } from '@/lib/utils';
 
 export type DateFieldProps = {
   /** ISO date string (`YYYY-MM-DD`) or empty. */
-  value?: string;
+  value?: string | undefined;
   onChange: (next: string) => void;
-  placeholder?: string;
-  id?: string;
-  className?: string;
-  disabled?: boolean;
+  placeholder?: string | undefined;
+  id?: string | undefined;
+  className?: string | undefined;
+  disabled?: boolean | undefined;
   /** ISO `YYYY-MM-DD`. When set, calendar days strictly before this day are not selectable. */
-  minSelectableDate?: string;
-  'aria-label'?: string;
+  minSelectableDate?: string | undefined;
+  'aria-label'?: string | undefined;
 };
 
 export const DateField = React.forwardRef<HTMLButtonElement, DateFieldProps>(

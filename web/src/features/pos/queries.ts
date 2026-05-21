@@ -246,6 +246,7 @@ export function useAddLine(cartId: number) {
         const newLine = {
           id: nextOptimisticCartLineId(),
           product_id: variables.product_id,
+          variant_id: 0,
           product_name: hit?.name ?? '',
           product_sku: hit?.sku ?? '',
           barcode: hit?.barcode ?? null,

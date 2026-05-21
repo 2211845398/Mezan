@@ -117,12 +117,12 @@ export type AsyncSelectProps = {
   onChange: (next: string) => void;
   options: ReadonlyArray<SelectOption>;
   onSearch: (query: string) => void;
-  placeholder?: string;
-  searchPlaceholder?: string;
-  emptyLabel?: string;
-  isLoading?: boolean;
-  className?: string;
-  disabled?: boolean;
+  placeholder?: string | undefined;
+  searchPlaceholder?: string | undefined;
+  emptyLabel?: string | undefined;
+  isLoading?: boolean | undefined;
+  className?: string | undefined;
+  disabled?: boolean | undefined;
 };
 
 export function AsyncSelect({

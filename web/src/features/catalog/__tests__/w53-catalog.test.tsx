@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { apiClient } from '@/api/client';
 import { server } from '@/test/msw/server';
 
 import type { CategoryTreeNode, ProductRead } from '../api';
@@ -115,14 +116,14 @@ describe('W-5.3 catalog API wiring', () => {
 
   it('uploadCategoryImage posts to /categories/images and returns image_url', async () => {
     const mod = await import('../api');
-    server.use(
-      http.post(`${API}/categories/images`, () =>
-        HttpResponse.json({ image_url: '/api/v1/static/catalog-category-images/abc.jpg' }),
-      ),
-    );
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      data: { image_url: '/api/v1/static/catalog-category-images/abc.jpg' },
+    });
     const file = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], 'x.jpg', { type: 'image/jpeg' });
     const res = await mod.uploadCategoryImage(file);
+    expect(post).toHaveBeenCalledWith('/categories/images', expect.any(FormData));
     expect(res.image_url).toContain('catalog-category-images');
+    post.mockRestore();
   });
 
   it('listCatalogAttributes calls GET /catalog/attributes', async () => {
@@ -166,13 +167,13 @@ describe('W-5.3 catalog API wiring', () => {
 
   it('uploadProductImage posts to /products/images and returns image_url', async () => {
     const mod = await import('../api');
-    server.use(
-      http.post(`${API}/products/images`, () =>
-        HttpResponse.json({ image_url: '/api/v1/static/catalog-product-images/p1.jpg' }),
-      ),
-    );
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      data: { image_url: '/api/v1/static/catalog-product-images/p1.jpg' },
+    });
     const file = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], 'x.jpg', { type: 'image/jpeg' });
     const res = await mod.uploadProductImage(file);
+    expect(post).toHaveBeenCalledWith('/products/images', expect.any(FormData));
     expect(res.image_url).toContain('catalog-product-images');
+    post.mockRestore();
   });
 });

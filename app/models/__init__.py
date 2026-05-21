@@ -54,6 +54,8 @@ from app.models.pos_shift import PosCashEvent, PosShift, ZReport
 from app.models.pos_terminal import POSTerminal
 from app.models.price_list import PriceList, PriceListBranch, PriceListLine
 from app.models.product import Product
+from app.models.product_attribute_line import ProductAttributeLine
+from app.models.product_attribute_line_value import ProductAttributeLineValue
 from app.models.product_category import ProductCategory
 from app.models.product_tax_definition import ProductTaxDefinition
 from app.models.tax_definition import TaxDefinition
@@ -164,6 +166,8 @@ __all__ = [
     "CreditNote",
     "ExchangeLink",
     "Product",
+    "ProductAttributeLine",
+    "ProductAttributeLineValue",
     "ProductCategory",
     "ProductTaxDefinition",
     "ProductPrice",

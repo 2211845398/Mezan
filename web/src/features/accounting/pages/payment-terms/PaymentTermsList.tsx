@@ -25,9 +25,8 @@ function PaymentTermForm({
   existing: PaymentTermRead | null;
   onDone: () => void;
 }) {
-  const { t, i18n } = useTranslation('accounting');
+  const { t } = useTranslation('accounting');
   const qc = useQueryClient();
-  const isAr = i18n.language.startsWith('ar');
   const [code, setCode] = useState(existing?.code ?? '');
   const [nameEn, setNameEn] = useState(existing?.name_en ?? '');
   const [nameAr, setNameAr] = useState(existing?.name_ar ?? '');

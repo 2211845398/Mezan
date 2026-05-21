@@ -59,7 +59,7 @@ export function RegisterTotalsColumn({
   const { t } = useTranslation('pos');
   const online = useOnline();
 
-  const hasPayableLines = cart.lines.some((ln) => (ln.qty ?? 0) > 0);
+  const hasPayableLines = (cart.lines ?? []).some((ln) => (ln.qty ?? 0) > 0);
 
   const canOpenPay =
     online &&

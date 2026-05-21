@@ -157,7 +157,9 @@ function RegisterSession({
     const pid = productId;
     if (!Number.isFinite(pid)) return;
     addLineChainRef.current = addLineChainRef.current
-      .then(() => addLine.mutateAsync({ product_id: pid, qty }))
+      .then(async () => {
+        await addLine.mutateAsync({ product_id: pid, qty });
+      })
       .catch((e) => {
         notify.error(getApiErrorMessage(e));
       });
@@ -185,11 +187,12 @@ function RegisterSession({
     );
   }
 
-  const editable = cart.status === 'active' && canUpdateCart;
-  const isLocked = cart.status === 'checkout_locked';
+  const activeCart = cart;
+  const editable = activeCart.status === 'active' && canUpdateCart;
+  const isLocked = activeCart.status === 'checkout_locked';
 
   const canRegisterReturn =
-    online && canReturn && editable && cart.status === 'active' && returnExchangeSession != null;
+    online && canReturn && editable && activeCart.status === 'active' && returnExchangeSession != null;
 
   async function registerReturn() {
     if (!returnExchangeSession) return;
@@ -246,12 +249,12 @@ function RegisterSession({
   }
 
   async function openCheckout() {
-    const hasPayableLines = cart.lines.some((ln) => (ln.qty ?? 0) > 0);
+    const hasPayableLines = (activeCart.lines ?? []).some((ln) => (ln.qty ?? 0) > 0);
     if (!hasPayableLines) {
       notify.info(t('register.cart_empty'));
       return;
     }
-    if (cart.status === 'active' && canUpdateCart) {
+    if (activeCart.status === 'active' && canUpdateCart) {
       try {
         /** Wait for any in-flight optimistic line POSTs to settle before locking, so server-side recalc reflects every line. */
         await addLineChainRef.current;
@@ -268,7 +271,7 @@ function RegisterSession({
   }
 
   async function handlePark() {
-    const hasPayableLines = cart.lines.some((ln) => (ln.qty ?? 0) > 0);
+    const hasPayableLines = (activeCart.lines ?? []).some((ln) => (ln.qty ?? 0) > 0);
     if (!hasPayableLines) {
       notify.info(t('register.cart_empty'));
       return;
@@ -283,7 +286,7 @@ function RegisterSession({
 
   async function handleCancelCart() {
     try {
-      if (cart.status === 'checkout_locked') {
+      if (activeCart.status === 'checkout_locked') {
         await cancelCart.mutateAsync();
         setTenderOpen(false);
         return;

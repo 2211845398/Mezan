@@ -9,16 +9,22 @@ from sqlalchemy import delete, exists, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, NotFoundError, ValidationError
+from decimal import Decimal
+
 from app.models.catalog_attribute import CatalogAttribute
 from app.models.catalog_attribute_value import CatalogAttributeValue
-from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.product import Product
+from app.models.product_attribute_line import ProductAttributeLine
+from app.models.product_attribute_line_value import ProductAttributeLineValue
 from app.models.product_variant import ProductVariant
 from app.models.product_variant_attribute import ProductVariantAttribute
 from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
 from app.schemas.variant_generation import (
     AttributeSummaryItem,
+    ProductAxisLineRead,
+    ProductVariantDetailRead,
+    ProductWithVariantsRead,
     VariantPreviewRequest,
     VariantPreviewResponse,
     VariantPreviewRow,
@@ -26,87 +32,9 @@ from app.schemas.variant_generation import (
     VariantSyncResponse,
     VariantSyncRow,
 )
-from app.services.catalog_service import get_product
+from app.services.catalog_service import get_product, product_to_read
+from app.utils.variant_combination_key import build_combination_key
 from app.utils.variant_combinator import cartesian_product_combos
-
-
-async def _load_variant_axis_defs(
-    db: AsyncSession, category_id: int
-) -> list[CategoryAttributeDef]:
-    """Category defs marked for variant generation with a linked catalog attribute."""
-    from app.services.catalog_service import _load_merged_attr_defs_for_category
-
-    defs = await _load_merged_attr_defs_for_category(db, category_id)
-    return [d for d in defs if d.use_for_variants and d.attribute_id is not None]
-
-
-async def validate_variant_axes(
-    db: AsyncSession,
-    *,
-    category_id: int,
-    axes: dict[int, list[int]],
-) -> tuple[list[int], dict[int, CatalogAttributeValue]]:
-    """Ensure axes only use allowed attributes/values for the category."""
-    if not axes:
-        return [], {}
-
-    allowed_defs = await _load_variant_axis_defs(db, category_id)
-    allowed_attr_ids = {int(d.attribute_id) for d in allowed_defs if d.attribute_id}
-    unknown_attrs = set(axes.keys()) - allowed_attr_ids
-    if unknown_attrs:
-        raise ValidationError(
-            "Attribute not allowed for variants on this category",
-            details={"attribute_ids": sorted(unknown_attrs)},
-        )
-
-    all_value_ids: list[int] = []
-    for vals in axes.values():
-        if not vals:
-            raise ValidationError(
-                "Each variant axis must have at least one value",
-                details={},
-            )
-        all_value_ids.extend(vals)
-
-    res = await db.execute(
-        select(CatalogAttributeValue).where(CatalogAttributeValue.id.in_(all_value_ids))
-    )
-    value_rows = {int(r.id): r for r in res.scalars().all()}
-    missing = set(all_value_ids) - set(value_rows.keys())
-    if missing:
-        raise ValidationError(
-            "Unknown attribute value ids",
-            details={"attribute_value_ids": sorted(missing)},
-        )
-
-    for attr_id, val_ids in axes.items():
-        seen: set[int] = set()
-        for vid in val_ids:
-            if vid in seen:
-                raise ValidationError(
-                    "Duplicate value on same axis",
-                    details={"attribute_id": attr_id, "attribute_value_id": vid},
-                )
-            seen.add(vid)
-            row = value_rows[vid]
-            if int(row.attribute_id) != int(attr_id):
-                raise ValidationError(
-                    "Value does not belong to attribute",
-                    details={
-                        "attribute_id": attr_id,
-                        "attribute_value_id": vid,
-                        "actual_attribute_id": row.attribute_id,
-                    },
-                )
-
-    attr_order_res = await db.execute(
-        select(CatalogAttribute.id, CatalogAttribute.sort_order).where(
-            CatalogAttribute.id.in_(list(axes.keys()))
-        )
-    )
-    attr_sort = {int(aid): int(so) for aid, so in attr_order_res.all()}
-    order = sorted(axes.keys(), key=lambda aid: (attr_sort.get(aid, 0), aid))
-    return order, value_rows
 
 
 async def validate_catalog_axes(
@@ -241,6 +169,89 @@ async def sync_variant_jsonb_cache(db: AsyncSession, variant_id: int) -> dict[st
     return cache
 
 
+async def sync_product_attribute_lines(
+    db: AsyncSession,
+    *,
+    product_id: int,
+    axes: dict[int, list[int]],
+) -> list[ProductAxisLineRead]:
+    """Persist Odoo-style template attribute lines for a product."""
+    await get_product(db, product_id)
+    order, value_rows = await validate_catalog_axes(db, axes)
+
+    await db.execute(
+        delete(ProductAttributeLine).where(ProductAttributeLine.product_id == product_id)
+    )
+    await db.flush()
+
+    now = datetime.now(UTC)
+    out: list[ProductAxisLineRead] = []
+    for sort_idx, attr_id in enumerate(order):
+        val_ids = axes[attr_id]
+        attr_res = await db.execute(
+            select(CatalogAttribute).where(CatalogAttribute.id == attr_id)
+        )
+        attr = attr_res.scalar_one()
+        line = ProductAttributeLine(
+            product_id=product_id,
+            attribute_id=attr_id,
+            sort_order=sort_idx,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(line)
+        await db.flush()
+        for vid in val_ids:
+            db.add(
+                ProductAttributeLineValue(
+                    line_id=int(line.id),
+                    attribute_value_id=int(vid),
+                    created_at=now,
+                )
+            )
+        out.append(
+            ProductAxisLineRead(
+                attribute_id=attr_id,
+                attribute_code=attr.code,
+                attribute_name=attr.name,
+                sort_order=sort_idx,
+                value_ids=list(val_ids),
+            )
+        )
+    await db.flush()
+    return out
+
+
+async def load_product_attribute_axes(
+    db: AsyncSession, product_id: int
+) -> list[ProductAxisLineRead]:
+    """Load saved template axes for a product."""
+    res = await db.execute(
+        select(ProductAttributeLine, CatalogAttribute)
+        .join(CatalogAttribute, CatalogAttribute.id == ProductAttributeLine.attribute_id)
+        .where(ProductAttributeLine.product_id == product_id)
+        .order_by(ProductAttributeLine.sort_order.asc(), ProductAttributeLine.id.asc())
+    )
+    out: list[ProductAxisLineRead] = []
+    for line, attr in res.all():
+        val_res = await db.execute(
+            select(ProductAttributeLineValue.attribute_value_id)
+            .where(ProductAttributeLineValue.line_id == line.id)
+            .order_by(ProductAttributeLineValue.attribute_value_id.asc())
+        )
+        value_ids = [int(v) for v in val_res.scalars().all()]
+        out.append(
+            ProductAxisLineRead(
+                attribute_id=int(attr.id),
+                attribute_code=attr.code,
+                attribute_name=attr.name,
+                sort_order=int(line.sort_order),
+                value_ids=value_ids,
+            )
+        )
+    return out
+
+
 async def _existing_variant_value_sets(
     db: AsyncSession, product_id: int
 ) -> dict[int, frozenset[int]]:
@@ -346,12 +357,26 @@ async def _replace_variant_pivot(
     await sync_variant_jsonb_cache(db, variant_id)
 
 
+async def sync_product_variant_configuration(
+    db: AsyncSession,
+    *,
+    product_id: int,
+    body: VariantSyncRequest,
+) -> VariantSyncResponse:
+    """Persist template axes (optional) then sync variant rows."""
+    if body.axes is not None:
+        await sync_product_attribute_lines(db, product_id=product_id, axes=body.axes)
+    return await sync_product_variants(db, product_id=product_id, body=body)
+
+
 async def sync_product_variants(
     db: AsyncSession,
     *,
     product_id: int,
     body: VariantSyncRequest,
 ) -> VariantSyncResponse:
+    from app.utils.money import to_decimal as _to_decimal
+
     product = await get_product(db, product_id)
     now = datetime.now(UTC)
 
@@ -416,6 +441,8 @@ async def sync_product_variants(
         pv.sku = sync_row.sku.strip()
         pv.barcode = (sync_row.barcode or "").strip() or None
         pv.active = sync_row.active
+        pv.price_extra = _to_decimal(sync_row.price_extra)
+        pv.combination_key = build_combination_key(key)
         pv.updated_at = now
         if key:
             await _replace_variant_pivot(
@@ -442,6 +469,8 @@ async def sync_product_variants(
             product_id=product_id,
             sku=sync_row.sku.strip(),
             barcode=(sync_row.barcode or "").strip() or None,
+            combination_key=build_combination_key(key),
+            price_extra=_to_decimal(sync_row.price_extra),
             attribute_values={},
             active=sync_row.active,
             created_at=now,
@@ -461,6 +490,7 @@ async def sync_product_variants(
             )
         else:
             pv.attribute_values = {"_default": True}
+            pv.combination_key = build_combination_key(None)
         created += 1
         touched_ids.append(int(pv.id))
         set_to_vid[key] = int(pv.id)
@@ -497,6 +527,84 @@ async def sync_product_variants(
         updated=updated,
         deactivated=deactivated,
         variant_ids=sorted(set(touched_ids)),
+    )
+
+
+async def get_product_with_variants(
+    db: AsyncSession, product_id: int
+) -> ProductWithVariantsRead:
+    """Product template detail with saved axes and variant rows."""
+    from app.core.errors import ValidationError as AppValidationError
+    from app.models.branch_product_costs import BranchProductCost
+    from app.services.pricing_service import get_active_sell_price
+
+    product = await get_product(db, product_id)
+    base_read = await product_to_read(db, product)
+    axes = await load_product_attribute_axes(db, product_id)
+
+    try:
+        product_sell_price = await get_active_sell_price(db, product_id=product_id)
+    except AppValidationError:
+        product_sell_price = None
+
+    variants_res = await db.execute(
+        select(ProductVariant).where(ProductVariant.product_id == product_id)
+    )
+    variants = variants_res.scalars().all()
+    variant_ids = [int(v.id) for v in variants]
+    pva_map: dict[int, list[int]] = {vid: [] for vid in variant_ids}
+    if variant_ids:
+        pva_res = await db.execute(
+            select(
+                ProductVariantAttribute.variant_id,
+                ProductVariantAttribute.attribute_value_id,
+            ).where(ProductVariantAttribute.variant_id.in_(variant_ids))
+        )
+        for vid, val_id in pva_res.all():
+            pva_map[int(vid)].append(int(val_id))
+
+    variants_data: list[ProductVariantDetailRead] = []
+    for v in variants:
+        value_ids = sorted(pva_map.get(int(v.id), []))
+        if value_ids:
+            summary = await _attribute_summary_for_value_ids(db, value_ids)
+            labels = [s.label for s in sorted(summary, key=lambda s: (s.attribute_code, s.value_code))]
+            display = variant_display_label(product.name, labels)
+        else:
+            display = v.sku.strip() or product.name.strip()
+
+        stock_res = await db.execute(select(StockLevel).where(StockLevel.variant_id == v.id))
+        stock_levels = stock_res.scalars().all()
+        stock_by_branch = {int(s.branch_id): s.on_hand for s in stock_levels}
+
+        cost_res = await db.execute(
+            select(BranchProductCost).where(BranchProductCost.variant_id == v.id)
+        )
+        costs = cost_res.scalars().all()
+        cost_by_branch = {int(c.branch_id): c.average_unit_cost for c in costs}
+
+        variants_data.append(
+            ProductVariantDetailRead(
+                id=int(v.id),
+                sku=v.sku,
+                barcode=v.barcode,
+                attribute_values=v.attribute_values or {},
+                attribute_value_ids=value_ids,
+                active=bool(v.active),
+                price_extra=Decimal(str(v.price_extra)),
+                display_label=display,
+                combination_key=v.combination_key,
+                stock_by_branch=stock_by_branch,
+                last_cost_by_branch=cost_by_branch,
+                sell_price=product_sell_price,
+            )
+        )
+
+    return ProductWithVariantsRead(
+        product=base_read.model_dump(),
+        axes=axes,
+        variants=variants_data,
+        variant_count=len(variants_data),
     )
 
 

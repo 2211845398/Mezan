@@ -20,7 +20,7 @@ type Props = {
   onAxesChange: (axes: VariantAxisLine[]) => void;
   variantRows: VariantDraftRow[];
   onVariantRowsChange: (rows: VariantDraftRow[]) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 };
 
 export function ProductVariantAxesEditor({

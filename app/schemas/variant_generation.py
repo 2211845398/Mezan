@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from pydantic import BaseModel, Field
 
 
@@ -38,10 +40,45 @@ class VariantSyncRow(BaseModel):
     sku: str = Field(min_length=1, max_length=128)
     barcode: str | None = Field(default=None, max_length=128)
     active: bool = True
+    price_extra: Decimal = Field(default=Decimal("0"), ge=Decimal("0"))
 
 
 class VariantSyncRequest(BaseModel):
+    axes: dict[int, list[int]] | None = Field(
+        default=None,
+        description="Optional template axes to persist before syncing variants.",
+    )
     variants: list[VariantSyncRow] = Field(default_factory=list)
+
+
+class ProductAxisLineRead(BaseModel):
+    attribute_id: int
+    attribute_code: str
+    attribute_name: str
+    sort_order: int
+    value_ids: list[int]
+
+
+class ProductVariantDetailRead(BaseModel):
+    id: int
+    sku: str
+    barcode: str | None
+    attribute_values: dict
+    attribute_value_ids: list[int]
+    active: bool
+    price_extra: Decimal
+    display_label: str
+    combination_key: str
+    stock_by_branch: dict[int, Decimal | int]
+    last_cost_by_branch: dict[int, Decimal]
+    sell_price: Decimal | None = None
+
+
+class ProductWithVariantsRead(BaseModel):
+    product: dict
+    axes: list[ProductAxisLineRead]
+    variants: list[ProductVariantDetailRead]
+    variant_count: int
 
 
 class VariantSyncResponse(BaseModel):

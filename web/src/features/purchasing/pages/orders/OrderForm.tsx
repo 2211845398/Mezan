@@ -210,9 +210,11 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
       const optimisticLines: PurchaseOrderLineRead[] = payloadLines.map((pl, i) => ({
         id: prev.lines?.[i]?.id ?? -(i + 1),
         product_id: pl.product_id,
-        variant_id: null,
+        variant_id: pl.variant_id ?? null,
         qty: pl.qty,
-        unit_cost: undefined,
+        ...(pl.unit_cost != null && pl.unit_cost !== ''
+          ? { unit_cost: String(pl.unit_cost) }
+          : {}),
       }));
       qc.setQueryData(purchasingKeys.order(poId), { ...prev, ...header, lines: optimisticLines });
       return { prev };

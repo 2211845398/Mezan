@@ -242,7 +242,8 @@ export default function AccountingOperations() {
                     <SelectItem value="__none">{t('operations.voucher.no_entity')}</SelectItem>
                     {(customers.data?.items ?? []).map((c) => (
                       <SelectItem key={c.id} value={String(c.id)}>
-                        {c.display_name ?? c.full_name ?? `#${c.id}`}
+                        {[c.first_name, c.father_name, c.family_name].filter(Boolean).join(' ') ||
+                          `#${c.id}`}
                       </SelectItem>
                     ))}
                   </SelectContent>

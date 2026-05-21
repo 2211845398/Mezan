@@ -152,8 +152,6 @@ export default function GoodsReceiptFields({
   const handleSubmit = () => {
     for (const ln of po.lines ?? []) {
       if (ln.variant_id != null && ln.variant_id > 0) {
-        const already = receivedByLine[ln.id] ?? 0;
-        const remaining = Math.max(0, ln.qty - already);
         const qty = Number(recvQty[ln.id] ?? 0);
         const cost = Number(recvUnitCost[ln.id] ?? 0);
         if (qty > 0 && !(cost > 0)) {

@@ -25,7 +25,7 @@ type Props = {
   remaining: number;
   rows: ReceiveSplitRow[];
   onChange: (rows: ReceiveSplitRow[]) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 };
 
 export function newReceiveSplitRow(): ReceiveSplitRow {
