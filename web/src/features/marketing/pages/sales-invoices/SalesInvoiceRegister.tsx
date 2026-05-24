@@ -21,6 +21,7 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { A4InvoicePrintButton } from '@/features/sales/print/A4InvoicePrintDialog';
 import type { SalesInvoiceRegisterRow } from '@/features/marketing/api';
 import { salesInvoicesRegisterQueryOptions } from '@/features/marketing/queries';
 import { usePermission } from '@/hooks/usePermission';
@@ -111,6 +112,11 @@ export default function SalesInvoiceRegister() {
               {formatCurrencyWithLeadingSymbol(Number.parseFloat(String(getValue())), DISPLAY_CURRENCY)}
             </span>
           ),
+        },
+        {
+          id: 'print',
+          header: '',
+          cell: ({ row }) => <A4InvoicePrintButton invoiceId={row.original.id} />,
         },
       ]),
     [t],

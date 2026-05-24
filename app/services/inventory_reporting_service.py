@@ -22,10 +22,10 @@ from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
 from app.schemas.inventory_stock import StockOnHandRowRead
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
-from app.utils.variant_display import variant_attributes_summary
+from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 
 COST_Q = Decimal("0.0001")
-OPEN_PO_STATUSES: tuple[str, ...] = ("draft", "sent", "tracked")
+OPEN_PO_STATUSES: tuple[str, ...] = ("sent", "tracked")
 
 # branch_id, product_id, variant_id (None = PO line without preset variant)
 OpenPoQtyKey = tuple[int, int, int | None]
@@ -52,7 +52,7 @@ async def _open_po_qty_map(db: AsyncSession) -> dict[OpenPoQtyKey, int]:
             PurchaseOrder.branch_id,
             PurchaseOrderLine.product_id,
             PurchaseOrderLine.variant_id,
-            func.coalesce(func.sum(PurchaseOrderLine.qty), 0),
+            func.coalesce(func.sum(PurchaseOrderLine.qty_base), 0),
         )
         .join(PurchaseOrderLine, PurchaseOrderLine.purchase_order_id == PurchaseOrder.id)
         .where(
@@ -77,7 +77,7 @@ async def _in_transit_in_map(db: AsyncSession) -> dict[tuple[int, int, int], int
             TransferBatch.to_branch_id,
             TransferLine.product_id,
             TransferLine.variant_id,
-            func.coalesce(func.sum(TransferLine.qty), 0),
+            func.coalesce(func.sum(TransferLine.qty_base), 0),
         )
         .join(TransferLine, TransferLine.transfer_batch_id == TransferBatch.id)
         .where(TransferBatch.status == "in_transit")
@@ -93,7 +93,7 @@ async def _in_transit_out_map(db: AsyncSession) -> dict[tuple[int, int, int], in
             TransferBatch.from_branch_id,
             TransferLine.product_id,
             TransferLine.variant_id,
-            func.coalesce(func.sum(TransferLine.qty), 0),
+            func.coalesce(func.sum(TransferLine.qty_base), 0),
         )
         .join(TransferLine, TransferLine.transfer_batch_id == TransferBatch.id)
         .where(TransferBatch.status == "in_transit")
@@ -180,7 +180,9 @@ async def list_stock_on_hand(
             or_(
                 Product.name.ilike(like),
                 Product.sku.ilike(like),
+                Category.name.ilike(like),
                 ProductVariant.sku.ilike(like),
+                ProductVariant.reference_code.ilike(like),
             )
         )
 
@@ -243,6 +245,8 @@ async def list_stock_on_hand(
 
             ext = _q(uc * Decimal(oh))
             attr_summary = variant_attributes_summary(pv.attribute_values)
+            variant_name = variant_value_labels_summary(pv.attribute_values) or prod.name
+            ref_code = (pv.reference_code or "").strip()
             out.append(
                 StockOnHandRowRead(
                     branch_id=sl.branch_id,
@@ -252,6 +256,8 @@ async def list_stock_on_hand(
                     sku=prod.sku,
                     variant_sku=pv.sku,
                     variant_attributes=attr_summary,
+                    variant_name=variant_name,
+                    reference_code=ref_code,
                     product_name=prod.name,
                     product_image_url=prod.image_url,
                     category_id=cat.id,

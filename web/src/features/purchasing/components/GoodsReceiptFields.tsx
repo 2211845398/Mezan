@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -18,11 +17,20 @@ import {
 import type { BranchRead } from '@/features/admin/types';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
-import { type PurchaseOrderRead, receiveGoodsForPurchaseOrder } from '../api';
+import {
+  type PurchaseOrderLineRead,
+  type PurchaseOrderRead,
+  receiveGoodsForPurchaseOrder,
+} from '../api';
 import { aggregateReceivedQtyByPoLine } from '../lib/aggregateReceivedQtyByPoLine';
+import { localizedPoLineUomDisplay } from '../lib/poLineUomDisplay';
+import { canonicalReceiveUnitCost, isPositiveReceiveUnitCost } from '../lib/receiveUnitCost';
 import { computeReceiveLineProgress } from '../lib/receiveLineProgress';
 import ReceiveLineProgressHint from './ReceiveLineProgressHint';
 import { purchasingKeys } from '../queries';
+import PoReceiveLineRow from './PoReceiveLineRow';
+import ReceiveUnitCostHint from './ReceiveUnitCostHint';
+import ReceiveLineReadonlyValue from './ReceiveLineReadonlyValue';
 import PoReceiveVariantSplitRows, {
   type ReceiveSplitRow,
   newReceiveSplitRow,
@@ -33,6 +41,7 @@ type Props = {
   receipts: import('../api').GoodsReceiptRead[];
   branches: BranchRead[];
   productLabels: Record<number, string>;
+  variantLabels?: Record<number, string>;
   onPosted?: () => void | Promise<void>;
   disabled?: boolean;
 };
@@ -42,10 +51,13 @@ export default function GoodsReceiptFields({
   receipts,
   branches,
   productLabels,
+  variantLabels = {},
   onPosted,
   disabled,
 }: Props) {
   const { t } = useTranslation('purchasing');
+  const { t: tInv } = useTranslation('inventory');
+  const { t: tCatalog } = useTranslation('catalog');
   const qc = useQueryClient();
   const receivedByLine = useMemo(() => aggregateReceivedQtyByPoLine(receipts), [receipts]);
 
@@ -55,6 +67,9 @@ export default function GoodsReceiptFields({
   const [splitsByLine, setSplitsByLine] = useState<Record<number, ReceiveSplitRow[]>>({});
   const [receiptNotes, setReceiptNotes] = useState('');
   const idempotencyKeyRef = useRef<string | null>(null);
+
+  const lineUomDisplay = (ln: PurchaseOrderLineRead) =>
+    localizedPoLineUomDisplay(tCatalog, ln.uom_symbol, ln.uom_name);
 
   useEffect(() => {
     idempotencyKeyRef.current = newIdempotencyKey();
@@ -67,8 +82,8 @@ export default function GoodsReceiptFields({
     for (const ln of po.lines ?? []) {
       const rem = Math.max(0, ln.qty - (receivedByLine[ln.id] ?? 0));
       if (ln.variant_id != null && ln.variant_id > 0) {
-        qtyInit[ln.id] = rem > 0 ? String(rem) : '';
-        costInit[ln.id] = ln.unit_cost != null ? String(ln.unit_cost) : '';
+        qtyInit[ln.id] = '';
+        costInit[ln.id] = '';
       } else if (rem > 0) {
         splitInit[ln.id] = [newReceiveSplitRow()];
       }
@@ -102,7 +117,7 @@ export default function GoodsReceiptFields({
             lines.push({
               purchase_order_line_id: ln.id,
               qty,
-              unit_cost: String(Number(unit_cost)),
+              unit_cost: canonicalReceiveUnitCost(unit_cost),
               variant_id: ln.variant_id,
             });
           }
@@ -113,11 +128,11 @@ export default function GoodsReceiptFields({
         for (const row of splits) {
           const qty = Number(row.qty);
           const unit_cost = row.unit_cost;
-          if (qty > 0 && row.variant_id > 0 && Number(unit_cost) > 0) {
+          if (qty > 0 && row.variant_id > 0 && isPositiveReceiveUnitCost(unit_cost)) {
             lines.push({
               purchase_order_line_id: ln.id,
               qty,
-              unit_cost: String(Number(unit_cost)),
+              unit_cost: canonicalReceiveUnitCost(unit_cost),
               variant_id: row.variant_id,
             });
           }
@@ -153,8 +168,8 @@ export default function GoodsReceiptFields({
     for (const ln of po.lines ?? []) {
       if (ln.variant_id != null && ln.variant_id > 0) {
         const qty = Number(recvQty[ln.id] ?? 0);
-        const cost = Number(recvUnitCost[ln.id] ?? 0);
-        if (qty > 0 && !(cost > 0)) {
+        const costRaw = recvUnitCost[ln.id] ?? '';
+        if (qty > 0 && !isPositiveReceiveUnitCost(costRaw)) {
           toast.error(t('orders.receive.unit_cost_required'));
           return;
         }
@@ -172,7 +187,8 @@ export default function GoodsReceiptFields({
         return;
       }
       const hasValid = splits.some(
-        (r) => Number(r.qty) > 0 && r.variant_id > 0 && Number(r.unit_cost) > 0,
+        (r) =>
+          Number(r.qty) > 0 && r.variant_id > 0 && isPositiveReceiveUnitCost(r.unit_cost),
       );
       if (!hasValid && remaining > 0) {
         toast.error(t('orders.receive.variant_required'));
@@ -193,7 +209,7 @@ export default function GoodsReceiptFields({
           onValueChange={(v) => setRecvBranch(v === '__' ? '' : v)}
           disabled={pending}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-9">
             <SelectValue placeholder="—" />
           </SelectTrigger>
           <SelectContent>
@@ -214,37 +230,34 @@ export default function GoodsReceiptFields({
           return null;
         }
         const label = productLabels[ln.product_id] ?? `#${ln.product_id}`;
+        const uomDisplay = lineUomDisplay(ln);
 
         if (ln.variant_id != null && ln.variant_id > 0) {
           const sessionQty = Number(recvQty[ln.id] ?? 0);
           const progress = computeReceiveLineProgress(ln.qty, already, sessionQty);
+          const variantText =
+            variantLabels[ln.variant_id] || `#${ln.variant_id}`;
           return (
-            <div key={ln.id} className="grid gap-2 rounded-md border p-3">
+            <div key={ln.id} className="grid gap-3 rounded-md border p-3">
               <p className="text-sm font-medium">{label}</p>
-              <div className="grid gap-2 md:grid-cols-2">
-              <div>
-                <Label>{t('orders.receive.qty')}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={remaining}
-                  disabled={pending}
-                  value={recvQty[ln.id] ?? ''}
-                  onChange={(e) => setRecvQty((prev) => ({ ...prev, [ln.id]: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>{t('orders.receive.unit_cost')}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  disabled={pending}
-                  value={recvUnitCost[ln.id] ?? ''}
-                  onChange={(e) => setRecvUnitCost((prev) => ({ ...prev, [ln.id]: e.target.value }))}
-                />
-              </div>
-              </div>
+              <PoReceiveLineRow
+                variant={<ReceiveLineReadonlyValue value={variantText} />}
+                uomDisplay={uomDisplay}
+                qty={recvQty[ln.id] ?? ''}
+                unitCost={recvUnitCost[ln.id] ?? ''}
+                unitCostLabel={tInv('movement.receipt.unit_cost_per_uom', { uom: uomDisplay })}
+                unitCostFooter={
+                  <ReceiveUnitCostHint
+                    productId={ln.product_id}
+                    uomId={ln.uom_id}
+                    unitCost={recvUnitCost[ln.id] ?? ''}
+                  />
+                }
+                qtyMax={remaining}
+                disabled={pending}
+                onQtyChange={(v) => setRecvQty((prev) => ({ ...prev, [ln.id]: v }))}
+                onUnitCostChange={(v) => setRecvUnitCost((prev) => ({ ...prev, [ln.id]: v }))}
+              />
               <ReceiveLineProgressHint progress={progress} />
             </div>
           );
@@ -255,6 +268,8 @@ export default function GoodsReceiptFields({
             key={ln.id}
             productId={ln.product_id}
             productLabel={label}
+            uomDisplay={uomDisplay}
+            uomId={ln.uom_id}
             ordered={ln.qty}
             alreadyReceived={already}
             remaining={remaining}

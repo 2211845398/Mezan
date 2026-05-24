@@ -51,7 +51,6 @@ async def test_sync_persists_template_axes_and_price_extra(db_session) -> None:
             "name": "Shirt",
             "sku": "SHIRT-TPL",
             "status": "active",
-            "attributes": {},
             "output_vat_rate": "0",
         },
     )
@@ -123,7 +122,6 @@ async def test_duplicate_combination_in_request_rejected(db_session) -> None:
             "name": "Mug",
             "sku": "MUG-1",
             "status": "active",
-            "attributes": {},
             "output_vat_rate": "0",
         },
     )
@@ -161,7 +159,6 @@ async def test_merge_attribute_values_repoints_template_lines(db_session) -> Non
             "name": "Pants",
             "sku": "PANTS-1",
             "status": "active",
-            "attributes": {},
             "output_vat_rate": "0",
         },
     )

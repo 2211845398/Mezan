@@ -126,15 +126,31 @@ def _extract_line_items(scan: InvoiceScan) -> list[dict[str, Any]]:
 
 
 async def _load_product_pool(db: AsyncSession, *, limit: int = 1000) -> list[dict[str, Any]]:
+    from app.models.product_variant import ProductVariant
+
     stmt = (
-        select(Product.id, Product.name, Product.sku, Product.barcode)
-        .where(Product.status == "active")
-        .order_by(Product.id.asc())
+        select(
+            Product.id,
+            Product.name,
+            ProductVariant.id.label("variant_id"),
+            ProductVariant.sku,
+            ProductVariant.barcode,
+        )
+        .join(ProductVariant, ProductVariant.product_id == Product.id)
+        .where(Product.status == "active", ProductVariant.active.is_(True))
+        .order_by(Product.id.asc(), ProductVariant.id.asc())
         .limit(limit)
     )
     result = await db.execute(stmt)
     return [
-        {"id": int(r.id), "name": r.name, "sku": r.sku, "barcode": r.barcode} for r in result.all()
+        {
+            "id": int(r.id),
+            "name": r.name,
+            "sku": r.sku,
+            "barcode": r.barcode,
+            "variant_id": int(r.variant_id),
+        }
+        for r in result.all()
     ]
 
 

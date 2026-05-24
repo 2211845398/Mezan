@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -31,6 +32,7 @@ import { cn } from '@/lib/utils';
 
 import type { TrialBalanceRow } from '../../api';
 import { exportTrialBalanceCsvBlob } from '../../api';
+import { buildLedgerDrillDownUrl } from '../../lib/ledgerDrillDownUrl';
 import { trialBalanceQueryOptions } from '../../queries';
 
 export default function TrialBalance() {
@@ -86,7 +88,28 @@ export default function TrialBalance() {
     () =>
       defineColumns<TrialBalanceRow>()([
         { id: 'code', accessorKey: 'code', header: t('tb.col.code') },
-        { id: 'name', accessorKey: 'name', header: t('tb.col.name') },
+        {
+          id: 'name',
+          header: t('tb.col.name'),
+          cell: ({ row }) => {
+            const href = buildLedgerDrillDownUrl({
+              account_id: row.original.account_id,
+              date_from: `${applied.as_of.slice(0, 4)}-01-01`,
+              date_to: applied.as_of,
+              branch_id: applied.branch_id,
+            });
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                {row.original.name}
+              </a>
+            );
+          },
+        },
         { id: 'type', accessorKey: 'account_type', header: t('tb.col.type') },
         {
           id: 'dr',
@@ -118,7 +141,7 @@ export default function TrialBalance() {
           ),
         },
       ]),
-    [t],
+    [t, applied],
   );
 
   // Highlight rows with non-zero net (active accounts)

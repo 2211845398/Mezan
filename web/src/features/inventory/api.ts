@@ -62,16 +62,36 @@ export async function postStockAdjustment(
   return data;
 }
 
+export type ReservationRead = {
+  movement_id: number;
+  branch_id: number;
+  branch_name: string;
+  product_id: number;
+  product_name: string;
+  variant_id: number;
+  variant_name: string;
+  reference_code: string;
+  qty_reserved: number;
+  qty_released: number;
+  qty_open: number;
+  created_at: string;
+  notes?: string | null;
+};
+
 export type HumanMovementBody = {
   idempotency_key: string;
   branch_id: number;
   product_id: number;
+  variant_id?: number;
+  uom_id?: number;
+  reserve_movement_id?: number;
   transaction_type:
     | 'add_stock'
     | 'issue_stock'
     | 'return_stock'
     | 'damage_mark'
     | 'damage_scrap'
+    | 'damage_unmark'
     | 'reserve'
     | 'release'
     | 'count_adjust';
@@ -88,6 +108,113 @@ export async function postHumanInventoryMovement(
 ): Promise<{ movement_id: number }> {
   const { data } = await apiClient.post('/inventory/movements', body);
   return data;
+}
+
+export type AdhocReceiptLine = {
+  product_id: number;
+  qty: number;
+  uom_id: number;
+  unit_cost: string | number;
+  variant_id?: number;
+};
+
+export async function postAdhocGoodsReceipt(body: {
+  idempotency_key: string;
+  branch_id: number;
+  supplier_id?: number | null;
+  notes?: string | null;
+  lines: AdhocReceiptLine[];
+}): Promise<{ movement_ids: number[] }> {
+  const { data } = await apiClient.post('/inventory/receipts/adhoc', body);
+  return data;
+}
+
+export async function listReservations(params?: {
+  branch_id?: number;
+  limit?: number;
+}): Promise<ReservationRead[]> {
+  const { data } = await apiClient.get<ReservationRead[]>('/inventory/reservations', { params });
+  return data;
+}
+
+export type DamagedPositionRead = {
+  branch_id: number;
+  branch_name: string;
+  product_id: number;
+  product_name: string;
+  variant_id: number;
+  variant_name: string;
+  reference_code: string;
+  qty_damaged: number;
+};
+
+export async function listDamagedPositions(params?: {
+  branch_id?: number;
+  limit?: number;
+}): Promise<DamagedPositionRead[]> {
+  const { data } = await apiClient.get<DamagedPositionRead[]>('/inventory/damaged', { params });
+  return data;
+}
+
+export async function postScrapDamaged(body: {
+  idempotency_key: string;
+  branch_id: number;
+  product_id: number;
+  variant_id?: number;
+  quantity: number;
+  uom_id?: number;
+  notes?: string;
+}): Promise<{ movement_id: number }> {
+  const { data } = await apiClient.post('/inventory/damaged/scrap', body);
+  return data;
+}
+
+export async function postUnmarkDamaged(body: {
+  idempotency_key: string;
+  branch_id: number;
+  product_id: number;
+  variant_id?: number;
+  quantity: number;
+  uom_id?: number;
+  notes?: string;
+}): Promise<{ movement_id: number }> {
+  const { data } = await apiClient.post('/inventory/damaged/unmark', body);
+  return data;
+}
+
+export async function postReleaseReservation(
+  reserveMovementId: number,
+  body: { idempotency_key: string; quantity: number; notes?: string },
+): Promise<{ movement_id: number }> {
+  const { data } = await apiClient.post(
+    `/inventory/reservations/${reserveMovementId}/release`,
+    body,
+  );
+  return data;
+}
+
+export async function downloadStockCountPdf(body: {
+  branch_id: number;
+  category_id?: number | null;
+  product_ids?: number[] | null;
+  q?: string | null;
+  responsible_name?: string;
+}): Promise<string> {
+  const res = await apiClient.post<Blob>('/inventory/stock-count/export', body, {
+    responseType: 'blob',
+  });
+  const blob = res.data;
+  const disposition = res.headers['content-disposition'] as string | undefined;
+  let filename = 'stock_count.pdf';
+  const match = disposition?.match(/filename="?([^";]+)"?/);
+  if (match?.[1]) filename = match[1];
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return filename;
 }
 
 export async function getInventoryPolicy(

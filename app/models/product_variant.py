@@ -24,6 +24,7 @@ class ProductVariant(Base):
     __table_args__ = (
         UniqueConstraint("sku", name="uq_product_variants_sku"),
         UniqueConstraint("barcode", name="uq_product_variants_barcode", deferrable="INITIALLY DEFERRED"),
+        UniqueConstraint("reference_code", name="uq_product_variants_reference_code"),
         UniqueConstraint(
             "product_id",
             "combination_key",
@@ -38,6 +39,7 @@ class ProductVariant(Base):
         index=True,
     )
     sku: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    reference_code: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True, index=True)
     barcode: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True, index=True)
     combination_key: Mapped[str] = mapped_column(String(512), nullable=False, default="_default", index=True)
     price_extra: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False, default=Decimal("0"))

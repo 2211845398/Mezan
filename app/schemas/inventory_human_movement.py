@@ -13,6 +13,7 @@ TransactionType = Literal[
     "return_stock",
     "damage_mark",
     "damage_scrap",
+    "damage_unmark",
     "reserve",
     "release",
     "count_adjust",
@@ -23,9 +24,15 @@ class HumanInventoryMovementCreate(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=128)
     branch_id: int
     product_id: int
+    variant_id: int | None = None
+    uom_id: int | None = None
     transaction_type: TransactionType
     quantity: int | None = None
     qty_signed: int | None = None
+    reserve_movement_id: int | None = Field(
+        default=None,
+        description="Required for release: id of the reserve movement to unwind.",
+    )
     notes: str | None = Field(default=None, max_length=1024)
     reason: str = Field(default="manual_movement", min_length=2, max_length=64)
     unit_cost: Decimal | None = Field(
@@ -50,6 +57,11 @@ class HumanInventoryMovementCreate(BaseModel):
                 raise ValueError("unit_cost must be positive for add_stock")
         elif self.unit_cost is not None:
             raise ValueError("unit_cost may only be supplied for add_stock")
+        if self.transaction_type == "release":
+            if self.reserve_movement_id is None:
+                raise ValueError("reserve_movement_id is required for release")
+        elif self.reserve_movement_id is not None:
+            raise ValueError("reserve_movement_id may only be supplied for release")
         return self
 
 

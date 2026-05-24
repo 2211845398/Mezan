@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -53,8 +54,22 @@ export default function SuppliersList() {
           accessorFn: (row) =>
             [formatPersonName(row.first_name, row.father_name, row.family_name), row.code].filter(Boolean).join(' '),
           header: t('suppliers.col.name'),
-          cell: ({ row }) =>
-            formatPersonName(row.original.first_name, row.original.father_name, row.original.family_name) || '—',
+          cell: ({ row }) => {
+            const name =
+              formatPersonName(
+                row.original.first_name,
+                row.original.father_name,
+                row.original.family_name,
+              ) || row.original.code;
+            return (
+              <Link
+                to={`/purchasing/suppliers/${row.original.id}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {name}
+              </Link>
+            );
+          },
         },
         {
           id: 'contact',

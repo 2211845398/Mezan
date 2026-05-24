@@ -22,6 +22,10 @@ class TransferLine(Base):
         ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    uom_id: Mapped[int] = mapped_column(
+        ForeignKey("units_of_measure.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    qty_base: Mapped[int] = mapped_column(Integer, nullable=False)
 
     transfer_batch = relationship("TransferBatch", back_populates="lines")
     product = relationship("Product")

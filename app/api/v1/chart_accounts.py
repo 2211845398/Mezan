@@ -18,24 +18,43 @@ from app.schemas.chart_accounts import (
     ChartAccountDeleteCheck,
     ChartAccountMoveRequest,
     ChartAccountRead,
+    ChartAccountSuggestCodeRead,
     ChartAccountTreeBranchNode,
     ChartAccountTreeNode,
     ChartAccountUpdate,
     CoaTypeSummary,
+    PostableChartAccountRead,
 )
 from app.services import audit_service
 from app.services.chart_account_service import (
+    can_delete_account,
     create_chart_account,
     delete_chart_account,
     get_chart_account,
     get_chart_account_tree,
     get_chart_account_tree_for_branch,
     list_chart_accounts,
+    list_postable_chart_accounts,
+    suggest_chart_account_code,
     update_chart_account,
-    can_delete_account,
 )
 
 router = APIRouter()
+
+
+@router.get(
+    "/accounting/chart-accounts/postable",
+    response_model=list[PostableChartAccountRead],
+)
+async def list_postable_coa_endpoint(
+    active_only: bool = Query(default=True),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> list[PostableChartAccountRead]:
+    """Leaf posting accounts for manual journal and voucher line pickers."""
+    rows = await list_postable_chart_accounts(db, active_only=active_only)
+    return [PostableChartAccountRead.model_validate(r) for r in rows]
 
 
 @router.get(
@@ -108,6 +127,21 @@ async def list_coa_endpoint(
     return result
 
 
+@router.get(
+    "/accounting/chart-accounts/suggest-code",
+    response_model=ChartAccountSuggestCodeRead,
+)
+async def suggest_coa_code_endpoint(
+    parent_id: int | None = Query(None, description="Parent group ID (null = no suggestion)"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> ChartAccountSuggestCodeRead:
+    """Suggest the next account code under a parent group."""
+    suggested = await suggest_chart_account_code(db, parent_id=parent_id)
+    return ChartAccountSuggestCodeRead(suggested_code=suggested)
+
+
 @router.post(
     "/accounting/chart-accounts",
     response_model=ChartAccountRead,
@@ -129,6 +163,7 @@ async def create_coa_endpoint(
         parent_id=body.parent_id,
         is_control=body.is_control,
         active=body.active,
+        subledger_kind=body.subledger_kind,
     )
     await audit_service.log(
         session=db,

@@ -1,4 +1,4 @@
-import { Clock3, ListChecks, ReceiptText, RotateCcw, Trash2, Wallet } from 'lucide-react';
+import { Clock3, ListChecks, ReceiptText, RotateCcw, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -18,7 +18,6 @@ import { now } from '@/lib/date';
 import { formatCurrency, formatDateTime } from '@/lib/format';
 import { formatPersonName } from '@/lib/personName';
 
-import { changeCartState } from '../api';
 import { useParkedCarts } from '../queries';
 import { ShiftCloseForm } from './ShiftCloseForm';
 
@@ -75,11 +74,6 @@ export function RegisterToolbar({
     }
     onResumeCart(cartId);
     onParkedOpenChange(false);
-  }
-
-  async function handleDeleteParked(cartId: number) {
-    await changeCartState(cartId, { action: 'cancel' });
-    void parked.refetch();
   }
 
   /** Same min-height for all toolbar actions (previously «إنهاء الوردية» used `size="sm"`). */
@@ -215,16 +209,6 @@ export function RegisterToolbar({
                       onClick={() => void handleResumeCart(cart.id)}
                     >
                       {t('register.resume')}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => void handleDeleteParked(cart.id)}
-                      aria-label={t('register.cancel_cart')}
-                    >
-                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 </div>

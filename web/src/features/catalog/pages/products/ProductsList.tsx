@@ -222,18 +222,6 @@ export default function ProductsList() {
           ),
         },
         {
-          id: 'barcode',
-          header: t('products.col.barcode_count'),
-          cell: ({ row }) => {
-            const b = row.original.barcode?.trim();
-            return (
-              <span className="num-latin tabular-nums" dir="ltr">
-                {b ? b : '—'}
-              </span>
-            );
-          },
-        },
-        {
           id: 'actions',
           header: '',
           cell: ({ row }) => {

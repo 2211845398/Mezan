@@ -53,6 +53,10 @@
     "add_product": "Add product",
     "search_product": "Search product…",
     "qty": "Qty",
+    "variant_picker_title": "Choose variant — {{name}}",
+    "variant_picker_empty": "No active variants for this product.",
+    "variant_picker_stock": "On hand: {{count}}",
+    "variant_picker_cancel": "Cancel",
     "product_unlabeled": "Product",
     "park": "Park",
     "resume": "Resume",
@@ -124,6 +128,35 @@
     "shortfall_ar": "Remaining {{amount}} posts to customer receivables",
     "partial_cash_needs_customer": "Assign a customer on the cart to record the shortfall as receivable when paying less than the total in cash.",
     "transfer_ref_placeholder": "Transfer reference (optional)"
+  },
+  "print": {
+    "a4": {
+      "button": "Print A4",
+      "dialog_title": "A4 invoice preview",
+      "print": "Print",
+      "load_error": "Could not load invoice",
+      "title": "Tax invoice / B2B",
+      "voided": "VOID",
+      "invoice_no": "Invoice no.",
+      "date": "Date",
+      "customer": "Customer",
+      "barcode": "Barcode",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "tax": "Tax",
+      "total": "Total",
+      "payment": "Payment method",
+      "void_reason": "Void reason: {{reason}}",
+      "footer": "Electronically generated document — for official B2B use",
+      "col": {
+        "sku": "SKU",
+        "description": "Description",
+        "qty": "Qty",
+        "unit_price": "Unit price",
+        "tax": "Tax",
+        "line_total": "Line total"
+      }
+    }
   },
   "receipt": {
     "title": "Receipt",

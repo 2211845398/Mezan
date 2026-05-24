@@ -218,7 +218,6 @@ async def test_happy_user_journey(
         },
     )
     assert prod.status_code == 201, prod.text
-    assert Decimal(str(prod.json()["attributes"]["price"])) == Decimal("50.0")
     product_id = prod.json()["id"]
 
     # =======================================================================

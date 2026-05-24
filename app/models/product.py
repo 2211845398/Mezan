@@ -6,20 +6,25 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
 
 class Product(Base):
-    """Master product record with JSONB attributes per category."""
+    """Master product record. Variant axes live in relational attribute tables."""
 
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     category_id: Mapped[int] = mapped_column(
         ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    uom_id: Mapped[int] = mapped_column(
+        ForeignKey("units_of_measure.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+        index=True,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
@@ -28,7 +33,6 @@ class Product(Base):
     status: Mapped[str] = mapped_column(
         String(32), default="active", nullable=False
     )  # active, archived
-    attributes: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     standard_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
     output_vat_rate: Mapped[Decimal] = mapped_column(
         Numeric(8, 4),
@@ -48,6 +52,7 @@ class Product(Base):
     )
 
     category = relationship("Category", back_populates="products")
+    unit_of_measure = relationship("UnitOfMeasure", back_populates="products")
     category_links = relationship(
         "ProductCategory",
         back_populates="product",
@@ -66,6 +71,11 @@ class Product(Base):
     )
     attribute_lines = relationship(
         "ProductAttributeLine",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
+    unit_conversions = relationship(
+        "ProductUnitConversion",
         back_populates="product",
         cascade="all, delete-orphan",
     )

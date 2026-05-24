@@ -19,13 +19,15 @@ describe('mergePreviewWithDraftRows', () => {
         id: 9,
         attribute_value_ids: [1, 2],
         sku: 'SKU-CUSTOM',
+        reference_code: 'ITEM-99',
         barcode: '123',
         active: true,
         price_extra: '12.50',
         display_label: 'old',
       },
     ]);
-    expect(merged[0]?.sku).toBe('SKU-CUSTOM');
+    expect(merged[0]?.sku).toBe('SKU-A');
+    expect(merged[0]?.reference_code).toBe('ITEM-99');
     expect(merged[0]?.price_extra).toBe('12.50');
     expect(merged[0]?.id).toBe(9);
   });

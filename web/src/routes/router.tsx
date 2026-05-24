@@ -83,6 +83,24 @@ const InventoryAdjustmentForm = lazy(
 );
 const InventoryTransfersList = lazy(() => import('@/features/inventory/pages/transfers/TransfersList'));
 const InventoryTransferForm = lazy(() => import('@/features/inventory/pages/transfers/TransferForm'));
+const InventoryAdhocReceiptPage = lazy(
+  () => import('@/features/inventory/pages/receipts/AdhocReceiptPage'),
+);
+const InventoryReservationsList = lazy(
+  () => import('@/features/inventory/pages/reservations/ReservationsListPage'),
+);
+const InventoryReserveMovementPage = lazy(
+  () => import('@/features/inventory/pages/reservations/ReserveMovementPage'),
+);
+const InventoryDamagedListPage = lazy(
+  () => import('@/features/inventory/pages/damage/DamagedListPage'),
+);
+const InventoryDamageMovementPage = lazy(
+  () => import('@/features/inventory/pages/damage/DamageMovementPage'),
+);
+const InventoryStockCountPage = lazy(
+  () => import('@/features/inventory/pages/stock-count/StockCountPage'),
+);
 const InventoryScansIndexRedirect = lazy(
   () => import('@/features/invoice_scans/pages/InventoryScansIndexRedirect'),
 );
@@ -98,6 +116,7 @@ const PurchasingGoodsReceiptPage = lazy(
 );
 const PurchasingSuppliersList = lazy(() => import('@/features/purchasing/pages/suppliers/SuppliersList'));
 const PurchasingSupplierForm = lazy(() => import('@/features/purchasing/pages/suppliers/SupplierForm'));
+const PurchasingSupplierDetail = lazy(() => import('@/features/purchasing/pages/suppliers/SupplierDetail'));
 const InvoiceScanQueue = lazy(() => import('@/features/invoice_scans/pages/InvoiceScanQueue'));
 const InvoiceScanDetail = lazy(() => import('@/features/invoice_scans/pages/InvoiceScanDetail'));
 
@@ -119,6 +138,9 @@ const AccountingFiscalPeriodsList = lazy(
   () => import('@/features/accounting/pages/fiscal-periods/FiscalPeriodsList'),
 );
 const AccountingOperations = lazy(() => import('@/features/accounting/pages/operations/AccountingOperations'));
+const ChartOfAccountsPage = lazy(
+  () => import('@/features/accounting/pages/chart-accounts/ChartOfAccountsPage'),
+);
 const AccountingCurrencies = lazy(() => import('@/features/accounting/pages/currencies/CurrenciesPage'));
 const AccountingPaymentTerms = lazy(
   () => import('@/features/accounting/pages/payment-terms/PaymentTermsList'),
@@ -431,6 +453,69 @@ export const router = createBrowserRouter([
                 ],
               },
               {
+                path: 'receipts',
+                children: [
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="stock_adjustments" action="create">
+                        {withSuspense(InventoryAdhocReceiptPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
+              },
+              {
+                path: 'reservations',
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="stock_adjustments" action="read">
+                        {withSuspense(InventoryReservationsList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="stock_adjustments" action="create">
+                        {withSuspense(InventoryReserveMovementPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
+              },
+              {
+                path: 'damage',
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="stock_adjustments" action="read">
+                        {withSuspense(InventoryDamagedListPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'new',
+                    element: (
+                      <RequirePermission resource="stock_adjustments" action="create">
+                        {withSuspense(InventoryDamageMovementPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
+              },
+              {
+                path: 'stock-count',
+                element: (
+                  <RequirePermission resource="inventory" action="read">
+                    {withSuspense(InventoryStockCountPage)}
+                  </RequirePermission>
+                ),
+              },
+              {
                 path: 'scans',
                 children: [
                   {
@@ -520,6 +605,14 @@ export const router = createBrowserRouter([
                     element: (
                       <RequirePermission resource="suppliers" action="create">
                         {withSuspense(PurchasingSupplierForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="suppliers" action="read">
+                        {withSuspense(PurchasingSupplierDetail)}
                       </RequirePermission>
                     ),
                   },
@@ -852,6 +945,14 @@ export const router = createBrowserRouter([
                 element: (
                   <RequirePermission resource="accounting" action="update">
                     {withSuspense(AccountingFiscalPeriodsList)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'chart-accounts',
+                element: (
+                  <RequirePermission resource="accounting" action="read">
+                    {withSuspense(ChartOfAccountsPage)}
                   </RequirePermission>
                 ),
               },

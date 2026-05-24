@@ -18,6 +18,13 @@ class AccountType(PyEnum):
     EXPENSE = "expense"
 
 
+class SubledgerKind(PyEnum):
+    NONE = "none"
+    CUSTOMER = "customer"
+    SUPPLIER = "supplier"
+    EMPLOYEE = "employee"
+
+
 class ChartAccount(Base):
     __tablename__ = "chart_accounts"
 
@@ -37,5 +44,15 @@ class ChartAccount(Base):
         ForeignKey("chart_accounts.id", ondelete="SET NULL"), nullable=True, index=True
     )
     is_control: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_leaf: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    subledger_kind: Mapped[SubledgerKind] = mapped_column(
+        Enum(
+            SubledgerKind,
+            native_enum=False,
+            values_callable=lambda cls: [m.value for m in cls],
+        ),
+        nullable=False,
+        default=SubledgerKind.NONE,
+    )
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

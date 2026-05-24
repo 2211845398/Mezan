@@ -23,9 +23,12 @@ export function ContentSurface({ children, className }: ContentSurfaceProps) {
 export type SectionCardProps = {
   title?: string;
   description?: string;
+  /** Rendered on the same row as the title (e.g. action buttons). */
+  actions?: ReactNode;
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  dir?: 'ltr' | 'rtl';
 };
 
 /**
@@ -34,16 +37,26 @@ export type SectionCardProps = {
 export function SectionCard({
   title,
   description,
+  actions,
   children,
   className,
   contentClassName,
+  dir,
 }: SectionCardProps) {
   return (
-    <Card className={className}>
+    <Card className={className} dir={dir}>
       {title ? (
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-base font-semibold">{title}</CardTitle>
-          {description ? <CardDescription>{description}</CardDescription> : null}
+        <CardHeader
+          className={cn(
+            'space-y-1',
+            actions ? 'flex flex-row flex-wrap items-center justify-between gap-3' : undefined,
+          )}
+        >
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-base font-semibold">{title}</CardTitle>
+            {description ? <CardDescription>{description}</CardDescription> : null}
+          </div>
+          {actions ? <div className="shrink-0">{actions}</div> : null}
         </CardHeader>
       ) : null}
       <CardContent className={cn('p-6', title ? 'pt-0' : '', contentClassName)}>{children}</CardContent>

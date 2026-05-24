@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from datetime import UTC, datetime
 from typing import Any
 
@@ -32,8 +34,13 @@ from app.schemas.variant_generation import (
     VariantSyncResponse,
     VariantSyncRow,
 )
-from app.services.catalog_service import get_product, product_to_read
+from app.services.catalog_service import (
+    assign_variant_barcode_if_missing,
+    get_product,
+    product_to_read,
+)
 from app.utils.variant_combination_key import build_combination_key
+from app.utils.smart_sku import format_variant_sku, validate_sku_reference
 from app.utils.variant_combinator import cartesian_product_combos
 
 
@@ -108,12 +115,37 @@ async def validate_catalog_axes(
 
 
 def build_variant_sku(product_sku: str, value_codes: list[str]) -> str:
-    parts = [product_sku.strip()]
-    for code in value_codes:
-        c = (code or "").strip().upper()
-        if c:
-            parts.append(c)
-    return "-".join(parts)
+    return format_variant_sku(product_sku, value_codes)
+
+
+def _validated_variant_sku(raw: str) -> str:
+    try:
+        return validate_sku_reference(raw)
+    except ValueError as exc:
+        raise ValidationError(str(exc), details={"field": "sku"}) from exc
+
+
+def _validated_reference_code(raw: str | None) -> str | None:
+    if raw is None or not str(raw).strip():
+        return None
+    try:
+        return validate_sku_reference(raw)
+    except ValueError as exc:
+        raise ValidationError(str(exc), details={"field": "reference_code"}) from exc
+
+
+async def _system_sku_for_key(
+    db: AsyncSession,
+    *,
+    product: Product,
+    key: frozenset[int],
+    value_rows: dict[int, CatalogAttributeValue],
+) -> str:
+    if not key:
+        return _validated_variant_sku(product.sku)
+    summary = await _attribute_summary_for_value_ids(db, sorted(key))
+    codes = [s.value_code for s in sorted(summary, key=lambda s: (s.attribute_code, s.value_code))]
+    return _validated_variant_sku(build_variant_sku(product.sku, codes))
 
 
 def variant_display_label(product_name: str, labels: list[str]) -> str:
@@ -429,6 +461,7 @@ async def sync_product_variants(
 
     async def apply_row(pv: ProductVariant, sync_row: VariantSyncRow, key: frozenset[int]) -> None:
         nonlocal updated
+
         old_set = existing_sets.get(int(pv.id), frozenset())
         if old_set != key and await _variant_has_inventory_activity(db, int(pv.id)):
             display = await _variant_display_label_for_conflict(
@@ -438,8 +471,9 @@ async def sync_product_variants(
                 "Cannot change variant linked to inventory activity",
                 details={"variant_id": pv.id, "display_label": display},
             )
-        pv.sku = sync_row.sku.strip()
-        pv.barcode = (sync_row.barcode or "").strip() or None
+        pv.sku = await _system_sku_for_key(db, product=product, key=key, value_rows=value_rows)
+        pv.reference_code = _validated_reference_code(sync_row.reference_code)
+        assign_variant_barcode_if_missing(pv)
         pv.active = sync_row.active
         pv.price_extra = _to_decimal(sync_row.price_extra)
         pv.combination_key = build_combination_key(key)
@@ -465,10 +499,30 @@ async def sync_product_variants(
             await apply_row(pv, sync_row, key)
             continue
 
+        combo_key = build_combination_key(key)
+        if key:
+            existing_combo_res = await db.execute(
+                select(ProductVariant).where(
+                    ProductVariant.product_id == product_id,
+                    ProductVariant.combination_key == combo_key,
+                )
+            )
+            pv_existing = existing_combo_res.scalar_one_or_none()
+            if pv_existing is not None:
+                await apply_row(pv_existing, sync_row, key)
+                set_to_vid[key] = int(pv_existing.id)
+                by_id[int(pv_existing.id)] = pv_existing
+                existing_sets[int(pv_existing.id)] = key
+                continue
+
+        computed_sku = await _system_sku_for_key(
+            db, product=product, key=key, value_rows=value_rows
+        )
         pv = ProductVariant(
             product_id=product_id,
-            sku=sync_row.sku.strip(),
-            barcode=(sync_row.barcode or "").strip() or None,
+            sku=computed_sku,
+            reference_code=_validated_reference_code(sync_row.reference_code),
+            barcode=None,
             combination_key=build_combination_key(key),
             price_extra=_to_decimal(sync_row.price_extra),
             attribute_values={},
@@ -481,9 +535,10 @@ async def sync_product_variants(
             await db.flush()
         except IntegrityError as e:
             raise ConflictError(
-                "Variant SKU or barcode conflicts with existing data",
-                details={"sku": sync_row.sku},
+                "Variant SKU, reference code, or barcode conflicts with existing data",
+                details={"sku": computed_sku, "reference_code": sync_row.reference_code},
             ) from e
+        assign_variant_barcode_if_missing(pv)
         if key:
             await _replace_variant_pivot(
                 db, variant_id=int(pv.id), value_ids=sorted(key), value_rows=value_rows
@@ -587,6 +642,7 @@ async def get_product_with_variants(
             ProductVariantDetailRead(
                 id=int(v.id),
                 sku=v.sku,
+                reference_code=v.reference_code,
                 barcode=v.barcode,
                 attribute_values=v.attribute_values or {},
                 attribute_value_ids=value_ids,
@@ -635,8 +691,75 @@ async def filter_variants_by_attribute_value(
     if q and q.strip():
         like = f"%{q.strip()}%"
         stmt = stmt.join(Product, Product.id == ProductVariant.product_id).where(
-            ProductVariant.sku.ilike(like) | Product.name.ilike(like)
+            ProductVariant.sku.ilike(like)
+            | ProductVariant.reference_code.ilike(like)
+            | Product.name.ilike(like)
         )
     stmt = stmt.order_by(ProductVariant.id.asc()).limit(limit).offset(offset)
     res = await db.execute(stmt)
     return list(res.scalars().all())
+
+
+async def generate_missing_variant_barcodes(db: AsyncSession, *, product_id: int) -> int:
+    """Assign internal EAN-13 to variants of this product that lack a barcode."""
+    await get_product(db, product_id)
+    res = await db.execute(
+        select(ProductVariant).where(ProductVariant.product_id == product_id)
+    )
+    assigned = 0
+    for pv in res.scalars().all():
+        if assign_variant_barcode_if_missing(pv):
+            assigned += 1
+    return assigned
+
+
+async def export_variant_barcodes_csv(
+    db: AsyncSession,
+    *,
+    product_id: int,
+    active_only: bool = True,
+) -> str:
+    """CSV (UTF-8 BOM) of variant labels and barcodes for label printing."""
+    product = await get_product(db, product_id)
+    stmt = select(ProductVariant).where(ProductVariant.product_id == product_id)
+    if active_only:
+        stmt = stmt.where(ProductVariant.active.is_(True))
+    stmt = stmt.order_by(ProductVariant.id.asc())
+    variants = list((await db.execute(stmt)).scalars().all())
+
+    variant_ids = [int(v.id) for v in variants]
+    pva_map: dict[int, list[int]] = {vid: [] for vid in variant_ids}
+    if variant_ids:
+        pva_res = await db.execute(
+            select(
+                ProductVariantAttribute.variant_id,
+                ProductVariantAttribute.attribute_value_id,
+            ).where(ProductVariantAttribute.variant_id.in_(variant_ids))
+        )
+        for vid, val_id in pva_res.all():
+            pva_map[int(vid)].append(int(val_id))
+
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    writer = csv.writer(buf)
+    writer.writerow(
+        ["variant_label", "system_sku", "reference_code", "barcode", "active"]
+    )
+    for v in variants:
+        value_ids = sorted(pva_map.get(int(v.id), []))
+        if value_ids:
+            summary = await _attribute_summary_for_value_ids(db, value_ids)
+            labels = [s.label for s in sorted(summary, key=lambda s: (s.attribute_code, s.value_code))]
+            label = variant_display_label(product.name, labels)
+        else:
+            label = v.sku.strip() or product.name.strip()
+        writer.writerow(
+            [
+                label,
+                v.sku,
+                v.reference_code or "",
+                v.barcode or "",
+                "active" if v.active else "archived",
+            ]
+        )
+    return buf.getvalue()

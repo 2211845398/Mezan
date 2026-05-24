@@ -16,9 +16,12 @@ from app.models.category import Category
 from app.models.pos_cart import PosCart, PosCartDiscount, PosCartLine
 from app.models.pos_payment import PaymentIntent, PaymentReceipt
 from app.models.branch import Branch
+from app.models.currency import Currency
 from app.models.customer_profile import CustomerAccountStatus, CustomerProfile
+from app.models.global_config import GlobalConfig
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import SalesReturn
 from app.schemas.sales_invoice import (
@@ -32,7 +35,9 @@ from app.services.accounting_governance_service import (
     reverse_journal_entry,
     same_fiscal_period_as_today,
 )
+from app.services.accounting_service import get_accounting_settings
 from app.services.document_posting_service import post_sales_invoice_gl
+from app.utils.person_name import display_person_name
 from app.services.inventory_service import apply_stock_movement
 from app.services.catalog_service import resolve_default_variant_id
 from app.services.loyalty_dsl_service import calculate_loyalty_for_purchase
@@ -349,21 +354,29 @@ async def _sales_invoice_to_detail_read(
     )
     lines = list(line_res.scalars().all())
     product_ids = {ln.product_id for ln in lines}
+    variant_ids = {ln.variant_id for ln in lines}
     prods: dict[int, Product] = {}
     if product_ids:
         pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
         prods = {p.id: p for p in pres.scalars().all()}
+    variants: dict[int, ProductVariant] = {}
+    if variant_ids:
+        vres = await db.execute(select(ProductVariant).where(ProductVariant.id.in_(variant_ids)))
+        variants = {v.id: v for v in vres.scalars().all()}
 
     line_reads: list[SalesInvoiceLineRead] = []
     for ln in lines:
         p = prods.get(ln.product_id)
+        pv = variants.get(ln.variant_id)
+        variant_sku = (pv.sku if pv and pv.sku else None) or (p.sku if p else "")
+        barcode = pv.barcode if pv and pv.barcode else None
         line_reads.append(
             SalesInvoiceLineRead(
                 id=ln.id,
                 product_id=ln.product_id,
                 product_name=p.name if p else "",
-                product_sku=p.sku if p else "",
-                barcode=p.barcode if p else None,
+                product_sku=variant_sku,
+                barcode=barcode,
                 qty=ln.qty,
                 unit_price=ln.unit_price,
                 line_total=ln.line_total,
@@ -378,7 +391,10 @@ async def _sales_invoice_to_detail_read(
         .where(InvoicePayment.sales_invoice_id == invoice.id)
     )
     payments: list[SalesInvoicePaymentRead] = []
+    currency_code: str | None = None
     for ip, pint in pay_res.all():
+        if pint is not None and pint.currency:
+            currency_code = pint.currency
         payments.append(
             SalesInvoicePaymentRead(
                 method=ip.method,
@@ -387,6 +403,41 @@ async def _sales_invoice_to_detail_read(
                 currency=pint.currency if pint is not None else None,
             )
         )
+    if currency_code is None:
+        settings = await get_accounting_settings(db)
+        cur_res = await db.execute(select(Currency).where(Currency.id == settings.base_currency_id))
+        base_cur = cur_res.scalar_one_or_none()
+        if base_cur:
+            currency_code = base_cur.code
+
+    branch_name: str | None = None
+    bres = await db.execute(select(Branch).where(Branch.id == invoice.branch_id))
+    branch = bres.scalar_one_or_none()
+    if branch:
+        branch_name = branch.name
+
+    customer_display: str | None = None
+    if invoice.customer_id is not None:
+        cres = await db.execute(
+            select(CustomerProfile).where(CustomerProfile.id == invoice.customer_id)
+        )
+        cust = cres.scalar_one_or_none()
+        if cust:
+            customer_display = display_person_name(
+                cust.first_name, cust.father_name, cust.family_name
+            ) or cust.phone
+
+    company_legal_name: str | None = None
+    cfg_res = await db.execute(
+        select(GlobalConfig).where(GlobalConfig.key == "company_legal_name")
+    )
+    cfg = cfg_res.scalar_one_or_none()
+    if cfg and cfg.value and isinstance(cfg.value, dict):
+        raw = cfg.value.get("name") or cfg.value.get("legal_name")
+        if isinstance(raw, str) and raw.strip():
+            company_legal_name = raw.strip()
+    if not company_legal_name and branch_name:
+        company_legal_name = branch_name
 
     return SalesInvoiceDetailRead(
         id=invoice.id,
@@ -395,7 +446,11 @@ async def _sales_invoice_to_detail_read(
         cart_id=invoice.cart_id,
         terminal_id=invoice.terminal_id,
         branch_id=invoice.branch_id,
+        branch_name=branch_name,
         customer_id=invoice.customer_id,
+        customer_display=customer_display,
+        currency_code=currency_code,
+        company_legal_name=company_legal_name,
         subtotal=invoice.subtotal,
         discount_total=invoice.discount_total,
         tax_total=invoice.tax_total,

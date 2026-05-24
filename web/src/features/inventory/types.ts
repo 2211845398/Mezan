@@ -8,6 +8,8 @@ export type StockOnHandRow = {
   sku: string;
   variant_sku: string;
   variant_attributes: string;
+  variant_name?: string;
+  reference_code?: string;
   product_name: string;
   product_image_url?: string | null;
   category_id: number;
@@ -52,8 +54,13 @@ export type TransferLineRead = {
   product_id: number;
   variant_id?: number | null;
   qty: number;
+  qty_base?: number;
+  uom_id?: number;
+  uom_name?: string;
   product_name?: string;
   variant_sku?: string;
+  variant_name?: string;
+  reference_code?: string;
   variant_attributes?: string;
 };
 

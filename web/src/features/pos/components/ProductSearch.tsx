@@ -9,9 +9,10 @@ export type ProductSearchProps = {
   value: string | undefined;
   onChange: (productId: number | null) => void;
   disabled?: boolean;
+  clearable?: boolean;
 };
 
-export function ProductSearch({ value, onChange, disabled }: ProductSearchProps) {
+export function ProductSearch({ value, onChange, disabled, clearable }: ProductSearchProps) {
   const { t } = useTranslation('pos');
   const [q, setQ] = useState('');
 
@@ -44,6 +45,7 @@ export function ProductSearch({ value, onChange, disabled }: ProductSearchProps)
       isLoading={isFetching}
       className="min-h-11 w-full max-w-none"
       disabled={disabled ?? false}
+      clearable={clearable}
     />
   );
 }

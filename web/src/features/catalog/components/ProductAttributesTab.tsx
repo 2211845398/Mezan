@@ -25,10 +25,15 @@ export function ProductAttributesTab({
   onVariantRowsChange,
   disabled,
 }: Props) {
-  const { t } = useTranslation('catalog');
+  const { t, i18n } = useTranslation('catalog');
 
   return (
-    <SectionCard title={t('products.tabs.attributes_variants')}>
+    <SectionCard
+      dir={i18n.dir()}
+      title={t('products.tabs.attributes_variants')}
+      className="w-full max-w-full overflow-hidden text-start"
+      contentClassName="min-w-0 p-4 md:p-6"
+    >
       <ProductVariantAxesEditor
         productId={productId}
         productName={productName}

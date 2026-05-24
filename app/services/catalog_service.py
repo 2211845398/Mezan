@@ -17,25 +17,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.category import Category
-from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.product import Product
 from app.models.product_category import ProductCategory
 from app.models.product_tax_definition import ProductTaxDefinition
 from app.models.product_variant import ProductVariant
 from app.models.stock_level import StockLevel
 from app.models.tax_definition import TaxDefinition
+from app.models.product_unit_conversion import ProductUnitConversion
+from app.models.unit_of_measure import UnitOfMeasure
 from app.schemas.catalog import (
     CategoryTreeNode,
+    ProductAlternativeUomRead,
     ProductRead,
     ProductVariantPurchasingSearchItem,
     TaxDefinitionRead,
+    UnitOfMeasureRead,
 )
 from app.services.pricing_service import set_product_sell_price
 from app.utils.image_format import detect_raster_image_extension
 from app.utils.money import to_decimal
-from app.utils.variant_display import variant_attributes_summary
+from app.utils.smart_sku import (
+    category_slug_to_prefix,
+    format_product_sku,
+    validate_sku_reference,
+)
+from app.utils.variant_display import (
+    format_purchasing_variant_option,
+    variant_attributes_summary,
+    variant_value_labels_summary,
+)
 
-PRICE_COMPAT_KEY = "price"
 _UNSET = object()
 
 
@@ -53,6 +64,22 @@ def _make_internal_ean13_from_product_id(product_id: int) -> str:
     # 200-299 are commonly used for internal store codes.
     base = f"200{product_id:09d}"  # 12 digits
     return base + _ean13_checksum(base)
+
+
+def _make_internal_ean13_from_variant_id(variant_id: int) -> str:
+    """Internal EAN-13 for a stock-keeping variant (prefix 201)."""
+    base = f"201{variant_id:09d}"
+    return base + _ean13_checksum(base)
+
+
+def assign_variant_barcode_if_missing(variant: ProductVariant) -> bool:
+    """Set variant barcode from id when empty. Returns True if assigned."""
+    if not _barcode_unset(variant.barcode):
+        return False
+    if variant.id is None:
+        return False
+    variant.barcode = _make_internal_ean13_from_variant_id(int(variant.id))
+    return True
 
 
 def _barcode_unset(v: str | None) -> bool:
@@ -215,350 +242,6 @@ async def delete_category(db: AsyncSession, *, category_id: int) -> None:
         raise ConflictError("Cannot delete category with existing references") from e
 
 
-async def list_category_attribute_defs(
-    db: AsyncSession, *, category_id: int
-) -> list[CategoryAttributeDef]:
-    await get_category(db, category_id)
-    result = await db.execute(
-        select(CategoryAttributeDef)
-        .where(CategoryAttributeDef.category_id == category_id)
-        .order_by(CategoryAttributeDef.sort_order.asc(), CategoryAttributeDef.key.asc())
-    )
-    return list(result.scalars().all())
-
-
-async def _category_ancestor_ids_chain(db: AsyncSession, category_id: int) -> list[int]:
-    """Immediate parent first, then further ancestors toward the root."""
-    out: list[int] = []
-    visited: set[int] = set()
-    res = await db.execute(select(Category).where(Category.id == category_id))
-    cat = res.scalar_one_or_none()
-    if not cat:
-        return out
-    pid: int | None = cat.parent_id
-    while pid is not None and pid not in visited:
-        visited.add(pid)
-        out.append(pid)
-        res = await db.execute(select(Category).where(Category.id == pid))
-        parent = res.scalar_one_or_none()
-        pid = parent.parent_id if parent else None
-    return out
-
-
-async def _has_attr_key(db: AsyncSession, category_id: int, key: str) -> bool:
-    r = await db.execute(
-        select(CategoryAttributeDef.id).where(
-            and_(CategoryAttributeDef.category_id == category_id, CategoryAttributeDef.key == key)
-        )
-    )
-    return r.scalar_one_or_none() is not None
-
-
-async def list_category_attribute_defs_for_ui(
-    db: AsyncSession, *, category_id: int, include_inherited: bool
-) -> list[tuple[CategoryAttributeDef, bool, str | None]]:
-    """Return (row, is_inherited, source_category_name) for admin UI.
-
-    When ``include_inherited`` is False, only rows stored on ``category_id`` are returned
-    (each with correct ``is_inherited`` for propagated copies).
-    When True, ancestor definitions that are not overridden on this category are appended
-    (virtual inherited rows).
-    """
-    await get_category(db, category_id)
-    local_rows = await list_category_attribute_defs(db, category_id=category_id)
-    name_ids: set[int] = set()
-    for r in local_rows:
-        name_ids.add(r.category_id)
-        if r.inherited_from_category_id is not None:
-            name_ids.add(r.inherited_from_category_id)
-
-    items: list[tuple[CategoryAttributeDef, bool, str | None]] = []
-
-    def is_row_inherited(r: CategoryAttributeDef) -> bool:
-        return r.inherited_from_category_id is not None
-
-    for r in local_rows:
-        src_id = r.inherited_from_category_id if r.inherited_from_category_id is not None else r.category_id
-        name_ids.add(src_id)
-        items.append((r, is_row_inherited(r), None))
-
-    if include_inherited:
-        local_keys = {r.key for r in local_rows}
-        ancestor_ids = await _category_ancestor_ids_chain(db, category_id)
-        name_ids.update(ancestor_ids)
-        for aid in ancestor_ids:
-            ancestor_defs = await _load_attr_defs(db, aid)
-            for d in sorted(ancestor_defs, key=lambda x: (x.sort_order, x.key)):
-                if d.key not in local_keys:
-                    local_keys.add(d.key)
-                    name_ids.add(d.category_id)
-                    items.append((d, True, None))
-
-    if not items:
-        return []
-
-    res = await db.execute(select(Category.id, Category.name).where(Category.id.in_(sorted(name_ids))))
-    name_map = {int(i): str(n) for i, n in res.all()}
-
-    out: list[tuple[CategoryAttributeDef, bool, str | None]] = []
-    for r, inh, _ in items:
-        src_id = r.inherited_from_category_id if r.inherited_from_category_id is not None else r.category_id
-        src_name = name_map.get(src_id)
-        out.append((r, inh, src_name))
-    return out
-
-
-async def create_category_attribute_def(
-    db: AsyncSession, *, category_id: int, data: dict[str, Any]
-) -> CategoryAttributeDef:
-    await get_category(db, category_id)
-    payload = dict(data)
-    payload.pop("inherited_from_category_id", None)
-    rec = CategoryAttributeDef(
-        category_id=category_id,
-        inherited_from_category_id=None,
-        **payload,
-    )
-    db.add(rec)
-    try:
-        await db.flush()
-        descendants = await _category_descendant_ids(db, category_id)
-        for desc_id in descendants:
-            if desc_id == category_id:
-                continue
-            if await _has_attr_key(db, desc_id, rec.key):
-                continue
-            child = CategoryAttributeDef(
-                category_id=desc_id,
-                inherited_from_category_id=category_id,
-                key=rec.key,
-                label=rec.label,
-                type=rec.type,
-                required=False,
-                options=rec.options,
-                validation=rec.validation,
-                sort_order=rec.sort_order,
-                attribute_id=rec.attribute_id,
-                use_for_variants=rec.use_for_variants,
-            )
-            db.add(child)
-        await db.commit()
-    except IntegrityError as e:
-        await db.rollback()
-        raise ConflictError(
-            "Attribute definition already exists", details={"key": data.get("key")}
-        ) from e
-    await db.refresh(rec)
-    return rec
-
-
-async def update_category_attribute_def(
-    db: AsyncSession, *, category_id: int, attr_id: int, data: dict[str, Any]
-) -> CategoryAttributeDef:
-    await get_category(db, category_id)
-    result = await db.execute(
-        select(CategoryAttributeDef).where(
-            and_(
-                CategoryAttributeDef.id == attr_id,
-                CategoryAttributeDef.category_id == category_id,
-            )
-        )
-    )
-    rec = result.scalar_one_or_none()
-    if not rec:
-        raise NotFoundError("Attribute definition not found", details={"attr_id": attr_id})
-    data = dict(data)
-    data.pop("inherited_from_category_id", None)
-    for k, v in data.items():
-        setattr(rec, k, v)
-    try:
-        await db.flush()
-        if rec.inherited_from_category_id is None:
-            q = await db.execute(
-                select(CategoryAttributeDef).where(
-                    and_(
-                        CategoryAttributeDef.inherited_from_category_id == category_id,
-                        CategoryAttributeDef.key == rec.key,
-                    )
-                )
-            )
-            for child_rec in q.scalars().all():
-                child_rec.label = rec.label
-                child_rec.type = rec.type
-                child_rec.options = rec.options
-                child_rec.validation = rec.validation
-                child_rec.sort_order = rec.sort_order
-                child_rec.attribute_id = rec.attribute_id
-                child_rec.use_for_variants = rec.use_for_variants
-        await db.commit()
-    except IntegrityError as e:
-        await db.rollback()
-        raise ConflictError("Attribute update conflicts with existing data") from e
-    await db.refresh(rec)
-    return rec
-
-
-async def delete_category_attribute_def(
-    db: AsyncSession, *, category_id: int, attr_id: int
-) -> None:
-    await get_category(db, category_id)
-    result = await db.execute(
-        select(CategoryAttributeDef).where(
-            and_(
-                CategoryAttributeDef.id == attr_id,
-                CategoryAttributeDef.category_id == category_id,
-            )
-        )
-    )
-    rec = result.scalar_one_or_none()
-    if not rec:
-        raise NotFoundError("Attribute definition not found", details={"attr_id": attr_id})
-    try:
-        if rec.inherited_from_category_id is None:
-            await db.execute(
-                delete(CategoryAttributeDef).where(
-                    and_(
-                        CategoryAttributeDef.inherited_from_category_id == category_id,
-                        CategoryAttributeDef.key == rec.key,
-                    )
-                )
-            )
-        await db.delete(rec)
-        await db.commit()
-    except IntegrityError as e:
-        await db.rollback()
-        raise ConflictError("Cannot delete attribute definition") from e
-
-
-async def _load_attr_defs(db: AsyncSession, category_id: int) -> list[CategoryAttributeDef]:
-    result = await db.execute(
-        select(CategoryAttributeDef).where(CategoryAttributeDef.category_id == category_id)
-    )
-    return list(result.scalars().all())
-
-
-async def _load_merged_attr_defs_for_category(
-    db: AsyncSession, category_id: int
-) -> list[CategoryAttributeDef]:
-    """Definitions for product validation: local rows override ancestor keys (nearest ancestor fills gaps)."""
-    local_rows = await _load_attr_defs(db, category_id)
-    by_key: dict[str, CategoryAttributeDef] = {}
-    for d in sorted(local_rows, key=lambda x: (x.sort_order, x.key)):
-        by_key[d.key] = d
-    for aid in await _category_ancestor_ids_chain(db, category_id):
-        for d in sorted(await _load_attr_defs(db, aid), key=lambda x: (x.sort_order, x.key)):
-            if d.key not in by_key:
-                by_key[d.key] = d
-    return sorted(by_key.values(), key=lambda x: (x.sort_order, x.key))
-
-
-def _validate_product_attributes(
-    *,
-    attrs: dict[str, Any],
-    defs: list[CategoryAttributeDef],
-    enforce_required: bool = True,
-) -> dict[str, Any]:
-    """Validate product attributes against category definitions (Epic 18.7: enum/select validation).
-
-    When ``enforce_required`` is False (product **create**), keys marked required on the category
-    are not enforced on the master row so shells can be created before variant/receipt flows fill
-    size, color, etc. Unknown keys and types for supplied keys are still validated.
-
-    HTML forms and RHF often submit ``""`` for empty selects/number inputs. Those are treated as
-    "unset" for non-string attribute types so they do not fail enum validation and optional keys
-    are omitted instead of persisting blank strings.
-    """
-    allowed = {d.key: d for d in defs}
-    attrs = dict(attrs)
-    for k in list(attrs.keys()):
-        if k == PRICE_COMPAT_KEY or k not in allowed:
-            continue
-        val = attrs[k]
-        if not isinstance(val, str) or val.strip() != "":
-            continue
-        spec = allowed[k].type.lower()
-        if spec in {
-            "select",
-            "enum",
-            "dropdown",
-            "int",
-            "integer",
-            "float",
-            "number",
-            "bool",
-            "boolean",
-            "multiselect",
-            "multi_select",
-            "tags",
-        }:
-            del attrs[k]
-
-    unknown_keys = sorted([k for k in attrs.keys() if k not in allowed and k != PRICE_COMPAT_KEY])
-    if unknown_keys:
-        raise ValidationError(
-            "Unknown attributes",
-            details={"unknown_keys": unknown_keys},
-        )
-    if enforce_required:
-        missing_required = sorted([d.key for d in defs if d.required and d.key not in attrs])
-        if missing_required:
-            raise ValidationError(
-                "Missing required attributes",
-                details={"missing_keys": missing_required},
-            )
-
-    # Light type validation (non-exhaustive, extensible via `validation` JSON).
-    for key, value in attrs.items():
-        if key == PRICE_COMPAT_KEY and key not in allowed:
-            if value is not None and not isinstance(value, (int, float)):
-                raise ValidationError(
-                    "Invalid attribute type", details={"key": key, "expected": "float"}
-                )
-            continue
-        def_spec = allowed[key]
-        spec = def_spec.type.lower()
-        if value is None:
-            continue
-
-        # Epic 18.7: Enum/select validation
-        if spec in {"select", "enum", "dropdown"}:
-            options = (def_spec.options or {}).get("values", [])
-            if options and value not in options:
-                raise ValidationError(
-                    "Invalid enum value",
-                    details={"key": key, "value": value, "allowed": options},
-                )
-            continue
-
-        # Epic 18.7: Multi-select validation
-        if spec in {"multiselect", "multi_select", "tags"}:
-            options = (def_spec.options or {}).get("values", [])
-            if isinstance(value, list) and options:
-                invalid = [v for v in value if v not in options]
-                if invalid:
-                    raise ValidationError(
-                        "Invalid multi-select values",
-                        details={"key": key, "invalid": invalid, "allowed": options},
-                    )
-            continue
-
-        if spec in {"text", "string"} and not isinstance(value, str):
-            raise ValidationError(
-                "Invalid attribute type", details={"key": key, "expected": "string"}
-            )
-        if spec in {"int", "integer"} and not isinstance(value, int):
-            raise ValidationError("Invalid attribute type", details={"key": key, "expected": "int"})
-        if spec in {"float", "number"} and not isinstance(value, (int, float)):
-            raise ValidationError(
-                "Invalid attribute type", details={"key": key, "expected": "float"}
-            )
-        if spec in {"bool", "boolean"} and not isinstance(value, bool):
-            raise ValidationError(
-                "Invalid attribute type", details={"key": key, "expected": "bool"}
-            )
-    return attrs
-
-
 def _normalize_sell_price(raw_value: Any) -> Decimal:
     try:
         sell_price = to_decimal(raw_value)
@@ -567,20 +250,6 @@ def _normalize_sell_price(raw_value: Any) -> Decimal:
     if sell_price <= Decimal("0.00"):
         raise ValidationError("Product has no sellable price")
     return sell_price
-
-
-def _derive_sell_price(*, attrs: dict[str, Any], sell_price_value: Any) -> Decimal | None:
-    raw_price = sell_price_value if sell_price_value is not None else attrs.get(PRICE_COMPAT_KEY)
-    if raw_price is None:
-        return None
-    return _normalize_sell_price(raw_price)
-
-
-def _sync_compat_price(attrs: dict[str, Any], *, sell_price: Decimal | None) -> dict[str, Any]:
-    synced = dict(attrs)
-    if sell_price is not None:
-        synced[PRICE_COMPAT_KEY] = sell_price  # Keep as Decimal for JSON serialization
-    return synced
 
 
 async def _category_descendant_ids(db: AsyncSession, root_id: int) -> set[int]:
@@ -811,19 +480,184 @@ async def archive_tax_definition(db: AsyncSession, *, tax_id: int) -> TaxDefinit
     return row
 
 
+async def list_units_of_measure(db: AsyncSession) -> list[UnitOfMeasureRead]:
+    res = await db.execute(select(UnitOfMeasure).order_by(UnitOfMeasure.id.asc()))
+    return [UnitOfMeasureRead.model_validate(r) for r in res.scalars().all()]
+
+
+async def get_default_uom_id(db: AsyncSession) -> int:
+    res = await db.execute(select(UnitOfMeasure.id).where(UnitOfMeasure.code == "PIECE").limit(1))
+    uid = res.scalar_one_or_none()
+    if uid is None:
+        raise ValidationError("Default unit of measure (PIECE) is not configured")
+    return int(uid)
+
+
+async def resolve_product_uom_id(db: AsyncSession, uom_id: int | None) -> int:
+    if uom_id is None:
+        return await get_default_uom_id(db)
+    res = await db.execute(select(UnitOfMeasure.id).where(UnitOfMeasure.id == int(uom_id)).limit(1))
+    if res.scalar_one_or_none() is None:
+        raise ValidationError("Unit of measure not found", details={"uom_id": uom_id})
+    return int(uom_id)
+
+
+async def _uom_map_for_ids(db: AsyncSession, uom_ids: Iterable[int]) -> dict[int, UnitOfMeasure]:
+    ids = list({int(x) for x in uom_ids})
+    if not ids:
+        return {}
+    res = await db.execute(select(UnitOfMeasure).where(UnitOfMeasure.id.in_(ids)))
+    return {int(r.id): r for r in res.scalars().all()}
+
+
+async def _get_uom_row(db: AsyncSession, uom_id: int) -> UnitOfMeasure:
+    res = await db.execute(select(UnitOfMeasure).where(UnitOfMeasure.id == int(uom_id)).limit(1))
+    row = res.scalar_one_or_none()
+    if row is None:
+        raise ValidationError("Unit of measure not found", details={"uom_id": uom_id})
+    return row
+
+
+def _validate_uom_category_compatible(*, base: UnitOfMeasure, alt: UnitOfMeasure) -> None:
+    if base.measurement_category != alt.measurement_category:
+        raise ValidationError(
+            "Alternative unit must share the same measurement category as the base unit",
+            details={
+                "base_uom_id": base.id,
+                "base_category": base.measurement_category,
+                "alt_uom_id": alt.id,
+                "alt_category": alt.measurement_category,
+            },
+        )
+
+
+async def _alternative_uoms_for_products(
+    db: AsyncSession, product_ids: list[int]
+) -> dict[int, list[ProductAlternativeUomRead]]:
+    if not product_ids:
+        return {}
+    res = await db.execute(
+        select(ProductUnitConversion, UnitOfMeasure)
+        .join(UnitOfMeasure, ProductUnitConversion.uom_id == UnitOfMeasure.id)
+        .where(ProductUnitConversion.product_id.in_(product_ids))
+        .order_by(ProductUnitConversion.id.asc())
+    )
+    out: dict[int, list[ProductAlternativeUomRead]] = {pid: [] for pid in product_ids}
+    for conv, uom in res.all():
+        out[int(conv.product_id)].append(
+            ProductAlternativeUomRead(
+                uom_id=int(uom.id),
+                uom_code=uom.code,
+                uom_name=uom.name,
+                uom_symbol=uom.symbol,
+                measurement_category=uom.measurement_category,
+                factor_to_base=int(conv.factor_to_base),
+            )
+        )
+    return out
+
+
+async def sync_product_unit_conversions(
+    db: AsyncSession,
+    *,
+    product_id: int,
+    base_uom_id: int,
+    alternatives: list[dict[str, Any]] | None,
+) -> None:
+    """Replace all alternative UoM rows for a product."""
+    if alternatives is None:
+        return
+    base_uom = await _get_uom_row(db, base_uom_id)
+    seen_uom_ids: set[int] = set()
+    rows: list[ProductUnitConversion] = []
+    for raw in alternatives:
+        alt_uom_id = int(raw["uom_id"])
+        if alt_uom_id in seen_uom_ids:
+            raise ValidationError(
+                "Duplicate alternative unit of measure",
+                details={"uom_id": alt_uom_id},
+            )
+        seen_uom_ids.add(alt_uom_id)
+        if alt_uom_id == int(base_uom_id):
+            raise ValidationError(
+                "Base unit cannot be listed as an alternative unit",
+                details={"uom_id": alt_uom_id},
+            )
+        try:
+            factor_decimal = Decimal(str(raw["factor_to_base"]))
+        except Exception as e:
+            raise ValidationError(
+                "Conversion factor must be a whole number",
+                details={"uom_id": alt_uom_id, "factor_to_base": raw.get("factor_to_base")},
+            ) from e
+        if factor_decimal <= 0 or factor_decimal != factor_decimal.to_integral_value():
+            raise ValidationError(
+                "Conversion factor must be a positive whole number",
+                details={"uom_id": alt_uom_id, "factor_to_base": str(factor_decimal)},
+            )
+        factor = Decimal(int(factor_decimal))
+        alt_uom = await _get_uom_row(db, alt_uom_id)
+        _validate_uom_category_compatible(base=base_uom, alt=alt_uom)
+        rows.append(
+            ProductUnitConversion(
+                product_id=int(product_id),
+                uom_id=alt_uom_id,
+                factor_to_base=factor,
+            )
+        )
+
+    await db.execute(
+        delete(ProductUnitConversion).where(ProductUnitConversion.product_id == int(product_id))
+    )
+    for row in rows:
+        db.add(row)
+    await db.flush()
+
+
+def _product_read_extras(
+    *,
+    product: Product,
+    category_ids: list[int],
+    tax_definition_ids: list[int],
+    output_vat_rate: Decimal,
+    variant_count: int,
+    uom: UnitOfMeasure | None,
+    alternative_uoms: list[ProductAlternativeUomRead] | None = None,
+) -> dict[str, Any]:
+    u = uom
+    return {
+        "category_ids": category_ids,
+        "tax_definition_ids": tax_definition_ids,
+        "output_vat_rate": output_vat_rate,
+        "variant_count": variant_count,
+        "has_variants": variant_count > 1,
+        "uom_id": product.uom_id,
+        "uom_name": u.name if u else "Piece",
+        "uom_symbol": u.symbol if u else "pcs",
+        "alternative_uoms": alternative_uoms or [],
+    }
+
+
 async def product_to_read(db: AsyncSession, product: Product) -> ProductRead:
     tag_map = await _product_tag_map(db, [product.id])
     merged = {product.category_id, *tag_map.get(product.id, [])}
     tax_fields = await _tax_effective_rates_and_ids(db, [product])
     eff, tids = tax_fields[product.id]
     variant_counts = await _variant_counts_for_products(db, [product.id])
+    vcount = variant_counts.get(product.id, 0)
+    uom_map = await _uom_map_for_ids(db, [product.uom_id])
+    uom = uom_map.get(product.uom_id)
+    alt_map = await _alternative_uoms_for_products(db, [product.id])
     return ProductRead.model_validate(product).model_copy(
-        update={
-            "category_ids": sorted(merged),
-            "tax_definition_ids": tids,
-            "output_vat_rate": eff,
-            "variant_count": variant_counts.get(product.id, 0),
-        }
+        update=_product_read_extras(
+            product=product,
+            category_ids=sorted(merged),
+            tax_definition_ids=tids,
+            output_vat_rate=eff,
+            variant_count=vcount,
+            uom=uom,
+            alternative_uoms=alt_map.get(product.id, []),
+        )
     )
 
 
@@ -832,7 +666,10 @@ async def _variant_counts_for_products(db: AsyncSession, product_ids: list[int])
         return {}
     res = await db.execute(
         select(ProductVariant.product_id, func.count())
-        .where(ProductVariant.product_id.in_(product_ids))
+        .where(
+            ProductVariant.product_id.in_(product_ids),
+            ProductVariant.active.is_(True),
+        )
         .group_by(ProductVariant.product_id)
     )
     return {int(pid): int(n) for pid, n in res.all()}
@@ -845,18 +682,24 @@ async def products_to_reads(db: AsyncSession, products: list[Product]) -> list[P
     tag_map = await _product_tag_map(db, ids)
     tax_fields = await _tax_effective_rates_and_ids(db, products)
     variant_counts = await _variant_counts_for_products(db, ids)
+    uom_map = await _uom_map_for_ids(db, [p.uom_id for p in products])
+    alt_map = await _alternative_uoms_for_products(db, ids)
     out: list[ProductRead] = []
     for p in products:
         merged = {p.category_id, *tag_map.get(p.id, [])}
         eff, tids = tax_fields[p.id]
+        vcount = variant_counts.get(p.id, 0)
         out.append(
             ProductRead.model_validate(p).model_copy(
-                update={
-                    "category_ids": sorted(merged),
-                    "tax_definition_ids": tids,
-                    "output_vat_rate": eff,
-                    "variant_count": variant_counts.get(p.id, 0),
-                }
+                update=_product_read_extras(
+                    product=p,
+                    category_ids=sorted(merged),
+                    tax_definition_ids=tids,
+                    output_vat_rate=eff,
+                    variant_count=vcount,
+                    uom=uom_map.get(p.uom_id),
+                    alternative_uoms=alt_map.get(p.id, []),
+                )
             )
         )
     return out
@@ -880,19 +723,19 @@ async def _ensure_default_product_variant(db: AsyncSession, product: Product) ->
     now = datetime.now(UTC)
     from app.utils.variant_combination_key import DEFAULT_VARIANT_COMBINATION_KEY
 
-    db.add(
-        ProductVariant(
-            product_id=product.id,
-            sku=product.sku,
-            barcode=product.barcode,
-            combination_key=DEFAULT_VARIANT_COMBINATION_KEY,
-            attribute_values={"_default": True},
-            active=product.status == "active",
-            created_at=now,
-            updated_at=now,
-        )
+    pv = ProductVariant(
+        product_id=product.id,
+        sku=product.sku,
+        barcode=None,
+        combination_key=DEFAULT_VARIANT_COMBINATION_KEY,
+        attribute_values={"_default": True},
+        active=product.status == "active",
+        created_at=now,
+        updated_at=now,
     )
+    db.add(pv)
     await db.flush()
+    assign_variant_barcode_if_missing(pv)
 
 
 async def _apply_product_list_filters(
@@ -903,16 +746,13 @@ async def _apply_product_list_filters(
     category_id: int | None = None,
     category_include_descendants: bool = False,
     status: str | None = None,
-    attributes_filter: dict[str, Any] | None = None,
     branch_id: int | None = None,
     in_stock_only: bool = False,
 ) -> Select[tuple[Product]]:
     qs = (q or "").strip()
     if qs:
         like = f"%{qs}%"
-        stmt = stmt.where(
-            or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like))
-        )
+        stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like)))
     if category_id is not None:
         scope_ids = (
             await _category_descendant_ids(db, category_id)
@@ -926,11 +766,6 @@ async def _apply_product_list_filters(
         stmt = stmt.where(or_(Product.category_id.in_(id_list), tag_match))
     if status is not None:
         stmt = stmt.where(Product.status == status)
-
-    if attributes_filter:
-        for attr_key, attr_value in attributes_filter.items():
-            filter_json = {attr_key: attr_value}
-            stmt = stmt.where(Product.attributes.contains(filter_json))
 
     if in_stock_only:
         if branch_id is None:
@@ -958,7 +793,6 @@ async def count_products(
     category_id: int | None = None,
     category_include_descendants: bool = False,
     status: str | None = None,
-    attributes_filter: dict[str, Any] | None = None,
     branch_id: int | None = None,
     in_stock_only: bool = False,
 ) -> int:
@@ -970,7 +804,6 @@ async def count_products(
         category_id=category_id,
         category_include_descendants=category_include_descendants,
         status=status,
-        attributes_filter=attributes_filter,
         branch_id=branch_id,
         in_stock_only=in_stock_only,
     )
@@ -986,14 +819,12 @@ async def list_products(
     category_id: int | None = None,
     category_include_descendants: bool = False,
     status: str | None = None,
-    # Epic 18.8: Attribute-based filtering
-    attributes_filter: dict[str, Any] | None = None,
     branch_id: int | None = None,
     in_stock_only: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Product]:
-    """List products with optional attribute-based filtering (Epic 18.8)."""
+    """List products with category, stock, and text filters."""
     stmt = select(Product)
     stmt = await _apply_product_list_filters(
         db,
@@ -1002,7 +833,6 @@ async def list_products(
         category_id=category_id,
         category_include_descendants=category_include_descendants,
         status=status,
-        attributes_filter=attributes_filter,
         branch_id=branch_id,
         in_stock_only=in_stock_only,
     )
@@ -1012,51 +842,16 @@ async def list_products(
         prefix = f"{qs}%"
         ql = func.lower(qs)
         rank = case(
-            (and_(Product.barcode.isnot(None), func.lower(Product.barcode) == ql), 0),
-            (func.lower(Product.sku) == ql, 1),
-            (and_(Product.barcode.isnot(None), Product.barcode.ilike(prefix)), 2),
-            (Product.sku.ilike(prefix), 3),
-            (Product.name.ilike(prefix), 4),
-            else_=5,
+            (func.lower(Product.sku) == ql, 0),
+            (Product.sku.ilike(prefix), 1),
+            (Product.name.ilike(prefix), 2),
+            else_=3,
         )
         stmt = stmt.order_by(rank.asc(), Product.name.asc(), Product.id.desc())
     else:
         stmt = stmt.order_by(Product.id.desc())
 
     stmt = stmt.limit(limit).offset(offset)
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def filter_products_by_attributes(
-    db: AsyncSession,
-    *,
-    category_id: int | None = None,
-    attributes_filter: dict[str, Any],
-    limit: int = 50,
-    offset: int = 0,
-) -> list[Product]:
-    """Filter products by category and multiple attributes (Epic 18.8).
-
-    Example: {"color": "red", "size": "L"} finds products with both attributes.
-    """
-    stmt: Select[tuple[Product]] = select(Product)
-
-    if category_id is not None:
-        scope_ids = await _category_descendant_ids(db, category_id)
-        id_list = list(scope_ids)
-        tag_match = exists().where(
-            and_(ProductCategory.product_id == Product.id, ProductCategory.category_id.in_(id_list))
-        )
-        stmt = stmt.where(or_(Product.category_id.in_(id_list), tag_match))
-
-    # Apply JSONB containment for each attribute
-    if attributes_filter:
-        for attr_key, attr_value in attributes_filter.items():
-            filter_json = {attr_key: attr_value}
-            stmt = stmt.where(Product.attributes.contains(filter_json))
-
-    stmt = stmt.where(Product.status == "active").order_by(Product.name.asc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -1068,6 +863,7 @@ async def search_product_variants_for_purchasing(
     limit: int = 50,
     offset: int = 0,
     attribute_value_id: int | None = None,
+    product_id: int | None = None,
 ) -> list[ProductVariantPurchasingSearchItem]:
     """Search active variants joined to active products (PO / receiving pickers)."""
     qs = (q or "").strip()
@@ -1078,6 +874,8 @@ async def search_product_variants_for_purchasing(
         .join(Product, Product.id == ProductVariant.product_id)
         .where(Product.status == "active", ProductVariant.active.is_(True))
     )
+    if product_id is not None:
+        stmt = stmt.where(ProductVariant.product_id == int(product_id))
     if attribute_value_id is not None:
         stmt = stmt.where(
             exists().where(
@@ -1092,22 +890,14 @@ async def search_product_variants_for_purchasing(
         stmt = stmt.where(
             or_(
                 Product.name.ilike(like),
-                Product.sku.ilike(like),
-                Product.barcode.ilike(like),
-                ProductVariant.sku.ilike(like),
-                and_(ProductVariant.barcode.isnot(None), ProductVariant.barcode.ilike(like)),
+                ProductVariant.reference_code.ilike(like),
             )
         )
         rank = case(
-            (and_(ProductVariant.barcode.isnot(None), func.lower(ProductVariant.barcode) == ql), 0),
-            (and_(Product.barcode.isnot(None), func.lower(Product.barcode) == ql), 1),
-            (and_(ProductVariant.barcode.isnot(None), ProductVariant.barcode.ilike(prefix)), 2),
-            (func.lower(ProductVariant.sku) == ql, 3),
-            (func.lower(Product.sku) == ql, 4),
-            (ProductVariant.sku.ilike(prefix), 5),
-            (Product.sku.ilike(prefix), 6),
-            (Product.name.ilike(prefix), 7),
-            else_=8,
+            (func.lower(ProductVariant.reference_code) == ql, 0),
+            (ProductVariant.reference_code.ilike(prefix), 1),
+            (Product.name.ilike(prefix), 2),
+            else_=3,
         )
         stmt = stmt.order_by(rank.asc(), Product.name.asc(), ProductVariant.id.asc())
     else:
@@ -1116,21 +906,28 @@ async def search_product_variants_for_purchasing(
     stmt = stmt.limit(limit).offset(offset)
     result = await db.execute(stmt)
     rows = result.all()
-    return [
-        ProductVariantPurchasingSearchItem(
-            variant_id=int(pv.id),
-            product_id=int(pr.id),
-            category_id=int(pr.category_id),
-            display_name=pr.name,
-            sku=pv.sku,
-            barcode=pv.barcode,
-            variant_attributes=variant_attributes_summary(pv.attribute_values),
-            attribute_values=dict(pv.attribute_values)
+    items: list[ProductVariantPurchasingSearchItem] = []
+    for pv, pr in rows:
+        attr_vals = (
+            dict(pv.attribute_values)
             if isinstance(getattr(pv, "attribute_values", None), dict)
-            else None,
+            else None
         )
-        for pv, pr in rows
-    ]
+        items.append(
+            ProductVariantPurchasingSearchItem(
+                variant_id=int(pv.id),
+                product_id=int(pr.id),
+                category_id=int(pr.category_id),
+                display_name=pr.name,
+                sku=pv.sku,
+                reference_code=pv.reference_code,
+                barcode=pv.barcode,
+                variant_label=variant_value_labels_summary(attr_vals),
+                variant_attributes=variant_attributes_summary(attr_vals),
+                attribute_values=attr_vals,
+            )
+        )
+    return items
 
 
 async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
@@ -1139,33 +936,34 @@ async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
     sell_price_currency_id = data.pop("sell_price_currency_id", None)
     extra_tags = data.pop("category_ids", None) or []
     tax_definition_ids = data.pop("tax_definition_ids", None)
+    data.pop("attributes", None)
+    data.pop("barcode", None)
+    raw_uom = data.pop("uom_id", None)
+    alternative_uoms = data.pop("alternative_uoms", None)
+    data["uom_id"] = await resolve_product_uom_id(db, raw_uom)
     category_id = data["category_id"]
     await get_category(db, category_id)
     await _ensure_category_ids_exist(db, {category_id, *{int(x) for x in extra_tags}})
-    defs = await _load_merged_attr_defs_for_category(db, category_id)
-    attrs = dict(data.get("attributes") or {})
-    sell_price = _derive_sell_price(attrs=attrs, sell_price_value=sell_price_value)
-    data["attributes"] = _validate_product_attributes(
-        attrs=_sync_compat_price(attrs, sell_price=sell_price),
-        defs=defs,
-        enforce_required=False,
-    )
+    sell_price = _normalize_sell_price(sell_price_value) if sell_price_value is not None else None
     raw_sku = data.get("sku")
     auto_sku = raw_sku is None or (isinstance(raw_sku, str) and raw_sku.strip() == "")
     if auto_sku:
         data["sku"] = f"__AUTO{secrets.token_hex(16)}__"
     elif isinstance(raw_sku, str):
-        data["sku"] = raw_sku.strip()
+        try:
+            data["sku"] = validate_sku_reference(raw_sku.strip())
+        except ValueError as exc:
+            raise ValidationError(str(exc), details={"field": "sku"}) from exc
     product = Product(**data)
     db.add(product)
     try:
         await db.flush()
         if auto_sku:
-            product.sku = f"PRD-{product.id:09d}"
+            category = await get_category(db, category_id)
+            prefix = category_slug_to_prefix(category.slug)
+            product.sku = format_product_sku(prefix, product.id)
             await db.flush()
-        if _barcode_unset(product.barcode):
-            product.barcode = _make_internal_ean13_from_product_id(product.id)
-            await db.flush()
+        product.barcode = None
         await sync_product_category_links(
             db,
             product_id=product.id,
@@ -1178,6 +976,17 @@ async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
             product_id=product.id,
             tax_definition_ids=list(tax_definition_ids or []),
         )
+        if alternative_uoms is not None:
+            alt_payload = [
+                {"uom_id": int(a["uom_id"]), "factor_to_base": a["factor_to_base"]}
+                for a in alternative_uoms
+            ]
+            await sync_product_unit_conversions(
+                db,
+                product_id=product.id,
+                base_uom_id=int(product.uom_id),
+                alternatives=alt_payload,
+            )
         if sell_price is not None:
             await set_product_sell_price(
                 db,
@@ -1204,43 +1013,35 @@ async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, A
     sell_price_currency_id = data.pop("sell_price_currency_id", None)
     extra_tags = data.pop("category_ids", _UNSET)
     tax_definition_ids = data.pop("tax_definition_ids", _UNSET)
+    alternative_uoms = data.pop("alternative_uoms", _UNSET)
+    data.pop("attributes", None)
+    data.pop("barcode", None)
+    if "uom_id" in data:
+        raw_uom = data.pop("uom_id")
+        if raw_uom is not None:
+            data["uom_id"] = await resolve_product_uom_id(db, raw_uom)
     category_id = data.get("category_id", product.category_id)
     await get_category(db, category_id)
     if extra_tags is not _UNSET:
         await _ensure_category_ids_exist(
             db, {int(category_id), *{int(x) for x in (extra_tags or [])}}
         )
-    defs = await _load_merged_attr_defs_for_category(db, category_id)
 
     sell_price: Decimal | None = None
-    if (
-        ("attributes" in data and data["attributes"] is not None)
-        or sell_price_value is not _UNSET
-        or has_sell_price_currency
-    ):
-        attrs = (
-            dict(data["attributes"])
-            if "attributes" in data and data["attributes"] is not None
-            else dict(product.attributes or {})
-        )
-        existing_compat_price = (product.attributes or {}).get(PRICE_COMPAT_KEY)
-        if PRICE_COMPAT_KEY not in attrs and existing_compat_price is not None:
-            attrs[PRICE_COMPAT_KEY] = existing_compat_price
+    if sell_price_value is not _UNSET or has_sell_price_currency:
+        sell_price = None if sell_price_value is _UNSET or sell_price_value is None else _normalize_sell_price(sell_price_value)
 
-        explicit_sell_price = None if sell_price_value is _UNSET else sell_price_value
-        sell_price = _derive_sell_price(attrs=attrs, sell_price_value=explicit_sell_price)
-        data["attributes"] = _validate_product_attributes(
-            attrs=_sync_compat_price(attrs, sell_price=sell_price),
-            defs=defs,
-        )
+    if "sku" in data and data["sku"] is not None:
+        try:
+            data["sku"] = validate_sku_reference(str(data["sku"]))
+        except ValueError as exc:
+            raise ValidationError(str(exc), details={"field": "sku"}) from exc
 
     for k, v in data.items():
         setattr(product, k, v)
     try:
         await db.flush()
-        if _barcode_unset(product.barcode):
-            product.barcode = _make_internal_ean13_from_product_id(product.id)
-            await db.flush()
+        product.barcode = None
         if sell_price is not None:
             await set_product_sell_price(
                 db,
@@ -1269,6 +1070,17 @@ async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, A
                 db,
                 product_id=product.id,
                 tax_definition_ids=list(tax_definition_ids or []),
+            )
+        if alternative_uoms is not _UNSET:
+            alt_payload = [
+                {"uom_id": int(a["uom_id"]), "factor_to_base": a["factor_to_base"]}
+                for a in (alternative_uoms or [])
+            ]
+            await sync_product_unit_conversions(
+                db,
+                product_id=product.id,
+                base_uom_id=int(product.uom_id),
+                alternatives=alt_payload,
             )
         await db.commit()
     except IntegrityError as e:
@@ -1324,11 +1136,12 @@ async def resolve_default_variant_id(db: AsyncSession, *, product_id: int) -> in
 
 
 async def generate_product_barcode(db: AsyncSession, *, product_id: int) -> Product:
+    """Deprecated product-level barcode; assigns missing barcodes on variants instead."""
     product = await get_product(db, product_id)
-    if product.barcode:
-        return product
-    barcode = _make_internal_ean13_from_product_id(product.id)
-    product.barcode = barcode
+    from app.services.variant_attribute_service import generate_missing_variant_barcodes
+
+    await generate_missing_variant_barcodes(db, product_id=product_id)
+    product.barcode = None
     try:
         await db.commit()
     except IntegrityError as e:

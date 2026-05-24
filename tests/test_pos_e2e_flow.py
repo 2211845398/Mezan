@@ -72,7 +72,6 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
         },
     )
     assert prod.status_code == 201, prod.text
-    assert Decimal(str(prod.json()["attributes"]["price"])) == Decimal("50.0")
     product_id = prod.json()["id"]
 
     # Hybrid onboarding

@@ -54,6 +54,7 @@ class CartLineRead(BaseModel):
     product_sku: str
     barcode: str | None = None
     product_image_url: str | None = None
+    uom_symbol: str = "pcs"
     qty: int
     unit_price: Decimal
     line_total: Decimal

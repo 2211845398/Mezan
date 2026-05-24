@@ -46,15 +46,6 @@ async def test_catalog_po_ocr_transfer_flow(client, admin_auth_header):
     assert cat.status_code == 201, cat.text
     category_id = cat.json()["id"]
 
-    # Add category attribute schema
-    attr = await client.post(
-        f"/api/v1/categories/{category_id}/attributes",
-        headers=admin_auth_header,
-        json={"key": "size", "label": "Size", "type": "text", "required": True, "sort_order": 0},
-    )
-    assert attr.status_code == 201, attr.text
-
-    # Create product with dynamic attributes
     prod = await client.post(
         "/api/v1/products",
         headers=admin_auth_header,
@@ -63,7 +54,7 @@ async def test_catalog_po_ocr_transfer_flow(client, admin_auth_header):
             "name": "T-Shirt",
             "sku": "TSHIRT-001",
             "status": "active",
-            "attributes": {"size": "M"},
+            "output_vat_rate": "0",
         },
     )
     assert prod.status_code == 201, prod.text

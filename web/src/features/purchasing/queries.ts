@@ -10,6 +10,10 @@ export const purchasingKeys = {
   order: (id: number) => [...purchasingKeys.root, 'order', id] as const,
   suppliers: () => [...purchasingKeys.root, 'suppliers'] as const,
   supplier: (id: number) => [...purchasingKeys.root, 'supplier', id] as const,
+  supplierStatement: (id: number, args: object) =>
+    [...purchasingKeys.root, 'supplier', id, 'statement', args] as const,
+  supplierEvaluation: (id: number, args: object) =>
+    [...purchasingKeys.root, 'supplier', id, 'evaluation', args] as const,
   receipts: (poId: number) => [...purchasingKeys.root, 'receipts', poId] as const,
 };
 
@@ -40,6 +44,28 @@ export function supplierQueryOptions(id: number) {
     queryKey: purchasingKeys.supplier(id),
     queryFn: () => api.getSupplier(id),
     enabled: !Number.isNaN(id),
+  });
+}
+
+export function supplierStatementQueryOptions(
+  id: number,
+  args: { date_from: string; date_to: string; branch_id?: number },
+) {
+  return queryOptions({
+    queryKey: purchasingKeys.supplierStatement(id, args),
+    queryFn: () => api.getSupplierStatement(id, args),
+    enabled: !Number.isNaN(id) && id > 0,
+  });
+}
+
+export function supplierEvaluationQueryOptions(
+  id: number,
+  args?: { period_days?: number; branch_id?: number },
+) {
+  return queryOptions({
+    queryKey: purchasingKeys.supplierEvaluation(id, args ?? {}),
+    queryFn: () => api.getSupplierEvaluation(id, args),
+    enabled: !Number.isNaN(id) && id > 0,
   });
 }
 

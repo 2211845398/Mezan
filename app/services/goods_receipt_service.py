@@ -23,6 +23,10 @@ from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.fifo_valuation_service import create_cost_layer, get_valuation_policy
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
+from app.services.product_uom_service import (
+    convert_product_qty_to_base,
+    convert_product_unit_cost_to_base,
+)
 from app.services.purchase_order_service import validate_variant_belongs_to_product
 
 
@@ -195,6 +199,15 @@ async def receive_goods_for_purchase_order(
         pol = po_line_by_id[pol_id]
         if pol.variant_id is not None:
             line_variant_id = int(pol.variant_id)
+            if request_variant_id is not None and int(request_variant_id) != line_variant_id:
+                raise ValidationError(
+                    "variant_id does not match PO line preset variant",
+                    details={
+                        "purchase_order_line_id": pol_id,
+                        "expected_variant_id": line_variant_id,
+                        "request_variant_id": request_variant_id,
+                    },
+                )
         else:
             if request_variant_id is None:
                 raise ValidationError(
@@ -231,6 +244,15 @@ async def receive_goods_for_purchase_order(
     valuation_pol = await get_valuation_policy(db)
 
     for i, (pol_id, qty, unit_cost, pol, line_variant_id) in enumerate(receipt_lines_payload):
+        qty_base = await convert_product_qty_to_base(
+            db, product_id=pol.product_id, uom_id=int(pol.uom_id), qty=qty
+        )
+        unit_cost_base = await convert_product_unit_cost_to_base(
+            db,
+            product_id=pol.product_id,
+            uom_id=int(pol.uom_id),
+            unit_cost=unit_cost,
+        )
         db.add(
             GoodsReceiptLine(
                 goods_receipt_id=receipt.id,
@@ -256,7 +278,7 @@ async def receive_goods_for_purchase_order(
             idempotency_key=f"goods_receipt:{receipt.id}:line:{i}",
             branch_id=branch_id,
             product_id=pol.product_id,
-            qty_delta=qty,
+            qty_delta=qty_base,
             reason="goods_receipt",
             ref_type="goods_receipt",
             ref_id=str(receipt.id),
@@ -266,8 +288,8 @@ async def receive_goods_for_purchase_order(
             db,
             branch_id=branch_id,
             product_id=pol.product_id,
-            qty_in=qty,
-            unit_cost=unit_cost,
+            qty_in=qty_base,
+            unit_cost=unit_cost_base,
             qty_on_hand_before=qty_on_hand_before,
             variant_id=line_variant_id,
         )
@@ -279,8 +301,8 @@ async def receive_goods_for_purchase_order(
                 variant_id=line_variant_id,
                 source_type="goods_receipt",
                 source_id=f"{receipt.id}:{i}",
-                qty=Decimal(qty),
-                unit_cost=unit_cost,
+                qty=Decimal(qty_base),
+                unit_cost=unit_cost_base,
             )
 
     await post_goods_receipt_gl(db, receipt=receipt)

@@ -69,5 +69,14 @@ class JournalEntryLine(Base):
     fx_rate: Mapped[Decimal | None] = mapped_column(
         Numeric(18, 8), nullable=True
     )  # Exchange rate to base currency
+    customer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("customer_profiles.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    supplier_id: Mapped[int | None] = mapped_column(
+        ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    employee_id: Mapped[int | None] = mapped_column(
+        ForeignKey("employee_profiles.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     journal_entry = relationship("JournalEntry", back_populates="lines")

@@ -12,6 +12,7 @@ class PurchaseOrderLineBase(BaseModel):
     product_id: int
     variant_id: int | None = None
     qty: int = Field(gt=0)
+    uom_id: int = Field(gt=0, description="Unit for qty on this line.")
 
 
 class PurchaseOrderLineCreate(PurchaseOrderLineBase):
@@ -31,6 +32,9 @@ class PurchaseOrderLineCreate(PurchaseOrderLineBase):
 class PurchaseOrderLineRead(PurchaseOrderLineBase):
     id: int
     unit_cost: Decimal | None = None
+    qty_base: int = Field(description="Quantity converted to the product base unit.")
+    uom_name: str = Field(default="", description="Display name of line UoM.")
+    uom_symbol: str = Field(default="", description="Symbol of line UoM.")
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 

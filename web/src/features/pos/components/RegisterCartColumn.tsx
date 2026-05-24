@@ -10,7 +10,7 @@ export type RegisterCartColumnProps = {
   cart: CartRead;
   editable: boolean;
   isLocked: boolean;
-  onQtyChange: (lineId: number, productId: number, qty: number) => void;
+  onQtyChange: (lineId: number, productId: number, variantId: number, qty: number) => void;
   currency: string;
   /** Paid carts this shift: completed sales invoices from `/pos/shifts/current` (`transactions_in_shift`). */
   transactionsInShift: number;
@@ -77,8 +77,8 @@ export function RegisterCartColumn({
               line={ln}
               currency={currency}
               editable={!!editable}
-              onQtyChange={(lineId, productId, qty) => {
-                onQtyChange(lineId, productId, qty);
+              onQtyChange={(lineId, productId, variantId, qty) => {
+                onQtyChange(lineId, productId, variantId, qty);
               }}
             />
           ))

@@ -4,7 +4,14 @@ import type { components } from '@/api/generated/schema';
 export type JournalEntryListResponse = components['schemas']['JournalEntryListResponse'];
 export type JournalEntryListItemRead = components['schemas']['JournalEntryListItemRead'];
 export type JournalEntryDetailRead = components['schemas']['JournalEntryDetailRead'];
-export type ChartAccountRead = components['schemas']['ChartAccountRead'];
+
+export type SubledgerKind = 'none' | 'customer' | 'supplier' | 'employee';
+
+export type ChartAccountRead = components['schemas']['ChartAccountRead'] & {
+  is_leaf?: boolean;
+  subledger_kind?: SubledgerKind;
+  depth?: number;
+};
 export type TrialBalanceRow = components['schemas']['TrialBalanceRow'];
 export type IncomeStatementRead = components['schemas']['IncomeStatementRead'];
 export type BalanceSheetRead = components['schemas']['BalanceSheetRead'];
@@ -14,7 +21,18 @@ export type FiscalPeriodRead = components['schemas']['FiscalPeriodRead'];
 export type FiscalPeriodStatusUpdate = components['schemas']['FiscalPeriodStatusUpdate'];
 export type JournalReversalRequest = components['schemas']['JournalReversalRequest'];
 export type JournalReversalResponse = components['schemas']['JournalReversalResponse'];
-export type ManualJournalCreate = components['schemas']['ManualJournalCreate'];
+export type ManualJournalCreate = Omit<
+  components['schemas']['ManualJournalCreate'],
+  'lines'
+> & {
+  lines: Array<
+    components['schemas']['ManualJournalLineIn'] & {
+      customer_id?: number | null;
+      supplier_id?: number | null;
+      employee_id?: number | null;
+    }
+  >;
+};
 export type PaymentApplicationCreate = components['schemas']['PaymentApplicationCreate'];
 export type PaymentApplicationRead = components['schemas']['PaymentApplicationRead'];
 
@@ -29,6 +47,57 @@ export type AccountingPostResult = {
 export type ChartAccountTreeNode = ChartAccountRead & {
   children?: ChartAccountTreeNode[];
 };
+
+export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+
+export type ChartAccountCreateBody = {
+  code: string;
+  name: string;
+  account_type: AccountType;
+  parent_id: number | null;
+  is_control: boolean;
+  subledger_kind?: SubledgerKind;
+  active?: boolean;
+};
+
+export type ChartAccountUpdateBody = {
+  code?: string;
+  name?: string;
+  account_type?: AccountType;
+  parent_id?: number | null;
+  is_control?: boolean;
+  subledger_kind?: SubledgerKind;
+  active?: boolean;
+};
+
+export type ChartAccountDeleteCheck = {
+  can_delete: boolean;
+  reason: string;
+};
+
+export type ChartAccountSuggestCodeRead = {
+  suggested_code: string | null;
+};
+
+export type PostableChartAccountRead = {
+  id: number;
+  code: string;
+  name: string;
+  account_type: string;
+  parent_id: number | null;
+  parent_code: string | null;
+  parent_name: string | null;
+  subledger_kind: SubledgerKind;
+  is_leaf: boolean;
+  active: boolean;
+};
+
+export async function listPostableChartAccounts(): Promise<PostableChartAccountRead[]> {
+  const { data } = await apiClient.get<PostableChartAccountRead[]>(
+    '/accounting/chart-accounts/postable',
+  );
+  return data;
+}
 
 export async function listJournalEntries(params: {
   date_from: string;
@@ -51,13 +120,54 @@ export async function getJournalEntry(id: number): Promise<JournalEntryDetailRea
 
 export async function listChartAccounts(includeInactive = false): Promise<ChartAccountRead[]> {
   const { data } = await apiClient.get<ChartAccountRead[]>('/accounting/chart-accounts', {
-    params: { include_inactive: includeInactive },
+    params: { active_only: !includeInactive },
   });
   return data;
 }
 
-export async function listChartAccountsTree(): Promise<ChartAccountTreeNode[]> {
-  const { data } = await apiClient.get<ChartAccountTreeNode[]>('/accounting/chart-accounts/tree');
+export async function listChartAccountsTree(activeOnly = true): Promise<ChartAccountTreeNode[]> {
+  const { data } = await apiClient.get<ChartAccountTreeNode[]>('/accounting/chart-accounts/tree', {
+    params: { active_only: activeOnly },
+  });
+  return data;
+}
+
+export async function getChartAccount(id: number): Promise<ChartAccountRead> {
+  const { data } = await apiClient.get<ChartAccountRead>(`/accounting/chart-accounts/${id}`);
+  return data;
+}
+
+export async function createChartAccount(body: ChartAccountCreateBody): Promise<ChartAccountRead> {
+  const { data } = await apiClient.post<ChartAccountRead>('/accounting/chart-accounts', body);
+  return data;
+}
+
+export async function updateChartAccount(
+  id: number,
+  body: ChartAccountUpdateBody,
+): Promise<ChartAccountRead> {
+  const { data } = await apiClient.patch<ChartAccountRead>(`/accounting/chart-accounts/${id}`, body);
+  return data;
+}
+
+export async function deleteChartAccount(id: number): Promise<void> {
+  await apiClient.delete(`/accounting/chart-accounts/${id}`);
+}
+
+export async function checkChartAccountDeletable(id: number): Promise<ChartAccountDeleteCheck> {
+  const { data } = await apiClient.get<ChartAccountDeleteCheck>(
+    `/accounting/chart-accounts/${id}/can-delete`,
+  );
+  return data;
+}
+
+export async function suggestChartAccountCode(
+  parentId: number | null,
+): Promise<ChartAccountSuggestCodeRead> {
+  const { data } = await apiClient.get<ChartAccountSuggestCodeRead>(
+    '/accounting/chart-accounts/suggest-code',
+    { params: { parent_id: parentId ?? undefined } },
+  );
   return data;
 }
 
@@ -104,6 +214,9 @@ export async function getGeneralLedger(params: {
   date_from: string;
   date_to: string;
   branch_id?: number;
+  customer_id?: number;
+  supplier_id?: number;
+  employee_id?: number;
 }): Promise<GeneralLedgerLineRead[]> {
   const { data } = await apiClient.get<GeneralLedgerLineRead[]>('/accounting/general-ledger', {
     params,

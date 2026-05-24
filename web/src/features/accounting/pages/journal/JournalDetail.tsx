@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { usePermission } from '@/hooks/usePermission';
 
+import { buildLedgerDrillDownUrl } from '../../lib/ledgerDrillDownUrl';
 import { journalDetailQueryOptions } from '../../queries';
 
 export default function JournalDetail() {
@@ -70,6 +71,7 @@ export default function JournalDetail() {
         <TableHeader>
           <TableRow>
             <TableHead>{t('journal.line.account')}</TableHead>
+            <TableHead>{t('manual.subledger.entity')}</TableHead>
             <TableHead>{t('journal.line.branch')}</TableHead>
             <TableHead>{t('journal.col.debit')}</TableHead>
             <TableHead>{t('journal.col.credit')}</TableHead>
@@ -77,17 +79,43 @@ export default function JournalDetail() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {je.lines.map((ln) => (
+          {je.lines.map((ln) => {
+            const glHref = buildLedgerDrillDownUrl({
+              account_id: ln.account_id,
+              date_from: je.entry_date,
+              date_to: je.entry_date,
+              customer_id: ln.customer_id ?? undefined,
+              supplier_id: ln.supplier_id ?? undefined,
+              employee_id: ln.employee_id ?? undefined,
+            });
+            return (
             <TableRow key={ln.line_no}>
               <TableCell>
-                {ln.code} {ln.name}
+                <a
+                  href={glHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  {ln.code} {ln.name}
+                </a>
+              </TableCell>
+              <TableCell>
+                {ln.customer_id != null
+                  ? `#${ln.customer_id}`
+                  : ln.supplier_id != null
+                    ? `#${ln.supplier_id}`
+                    : ln.employee_id != null
+                      ? `#${ln.employee_id}`
+                      : '—'}
               </TableCell>
               <TableCell>{ln.branch_id}</TableCell>
               <TableCell>{String(ln.debit)}</TableCell>
               <TableCell>{String(ln.credit)}</TableCell>
               <TableCell>{ln.memo ?? '—'}</TableCell>
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
       <Button type="button" variant="ghost" onClick={() => void refetch()}>

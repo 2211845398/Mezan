@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +12,12 @@ from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.currency import Currency
 from app.models.users import User
+from app.schemas.supplier_statement import SupplierEvaluationRead, SupplierStatementRead
 from app.schemas.suppliers import SupplierCreate, SupplierRead, SupplierUpdate
+from app.services.supplier_statement_service import (
+    get_supplier_evaluation,
+    get_supplier_statement,
+)
 from app.services.supplier_service import (
     create_supplier,
     get_supplier_read,
@@ -65,6 +72,42 @@ async def get_supplier_endpoint(
     __: None = require_permission("suppliers", "read"),
 ) -> SupplierRead:
     return await get_supplier_read(db, supplier_id)
+
+
+@router.get("/suppliers/{supplier_id}/statement", response_model=SupplierStatementRead)
+async def supplier_statement_endpoint(
+    supplier_id: int,
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    branch_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("suppliers", "read"),
+) -> SupplierStatementRead:
+    return await get_supplier_statement(
+        db,
+        supplier_id=supplier_id,
+        date_from=date_from,
+        date_to=date_to,
+        branch_id=branch_id,
+    )
+
+
+@router.get("/suppliers/{supplier_id}/evaluation", response_model=SupplierEvaluationRead)
+async def supplier_evaluation_endpoint(
+    supplier_id: int,
+    period_days: int = Query(default=365, ge=1, le=3650),
+    branch_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("suppliers", "read"),
+) -> SupplierEvaluationRead:
+    return await get_supplier_evaluation(
+        db,
+        supplier_id=supplier_id,
+        period_days=period_days,
+        branch_id=branch_id,
+    )
 
 
 @router.patch("/suppliers/{supplier_id}", response_model=SupplierRead)

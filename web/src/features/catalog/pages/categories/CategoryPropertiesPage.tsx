@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ImageIcon, Plus } from 'lucide-react';
+import { FolderTree, ImageIcon, LayoutGrid, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { SectionCard } from '@/components/shared/ContentSurface';
+import { PageTabNav } from '@/components/shared/PageTabNav';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,6 @@ import {
 } from '@/components/ui/select';
 import { usePermission } from '@/hooks/usePermission';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
-import { cn } from '@/lib/utils';
 import RouteLoader from '@/routes/RouteLoader';
 
 import { updateCategory } from '../../api';
@@ -66,7 +66,6 @@ export default function CategoryPropertiesPage() {
   }, [category, tree]);
 
   const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [isActive, setIsActive] = useState(true);
 
@@ -75,7 +74,6 @@ export default function CategoryPropertiesPage() {
   useEffect(() => {
     if (!category) return;
     setName(category.name);
-    setSlug(category.slug);
     setImageUrl(category.image_url ?? '');
     setIsActive(category.is_active);
   }, [category]);
@@ -88,7 +86,6 @@ export default function CategoryPropertiesPage() {
     mutationFn: () =>
       updateCategory(categoryIdNum, {
         name: name.trim(),
-        slug: slug.trim(),
         image_url: imageUrl.trim() === '' ? null : imageUrl.trim(),
         is_active: isActive,
       }),
@@ -121,9 +118,9 @@ export default function CategoryPropertiesPage() {
     return <RouteLoader />;
   }
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'overview', label: t('categories.detail_tab_overview') },
-    { id: 'children', label: t('categories.detail_tab_children') },
+  const tabs = [
+    { id: 'overview' as const, label: t('categories.detail_tab_overview'), icon: LayoutGrid },
+    { id: 'children' as const, label: t('categories.detail_tab_children'), icon: FolderTree },
   ];
 
   return (
@@ -133,21 +130,12 @@ export default function CategoryPropertiesPage() {
         actions={<BackButton to="/catalog/categories" label={t('categories.title')} />}
       />
 
-      <nav className="flex flex-wrap gap-2 border-b pb-2">
-        {tabs.map((x) => (
-          <button
-            key={x.id}
-            type="button"
-            className={cn(
-              'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              tab === x.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
-            )}
-            onClick={() => setTab(x.id)}
-          >
-            {x.label}
-          </button>
-        ))}
-      </nav>
+      <PageTabNav
+        mode="button"
+        items={tabs}
+        activeId={tab}
+        onSelect={(id) => setTab(id as TabId)}
+      />
 
       {tab === 'overview' ? (
         <SectionCard title={t('categories.detail_tab_overview')} contentClassName="space-y-4">
@@ -167,11 +155,11 @@ export default function CategoryPropertiesPage() {
                   <div className="space-y-1.5">
                     <Label className="text-sm">{t('categories.field.slug')}</Label>
                     <Input
-                      value={slug}
-                      onChange={(e) => setSlug(e.target.value)}
-                      disabled={!canUpdate}
-                      className="h-9 font-mono text-sm"
-                      dir={i18n.dir()}
+                      value={category.slug}
+                      readOnly
+                      disabled
+                      className="h-9 bg-muted font-mono text-sm text-muted-foreground"
+                      dir="ltr"
                     />
                   </div>
                 </div>
@@ -259,16 +247,15 @@ export default function CategoryPropertiesPage() {
       {tab === 'children' ? (
         <SectionCard
           title={t('categories.detail_tab_children')}
-          description={t('categories.detail_children_lead')}
-        >
-          <div className="mb-4 flex justify-end">
-            {canUpdate ? (
+          actions={
+            canUpdate ? (
               <Button type="button" onClick={() => setCreateOpen(true)}>
                 <Plus className="me-1 size-4" />
                 {t('categories.child')}
               </Button>
-            ) : null}
-          </div>
+            ) : null
+          }
+        >
           {loadingChildren ? <p className="text-sm text-muted-foreground">{t('loading')}</p> : null}
           {!loadingChildren && children.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('categories.browse_empty')}</p>

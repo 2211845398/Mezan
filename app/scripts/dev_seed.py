@@ -258,8 +258,8 @@ async def _ensure_products_prices_stock_terminals(
                 name=name,
                 sku=sku,
                 barcode=None,
+                uom_id=1,
                 status="active",
-                attributes={},
                 standard_cost=price * Decimal("0.6"),
                 output_vat_rate=vat,
             )

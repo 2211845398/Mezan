@@ -15,8 +15,9 @@ from app.models.transfer_batch import TransferBatch
 from app.models.users import User
 from app.schemas.transfers import TransferBatchCreate, TransferBatchRead, TransferLineRead
 from app.utils.person_name import person_name_sql_expr
-from app.utils.variant_display import variant_attributes_summary
+from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 from app.services import audit_service
+from app.services.product_uom_service import uom_map_for_ids
 from app.services.transfer_service import (
     cancel_pending_batch,
     create_batch,
@@ -36,6 +37,7 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
     pids: set[int] = set()
     vids: set[int] = set()
     uids: set[int] = set()
+    uom_ids: set[int] = set()
     for b in batches:
         bids.add(b.from_branch_id)
         bids.add(b.to_branch_id)
@@ -44,6 +46,7 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
         for ln in b.lines:
             pids.add(ln.product_id)
             vids.add(ln.variant_id)
+            uom_ids.add(ln.uom_id)
 
     bmap: dict[int, str] = {}
     if bids:
@@ -55,16 +58,25 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
         pmap = {int(i): str(n) for i, n in res.all()}
     vsku: dict[int, str] = {}
     vattr: dict[int, str] = {}
+    vname: dict[int, str] = {}
+    vref: dict[int, str] = {}
     if vids:
         res = await db.execute(
-            select(ProductVariant.id, ProductVariant.sku, ProductVariant.attribute_values).where(
-                ProductVariant.id.in_(vids)
-            )
+            select(
+                ProductVariant.id,
+                ProductVariant.sku,
+                ProductVariant.attribute_values,
+                ProductVariant.reference_code,
+            ).where(ProductVariant.id.in_(vids))
         )
-        for vid, sku, attrs in res.all():
+        for vid, sku, attrs, ref in res.all():
             iid = int(vid)
             vsku[iid] = str(sku)
-            vattr[iid] = variant_attributes_summary(dict(attrs or {}))
+            attr_dict = dict(attrs or {})
+            vattr[iid] = variant_attributes_summary(attr_dict)
+            vname[iid] = variant_value_labels_summary(attr_dict)
+            vref[iid] = (str(ref).strip() if ref else "") or ""
+    uom_map = await uom_map_for_ids(db, uom_ids)
     umap: dict[int, str] = {}
     if uids:
         res = await db.execute(
@@ -85,9 +97,14 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
                 id=ln.id,
                 product_id=ln.product_id,
                 qty=ln.qty,
+                qty_base=ln.qty_base,
+                uom_id=ln.uom_id,
+                uom_name=(uom_map.get(ln.uom_id).name if ln.uom_id in uom_map else ""),
                 variant_id=ln.variant_id,
                 product_name=pmap.get(ln.product_id, ""),
                 variant_sku=vsku.get(ln.variant_id, ""),
+                variant_name=vname.get(ln.variant_id, ""),
+                reference_code=vref.get(ln.variant_id, ""),
                 variant_attributes=vattr.get(ln.variant_id, ""),
             )
             for ln in batch.lines

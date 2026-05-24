@@ -53,6 +53,10 @@
     "add_product": "إضافة منتج",
     "search_product": "بحث منتج…",
     "qty": "الكمية",
+    "variant_picker_title": "اختر المتغير — {{name}}",
+    "variant_picker_empty": "لا توجد متغيرات نشطة لهذا المنتج.",
+    "variant_picker_stock": "المتوفر: {{count}}",
+    "variant_picker_cancel": "إلغاء",
     "product_unlabeled": "منتج",
     "park": "إيقاف مؤقت",
     "resume": "استئناف",
@@ -124,6 +128,35 @@
     "shortfall_ar": "المتبقي {{amount}} يُسجَّل كذمم على العميل",
     "partial_cash_needs_customer": "اختر عميلًا في السلة لتسجيل المتبقي كدين عند دفع نقدي أقل من الإجمالي.",
     "transfer_ref_placeholder": "مرجع التحويل (اختياري)"
+  },
+  "print": {
+    "a4": {
+      "button": "طباعة A4",
+      "dialog_title": "معاينة فاتورة A4",
+      "print": "طباعة",
+      "load_error": "تعذّر تحميل الفاتورة",
+      "title": "فاتورة ضريبية / B2B",
+      "voided": "ملغاة",
+      "invoice_no": "رقم الفاتورة",
+      "date": "التاريخ",
+      "customer": "العميل",
+      "barcode": "الباركود",
+      "subtotal": "المجموع الفرعي",
+      "discount": "الخصم",
+      "tax": "الضريبة",
+      "total": "الإجمالي",
+      "payment": "طريقة الدفع",
+      "void_reason": "سبب الإلغاء: {{reason}}",
+      "footer": "وثيقة صادرة إلكترونياً — للاستخدام الرسمي بين الشركات",
+      "col": {
+        "sku": "SKU",
+        "description": "الوصف",
+        "qty": "الكمية",
+        "unit_price": "سعر الوحدة",
+        "tax": "الضريبة",
+        "line_total": "إجمالي السطر"
+      }
+    }
   },
   "receipt": {
     "title": "إيصال",

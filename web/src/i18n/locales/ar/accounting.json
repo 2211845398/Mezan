@@ -70,9 +70,17 @@
     "description": "الوصف",
     "account": "الحساب",
     "branch": "الفرع",
-    "add_line": "سطر جديد",
+    "add_line": "إضافة سطر",
     "submit": "ترحيل",
-    "saved": "تم الترحيل"
+    "saved": "تم الترحيل",
+    "totals": "الإجماليات",
+    "difference": "الفرق",
+    "subledger": {
+      "entity": "الجهة",
+      "customer": "اختر عميلاً",
+      "supplier": "اختر مورداً",
+      "employee": "اختر موظفاً"
+    }
   },
   "reversal": {
     "title": "عكس قيد #{{id}}",
@@ -128,10 +136,14 @@
   "gl": {
     "title": "دفتر الأستاذ العام",
     "account": "الحساب",
+    "subledger_filter": "تصفية الجهة",
+    "all_entities": "كل الجهات",
+    "open_in_new_tab": "فتح في تبويب جديد",
     "col": {
       "date": "التاريخ",
       "je": "قيد",
       "desc": "الوصف",
+      "partner": "الجهة",
       "balance": "الرصيد"
     }
   },
@@ -201,7 +213,8 @@
       "production": "الإنتاج"
     },
     "tree": {
-      "title": "دليل الحسابات"
+      "title": "دليل الحسابات",
+      "link_hint": "أصبحت إدارة دليل الحسابات في صفحة مخصّصة بتخطيط ثنائي اللوحات (قائمة المركز المالي وقائمة الدخل)."
     },
     "voucher": {
       "title": "سند قبض / دفع",
@@ -313,6 +326,53 @@
       "rate": "سعر الصرف مقابل الأساسية",
       "rate_hint": "وحدات العملة الأساسية لكل 1 وحدة من هذه العملة.",
       "save": "حفظ"
+    }
+  },
+  "coa": {
+    "title": "دليل الحسابات",
+    "open_page": "فتح دليل الحسابات",
+    "balance_sheet": "قائمة المركز المالي",
+    "income_statement": "قائمة الدخل",
+    "new_group": "مجموعة جديدة",
+    "new_account": "حساب جديد",
+    "edit": "تحرير",
+    "save": "حفظ",
+    "create": "إنشاء",
+    "created": "تم الإنشاء",
+    "saved": "تم الحفظ",
+    "loading": "جاري التحميل…",
+    "empty": "لا توجد حسابات في هذه اللوحة.",
+    "name": "الاسم",
+    "code": "الرمز",
+    "parent": "المجموعة",
+    "parent_placeholder": "اختر مجموعة أب",
+    "parent_required": "اختر مجموعة أب",
+    "parent_none": "بدون أب",
+    "parent_search": "بحث في المجموعات…",
+    "parent_empty": "لا توجد مجموعات",
+    "subledger_kind": "نوع الأستاذ الفرعي",
+    "system_account": "نظامي",
+    "expand": "توسيع",
+    "collapse": "طي",
+    "group_new_title": "مجموعة جديدة",
+    "group_edit_title": "تحرير مجموعة",
+    "account_new_title": "حساب جديد",
+    "account_edit_title": "تحرير حساب",
+    "col": {
+      "name": "الاسم",
+      "code": "الرمز",
+      "actions": "إجراءات"
+    },
+    "subledger": {
+      "none": "بدون أستاذ فرعي",
+      "customer": "عملاء",
+      "supplier": "موردون",
+      "employee": "موظفون"
+    },
+    "validation": {
+      "name": "الاسم مطلوب",
+      "code": "الرمز مطلوب",
+      "parent": "يجب اختيار مجموعة أب"
     }
   },
   "payment_terms": {

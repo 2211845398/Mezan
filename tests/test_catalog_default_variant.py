@@ -32,7 +32,6 @@ async def test_create_product_creates_default_variant(
             "category_id": cid,
             "name": f"DefaultVarProduct_{suffix}",
             "status": "active",
-            "attributes": {},
         },
     )
     assert prod.status_code == 201, prod.text

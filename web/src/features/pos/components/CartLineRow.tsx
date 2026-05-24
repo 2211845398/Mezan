@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/format';
+import { formatQtyWithUom } from '@/lib/formatQtyWithUom';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 import type { CartRead } from '../api';
@@ -16,7 +17,7 @@ export type CartLineRowProps = {
   currency: string;
   editable: boolean;
   /** Prefer `lineId` so optimistic rows and duplicate SKUs do not cross-update. */
-  onQtyChange: (lineId: number, productId: number, qty: number) => void;
+  onQtyChange: (lineId: number, productId: number, variantId: number, qty: number) => void;
 };
 
 function lineImageSrc(line: CartLineRowProps['line']): string | null {
@@ -77,7 +78,8 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
         dir="ltr"
       >
         <span className="max-w-full text-[11px] leading-tight text-muted-foreground sm:text-xs">
-          {formatCurrency(Number.parseFloat(String(line.unit_price)), currency)} × {line.qty}
+          {formatCurrency(Number.parseFloat(String(line.unit_price)), currency)} ×{' '}
+          {formatQtyWithUom(line.qty, (line as { uom_symbol?: string }).uom_symbol)}
         </span>
         <span className="max-w-full text-sm font-bold tracking-tight text-foreground sm:text-base">
           {formatCurrency(Number.parseFloat(String(line.line_total)), currency)}
@@ -93,7 +95,9 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
             size="icon"
             className="size-8 shrink-0 rounded-md sm:size-8"
             disabled={!editable}
-            onClick={() => onQtyChange(line.id, line.product_id, Math.max(0, Number(line.qty) - 1))}
+            onClick={() =>
+              onQtyChange(line.id, line.product_id, line.variant_id, Math.max(0, Number(line.qty) - 1))
+            }
             aria-label="decrease"
           >
             <Minus className="size-3.5" aria-hidden />
@@ -107,7 +111,8 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
             aria-label={t('register.qty')}
             onChange={(e) => {
               const n = Number.parseInt(e.target.value, 10);
-              if (Number.isFinite(n) && n >= 0) onQtyChange(line.id, line.product_id, n);
+              if (Number.isFinite(n) && n >= 0)
+                onQtyChange(line.id, line.product_id, line.variant_id, n);
             }}
           />
           <Button
@@ -116,7 +121,9 @@ export function CartLineRow({ line, currency, editable, onQtyChange }: CartLineR
             size="icon"
             className="size-8 shrink-0 rounded-md sm:size-8"
             disabled={!editable}
-            onClick={() => onQtyChange(line.id, line.product_id, Number(line.qty) + 1)}
+            onClick={() =>
+              onQtyChange(line.id, line.product_id, line.variant_id, Number(line.qty) + 1)
+            }
             aria-label="increase"
           >
             <Plus className="size-3.5" aria-hidden />

@@ -49,7 +49,6 @@ export default function AttributesPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [createAttrOpen, setCreateAttrOpen] = useState(false);
   const [newAttrName, setNewAttrName] = useState('');
-  const [newAttrCode, setNewAttrCode] = useState('');
 
   const [valueDialogAttrId, setValueDialogAttrId] = useState<number | null>(null);
   const [newValueLabel, setNewValueLabel] = useState('');
@@ -75,13 +74,11 @@ export default function AttributesPage() {
     mutationFn: () =>
       createCatalogAttribute({
         name: newAttrName.trim(),
-        code: newAttrCode.trim() || null,
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: [...catalogKeys.root, 'catalogAttributes'] });
       setCreateAttrOpen(false);
       setNewAttrName('');
-      setNewAttrCode('');
       toast.success(t('globalAttributes.created'));
     },
     onError: (e) => notifyApiError(e, t('errors.generic')),
@@ -89,7 +86,10 @@ export default function AttributesPage() {
 
   const createValueM = useMutation({
     mutationFn: ({ attributeId, label }: { attributeId: number; label: string }) =>
-      createCatalogAttributeValue(attributeId, { label }),
+      createCatalogAttributeValue(attributeId, {
+        label,
+        code: null,
+      }),
     onSuccess: (_, { attributeId }) => {
       void qc.invalidateQueries({ queryKey: [...catalogKeys.root, 'attrValues', attributeId] });
       setValueDialogAttrId(null);
@@ -100,8 +100,7 @@ export default function AttributesPage() {
   });
 
   const updateAttrM = useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) =>
-      updateCatalogAttribute(id, { name }),
+    mutationFn: ({ id, name }: { id: number; name: string }) => updateCatalogAttribute(id, { name }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: [...catalogKeys.root, 'catalogAttributes'] });
       setEditAttrId(null);
@@ -152,7 +151,6 @@ export default function AttributesPage() {
       key={attr.id}
       attributeId={attr.id}
       name={attr.name}
-      code={attr.code}
       valueCount={attr.value_count ?? 0}
       expanded={expandedId === attr.id}
       onToggle={() => setExpandedId((id) => (id === attr.id ? null : attr.id))}
@@ -169,7 +167,13 @@ export default function AttributesPage() {
         setEditAttrName(attr.name);
       }}
       onDeleteAttribute={() => deleteAttrM.mutate(attr.id)}
-      onEditValue={(v) => setEditValue({ attributeId: attr.id, valueId: v.id, label: v.label })}
+      onEditValue={(v) =>
+        setEditValue({
+          attributeId: attr.id,
+          valueId: v.id,
+          label: v.label,
+        })
+      }
       onDeleteValue={(v) => deleteValueM.mutate({ attributeId: attr.id, valueId: v.id })}
     />
   );
@@ -245,20 +249,9 @@ export default function AttributesPage() {
           <DialogHeader>
             <DialogTitle>{t('globalAttributes.add_attribute')}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-3">
-            <div className="space-y-1">
-              <Label>{t('categories.attr_catalog_name')}</Label>
-              <Input value={newAttrName} onChange={(e) => setNewAttrName(e.target.value)} className="h-9" />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('categories.attr_catalog_code')}</Label>
-              <Input
-                value={newAttrCode}
-                onChange={(e) => setNewAttrCode(e.target.value)}
-                className="h-9 font-mono"
-                dir="ltr"
-              />
-            </div>
+          <div className="space-y-1">
+            <Label>{t('categories.attr_catalog_name')}</Label>
+            <Input value={newAttrName} onChange={(e) => setNewAttrName(e.target.value)} className="h-9" />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setCreateAttrOpen(false)}>
@@ -298,7 +291,10 @@ export default function AttributesPage() {
               disabled={createValueM.isPending || !newValueLabel.trim() || valueDialogAttrId == null}
               onClick={() => {
                 if (valueDialogAttrId == null) return;
-                createValueM.mutate({ attributeId: valueDialogAttrId, label: newValueLabel.trim() });
+                createValueM.mutate({
+                  attributeId: valueDialogAttrId,
+                  label: newValueLabel.trim(),
+                });
               }}
             >
               {t('actions.add')}
@@ -312,7 +308,14 @@ export default function AttributesPage() {
           <DialogHeader>
             <DialogTitle>{t('globalAttributes.edit_attribute')}</DialogTitle>
           </DialogHeader>
-          <Input value={editAttrName} onChange={(e) => setEditAttrName(e.target.value)} className="h-9" />
+          <div className="space-y-1">
+            <Label>{t('categories.attr_catalog_name')}</Label>
+            <Input
+              value={editAttrName}
+              onChange={(e) => setEditAttrName(e.target.value)}
+              className="h-9"
+            />
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditAttrId(null)}>
               {t('actions.cancel')}
@@ -336,13 +339,16 @@ export default function AttributesPage() {
           <DialogHeader>
             <DialogTitle>{t('globalAttributes.edit_value')}</DialogTitle>
           </DialogHeader>
-          <Input
-            value={editValue?.label ?? ''}
-            onChange={(e) =>
-              setEditValue((cur) => (cur ? { ...cur, label: e.target.value } : cur))
-            }
-            className="h-9"
-          />
+          <div className="space-y-1">
+            <Label>{t('globalAttributes.value_label')}</Label>
+            <Input
+              value={editValue?.label ?? ''}
+              onChange={(e) =>
+                setEditValue((cur) => (cur ? { ...cur, label: e.target.value } : cur))
+              }
+              className="h-9"
+            />
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditValue(null)}>
               {t('actions.cancel')}
@@ -401,9 +407,6 @@ function AttributeValueChip({
     <div className="flex min-w-0 flex-col gap-1.5 rounded-md border bg-muted/30 px-2 py-2">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium leading-tight">{value.label}</p>
-        <p className="truncate font-mono text-[10px] text-muted-foreground" dir="ltr">
-          {value.code}
-        </p>
         {value.usage_count != null ? (
           <p className="text-[10px] text-muted-foreground num-latin">({value.usage_count})</p>
         ) : null}
@@ -429,7 +432,6 @@ function AttributeValueChip({
 function AttributeRow({
   attributeId,
   name,
-  code,
   valueCount,
   expanded,
   onToggle,
@@ -445,7 +447,6 @@ function AttributeRow({
 }: {
   attributeId: number;
   name: string;
-  code: string;
   valueCount: number;
   expanded: boolean;
   onToggle: () => void;
@@ -483,9 +484,6 @@ function AttributeRow({
         >
           {expanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
           <span className="font-medium truncate">{name}</span>
-          <span className="font-mono text-xs text-muted-foreground shrink-0" dir="ltr">
-            {code}
-          </span>
           <span className="text-xs text-muted-foreground num-latin shrink-0">({valueCount})</span>
         </button>
         {canUpdate ? (

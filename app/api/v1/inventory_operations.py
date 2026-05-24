@@ -1,124 +1,209 @@
-"""Inventory policies, reorder alerts, and product stock card (operations redesign)."""
+"""Ad-hoc receipt, reservations, and stock-count export."""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
-from app.core.errors import NotFoundError
 from app.db.database import get_db
 from app.models.users import User
-from app.schemas.inventory_policy import InventoryPolicyRead, InventoryPolicyUpsert
-from app.schemas.inventory_reorder import (
-    CreatePurchaseOrdersFromReorderRequest,
-    CreatePurchaseOrdersFromReorderResponse,
-    ReorderAlertRow,
+from app.schemas.inventory_operations import (
+    AdhocGoodsReceiptCreate,
+    AdhocGoodsReceiptResponse,
+    DamagedActionCreate,
+    DamagedPositionRead,
+    ReservationRead,
+    ReservationReleaseCreate,
+    StockCountExportRequest,
 )
-from app.schemas.inventory_stock import StockCardRead
+from app.schemas.inventory_human_movement import HumanInventoryMovementCreate, HumanInventoryMovementResponse
 from app.services import audit_service
-from app.services.inventory_policy_service import get_policy, upsert_policy
-from app.services.inventory_reorder_service import (
-    create_purchase_orders_from_reorder,
-    list_reorder_alerts,
+from app.services.adhoc_goods_receipt_service import receive_adhoc_goods
+from app.services.branch_scope import require_branch_open_for_operations
+from app.services.inventory_human_movement_service import apply_human_inventory_movement
+from app.services.inventory_damage_service import (
+    list_damaged_positions,
+    scrap_damaged_position,
+    unmark_damaged_position,
 )
-from app.services.inventory_stock_card_service import get_product_stock_card
+from app.services.inventory_reservation_service import list_open_reservations, release_reservation
+from app.services.stock_count_pdf_service import export_stock_count_pdf
+from app.utils.request_locale import resolve_request_locale
 
 router = APIRouter()
 
 
-@router.get(
-    "/inventory/policies/{branch_id}/{product_id}",
-    response_model=InventoryPolicyRead,
-)
-async def get_inventory_policy(
-    branch_id: int,
-    product_id: int,
-    db: AsyncSession = Depends(get_db),
-    _: None = Depends(get_current_user),
-    __: None = require_permission("inventory", "read"),
-) -> InventoryPolicyRead:
-    row = await get_policy(db, branch_id=branch_id, product_id=product_id)
-    if not row:
-        raise NotFoundError("Policy not found", details={"branch_id": branch_id, "product_id": product_id})
-    return InventoryPolicyRead.model_validate(row)
-
-
-@router.patch(
-    "/inventory/policies/{branch_id}/{product_id}",
-    response_model=InventoryPolicyRead,
-)
-async def patch_inventory_policy(
-    branch_id: int,
-    product_id: int,
-    body: InventoryPolicyUpsert,
+@router.post("/inventory/receipts/adhoc", response_model=AdhocGoodsReceiptResponse)
+async def create_adhoc_goods_receipt(
+    body: AdhocGoodsReceiptCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("inventory", "update"),
-) -> InventoryPolicyRead:
-    row = await upsert_policy(
+    _: None = require_permission("stock_adjustments", "create"),
+) -> AdhocGoodsReceiptResponse:
+    await require_branch_open_for_operations(db, body.branch_id)
+    movement_ids = await receive_adhoc_goods(
         db,
-        branch_id=branch_id,
-        product_id=product_id,
-        reorder_point=body.reorder_point,
-        reorder_qty=body.reorder_qty,
-        preferred_supplier_id=body.preferred_supplier_id,
-        lead_time_days=body.lead_time_days,
-        is_active=body.is_active,
+        user_id=current_user.id,
+        idempotency_key=body.idempotency_key,
+        branch_id=body.branch_id,
+        lines=[ln.model_dump() for ln in body.lines],
+        supplier_id=body.supplier_id,
+        notes=body.notes,
     )
     await audit_service.log(
         session=db,
-        action="inventory.policy.upserted",
-        resource_type="inventory_policy",
-        resource_id=f"{branch_id}:{product_id}",
+        action="inventory.adhoc_receipt",
+        resource_type="stock_movement",
+        resource_id=",".join(str(i) for i in movement_ids),
         user_id=current_user.id,
         request=request,
     )
     await db.commit()
-    return InventoryPolicyRead.model_validate(row)
+    return AdhocGoodsReceiptResponse(movement_ids=movement_ids)
 
 
-@router.get("/inventory/reorder-alerts", response_model=list[ReorderAlertRow])
-async def list_reorder_alerts_endpoint(
+@router.get("/inventory/reservations", response_model=list[ReservationRead])
+async def list_reservations_endpoint(
     branch_id: int | None = None,
+    limit: int = 100,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
-    __: None = require_permission("inventory", "read"),
-) -> list[ReorderAlertRow]:
-    return await list_reorder_alerts(db, branch_id=branch_id)
+    __: None = require_permission("stock_adjustments", "read"),
+) -> list[ReservationRead]:
+    return await list_open_reservations(db, branch_id=branch_id, limit=limit)
 
 
 @router.post(
-    "/inventory/reorder-alerts/create-purchase-order",
-    response_model=CreatePurchaseOrdersFromReorderResponse,
+    "/inventory/reservations/{reserve_movement_id}/release",
+    response_model=HumanInventoryMovementResponse,
 )
-async def create_po_from_reorder_endpoint(
-    body: CreatePurchaseOrdersFromReorderRequest,
+async def release_reservation_endpoint(
+    reserve_movement_id: int,
+    body: ReservationReleaseCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("purchase_orders", "create"),
-    __: None = require_permission("inventory", "read"),
-) -> CreatePurchaseOrdersFromReorderResponse:
-    res = await create_purchase_orders_from_reorder(db, user_id=current_user.id, body=body)
+    _: None = require_permission("stock_adjustments", "create"),
+) -> HumanInventoryMovementResponse:
+    reserve_mv = await release_reservation(
+        db,
+        user_id=current_user.id,
+        reserve_movement_id=reserve_movement_id,
+        idempotency_key=body.idempotency_key,
+        quantity=body.quantity,
+        notes=body.notes,
+    )
     await audit_service.log(
         session=db,
-        action="inventory.reorder.create_po",
-        resource_type="purchase_order",
-        resource_id=",".join(str(c.purchase_order_id) for c in res.created) or "none",
+        action="inventory.reservation.released",
+        resource_type="stock_movement",
+        resource_id=str(reserve_mv.id),
         user_id=current_user.id,
         request=request,
     )
     await db.commit()
-    return res
+    return HumanInventoryMovementResponse(movement_id=reserve_mv.id)
 
 
-@router.get("/inventory/products/{product_id}/stock-card", response_model=StockCardRead)
-async def get_stock_card_endpoint(
-    product_id: int,
+@router.get("/inventory/damaged", response_model=list[DamagedPositionRead])
+async def list_damaged_endpoint(
+    branch_id: int | None = None,
+    limit: int = 200,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
-    __: None = require_permission("inventory", "read"),
-) -> StockCardRead:
-    return await get_product_stock_card(db, product_id=product_id)
+    __: None = require_permission("stock_adjustments", "read"),
+) -> list[DamagedPositionRead]:
+    return await list_damaged_positions(db, branch_id=branch_id, limit=limit)
+
+
+@router.post("/inventory/damaged/scrap", response_model=HumanInventoryMovementResponse)
+async def scrap_damaged_endpoint(
+    body: DamagedActionCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("stock_adjustments", "create"),
+) -> HumanInventoryMovementResponse:
+    await require_branch_open_for_operations(db, body.branch_id)
+    mv = await scrap_damaged_position(
+        db,
+        user_id=current_user.id,
+        idempotency_key=body.idempotency_key,
+        branch_id=body.branch_id,
+        product_id=body.product_id,
+        variant_id=body.variant_id,
+        quantity=body.quantity,
+        uom_id=body.uom_id,
+        notes=body.notes,
+    )
+    await audit_service.log(
+        session=db,
+        action="inventory.damage.scrapped",
+        resource_type="stock_movement",
+        resource_id=str(mv.id),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return HumanInventoryMovementResponse(movement_id=mv.id)
+
+
+@router.post("/inventory/damaged/unmark", response_model=HumanInventoryMovementResponse)
+async def unmark_damaged_endpoint(
+    body: DamagedActionCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("stock_adjustments", "create"),
+) -> HumanInventoryMovementResponse:
+    await require_branch_open_for_operations(db, body.branch_id)
+    mv = await unmark_damaged_position(
+        db,
+        user_id=current_user.id,
+        idempotency_key=body.idempotency_key,
+        branch_id=body.branch_id,
+        product_id=body.product_id,
+        variant_id=body.variant_id,
+        quantity=body.quantity,
+        uom_id=body.uom_id,
+        notes=body.notes,
+    )
+    await audit_service.log(
+        session=db,
+        action="inventory.damage.unmarked",
+        resource_type="stock_movement",
+        resource_id=str(mv.id),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return HumanInventoryMovementResponse(movement_id=mv.id)
+
+
+@router.post("/inventory/stock-count/export")
+async def export_stock_count_endpoint(
+    body: StockCountExportRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("inventory", "read"),
+) -> Response:
+    await require_branch_open_for_operations(db, body.branch_id)
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    pdf_bytes, filename = await export_stock_count_pdf(
+        db,
+        branch_id=body.branch_id,
+        category_id=body.category_id,
+        product_ids=body.product_ids,
+        q=body.q,
+        responsible_name=body.responsible_name or (current_user.email or ""),
+        locale=locale,
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

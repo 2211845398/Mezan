@@ -17,7 +17,13 @@ from app.models.product_variant import ProductVariant
 from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.suppliers import Supplier
-from app.schemas.purchase_orders import PurchaseOrderRead
+from app.schemas.purchase_orders import PurchaseOrderLineRead, PurchaseOrderRead
+from app.services.product_uom_service import (
+    convert_product_qty_to_base,
+    get_product_base_uom_id,
+    uom_map_for_ids,
+    validate_po_line_uom,
+)
 from app.utils.person_name import display_person_name
 
 TERMINAL_STATUSES = frozenset({"closed", "cancelled"})
@@ -27,14 +33,27 @@ async def validate_variant_belongs_to_product(
     db: AsyncSession, *, product_id: int, variant_id: int
 ) -> int:
     res = await db.execute(
-        select(ProductVariant.product_id).where(ProductVariant.id == variant_id)
+        select(ProductVariant, Product.status)
+        .join(Product, Product.id == ProductVariant.product_id)
+        .where(ProductVariant.id == variant_id)
     )
-    pid = res.scalar_one_or_none()
-    if pid is None:
+    row = res.one_or_none()
+    if row is None:
         raise ValidationError("Unknown variant_id", details={"variant_id": variant_id})
-    if int(pid) != int(product_id):
+    pv, product_status = row
+    if int(pv.product_id) != int(product_id):
         raise ValidationError(
             "variant_id does not belong to product_id",
+            details={"variant_id": variant_id, "product_id": product_id},
+        )
+    if product_status != "active":
+        raise ValidationError(
+            "Product is not active",
+            details={"product_id": product_id, "variant_id": variant_id},
+        )
+    if not bool(pv.active):
+        raise ValidationError(
+            "Variant is archived or inactive",
             details={"variant_id": variant_id, "product_id": product_id},
         )
     return int(variant_id)
@@ -89,10 +108,37 @@ async def branch_names_by_id(db: AsyncSession, branch_ids: set[int]) -> dict[int
     return {int(bid): str(name) for bid, name in result.all()}
 
 
+def _po_lines_to_read(
+  po: PurchaseOrder, uom_by_id: dict[int, Any]
+) -> list[PurchaseOrderLineRead]:
+    lines: list[PurchaseOrderLineRead] = []
+    for ln in po.lines:
+        uom = uom_by_id.get(int(ln.uom_id))
+        lines.append(
+            PurchaseOrderLineRead.model_validate(ln).model_copy(
+                update={
+                    "uom_name": uom.name if uom else "",
+                    "uom_symbol": uom.symbol if uom else "",
+                }
+            )
+        )
+    return lines
+
+
 def purchase_order_to_read(
-    po: PurchaseOrder, *, branch_name: str | None = None
+    po: PurchaseOrder,
+    *,
+    branch_name: str | None = None,
+    uom_by_id: dict[int, Any] | None = None,
 ) -> PurchaseOrderRead:
-    return PurchaseOrderRead.model_validate(po).model_copy(update={"branch_name": branch_name})
+    umap = uom_by_id or {}
+    base = PurchaseOrderRead.model_validate(po).model_copy(
+        update={
+            "branch_name": branch_name,
+            "lines": _po_lines_to_read(po, umap) if po.lines else [],
+        }
+    )
+    return base
 
 
 async def purchase_orders_to_read(
@@ -100,10 +146,16 @@ async def purchase_orders_to_read(
 ) -> list[PurchaseOrderRead]:
     branch_ids = {int(r.branch_id) for r in rows if r.branch_id is not None}
     bmap = await branch_names_by_id(db, branch_ids)
+    uom_ids: set[int] = set()
+    for r in rows:
+        for ln in r.lines:
+            uom_ids.add(int(ln.uom_id))
+    umap = await uom_map_for_ids(db, uom_ids)
     return [
         purchase_order_to_read(
             r,
             branch_name=bmap.get(int(r.branch_id)) if r.branch_id is not None else None,
+            uom_by_id=umap,
         )
         for r in rows
     ]
@@ -114,7 +166,9 @@ async def purchase_order_to_read_one(db: AsyncSession, po: PurchaseOrder) -> Pur
     if po.branch_id is not None:
         bmap = await branch_names_by_id(db, {int(po.branch_id)})
         branch_name = bmap.get(int(po.branch_id))
-    return purchase_order_to_read(po, branch_name=branch_name)
+    uom_ids = {int(ln.uom_id) for ln in po.lines}
+    umap = await uom_map_for_ids(db, uom_ids)
+    return purchase_order_to_read(po, branch_name=branch_name, uom_by_id=umap)
 
 
 async def _resolve_supplier_name(db: AsyncSession, data: dict[str, Any]) -> dict[str, Any]:
@@ -132,10 +186,22 @@ async def _resolve_supplier_name(db: AsyncSession, data: dict[str, Any]) -> dict
     return data
 
 
-def _normalize_po_line_row(row: dict[str, Any]) -> dict[str, Any]:
+async def _normalize_po_line_row(db: AsyncSession, row: dict[str, Any]) -> dict[str, Any]:
     out = dict(row)
     if out.get("unit_cost") is None:
         out.pop("unit_cost", None)
+    product_id = int(out["product_id"])
+    qty = int(out["qty"])
+    uom_id = out.get("uom_id")
+    if uom_id is None:
+        uom_id = await get_product_base_uom_id(db, product_id)
+    else:
+        uom_id = int(uom_id)
+    await validate_po_line_uom(db, product_id=product_id, uom_id=uom_id)
+    out["uom_id"] = uom_id
+    out["qty_base"] = await convert_product_qty_to_base(
+        db, product_id=product_id, uom_id=uom_id, qty=qty
+    )
     return out
 
 
@@ -162,7 +228,7 @@ async def create_po(
     product_ids = {ln["product_id"] for ln in lines}
     await _ensure_products_exist(db, product_ids)
     for ln in lines:
-        row = _normalize_po_line_row(dict(ln))
+        row = await _normalize_po_line_row(db, dict(ln))
         row["variant_id"] = await resolve_po_line_variant_id(
             db, product_id=row["product_id"], variant_id=row.get("variant_id")
         )
@@ -218,7 +284,7 @@ async def update_po(db: AsyncSession, *, po_id: int, data: dict[str, Any]) -> Pu
         po.lines.clear()
         await db.flush()
         for ln in lines:
-            row = _normalize_po_line_row(dict(ln))
+            row = await _normalize_po_line_row(db, dict(ln))
             row["variant_id"] = await resolve_po_line_variant_id(
                 db, product_id=row["product_id"], variant_id=row.get("variant_id")
             )

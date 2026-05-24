@@ -52,12 +52,7 @@ function q2(n: number): string {
 }
 
 /** Best-effort unit list price from catalog (may differ from POS active sell price until server responds). */
-export function catalogListUnitPriceString(p: ProductRead): string {
-  const attrs = p.attributes as { price?: number | string } | undefined;
-  if (attrs && attrs.price != null && attrs.price !== '') {
-    const n = typeof attrs.price === 'number' ? attrs.price : Number(attrs.price);
-    if (Number.isFinite(n)) return q2(n);
-  }
+export function catalogListUnitPriceString(_p: ProductRead): string {
   return '0.00';
 }
 

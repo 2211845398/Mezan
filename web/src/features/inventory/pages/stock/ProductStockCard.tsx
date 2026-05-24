@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
@@ -34,7 +35,12 @@ export default function ProductStockCard() {
         {
           id: 'st',
           header: t('stockCard.col.status'),
-          cell: ({ row }) => row.original.reorder_status,
+          cell: ({ row }) => (
+            <StatusBadge
+              status={row.original.reorder_status}
+              label={t(`stock.reorder_status.${row.original.reorder_status}`, row.original.reorder_status)}
+            />
+          ),
         },
       ]),
     [t],

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.catalog_attribute import CatalogAttribute
 from app.models.catalog_attribute_value import CatalogAttributeValue
+from app.models.product_attribute_line import ProductAttributeLine
 from app.models.product_attribute_line_value import ProductAttributeLineValue
 from app.models.product_variant_attribute import ProductVariantAttribute
 from app.schemas.attributes import (
@@ -24,6 +25,119 @@ from app.schemas.attributes import (
 )
 from app.services.variant_attribute_service import sync_variant_jsonb_cache
 from app.utils.attribute_code import normalize_attribute_code
+from app.utils.sequential_attribute_code import (
+    has_arabic_script,
+    next_catalog_attribute_code,
+    next_catalog_attribute_value_code,
+)
+from app.utils.smart_sku import (
+    is_auto_generated_value_code,
+    normalize_sku_segment,
+    sku_segment_key,
+)
+
+
+def _validate_explicit_value_code(code: str) -> str:
+    """Validate an explicit or Latin-derived SKU-safe value code."""
+    if not code:
+        raise ValidationError("Value code is required", details={})
+    if is_auto_generated_value_code(code):
+        raise ValidationError(
+            "Enter an English abbreviation (1–4 letters/numbers, e.g. RED, 1M) for variant SKU codes",
+            details={"code": "attribute_value_code_ascii_required"},
+        )
+    if not normalize_sku_segment(code, max_len=64):
+        raise ValidationError(
+            "Value code must use English letters and numbers only",
+            details={"code": code},
+        )
+    return code
+
+
+def _resolve_attribute_value_code(body_code: str | None, label: str) -> str:
+    """Resolve SKU-safe ASCII value code from explicit code or Latin label (sync updates)."""
+    code = (body_code or "").strip() or normalize_attribute_code(label)
+    return _validate_explicit_value_code(code)
+
+
+async def _resolve_attribute_value_code_for_create(
+    db: AsyncSession,
+    attribute_id: int,
+    body_code: str | None,
+    label: str,
+) -> str:
+    """Allocate value code on create: explicit, Latin-derived, or sequential VAL_n."""
+    if body_code and str(body_code).strip():
+        return _validate_explicit_value_code(normalize_attribute_code(str(body_code)))
+    derived = normalize_attribute_code(label)
+    if derived and not is_auto_generated_value_code(derived):
+        return _validate_explicit_value_code(derived)
+    return await next_catalog_attribute_value_code(db, attribute_id)
+
+
+async def _resolve_attribute_code_for_create(
+    db: AsyncSession,
+    body_code: str | None,
+    name: str,
+) -> str:
+    """Allocate attribute code on create: explicit, Latin-derived, or sequential ATTR_n."""
+    if body_code and str(body_code).strip():
+        code = normalize_attribute_code(str(body_code))
+    else:
+        derived = normalize_attribute_code(name)
+        if has_arabic_script(name) or is_auto_generated_value_code(derived):
+            code = await next_catalog_attribute_code(db)
+        else:
+            code = derived or await next_catalog_attribute_code(db)
+    if not code:
+        raise ValidationError("Attribute code is required", details={})
+    return code
+
+
+async def _attribute_axis_usage_count(db: AsyncSession, attribute_id: int) -> int:
+    line_res = await db.execute(
+        select(func.count())
+        .select_from(ProductAttributeLine)
+        .where(ProductAttributeLine.attribute_id == attribute_id)
+    )
+    pivot_res = await db.execute(
+        select(func.count())
+        .select_from(ProductVariantAttribute)
+        .where(ProductVariantAttribute.attribute_id == attribute_id)
+    )
+    return int(line_res.scalar_one() or 0) + int(pivot_res.scalar_one() or 0)
+
+
+async def _assert_unique_sku_segment_within_attribute(
+    db: AsyncSession,
+    *,
+    attribute_id: int,
+    code: str,
+    exclude_value_id: int | None = None,
+) -> None:
+    """Reject value codes whose SKU segment collides with a sibling on the same axis."""
+    segment = sku_segment_key(code)
+    if not segment:
+        return
+    res = await db.execute(
+        select(CatalogAttributeValue).where(CatalogAttributeValue.attribute_id == attribute_id)
+    )
+    for sibling in res.scalars().all():
+        if exclude_value_id is not None and int(sibling.id) == int(exclude_value_id):
+            continue
+        if sku_segment_key(sibling.code) == segment:
+            raise ValidationError(
+                "Value code collides with another value on this attribute after SKU truncation",
+                details={
+                    "code": "sku_segment_collision",
+                    "segment": segment,
+                    "collides_with": {
+                        "attribute_value_id": int(sibling.id),
+                        "code": sibling.code,
+                        "label": sibling.label,
+                    },
+                },
+            )
 
 
 async def _attribute_value_usage_count(db: AsyncSession, value_id: int) -> int:
@@ -55,8 +169,16 @@ async def list_attributes(db: AsyncSession) -> list[CatalogAttributeRead]:
             .select_from(CatalogAttributeValue)
             .where(CatalogAttributeValue.attribute_id == row.id)
         )
+        usage = await _attribute_axis_usage_count(db, int(row.id))
         dto = CatalogAttributeRead.from_orm_row(row)
-        out.append(dto.model_copy(update={"value_count": int(cnt_res.scalar_one() or 0)}))
+        out.append(
+            dto.model_copy(
+                update={
+                    "value_count": int(cnt_res.scalar_one() or 0),
+                    "usage_count": usage,
+                }
+            )
+        )
     return out
 
 
@@ -69,9 +191,7 @@ async def get_attribute(db: AsyncSession, attribute_id: int) -> CatalogAttribute
 
 
 async def create_attribute(db: AsyncSession, body: CatalogAttributeCreate) -> CatalogAttributeRead:
-    code = body.code or normalize_attribute_code(body.name)
-    if not code:
-        raise ValidationError("Attribute code is required", details={})
+    code = await _resolve_attribute_code_for_create(db, body.code, body.name)
     dup = await db.execute(select(CatalogAttribute).where(CatalogAttribute.code == code))
     if dup.scalar_one_or_none():
         raise ConflictError("Attribute code already exists", details={"code": code})
@@ -97,6 +217,23 @@ async def update_attribute(
 ) -> CatalogAttributeRead:
     row = await get_attribute(db, attribute_id)
     data = body.model_dump(exclude_unset=True)
+    if "code" in data and data["code"] is not None:
+        new_code = data["code"]
+        if new_code != row.code:
+            if await _attribute_axis_usage_count(db, attribute_id) > 0:
+                raise ConflictError(
+                    "Cannot change attribute code while it is in use on products",
+                    details={"code": "code_locked", "attribute_id": attribute_id},
+                )
+            dup = await db.execute(
+                select(CatalogAttribute).where(
+                    CatalogAttribute.code == new_code,
+                    CatalogAttribute.id != attribute_id,
+                )
+            )
+            if dup.scalar_one_or_none():
+                raise ConflictError("Attribute code already exists", details={"code": new_code})
+            row.code = new_code
     if "name" in data and data["name"] is not None:
         row.name = data["name"].strip()
     if "sort_order" in data and data["sort_order"] is not None:
@@ -105,7 +242,9 @@ async def update_attribute(
         row.metadata_ = data["metadata"]
     row.updated_at = datetime.now(UTC)
     await db.flush()
-    return CatalogAttributeRead.from_orm_row(row)
+    usage = await _attribute_axis_usage_count(db, attribute_id)
+    dto = CatalogAttributeRead.from_orm_row(row)
+    return dto.model_copy(update={"usage_count": usage})
 
 
 async def list_attribute_values(
@@ -142,9 +281,7 @@ async def create_attribute_value(
     db: AsyncSession, attribute_id: int, body: CatalogAttributeValueCreate
 ) -> CatalogAttributeValueRead:
     attr = await get_attribute(db, attribute_id)
-    code = body.code or normalize_attribute_code(body.label)
-    if not code:
-        raise ValidationError("Value code is required", details={})
+    code = await _resolve_attribute_value_code_for_create(db, attribute_id, body.code, body.label)
     dup = await db.execute(
         select(CatalogAttributeValue).where(
             CatalogAttributeValue.attribute_id == attr.id,
@@ -156,6 +293,7 @@ async def create_attribute_value(
             "Attribute value code already exists for this attribute",
             details={"attribute_id": attribute_id, "code": code},
         )
+    await _assert_unique_sku_segment_within_attribute(db, attribute_id=attr.id, code=code)
     now = datetime.now(UTC)
     row = CatalogAttributeValue(
         attribute_id=attr.id,
@@ -184,6 +322,37 @@ async def update_attribute_value(
             details={"attribute_id": attribute_id, "attribute_value_id": value_id},
         )
     data = body.model_dump(exclude_unset=True)
+    if "code" in data and data["code"] is not None:
+        new_code = _resolve_attribute_value_code(data["code"], row.label)
+        if new_code != row.code:
+            if await _attribute_value_usage_count(db, value_id) > 0:
+                raise ConflictError(
+                    "Cannot change value code while it is in use on products",
+                    details={
+                        "code": "code_locked",
+                        "attribute_id": attribute_id,
+                        "attribute_value_id": value_id,
+                    },
+                )
+            dup = await db.execute(
+                select(CatalogAttributeValue).where(
+                    CatalogAttributeValue.attribute_id == attribute_id,
+                    CatalogAttributeValue.code == new_code,
+                    CatalogAttributeValue.id != value_id,
+                )
+            )
+            if dup.scalar_one_or_none():
+                raise ConflictError(
+                    "Attribute value code already exists for this attribute",
+                    details={"attribute_id": attribute_id, "code": new_code},
+                )
+            await _assert_unique_sku_segment_within_attribute(
+                db,
+                attribute_id=attribute_id,
+                code=new_code,
+                exclude_value_id=value_id,
+            )
+            row.code = new_code
     if "label" in data and data["label"] is not None:
         row.label = data["label"].strip()
     if "sort_order" in data and data["sort_order"] is not None:

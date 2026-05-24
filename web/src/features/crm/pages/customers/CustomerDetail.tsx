@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Gift, LineChart, ShoppingBag, User } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
@@ -6,6 +7,7 @@ import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { SectionCard } from '@/components/shared/ContentSurface';
+import { PageTabNav } from '@/components/shared/PageTabNav';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -20,7 +22,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { OpenItemRead } from '@/features/accounting/api';
 import ArApplyPaymentDrawer from '@/features/accounting/pages/ar/ArApplyPaymentDrawer';
 import { arOpenItemsQueryOptions } from '@/features/accounting/queries';
@@ -29,6 +30,8 @@ import { usePermission } from '@/hooks/usePermission';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
+
+import { A4InvoicePrintButton } from '@/features/sales/print/A4InvoicePrintDialog';
 
 import type { CustomerSalesInvoiceListResponse, LedgerEntryRead } from '../../api';
 import { updateCustomer } from '../../api';
@@ -42,6 +45,7 @@ import {
 import ManualAdjustmentDrawer from './ManualAdjustmentDrawer';
 
 type AccountStatus = 'active' | 'pending_activation' | 'suspended';
+type CustomerTab = 'performance' | 'profile' | 'purchases' | 'loyalty';
 
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
@@ -50,6 +54,7 @@ export default function CustomerDetail() {
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const activeBranchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
+  const [tab, setTab] = useState<CustomerTab>('performance');
   const [adjOpen, setAdjOpen] = useState(false);
   const [arPayOpen, setArPayOpen] = useState(false);
   const canEdit = usePermission('customers', 'update');
@@ -157,6 +162,11 @@ export default function CustomerDetail() {
             );
           },
         },
+        {
+          id: 'print',
+          header: '',
+          cell: ({ row }) => <A4InvoicePrintButton invoiceId={row.original.id} />,
+        },
       ]),
     [t],
   );
@@ -211,16 +221,22 @@ export default function CustomerDetail() {
         }
       />
 
-      <Tabs defaultValue="performance" dir={i18n.dir()}>
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground">
-          <TabsTrigger value="performance">{t('customers.tab_performance')}</TabsTrigger>
-          <TabsTrigger value="profile">{t('customers.tab_profile')}</TabsTrigger>
-          <TabsTrigger value="purchases">{t('customers.tab_purchases')}</TabsTrigger>
-          {canReadLoyalty ? (
-            <TabsTrigger value="loyalty">{t('customers.tab_loyalty')}</TabsTrigger>
-          ) : null}
-        </TabsList>
-        <TabsContent value="profile" className="mt-4">
+      <PageTabNav
+        mode="button"
+        activeId={tab}
+        onSelect={(id) => setTab(id as CustomerTab)}
+        items={[
+          { id: 'performance', label: t('customers.tab_performance'), icon: LineChart },
+          { id: 'profile', label: t('customers.tab_profile'), icon: User },
+          { id: 'purchases', label: t('customers.tab_purchases'), icon: ShoppingBag },
+          ...(canReadLoyalty
+            ? [{ id: 'loyalty' as const, label: t('customers.tab_loyalty'), icon: Gift }]
+            : []),
+        ]}
+      />
+
+      {tab === 'profile' ? (
+        <div className="mt-4">
           {/* Profile card: w-fit hugs content; fields use 32rem×1.05 ≈ 33.6rem; RTL aligns card to inline-start (right). */}
           <div className="flex w-full justify-start" dir={i18n.dir()}>
             <SectionCard className="w-full max-w-full overflow-visible sm:w-fit">
@@ -340,8 +356,11 @@ export default function CustomerDetail() {
               </div>
             </SectionCard>
           </div>
-        </TabsContent>
-        <TabsContent value="performance" className="mt-4">
+        </div>
+      ) : null}
+
+      {tab === 'performance' ? (
+        <div className="mt-4">
           {perfLoading || !performance ? (
             <div className="rounded-xl border p-6 text-sm text-muted-foreground">...</div>
           ) : (
@@ -457,8 +476,11 @@ export default function CustomerDetail() {
               ) : null}
             </div>
           )}
-        </TabsContent>
-        <TabsContent value="purchases" className="mt-4">
+        </div>
+      ) : null}
+
+      {tab === 'purchases' ? (
+        <div className="mt-4">
           <DataTable
             mode="client"
             columns={invColumns}
@@ -468,9 +490,11 @@ export default function CustomerDetail() {
             onRetry={() => void refetch()}
             tableDir={i18n.dir() === 'rtl' ? 'rtl' : 'ltr'}
           />
-        </TabsContent>
-        {canReadLoyalty ? (
-          <TabsContent value="loyalty" className="mt-4">
+        </div>
+      ) : null}
+
+      {canReadLoyalty && tab === 'loyalty' ? (
+        <div className="mt-4">
             <DataTable
               mode="client"
               columns={ledColumns}
@@ -480,9 +504,8 @@ export default function CustomerDetail() {
               onRetry={() => void refetch()}
               tableDir={i18n.dir() === 'rtl' ? 'rtl' : 'ltr'}
             />
-          </TabsContent>
-        ) : null}
-      </Tabs>
+        </div>
+      ) : null}
 
       <ManualAdjustmentDrawer open={adjOpen} onOpenChange={setAdjOpen} customerId={cid} />
 

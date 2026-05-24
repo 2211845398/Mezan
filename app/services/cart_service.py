@@ -578,23 +578,42 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
     discounts = list(disc_res.scalars().all())
 
     product_ids = {ln.product_id for ln in lines}
+    variant_ids = {ln.variant_id for ln in lines if ln.variant_id is not None}
+    from app.models.product_variant import ProductVariant
+    from app.models.unit_of_measure import UnitOfMeasure
+
     prods: dict[int, Product] = {}
+    uom_by_id: dict[int, UnitOfMeasure] = {}
     if product_ids:
         pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
         prods = {p.id: p for p in pres.scalars().all()}
+        uom_ids = {p.uom_id for p in prods.values()}
+        if uom_ids:
+            ures = await db.execute(select(UnitOfMeasure).where(UnitOfMeasure.id.in_(uom_ids)))
+            uom_by_id = {int(u.id): u for u in ures.scalars().all()}
+
+    variants: dict[int, ProductVariant] = {}
+    if variant_ids:
+        vres = await db.execute(
+            select(ProductVariant).where(ProductVariant.id.in_(variant_ids))
+        )
+        variants = {v.id: v for v in vres.scalars().all()}
 
     line_reads: list[CartLineRead] = []
     for ln in lines:
         p = prods.get(ln.product_id)
+        pv = variants.get(ln.variant_id) if ln.variant_id is not None else None
+        uom = uom_by_id.get(p.uom_id) if p else None
         line_reads.append(
             CartLineRead(
                 id=ln.id,
                 product_id=ln.product_id,
                 variant_id=ln.variant_id,
                 product_name=p.name if p else "",
-                product_sku=p.sku if p else "",
-                barcode=p.barcode if p else None,
+                product_sku=(pv.sku if pv else None) or (p.sku if p else ""),
+                barcode=pv.barcode if pv else None,
                 product_image_url=p.image_url if p else None,
+                uom_symbol=uom.symbol if uom else "pcs",
                 qty=ln.qty,
                 unit_price=ln.unit_price,
                 line_total=ln.line_total,

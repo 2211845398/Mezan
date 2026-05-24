@@ -14,8 +14,12 @@ from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chart_accounts import AccountType, ChartAccount
+from app.models.customer_profile import CustomerProfile
+from app.models.employee_profile import EmployeeProfile
 from app.models.journal_entries import JournalEntry, JournalEntryLine
+from app.models.suppliers import Supplier
 from app.utils.money import q2
+from app.utils.person_name import display_person_name
 
 
 async def trial_balance(
@@ -67,6 +71,30 @@ async def trial_balance(
     return rows
 
 
+async def get_ledger_report(
+    db: AsyncSession,
+    *,
+    account_id: int,
+    date_from: date,
+    date_to: date,
+    branch_id: int | None = None,
+    customer_id: int | None = None,
+    supplier_id: int | None = None,
+    employee_id: int | None = None,
+) -> list[dict]:
+    """Posted GL lines for one account with optional sub-ledger filters and running balance."""
+    return await general_ledger_lines(
+        db,
+        account_id=account_id,
+        date_from=date_from,
+        date_to=date_to,
+        branch_id=branch_id,
+        customer_id=customer_id,
+        supplier_id=supplier_id,
+        employee_id=employee_id,
+    )
+
+
 async def general_ledger_lines(
     db: AsyncSession,
     *,
@@ -74,6 +102,9 @@ async def general_ledger_lines(
     date_from: date,
     date_to: date,
     branch_id: int | None = None,
+    customer_id: int | None = None,
+    supplier_id: int | None = None,
+    employee_id: int | None = None,
 ) -> list[dict]:
     """Posted lines for one account in an entry_date range."""
     stmt = (
@@ -88,6 +119,9 @@ async def general_ledger_lines(
             JournalEntryLine.credit,
             JournalEntryLine.branch_id,
             JournalEntryLine.memo,
+            JournalEntryLine.customer_id,
+            JournalEntryLine.supplier_id,
+            JournalEntryLine.employee_id,
         )
         .join(JournalEntryLine, JournalEntryLine.journal_entry_id == JournalEntry.id)
         .where(
@@ -99,22 +133,82 @@ async def general_ledger_lines(
     )
     if branch_id is not None:
         stmt = stmt.where(JournalEntryLine.branch_id == branch_id)
+    if customer_id is not None:
+        stmt = stmt.where(JournalEntryLine.customer_id == customer_id)
+    if supplier_id is not None:
+        stmt = stmt.where(JournalEntryLine.supplier_id == supplier_id)
+    if employee_id is not None:
+        stmt = stmt.where(JournalEntryLine.employee_id == employee_id)
     res = await db.execute(stmt)
-    return [
-        {
-            "journal_entry_id": r.id,
-            "entry_date": r.entry_date.isoformat(),
-            "description": r.description,
-            "source_type": r.source_type,
-            "source_id": r.source_id,
-            "line_no": r.line_no,
-            "debit": q2(r.debit),
-            "credit": q2(r.credit),
-            "branch_id": r.branch_id,
-            "memo": r.memo,
-        }
-        for r in res.all()
-    ]
+    raw_rows = res.all()
+
+    cust_ids = {r.customer_id for r in raw_rows if r.customer_id is not None}
+    sup_ids = {r.supplier_id for r in raw_rows if r.supplier_id is not None}
+    emp_ids = {r.employee_id for r in raw_rows if r.employee_id is not None}
+
+    cust_names: dict[int, str] = {}
+    if cust_ids:
+        c_res = await db.execute(
+            select(CustomerProfile).where(CustomerProfile.id.in_(cust_ids))
+        )
+        for c in c_res.scalars().all():
+            cust_names[int(c.id)] = (
+                display_person_name(c.first_name, c.father_name, c.family_name) or c.phone or f"#{c.id}"
+            )
+
+    sup_names: dict[int, str] = {}
+    if sup_ids:
+        s_res = await db.execute(
+            select(Supplier.id, Supplier.name).where(Supplier.id.in_(sup_ids))
+        )
+        sup_names = {int(r.id): str(r.name) for r in s_res.all()}
+
+    emp_names: dict[int, str] = {}
+    if emp_ids:
+        from app.models.users import User
+
+        e_res = await db.execute(
+            select(EmployeeProfile.id, User.first_name, User.father_name, User.family_name)
+            .join(User, User.id == EmployeeProfile.user_id)
+            .where(EmployeeProfile.id.in_(emp_ids))
+        )
+        for r in e_res.all():
+            emp_names[int(r.id)] = display_person_name(r.first_name, r.father_name, r.family_name) or f"Employee #{r.id}"
+
+    running = Decimal("0")
+    out: list[dict] = []
+    for r in raw_rows:
+        dr = q2(r.debit)
+        cr = q2(r.credit)
+        running = q2(running + dr - cr)
+        partner_display_name = None
+        if r.customer_id is not None:
+            partner_display_name = cust_names.get(int(r.customer_id))
+        elif r.supplier_id is not None:
+            partner_display_name = sup_names.get(int(r.supplier_id))
+        elif r.employee_id is not None:
+            partner_display_name = emp_names.get(int(r.employee_id))
+
+        out.append(
+            {
+                "journal_entry_id": r.id,
+                "entry_date": r.entry_date.isoformat(),
+                "description": r.description,
+                "source_type": r.source_type,
+                "source_id": r.source_id,
+                "line_no": r.line_no,
+                "debit": dr,
+                "credit": cr,
+                "branch_id": r.branch_id,
+                "memo": r.memo,
+                "customer_id": r.customer_id,
+                "supplier_id": r.supplier_id,
+                "employee_id": r.employee_id,
+                "partner_display_name": partner_display_name,
+                "running_balance": running,
+            }
+        )
+    return out
 
 
 async def income_statement(

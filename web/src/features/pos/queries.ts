@@ -210,7 +210,19 @@ export function useCreateCart() {
   });
 }
 
-type LineVars = { product_id: number; qty: number };
+type LineVars = { product_id: number; qty: number; variant_id?: number };
+
+function cartLineMatches(
+  ln: NonNullable<CartRead['lines']>[number],
+  productId: number,
+  variantId?: number,
+): boolean {
+  if (ln.product_id !== productId) return false;
+  if (variantId != null && variantId > 0) {
+    return ln.variant_id === variantId;
+  }
+  return (ln.variant_id ?? 0) <= 0;
+}
 
 export function useAddLine(cartId: number) {
   const qc = useQueryClient();
@@ -218,13 +230,21 @@ export function useAddLine(cartId: number) {
     /** Backend `upsert_line` treats `qty` as absolute, not a delta — read post-optimistic cart. */
     mutationFn: async (variables, _idempotencyKey) => {
       const cart = qc.getQueryData<CartRead>(cartKeys.detail(cartId));
-      const line = cart?.lines?.find((ln) => ln.product_id === variables.product_id);
-      const target = line != null ? Number(line.qty) : variables.qty;
+      const line = cart?.lines?.find((ln) =>
+        cartLineMatches(ln, variables.product_id, variables.variant_id),
+      );
+      const target = line != null ? Number(line.qty) + variables.qty : variables.qty;
       const absQty = Math.max(
         0,
         Number.isFinite(target) ? Math.round(target) : Math.round(variables.qty),
       );
-      return addCartLine(cartId, { product_id: variables.product_id, qty: absQty });
+      return addCartLine(cartId, {
+        product_id: variables.product_id,
+        qty: absQty,
+        ...(variables.variant_id != null && variables.variant_id > 0
+          ? { variant_id: variables.variant_id }
+          : {}),
+      });
     },
     getSnapshot: (client) => client.getQueryData(cartKeys.detail(cartId)),
     applyOptimistic: (client, variables) => {
@@ -234,11 +254,12 @@ export function useAddLine(cartId: number) {
       const unitPrice = hit ? catalogListUnitPriceString(hit) : '0.00';
       const rateStr = hit ? String(hit.output_vat_rate ?? '0') : '0';
       const prevLines = prev.lines ?? [];
-      const existingIdx = prevLines.findIndex((ln) => ln.product_id === variables.product_id);
+      const existingIdx = prevLines.findIndex((ln) =>
+        cartLineMatches(ln, variables.product_id, variables.variant_id),
+      );
 
       let draftLines: NonNullable<CartRead['lines']>;
       if (existingIdx >= 0) {
-        // Same as backend upsert_line: bump qty on existing row (avoids duplicate “ghost” card flash).
         draftLines = prevLines.map((ln, i) =>
           i === existingIdx ? { ...ln, qty: Number(ln.qty) + variables.qty } : ln,
         );
@@ -246,10 +267,11 @@ export function useAddLine(cartId: number) {
         const newLine = {
           id: nextOptimisticCartLineId(),
           product_id: variables.product_id,
-          variant_id: 0,
+          variant_id: variables.variant_id ?? 0,
           product_name: hit?.name ?? '',
           product_sku: hit?.sku ?? '',
           barcode: hit?.barcode ?? null,
+          uom_symbol: hit?.uom_symbol ?? 'pcs',
           qty: variables.qty,
           unit_price: unitPrice,
           line_total: '0.00',
@@ -282,13 +304,17 @@ export function useAddLine(cartId: number) {
   });
 }
 
-type LineQtyVars = { line_id: number; product_id: number; qty: number };
+type LineQtyVars = { line_id: number; product_id: number; variant_id: number; qty: number };
 
 export function useUpdateLineQty(cartId: number) {
   const qc = useQueryClient();
   return createOptimisticMutation<CartRead, LineQtyVars, CartRead | undefined>({
     mutationFn: async (variables, _idempotencyKey) =>
-      addCartLine(cartId, { product_id: variables.product_id, qty: variables.qty }),
+      addCartLine(cartId, {
+        product_id: variables.product_id,
+        variant_id: variables.variant_id,
+        qty: variables.qty,
+      }),
     getSnapshot: (client) => client.getQueryData(cartKeys.detail(cartId)),
     applyOptimistic: (client, variables) => {
       const prev = client.getQueryData<CartRead>(cartKeys.detail(cartId));

@@ -10175,6 +10175,77 @@
         }
       }
     },
+    "/api/v1/suppliers/{supplier_id}/statement": {
+      "get": {
+        "tags": ["suppliers"],
+        "summary": "Supplier Statement Endpoint",
+        "operationId": "supplier_statement_endpoint_api_v1_suppliers__supplier_id__statement_get",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {"name": "supplier_id", "in": "path", "required": true, "schema": {"type": "integer", "title": "Supplier Id"}},
+          {"name": "date_from", "in": "query", "required": true, "schema": {"type": "string", "format": "date", "title": "Date From"}},
+          {"name": "date_to", "in": "query", "required": true, "schema": {"type": "string", "format": "date", "title": "Date To"}},
+          {"name": "branch_id", "in": "query", "required": false, "schema": {"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Branch Id"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierStatementRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/suppliers/{supplier_id}/evaluation": {
+      "get": {
+        "tags": ["suppliers"],
+        "summary": "Supplier Evaluation Endpoint",
+        "operationId": "supplier_evaluation_endpoint_api_v1_suppliers__supplier_id__evaluation_get",
+        "security": [{"HTTPBearer": []}],
+        "parameters": [
+          {"name": "supplier_id", "in": "path", "required": true, "schema": {"type": "integer", "title": "Supplier Id"}},
+          {"name": "period_days", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 3650, "default": 365, "title": "Period Days"}},
+          {"name": "branch_id", "in": "query", "required": false, "schema": {"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Branch Id"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierEvaluationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -18287,6 +18358,22 @@
             ],
             "title": "Customer Id"
           },
+          "branch_name": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Branch Name"
+          },
+          "customer_display": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Customer Display"
+          },
+          "currency_code": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Currency Code"
+          },
+          "company_legal_name": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "title": "Company Legal Name"
+          },
           "subtotal": {
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -19009,6 +19096,51 @@
           "currency_id"
         ],
         "title": "SupplierCreate"
+      },
+      "SupplierStatementLineRead": {
+        "properties": {
+          "entry_date": {"type": "string", "format": "date", "title": "Entry Date"},
+          "reference": {"type": "string", "title": "Reference"},
+          "description": {"type": "string", "title": "Description"},
+          "debit": {"type": "string", "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$", "title": "Debit"},
+          "credit": {"type": "string", "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$", "title": "Credit"},
+          "running_balance": {"type": "string", "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$", "title": "Running Balance"},
+          "source_type": {"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Source Type"},
+          "source_id": {"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Source Id"},
+          "journal_entry_id": {"anyOf": [{"type": "integer"}, {"type": "null"}], "title": "Journal Entry Id"}
+        },
+        "type": "object",
+        "required": ["entry_date", "reference", "description", "debit", "credit", "running_balance"],
+        "title": "SupplierStatementLineRead"
+      },
+      "SupplierStatementRead": {
+        "properties": {
+          "supplier_id": {"type": "integer", "title": "Supplier Id"},
+          "date_from": {"type": "string", "format": "date", "title": "Date From"},
+          "date_to": {"type": "string", "format": "date", "title": "Date To"},
+          "opening_balance": {"type": "string", "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$", "title": "Opening Balance"},
+          "closing_balance": {"type": "string", "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$", "title": "Closing Balance"},
+          "lines": {"items": {"$ref": "#/components/schemas/SupplierStatementLineRead"}, "type": "array", "title": "Lines"}
+        },
+        "type": "object",
+        "required": ["supplier_id", "date_from", "date_to", "opening_balance", "closing_balance"],
+        "title": "SupplierStatementRead"
+      },
+      "SupplierEvaluationRead": {
+        "properties": {
+          "supplier_id": {"type": "integer", "title": "Supplier Id"},
+          "period_days": {"type": "integer", "title": "Period Days"},
+          "total_purchases": {"type": "string", "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$", "title": "Total Purchases"},
+          "total_paid": {"type": "string", "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$", "title": "Total Paid"},
+          "open_balance": {"type": "string", "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$", "title": "Open Balance"},
+          "payment_count": {"type": "integer", "title": "Payment Count"},
+          "receipt_count": {"type": "integer", "title": "Receipt Count"},
+          "avg_days_to_pay": {"anyOf": [{"type": "number"}, {"type": "null"}], "title": "Avg Days To Pay"},
+          "last_activity_date": {"anyOf": [{"type": "string", "format": "date"}, {"type": "null"}], "title": "Last Activity Date"}
+        },
+        "type": "object",
+        "required": ["supplier_id", "period_days", "total_purchases", "total_paid", "open_balance", "payment_count", "receipt_count"],
+        "title": "SupplierEvaluationRead"
       },
       "SupplierRead": {
         "properties": {

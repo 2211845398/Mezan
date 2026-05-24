@@ -1,4 +1,4 @@
-import { ListChecks, PauseCircle, ShoppingCart, Trash2 } from 'lucide-react';
+import { ListChecks, PauseCircle, ShoppingCart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,6 @@ export type RegisterTotalsColumnProps = {
   onPark: () => void | Promise<void>;
   /** Park current sale and open a new empty cart (same as toolbar park + new). */
   onNewCart: () => void | Promise<void>;
-  onCancelCart: () => void | Promise<void>;
   onShowParked: () => void;
 };
 
@@ -53,7 +52,6 @@ export function RegisterTotalsColumn({
   onCheckout,
   onPark,
   onNewCart,
-  onCancelCart,
   onShowParked,
 }: RegisterTotalsColumnProps) {
   const { t } = useTranslation('pos');
@@ -77,7 +75,6 @@ export function RegisterTotalsColumn({
 
   const canPark = editable && cart.status === 'active' && hasPayableLines;
   const canNewCart = canPark;
-  const canCancel = cart.status === 'active' || cart.status === 'parked' || cart.status === 'checkout_locked';
 
   return (
     <aside className="flex min-h-0 w-full min-w-0 flex-col gap-2.5 overflow-y-auto rounded-xl border bg-card p-2.5 shadow-sm lg:max-h-full">
@@ -141,29 +138,16 @@ export function RegisterTotalsColumn({
           {t('register.new_cart')}
         </Button>
 
-        {/* Park + Delete row */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-10 gap-1.5"
-            disabled={!canPark}
-            onClick={() => void onPark()}
-          >
-            <PauseCircle className="size-4" aria-hidden />
-            {t('register.park_cart')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-10 gap-1.5 text-destructive hover:bg-destructive/5 hover:text-destructive"
-            disabled={!canCancel}
-            onClick={() => void onCancelCart()}
-          >
-            <Trash2 className="size-4" aria-hidden />
-            {cart.status === 'checkout_locked' ? t('register.exit_checkout') : t('register.cancel_cart')}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-10 w-full gap-1.5"
+          disabled={!canPark}
+          onClick={() => void onPark()}
+        >
+          <PauseCircle className="size-4" aria-hidden />
+          {t('register.park_cart')}
+        </Button>
       </div>
     </aside>
   );

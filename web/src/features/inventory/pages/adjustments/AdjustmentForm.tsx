@@ -17,22 +17,17 @@ import {
 } from '@/components/ui/select';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
-import { ProductSearch } from '@/features/pos/components/ProductSearch';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
+import PoLineVariantSelect from '@/features/purchasing/components/PoLineVariantSelect';
+import { ProductSearch } from '@/features/pos/components/ProductSearch';
+
+import InventoryProductLineFields from '../../components/InventoryProductLineFields';
 import { postHumanInventoryMovement } from '../../api';
 import { inventoryKeys } from '../../queries';
 
-const TXN_TYPES = [
-  'add_stock',
-  'issue_stock',
-  'return_stock',
-  'damage_mark',
-  'damage_scrap',
-  'reserve',
-  'release',
-  'count_adjust',
-] as const;
+/** Simple movements kept in the floating dialog; complex flows use dedicated pages. */
+const TXN_TYPES = ['issue_stock', 'return_stock', 'count_adjust'] as const;
 
 export type AdjustmentFormProps = {
   variant?: 'page' | 'dialog';
@@ -46,12 +41,14 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
   });
-  const [branchId, setBranchId] = useState<string>('');
+  const [branchId, setBranchId] = useState('');
   const [productId, setProductId] = useState<number | null>(null);
+  const [variantId, setVariantId] = useState<number | null>(null);
+  const [variantLabel, setVariantLabel] = useState('');
+  const [uomId, setUomId] = useState(0);
   const [txn, setTxn] = useState<(typeof TXN_TYPES)[number]>('count_adjust');
   const [quantity, setQuantity] = useState('1');
   const [qtySigned, setQtySigned] = useState('0');
-  const [unitCost, setUnitCost] = useState('');
   const [notes, setNotes] = useState('');
   const [reason, setReason] = useState('');
 
@@ -65,6 +62,8 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
         idempotency_key: newIdempotencyKey(),
         branch_id: Number(branchId),
         product_id: productId,
+        variant_id: variantId && variantId > 0 ? variantId : undefined,
+        uom_id: txn !== 'count_adjust' && uomId > 0 ? uomId : undefined,
         transaction_type: txn,
         notes: notes.trim() || '',
         reason: reasonSent,
@@ -73,14 +72,6 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
         return postHumanInventoryMovement({
           ...base,
           qty_signed: Number(qtySigned),
-        });
-      }
-      if (txn === 'add_stock') {
-        const raw = unitCost.trim().replace(',', '.');
-        return postHumanInventoryMovement({
-          ...base,
-          quantity: Number(quantity),
-          unit_cost: raw,
         });
       }
       return postHumanInventoryMovement({
@@ -103,6 +94,7 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
       {variant === 'page' ? (
         <h1 className="text-2xl font-semibold tracking-tight">{t('adjustments.new')}</h1>
       ) : null}
+      <p className="text-xs text-muted-foreground">{t('adjustments.dialog_hint')}</p>
       <div>
         <Label>{t('adjustments.field.branch')}</Label>
         <Select value={branchId} onValueChange={setBranchId}>
@@ -117,13 +109,6 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div>
-        <Label>{t('adjustments.field.product')}</Label>
-        <ProductSearch
-          value={productId == null ? undefined : String(productId)}
-          onChange={setProductId}
-        />
       </div>
       <div>
         <Label>{t('adjustments.field.type')}</Label>
@@ -141,42 +126,52 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
         </Select>
       </div>
       {txn === 'count_adjust' ? (
-        <div>
-          <Label>{t('adjustments.field.qty_signed')}</Label>
-          <Input
-            type="number"
-            value={qtySigned}
-            onChange={(e) => setQtySigned(e.target.value)}
-            step={1}
-          />
-        </div>
+        <>
+          <div>
+            <Label>{t('adjustments.field.product')}</Label>
+            <ProductSearch
+              value={productId == null ? undefined : String(productId)}
+              onChange={setProductId}
+            />
+          </div>
+          {productId != null && productId > 0 ? (
+            <PoLineVariantSelect
+              compact
+              productId={productId}
+              variantId={variantId}
+              variantPickLabel={variantLabel}
+              onVariantPick={(id, label) => {
+                setVariantId(id);
+                setVariantLabel(label);
+              }}
+            />
+          ) : null}
+          <div>
+            <Label>{t('adjustments.field.qty_signed')}</Label>
+            <Input
+              type="number"
+              value={qtySigned}
+              onChange={(e) => setQtySigned(e.target.value)}
+              step={1}
+            />
+          </div>
+        </>
       ) : (
-        <div>
-          <Label>{t('adjustments.field.quantity')}</Label>
-          <Input
-            type="number"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            step={1}
-            min={1}
-          />
-        </div>
+        <InventoryProductLineFields
+          productId={productId}
+          variantId={variantId}
+          variantLabel={variantLabel}
+          uomId={uomId}
+          qty={quantity}
+          onProductId={setProductId}
+          onVariant={(id, label) => {
+            setVariantId(id);
+            setVariantLabel(label);
+          }}
+          onUomId={setUomId}
+          onQty={setQuantity}
+        />
       )}
-      {txn === 'add_stock' ? (
-        <div>
-          <Label htmlFor="adj-unit-cost">{t('adjustments.field.unit_cost')}</Label>
-          <Input
-            id="adj-unit-cost"
-            type="text"
-            inputMode="decimal"
-            value={unitCost}
-            onChange={(e) => setUnitCost(e.target.value)}
-            dir="ltr"
-            className="num-latin"
-            placeholder="0.0000"
-          />
-        </div>
-      ) : null}
       <div>
         <Label>{t('adjustments.field.notes')}</Label>
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -189,22 +184,8 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
           placeholder={t('adjustments.field.reason_placeholder')}
         />
       </div>
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          onClick={() => {
-            if (txn === 'add_stock') {
-              const raw = unitCost.trim().replace(',', '.');
-              const uc = Number(raw);
-              if (!Number.isFinite(uc) || uc <= 0) {
-                toast.error(t('adjustments.errors.unit_cost_add_stock'));
-                return;
-              }
-            }
-            void m.mutate();
-          }}
-          disabled={m.isPending}
-        >
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={() => void m.mutate()} disabled={m.isPending}>
           {t('actions.submit')}
         </Button>
         {onDismiss ? (
@@ -216,6 +197,31 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
             <Link to="/inventory/adjustments">{t('actions.cancel')}</Link>
           </Button>
         )}
+      </div>
+      <div className="border-t pt-3 text-sm">
+        <p className="font-medium">{t('adjustments.more_flows')}</p>
+        <ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground">
+          <li>
+            <Link className="text-primary hover:underline" to="/inventory/receipts/new">
+              {t('movement.receipt.title')}
+            </Link>
+          </li>
+          <li>
+            <Link className="text-primary hover:underline" to="/inventory/reservations">
+              {t('movement.reserve.list_title')}
+            </Link>
+          </li>
+          <li>
+            <Link className="text-primary hover:underline" to="/inventory/damage">
+              {t('movement.damage.title')}
+            </Link>
+          </li>
+          <li>
+            <Link className="text-primary hover:underline" to="/inventory/stock-count">
+              {t('movement.stock_count.title')}
+            </Link>
+          </li>
+        </ul>
       </div>
     </div>
   );

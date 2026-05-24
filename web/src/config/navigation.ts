@@ -18,6 +18,7 @@ import {
   HardDrive,
   Heart,
   Landmark,
+  ListTree,
   LayoutDashboard,
   Megaphone,
   Monitor,
@@ -311,6 +312,13 @@ export const navigation: NavItem[] = [
         labelKey: 'nav.accounting_general_ledger',
         icon: FileText,
         href: '/accounting/general-ledger',
+        permission: { resource: 'accounting', action: 'read' },
+      },
+      {
+        key: 'accounting-chart-accounts',
+        labelKey: 'nav.accounting_chart_accounts',
+        icon: ListTree,
+        href: '/accounting/chart-accounts',
         permission: { resource: 'accounting', action: 'read' },
       },
       {

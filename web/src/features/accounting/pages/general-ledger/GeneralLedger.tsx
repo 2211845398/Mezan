@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { startOfMonth } from 'date-fns';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -23,10 +23,16 @@ import { now, utcCalendarDayKey } from '@/lib/date';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-import type { GeneralLedgerLineRead } from '../../api';
-import AccountPicker from '../../components/AccountPicker';
-import { runningBalancesForGlLines } from '../../lib/glRunningBalance';
-import { generalLedgerQueryOptions } from '../../queries';
+import type { GeneralLedgerLineRead, SubledgerKind } from '../../api';
+import PostableAccountPicker from '../../components/PostableAccountPicker';
+import SubledgerEntityPicker from '../../components/SubledgerEntityPicker';
+import { buildLedgerDrillDownUrl } from '../../lib/ledgerDrillDownUrl';
+import { generalLedgerQueryOptions, postableAccountsQueryOptions } from '../../queries';
+
+type GlLineRow = GeneralLedgerLineRead & {
+  running_balance?: string;
+  partner_display_name?: string | null;
+};
 
 function drCrLabel(balance: string): { label: string; cls: string } {
   const n = Number(balance);
@@ -35,70 +41,116 @@ function drCrLabel(balance: string): { label: string; cls: string } {
   return { label: '(Nil)', cls: 'text-muted-foreground' };
 }
 
+function parseIntParam(v: string | null): number | null {
+  if (!v) return null;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export default function GeneralLedger() {
   const { t } = useTranslation('accounting');
-  const [accountId, setAccountId] = useState<number | null>(null);
-  const [df, setDf] = useState(() => utcCalendarDayKey(startOfMonth(now())));
-  const [dt, setDt] = useState(() => utcCalendarDayKey(now()));
-  const [branch, setBranch] = useState('__all');
-  const [applied, setApplied] = useState<{
-    account_id: number;
-    date_from: string;
-    date_to: string;
-    branch_id?: number;
-  } | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  const defaultFrom = utcCalendarDayKey(startOfMonth(now()));
+  const defaultTo = utcCalendarDayKey(now());
+
+  const [accountId, setAccountId] = useState<number | null>(() =>
+    parseIntParam(searchParams.get('account_id')),
+  );
+  const [subledgerKind, setSubledgerKind] = useState<SubledgerKind>('none');
+  const [customerId, setCustomerId] = useState<number | null>(() =>
+    parseIntParam(searchParams.get('customer_id')),
+  );
+  const [supplierId, setSupplierId] = useState<number | null>(() =>
+    parseIntParam(searchParams.get('supplier_id')),
+  );
+  const [employeeId, setEmployeeId] = useState<number | null>(() =>
+    parseIntParam(searchParams.get('employee_id')),
+  );
+  const [df, setDf] = useState(() => searchParams.get('date_from') ?? defaultFrom);
+  const [dt, setDt] = useState(() => searchParams.get('date_to') ?? defaultTo);
+  const [branch, setBranch] = useState(() => searchParams.get('branch_id') ?? '__all');
+
+  const { data: postable = [] } = useQuery(postableAccountsQueryOptions());
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
   });
 
-  const glQueryParams = useMemo(
-    () =>
-      applied
-        ? (() => {
-            const p: {
-              account_id: number;
-              date_from: string;
-              date_to: string;
-              branch_id?: number;
-            } = {
-              account_id: applied.account_id,
-              date_from: applied.date_from,
-              date_to: applied.date_to,
-            };
-            if (applied.branch_id !== undefined) p.branch_id = applied.branch_id;
-            return p;
-          })()
-        : { account_id: 0, date_from: df, date_to: dt },
-    [applied, df, dt],
+  useEffect(() => {
+    if (accountId == null) return;
+    const acc = postable.find((a) => a.id === accountId);
+    if (acc) setSubledgerKind(acc.subledger_kind);
+  }, [accountId, postable]);
+
+  const syncUrl = useCallback(
+    (next: {
+      account_id: number | null;
+      date_from: string;
+      date_to: string;
+      branch: string;
+      customer_id: number | null;
+      supplier_id: number | null;
+      employee_id: number | null;
+    }) => {
+      const q = new URLSearchParams();
+      if (next.account_id) q.set('account_id', String(next.account_id));
+      q.set('date_from', next.date_from);
+      q.set('date_to', next.date_to);
+      if (next.branch !== '__all') q.set('branch_id', next.branch);
+      if (next.customer_id) q.set('customer_id', String(next.customer_id));
+      if (next.supplier_id) q.set('supplier_id', String(next.supplier_id));
+      if (next.employee_id) q.set('employee_id', String(next.employee_id));
+      setSearchParams(q, { replace: true });
+    },
+    [setSearchParams],
   );
+
+  const glQueryParams = useMemo(() => {
+    if (!accountId) {
+      return { account_id: 0, date_from: df, date_to: dt };
+    }
+    const p: {
+      account_id: number;
+      date_from: string;
+      date_to: string;
+      branch_id?: number;
+      customer_id?: number;
+      supplier_id?: number;
+      employee_id?: number;
+    } = { account_id: accountId, date_from: df, date_to: dt };
+    if (branch !== '__all') p.branch_id = Number(branch);
+    if (customerId) p.customer_id = customerId;
+    if (supplierId) p.supplier_id = supplierId;
+    if (employeeId) p.employee_id = employeeId;
+    return p;
+  }, [accountId, df, dt, branch, customerId, supplierId, employeeId]);
 
   const { data: lines = [], isLoading, isError, refetch } = useQuery({
     ...generalLedgerQueryOptions(glQueryParams),
-    enabled: applied !== null,
+    enabled: accountId != null && accountId > 0,
   });
 
-  const running = useMemo(() => runningBalancesForGlLines(lines), [lines]);
-
-  const withRun = useMemo(
-    () => lines.map((ln, i) => ({ ...ln, _run: running[i]! })),
-    [lines, running],
-  );
-
-  const apply = () => {
-    if (!accountId) return;
-    const b = branch === '__all' ? undefined : Number(branch);
-    setApplied(
-      b === undefined
-        ? { account_id: accountId, date_from: df, date_to: dt }
-        : { account_id: accountId, date_from: df, date_to: dt, branch_id: b },
-    );
+  const applyFilters = () => {
+    syncUrl({
+      account_id: accountId,
+      date_from: df,
+      date_to: dt,
+      branch,
+      customer_id: customerId,
+      supplier_id: supplierId,
+      employee_id: employeeId,
+    });
   };
+
+  useEffect(() => {
+    if (accountId) applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial URL sync only when account from link
+  }, []);
 
   const columns = useMemo(
     () =>
-      defineColumns<GeneralLedgerLineRead & { _run: string }>()([
+      defineColumns<GlLineRow>()([
         {
           id: 'd',
           header: t('gl.col.date'),
@@ -119,6 +171,11 @@ export default function GeneralLedger() {
           id: 'desc',
           header: t('gl.col.desc'),
           cell: ({ row }) => row.original.description,
+        },
+        {
+          id: 'partner',
+          header: t('gl.col.partner'),
+          cell: ({ row }) => row.original.partner_display_name ?? '—',
         },
         {
           id: 'dr',
@@ -146,10 +203,11 @@ export default function GeneralLedger() {
           id: 'run',
           header: t('gl.col.balance'),
           cell: ({ row }) => {
-            const { label, cls } = drCrLabel(row.original._run);
+            const run = row.original.running_balance ?? '0';
+            const { label, cls } = drCrLabel(run);
             return (
               <span className={cn('block text-end tabular-nums num-latin', cls)}>
-                {formatMoney(Math.abs(Number(row.original._run)))} {label}
+                {formatMoney(Math.abs(Number(run)))} {label}
               </span>
             );
           },
@@ -158,13 +216,78 @@ export default function GeneralLedger() {
     [t],
   );
 
+  const shareUrl =
+    accountId != null
+      ? buildLedgerDrillDownUrl({
+          account_id: accountId,
+          date_from: df,
+          date_to: dt,
+          branch_id: branch !== '__all' ? Number(branch) : undefined,
+          customer_id: customerId ?? undefined,
+          supplier_id: supplierId ?? undefined,
+          employee_id: employeeId ?? undefined,
+        })
+      : null;
+
   return (
     <div className="flex flex-col gap-4 p-6">
       <PageHeader title={t('gl.title')} />
       <div className="grid max-w-md gap-1">
         <Label>{t('gl.account')}</Label>
-        <AccountPicker value={accountId} onChange={setAccountId} />
+        <PostableAccountPicker
+          value={accountId}
+          onChange={(a) => {
+            setAccountId(a?.id ?? null);
+            setSubledgerKind(a?.subledger_kind ?? 'none');
+            setCustomerId(null);
+            setSupplierId(null);
+            setEmployeeId(null);
+          }}
+        />
       </div>
+      {subledgerKind !== 'none' ? (
+        <div className="grid max-w-md gap-1">
+          <Label>{t('gl.subledger_filter')}</Label>
+          <SubledgerEntityPicker
+            kind={subledgerKind}
+            value={
+              subledgerKind === 'customer'
+                ? customerId
+                : subledgerKind === 'supplier'
+                  ? supplierId
+                  : employeeId
+            }
+            onChange={(id) => {
+              if (subledgerKind === 'customer') {
+                setCustomerId(id);
+                setSupplierId(null);
+                setEmployeeId(null);
+              } else if (subledgerKind === 'supplier') {
+                setSupplierId(id);
+                setCustomerId(null);
+                setEmployeeId(null);
+              } else {
+                setEmployeeId(id);
+                setCustomerId(null);
+                setSupplierId(null);
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="justify-start px-0"
+            onClick={() => {
+              setCustomerId(null);
+              setSupplierId(null);
+              setEmployeeId(null);
+            }}
+          >
+            {t('gl.all_entities')}
+          </Button>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('period.from')}</Label>
@@ -190,14 +313,21 @@ export default function GeneralLedger() {
             </SelectContent>
           </Select>
         </div>
-        <Button type="button" onClick={apply} disabled={!accountId}>
+        <Button type="button" onClick={applyFilters} disabled={!accountId}>
           {t('toolbar.apply')}
         </Button>
+        {shareUrl ? (
+          <Button type="button" variant="outline" asChild>
+            <a href={shareUrl} target="_blank" rel="noreferrer">
+              {t('gl.open_in_new_tab')}
+            </a>
+          </Button>
+        ) : null}
       </div>
       <DataTable
         mode="client"
         columns={columns}
-        data={applied && accountId ? withRun : []}
+        data={accountId ? (lines as GlLineRow[]) : []}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}

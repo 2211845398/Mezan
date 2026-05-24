@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ValidationError
 from app.models.customer_profile import CustomerAccountStatus, CustomerOnboardingToken, CustomerProfile
 from app.services.customer_account_status import sync_is_active_from_account_status
+from app.utils.security import hash_token
 
 
 async def create_temporary_customer(

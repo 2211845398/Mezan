@@ -54,7 +54,6 @@ async def test_tax_definitions_crud_and_product_effective_rate(
             "name": f"TaxProduct_{suffix}",
             "sku": f"SKU-TX-{suffix}",
             "status": "active",
-            "attributes": {},
             "output_vat_rate": "0.99",
             "tax_definition_ids": [tid1, tid2],
         },

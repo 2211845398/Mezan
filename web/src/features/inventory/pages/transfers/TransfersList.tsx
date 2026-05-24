@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, ChevronRight, Clock, Filter, RefreshCw, Truck } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Clock, Filter, LayoutGrid, List, RefreshCw, Truck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { PageTabNav } from '@/components/shared/PageTabNav';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
   Breadcrumb,
@@ -27,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
@@ -145,6 +146,7 @@ export default function TransfersList() {
   const [fromBranchId, setFromBranchId] = useState<string>('all');
   const [toBranchId, setToBranchId] = useState<string>('all');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [tab, setTab] = useState<'board' | 'list'>('board');
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -207,8 +209,16 @@ export default function TransfersList() {
           id: 'status',
           accessorKey: 'status',
           header: t('transfers.col.status'),
-          cell: ({ row }) =>
-            t(`transfers.status.${row.original.status}`, { defaultValue: row.original.status }),
+          cell: ({ row }) => {
+            const s = row.original.status;
+            const key = (['pending_dispatch', 'in_transit', 'received'] as const).find((x) => x === s) ?? s;
+            return (
+              <StatusBadge
+                status={s}
+                label={t(`transfers.status.${key}`, { defaultValue: row.original.status })}
+              />
+            );
+          },
         },
         {
           id: 'at',
@@ -301,13 +311,19 @@ export default function TransfersList() {
         </div>
       </div>
 
-      <Tabs defaultValue="board" className="flex flex-col gap-4" dir={i18n.dir()}>
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-md bg-muted p-1">
-          <TabsTrigger value="board">{t('transfers.board.tab_track')}</TabsTrigger>
-          <TabsTrigger value="list">{t('transfers.board.tab_list')}</TabsTrigger>
-        </TabsList>
+      <div className="flex flex-col gap-4" dir={i18n.dir()}>
+        <PageTabNav
+          mode="button"
+          activeId={tab}
+          onSelect={(id) => setTab(id as 'board' | 'list')}
+          items={[
+            { id: 'board', label: t('transfers.board.tab_track'), icon: LayoutGrid },
+            { id: 'list', label: t('transfers.board.tab_list'), icon: List },
+          ]}
+        />
 
-        <TabsContent value="board" className="mt-0 flex flex-col gap-4 outline-none">
+        {tab === 'board' ? (
+          <div className="flex flex-col gap-4 outline-none">
           <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4" dir={i18n.dir()}>
             <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
@@ -429,9 +445,11 @@ export default function TransfersList() {
               })}
             </div>
           )}
-        </TabsContent>
+          </div>
+        ) : null}
 
-        <TabsContent value="list" className="mt-0 outline-none">
+        {tab === 'list' ? (
+          <div className="outline-none">
           <DataTable
             mode="client"
             columns={columns}
@@ -441,8 +459,9 @@ export default function TransfersList() {
             onRetry={() => void refetch()}
             tableDir={i18n.dir() === 'rtl' ? 'rtl' : 'ltr'}
           />
-        </TabsContent>
-      </Tabs>
+          </div>
+        ) : null}
+      </div>
 
       <p className="text-xs text-muted-foreground">{t('transfers.wavg_note')}</p>
     </div>

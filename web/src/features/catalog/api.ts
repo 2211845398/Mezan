@@ -5,21 +5,51 @@ type ProductReadBase = paths['/api/v1/products']['get']['responses']['200']['con
 type ProductCreateBase = paths['/api/v1/products']['post']['requestBody']['content']['application/json'];
 type ProductUpdateBase = paths['/api/v1/products/{product_id}']['patch']['requestBody']['content']['application/json'];
 
+export type UnitOfMeasureRead = {
+  id: number;
+  code: string;
+  name: string;
+  symbol: string;
+  measurement_category?: string;
+};
+
+export type ProductAlternativeUomRead = {
+  uom_id: number;
+  uom_code: string;
+  uom_name: string;
+  uom_symbol: string;
+  measurement_category: string;
+  factor_to_base: number;
+};
+
+export type ProductAlternativeUomWrite = {
+  uom_id: number;
+  factor_to_base: number;
+};
+
 export type ProductRead = ProductReadBase & {
   tax_definition_ids?: number[];
   variant_count?: number;
+  has_variants?: boolean;
+  uom_id?: number;
+  uom_name?: string;
+  uom_symbol?: string;
+  alternative_uoms?: ProductAlternativeUomRead[];
 };
-export type ProductCreate = ProductCreateBase & { tax_definition_ids?: number[] | null };
-export type ProductUpdate = ProductUpdateBase & { tax_definition_ids?: number[] | null };
+export type ProductCreate = ProductCreateBase & {
+  tax_definition_ids?: number[] | null;
+  uom_id?: number | null;
+  alternative_uoms?: ProductAlternativeUomWrite[] | null;
+};
+export type ProductUpdate = ProductUpdateBase & {
+  tax_definition_ids?: number[] | null;
+  uom_id?: number | null;
+  alternative_uoms?: ProductAlternativeUomWrite[] | null;
+};
 type CategoryRead = paths['/api/v1/categories']['get']['responses']['200']['content']['application/json'][number];
 type CategoryCreate = paths['/api/v1/categories']['post']['requestBody']['content']['application/json'];
 type CategoryUpdate = paths['/api/v1/categories/{category_id}']['patch']['requestBody']['content']['application/json'];
 type CategoryTreeNode = paths['/api/v1/categories/tree']['get']['responses']['200']['content']['application/json'][number];
-type AttrDef = paths['/api/v1/categories/{category_id}/attributes']['get']['responses']['200']['content']['application/json'][number];
-export type CategoryAttrDef = AttrDef & {
-  attribute_id?: number | null;
-  use_for_variants?: boolean;
-};
 
 export type CatalogAttributeRead = {
   id: number;
@@ -28,6 +58,7 @@ export type CatalogAttributeRead = {
   sort_order: number;
   metadata?: Record<string, unknown> | null;
   value_count?: number | null;
+  usage_count?: number | null;
 };
 
 export type CatalogAttributeValueRead = {
@@ -58,6 +89,7 @@ export type VariantDraftRow = {
   id: number | null;
   attribute_value_ids: number[];
   sku: string;
+  reference_code: string;
   barcode: string;
   active: boolean;
   price_extra: string;
@@ -71,22 +103,7 @@ export type ProductAxisLineRead = {
   sort_order: number;
   value_ids: number[];
 };
-type AttrDefCreateBase =
-  paths['/api/v1/categories/{category_id}/attributes']['post']['requestBody']['content']['application/json'];
-type AttrDefUpdateBase =
-  paths['/api/v1/categories/{category_id}/attributes/{attr_id}']['patch']['requestBody']['content']['application/json'];
-
-export type CategoryAttrDefCreate = AttrDefCreateBase & {
-  attribute_id?: number | null;
-  use_for_variants?: boolean;
-};
-export type CategoryAttrDefUpdate = AttrDefUpdateBase & {
-  attribute_id?: number | null;
-  use_for_variants?: boolean;
-};
-
 export type {
-  AttrDef,
   CategoryCreate,
   CategoryRead,
   CategoryTreeNode,
@@ -143,15 +160,23 @@ export async function archiveTaxDefinition(id: number): Promise<TaxDefinitionRea
 }
 
 export type ProductVariantPurchasingSearchItem =
-  components['schemas']['ProductVariantPurchasingSearchItem'];
+  components['schemas']['ProductVariantPurchasingSearchItem'] & {
+    reference_code?: string | null;
+    variant_label?: string;
+  };
 
 export async function searchProductVariantsForPurchasing(params: {
-  q: string;
+  q?: string;
+  product_id?: number;
   limit?: number;
   offset?: number;
+  attribute_value_id?: number | null;
 }): Promise<ProductVariantPurchasingSearchItem[]> {
   const { data } = await apiClient.get<ProductVariantPurchasingSearchItem[]>('/product-variants/search', {
-    params,
+    params: {
+      q: params.q ?? '',
+      ...params,
+    },
   });
   return data;
 }
@@ -159,6 +184,7 @@ export async function searchProductVariantsForPurchasing(params: {
 export type ProductWithVariantsVariantRow = {
   id: number;
   sku: string;
+  reference_code?: string | null;
   barcode: string | null;
   attribute_values: Record<string, unknown> | null;
   attribute_value_ids?: number[];
@@ -172,7 +198,7 @@ export type ProductWithVariantsVariantRow = {
 };
 
 export type ProductWithVariantsResponse = {
-  product: ProductRead;
+  product: ProductRead & { uom_symbol?: string; uom_name?: string };
   axes: ProductAxisLineRead[];
   variants: ProductWithVariantsVariantRow[];
   variant_count: number;
@@ -257,6 +283,11 @@ export async function postGenerateBarcode(id: number): Promise<ProductRead> {
   return data;
 }
 
+export async function listUnitsOfMeasure(): Promise<UnitOfMeasureRead[]> {
+  const { data } = await apiClient.get<UnitOfMeasureRead[]>('/units-of-measure');
+  return data;
+}
+
 export async function getCategoryTree(): Promise<CategoryTreeNode[]> {
   const { data } = await apiClient.get<CategoryTreeNode[]>('/categories/tree');
   return data;
@@ -304,50 +335,12 @@ export async function deleteCategory(id: number): Promise<void> {
   await apiClient.delete(`/categories/${id}`);
 }
 
-export async function listCategoryAttributes(
-  categoryId: number,
-  opts?: { includeInherited?: boolean },
-): Promise<CategoryAttrDef[]> {
-  const { data } = await apiClient.get<CategoryAttrDef[]>(`/categories/${categoryId}/attributes`, {
-    params: { include_inherited: opts?.includeInherited ?? false },
-  });
-  return data;
-}
-
-export async function createCategoryAttribute(
-  categoryId: number,
-  body: CategoryAttrDefCreate,
-): Promise<AttrDef> {
-  const { data } = await apiClient.post<AttrDef>(`/categories/${categoryId}/attributes`, body);
-  return data;
-}
-
-export async function updateCategoryAttribute(
-  categoryId: number,
-  attrId: number,
-  body: CategoryAttrDefUpdate,
-): Promise<AttrDef> {
-  const { data } = await apiClient.patch<AttrDef>(
-    `/categories/${categoryId}/attributes/${attrId}`,
-    body,
-  );
-  return data;
-}
-
-export async function deleteCategoryAttribute(categoryId: number, attrId: number): Promise<void> {
-  await apiClient.delete(`/categories/${categoryId}/attributes/${attrId}`);
-}
-
-export function getDisplayPrice(p: ProductRead): string {
-  const attrs = p.attributes as { price?: number } | undefined;
-  if (attrs && typeof attrs.price === 'number') {
-    return String(attrs.price);
-  }
+export function getDisplayPrice(_p: ProductRead): string {
   return '—';
 }
 
-export function getBarcodeCount(p: ProductRead): number {
-  return p.barcode ? 1 : 0;
+export function getBarcodeCount(_p: ProductRead): number {
+  return 0;
 }
 
 export async function listCatalogAttributes(): Promise<CatalogAttributeRead[]> {
@@ -366,7 +359,7 @@ export async function createCatalogAttribute(body: {
 
 export async function updateCatalogAttribute(
   id: number,
-  body: { name?: string; sort_order?: number },
+  body: { name?: string; code?: string; sort_order?: number },
 ): Promise<CatalogAttributeRead> {
   const { data } = await apiClient.patch<CatalogAttributeRead>(`/catalog/attributes/${id}`, body);
   return data;
@@ -399,7 +392,7 @@ export async function createCatalogAttributeValue(
 export async function updateCatalogAttributeValue(
   attributeId: number,
   valueId: number,
-  body: { label?: string; sort_order?: number },
+  body: { label?: string; code?: string; sort_order?: number },
 ): Promise<CatalogAttributeValueRead> {
   const { data } = await apiClient.patch<CatalogAttributeValueRead>(
     `/catalog/attributes/${attributeId}/values/${valueId}`,
@@ -441,13 +434,34 @@ export async function syncProductVariants(
     variants: {
       id: number | null;
       attribute_value_ids: number[];
-      sku: string;
-      barcode: string | null;
+      sku?: string | null;
+      reference_code?: string | null;
+      barcode?: string | null;
       active: boolean;
       price_extra?: string | number;
     }[];
   },
 ): Promise<{ created: number; updated: number; deactivated: number; variant_ids: number[] }> {
   const { data } = await apiClient.post(`/products/${productId}/variants/sync`, body);
+  return data;
+}
+
+export async function generateMissingVariantBarcodes(
+  productId: number,
+): Promise<{ assigned: number }> {
+  const { data } = await apiClient.post<{ assigned: number }>(
+    `/products/${productId}/variants/generate-barcodes`,
+  );
+  return data;
+}
+
+export async function exportVariantBarcodesCsvBlob(
+  productId: number,
+  activeOnly = true,
+): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/products/${productId}/variants/barcode-export`, {
+    params: { active_only: activeOnly },
+    responseType: 'blob',
+  });
   return data;
 }

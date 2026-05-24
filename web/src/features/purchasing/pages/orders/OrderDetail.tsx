@@ -20,6 +20,8 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { getProductWithVariants } from '@/features/catalog/api';
+import { formatPurchasingVariantNameLabel } from '@/features/catalog/lib/purchasingVariantLabel';
+import { formatPoLineQty } from '@/features/purchasing/lib/poLineUomDisplay';
 import PoReceiptsSection from '@/features/purchasing/components/PoReceiptsSection';
 import { poGoldOutlineButtonClass } from '@/features/purchasing/lib/poButtonStyles';
 import { aggregateReceivedUnitCostByPoLine } from '@/features/purchasing/lib/aggregateReceivedUnitCostByPoLine';
@@ -51,6 +53,7 @@ export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const poId = id ? Number(id) : NaN;
   const { t } = useTranslation('purchasing');
+  const { t: tCatalog } = useTranslation('catalog');
   const { t: tc, i18n } = useTranslation('common');
   const qc = useQueryClient();
   const canUpdate = usePermission('purchase_orders', 'update');
@@ -126,20 +129,30 @@ export default function OrderDetail() {
     queryKey: ['purchasing', 'po-line-meta', poId, productIds.join(',')],
     queryFn: async () => {
       const productLabels: Record<number, string> = {};
+      const productUom: Record<number, string> = {};
       const variantLabels: Record<number, string> = {};
       for (const pid of productIds) {
         const pw = await getProductWithVariants(pid);
         productLabels[pid] = pw.product.name;
+        productUom[pid] = pw.product.uom_symbol ?? 'pcs';
         for (const v of pw.variants) {
-          variantLabels[v.id] = v.sku;
+          const fromLabel = (v.display_label ?? '').trim();
+          variantLabels[v.id] =
+            fromLabel ||
+            formatPurchasingVariantNameLabel({
+              display_name: '',
+              sku: v.sku,
+              attribute_values: v.attribute_values,
+            });
         }
       }
-      return { productLabels, variantLabels };
+      return { productLabels, productUom, variantLabels };
     },
     enabled: !Number.isNaN(poId) && productIds.length > 0,
   });
 
   const productLabels = lineMeta?.productLabels ?? {};
+  const productUom = lineMeta?.productUom ?? {};
   const variantLabels = lineMeta?.variantLabels ?? {};
 
   if (Number.isNaN(poId)) {
@@ -245,6 +258,7 @@ export default function OrderDetail() {
             <TableRow>
               <TableHead>{t('orders.detail_page.line_no')}</TableHead>
               <TableHead>{t('orders.form.product')}</TableHead>
+              <TableHead>{t('orders.detail_page.variant_col')}</TableHead>
               <TableHead>{t('orders.detail_page.unit_cost_col')}</TableHead>
               <TableHead>{t('orders.form.qty')}</TableHead>
               <TableHead>{t('orders.detail_page.received_col')}</TableHead>
@@ -259,12 +273,24 @@ export default function OrderDetail() {
                 <TableRow key={ln.id}>
                   <TableCell>{ln.id}</TableCell>
                   <TableCell>{productLabels[ln.product_id] ?? `#${ln.product_id}`}</TableCell>
+                  <TableCell className="max-w-xs text-sm">
+                    {ln.variant_id != null && ln.variant_id > 0
+                      ? variantLabels[ln.variant_id] || '—'
+                      : '—'}
+                  </TableCell>
                   <TableCell className="tabular-nums num-latin">
                     {unitCostByLine[ln.id] != null
                       ? formatMoney(unitCostByLine[ln.id]!)
                       : t('orders.detail_page.unit_cost_at_receive')}
                   </TableCell>
-                  <TableCell>{ln.qty}</TableCell>
+                  <TableCell className="tabular-nums">
+                    {formatPoLineQty(
+                      tCatalog,
+                      ln.qty,
+                      ln.uom_symbol || productUom[ln.product_id],
+                      ln.uom_name,
+                    )}
+                  </TableCell>
                   <TableCell>{got}</TableCell>
                   <TableCell>{rem}</TableCell>
                 </TableRow>

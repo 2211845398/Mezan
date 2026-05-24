@@ -103,10 +103,12 @@
 #### Epic 2 — Master Catalog and Inventory Engine
 - [x] **2.1** Hierarchical categories and dynamic attributes.
 - [x] **2.2** Product catalog CRUD, barcode domain support, catalog tax definitions and product tax links (parallel rates; POS uses effective rate).
+- [x] **2.2.1** Product UoM: `units_of_measure.measurement_category`, base `products.uom_id`, `product_unit_conversions` (alternative units + `factor_to_base`); Product form **Units** tab; PO line optional variant dropdown (no scope radio); goods receipt rejects mismatched variant on locked PO lines.
 - [x] **2.3** Purchase orders (draft/sent/tracked flow).
 - [x] **2.4** Invoice scan pipeline (basic OCR provider).
 - [x] **2.5** Manual override / validation for scanned invoices.
 - [x] **2.6** Warehouse–store transfers with stock movements.
+- [x] **2.6.1** Transfer reserve + in-transit: `reserved` on `pending_dispatch`, dispatch releases reserve and deducts `on_hand`, receive adds destination `on_hand` only; `in_transit_in` / `in_transit_out` on stock reports; server-side availability checks; tests `tests/test_transfer_in_transit.py`.
 - [x] **2.7** Inventory operations: per-branch `inventory_policies` (reorder + preferred supplier), `stock_levels.damaged`, extended movement ledger (`movement_kind`, `reserved_delta`, `damaged_delta`, …), `apply_stock_movement_extended`, human movement service, enriched `GET /inventory/stock-on-hand`, reorder alerts + draft PO creation from alerts, product stock card API.
 
 #### Epic 3 — Point of Sale
@@ -115,6 +117,7 @@
 - [x] **3.3** Cart: lines, discounts, park / resume / state machine.
 - [x] **3.4** Payment intents and capture (`in_store` and `mock` providers).
 - [x] **3.5** Finalize paid cart → immutable sales invoice.
+- [x] **3.5.1** B2B A4 invoice print: `SalesInvoiceDetailRead` enriched (branch, customer, company name, currency); `A4InvoiceDocument` + print dialog; wired in POS, CRM customer invoices, and marketing sales register (`web/src/features/sales/print/`).
 - [x] **3.6** Returns / exchanges (barcode, credit note path).
 
 #### Epic 4 — HR and Payroll
@@ -133,6 +136,7 @@
 - [x] **5.3** Automated GL posting from POS sales, returns, goods receipts, payslips.
 - [x] **5.4** Weighted-average inventory cost + product `standard_cost` fallback.
 - [x] **5.5** Financial report APIs: trial balance, general ledger, income statement, balance sheet.
+- [x] **5.5.1** Supplier AP statement: `GET /suppliers/{id}/statement` and `/evaluation` (GL-backed chronological debit/credit/running balance); purchasing UI `/purchasing/suppliers/:id`; tests `tests/test_supplier_statement.py`.
 - [x] **5.6** Executive BI KPI endpoint (`/api/v1/bi/executive-kpis`).
 
 #### Epic 6 — CRM and Marketing
@@ -207,7 +211,8 @@
 #### Epic W-5 — Feature Modules (1:1 to backend)
 - [x] **W-5.2** POS web: `/pos` shell, `ShiftGate`, `PosRegister`, thermal receipts, offline queue stub.
 - [x] **W-5.3** Inventory and catalog: products, categories, price lists, stock, adjustments, transfers.
-- [x] **W-5.3.1** Inventory operations UI: stock workspace (KPI strip, search, reorder-only filter, PO-from-alerts), product stock card page, movement form (transaction types + `ProductSearch`), transfers with branch/product labels, receiving scans labels; manual TS API shapes until OpenAPI regen.
+- [x] **W-5.3.1** Inventory operations UI: stock workspace (KPI strip, search, reorder-only filter, PO-from-alerts), product stock card page, movement form (transaction types + `ProductSearch`), transfers with branch/product labels, receiving scans labels; transfer UI shows reserved/in-transit hints.
+- [x] **W-5.3.2** Phase 3 ops: supplier statement page (`SupplierDetail`), A4 invoice print from POS/CRM/marketing; OpenAPI regen via `pnpm api:generate` (from `web/openapi-tmp.json` when API is offline).
 - [x] **W-5.3.2** Catalog tax definitions (`/catalog/taxes`), product multi-tax links, effective VAT on POS from definitions.
 
 - [x] **W-5.4** Purchase orders + goods receipts + invoice scans.
@@ -215,6 +220,7 @@
 - [x] **W-5.5.1** Pending employee onboarding requests page.
 - [x] **W-5.5.2** Employee detail pages with performance, attendance, leave, and schedule tracking.
 - [x] **W-5.6** Accounting (journals, trial balance, financial reports) + Fiscal periods.
+- [x] **W-5.6.1** Journal sub-ledger (Option B): `is_leaf` + `subledger_kind` on CoA; `customer_id` / `supplier_id` / `employee_id` on `journal_entry_lines`; AR leaf `1110`; manual journal data-grid UI; GL drill-down filters + links from TB/CoA tree/journal detail.
 - [x] **W-5.7** CRM (loyalty, discounts) + Marketing advisory.
 - [x] **W-5.8** Executive BI dashboard (`/dashboard` + Recharts KPIs + AI advisors).
 - [x] **W-5.8.1** Role-specific `/dashboard` home (OWNER/ADMIN/MARKETING_MANAGER → executive BI; accountant, IT, HR, staff surfaces) + `GET /employees/me/schedules` self-service + `/` redirects to `/dashboard`.
@@ -354,16 +360,17 @@ Resolves `D-7`, `GAP-CAT-005..007`, `GAP-INV-007`. Blocking dependency for Epic 
 - [x] **18.5** NOT NULL migration created: [`7e8d9f2a3b4c_make_variant_id_not_null.py`](alembic/versions/7e8d9f2a3b4c_make_variant_id_not_null.py). **Apply with:** `uv run alembic upgrade head`
 - [x] **18.6** Enforce CoA depth = 4 on categories with `_get_category_depth()` validation in `create_category()` and `update_category()` (`GAP-CAT-001..002`).
 - [x] **18.7** Enforce enum/select attribute values server-side in `_validate_product_attributes()` with `select`/`multiselect` type validation (`GAP-CAT-003`).
-- [x] **18.8** Attribute-based product filter API: `filter_products_by_attributes()` service + `POST /catalog/products/filter-by-attributes` endpoint (`GAP-CAT-004`).
+- [x] **18.8** Variant filter by `attribute_value_id` on `GET /product-variants/search` (replaces removed JSONB `products.attributes` filter).
 - [x] **18.9** Remove `standard_cost` and `sell_price` from product form (frontend task); pricing via Purchase Invoice / Price List.
 - [x] **18.10** Variant-aware product detail API: `GET /catalog/products/{id}/with-variants` returns product with variants, stock per variant, last cost per variant.
 - [x] **18.11** Variant wiring (Phase 2 Workstream B): session-scoped cache in `resolve_default_variant_id`; POS cart lines keyed by `(product_id, variant_id)`; optional `variant_id` on cart upsert / stock adjustment / PO lines; WAVG `apply_receipt_to_weighted_average` and transfer receive use explicit variant; GL (`post_sales_invoice_gl`, `post_sales_return_gl`, `post_transfer_batch_receive_gl`) uses per-line variant for COGS / inventory at source WAVG.
 - [x] **18.12** Default variant on product create (`create_product` → `ProductVariant` with `_default` marker); `GET /api/v1/product-variants/search` for purchasing line pickers; `GET /api/v1/products?branch_id=&in_stock_only=` for POS sellable grid; PO service validates explicit `variant_id` matches `product_id`.
-- [x] **18.13** Relational variant axes: `attributes`, `attribute_values`, `product_variant_attributes`; `category_attribute_defs.attribute_id` + `use_for_variants` (migration `j3k4l5m6n7o8`).
+- [x] **18.13** Relational variant axes: `attributes`, `attribute_values`, `product_variant_attributes` (migration `j3k4l5m6n7o8`).
 - [x] **18.14** Catalog attribute master API: `GET/POST /catalog/attributes`, values CRUD, pivot backfill script.
 - [x] **18.15** Variant generator: `variant_combinator`, `POST .../variants/preview-generate`, `POST .../variants/sync`; search by `attribute_value_id`.
 - [x] **18.16** `ProductFormPage` Odoo-style tabs (product data | attributes): creatable axis lines, auto-generate on save, variants grid on edit; catalog dictionary admin at `/admin/catalog-attributes`; `validate_catalog_axes` + inventory-activity guard on sync.
 - [x] **18.17** Odoo template axes: `product_attribute_lines` + `product_attribute_line_values`; `product_variants.combination_key` + `price_extra`; `sync_product_variant_configuration`; dictionary CRUD/merge at `/catalog/attributes`; `ProductDataTab` / `ProductAttributesTab`; variant count on product list.
+- [x] **18.18** Hard-remove category-bound attributes: destructive migration drops `category_attribute_defs` and `products.attributes`; backend schemas/services/routes and product/category UI now use only the global attribute dictionary.
 
 #### Epic 19 — Accounting Core Hardening
 Resolves `D-8..11`, all `GAP-ACC-*`, `GAP-INV-005`, `GAP-AP-payment`. The largest backend epic of Phase 2.
@@ -489,7 +496,7 @@ Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
 - [x] **W-12.5** Purchase Invoice page that converts a confirmed PO into a priced invoice with variants — `GAP-PUR-002`.
 
 #### Epic W-13 — Accounting UI Overhaul (Odoo/Manager.io style)
-- [x] **W-13.1** Chart of Accounts admin tree editor — `GAP-ACC-003`.
+- [x] **W-13.1** Chart of Accounts admin UI (`/accounting/chart-accounts`): dual-panel BS/P&L tree, group/account dialogs, code suggestion API, `subledger_kind` on create/update — closes `GAP-ACC-003` frontend gap.
 - [x] **W-13.2** Generic Voucher (receipt / payment) wizard — `GAP-ACC-008`.
 - [x] **W-13.3** Opening Balance screen — `GAP-ACC-007`.
 - [x] **W-13.4** FX Revaluation runs screen — `GAP-ACC-011`.

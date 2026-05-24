@@ -6,7 +6,6 @@ import {
   getCategoryTree,
   getProduct,
   listCategories,
-  listCategoryAttributes,
   listProducts,
   listProductsWithTotal,
 } from './api';
@@ -18,8 +17,6 @@ export const catalogKeys = {
   categoryTree: () => [...catalogKeys.root, 'categoryTree'] as const,
   categories: (parentId: number | null) => [...catalogKeys.root, 'categories', { parentId }] as const,
   category: (id: number) => [...catalogKeys.root, 'category', id] as const,
-  categoryAttrs: (id: number, includeInherited?: boolean) =>
-    [...catalogKeys.root, 'categoryAttrs', id, { includeInherited: includeInherited ?? true }] as const,
   productWithVariants: (id: number) => [...catalogKeys.root, 'productWithVariants', id] as const,
   taxDefinitions: (includeInactive: boolean) =>
     [...catalogKeys.root, 'taxDefinitions', includeInactive] as const,
@@ -134,14 +131,3 @@ export function useCategoryQuery(id: number | null) {
   });
 }
 
-export function useCategoryAttributesQuery(
-  categoryId: number | null,
-  opts?: { includeInherited?: boolean },
-) {
-  const includeInherited = opts?.includeInherited ?? true;
-  return useQuery({
-    queryKey: catalogKeys.categoryAttrs(categoryId ?? 0, includeInherited),
-    queryFn: () => listCategoryAttributes(categoryId!, { includeInherited }),
-    enabled: categoryId != null,
-  });
-}

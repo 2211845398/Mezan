@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -15,8 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
 import { useCategoryTreeQuery } from '@/features/catalog/queries';
 import { purchasingKeys } from '@/features/purchasing/queries';
 import { usePermission } from '@/hooks/usePermission';
@@ -50,6 +48,8 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 
+type MetricFilter = 'reserved' | 'damaged' | 'in_transit';
+
 export default function StockOnHand() {
   const { t } = useTranslation('inventory');
   const qc = useQueryClient();
@@ -74,7 +74,8 @@ export default function StockOnHand() {
 
   const qText = searchParams.get('q') ?? '';
   const reorderOnly = searchParams.get('reorder_only') === '1';
-  const statusFilter = searchParams.get('status_filter') ?? '';
+  const statusParam = searchParams.get('status') ?? 'all';
+  const metricFilter = (searchParams.get('metric') ?? '') as MetricFilter | '';
 
   const [qDraft, setQDraft] = useState(qText);
   const debouncedQ = useDebounce(qDraft, 300);
@@ -100,7 +101,41 @@ export default function StockOnHand() {
     [setSearchParams],
   );
 
-  // Sync debounced search to URL
+  const setReorderOnly = useCallback(
+    (on: boolean) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (on) {
+            next.set('reorder_only', '1');
+            next.delete('status_filter');
+          } else {
+            next.delete('reorder_only');
+            next.delete('status_filter');
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setMetric = useCallback(
+    (metric: MetricFilter | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (metric) next.set('metric', metric);
+          else next.delete('metric');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   useEffect(() => {
     setParam('q', debouncedQ.trim() || null);
   }, [debouncedQ, setParam]);
@@ -111,42 +146,40 @@ export default function StockOnHand() {
       category_id: categoryId ?? '',
       q: qText,
       reorder_only: reorderOnly,
+      status: statusParam !== 'all' ? statusParam : '',
       limit: 500,
       offset: 0,
     }),
-    [branchId, categoryId, qText, reorderOnly],
+    [branchId, categoryId, qText, reorderOnly, statusParam],
   );
 
-  const { data: branches = [] } = useQuery({
-    queryKey: adminKeys.branches(false),
-    queryFn: () => listBranches({ include_archived: false }),
-  });
   const { data: tree = [] } = useCategoryTreeQuery();
   const cats = useMemo(() => flattenCats(tree), [tree]);
   const { data: rows = [], isLoading, isError, refetch } = useStockOnHandQuery(queryParams);
 
-  // Client-side status filter (applied on top of server data)
   const filteredRows = useMemo(() => {
-    if (!statusFilter) return rows;
-    return rows.filter((r) => r.reorder_status === statusFilter);
-  }, [rows, statusFilter]);
+    let r = rows;
+    if (metricFilter === 'reserved') r = r.filter((row) => row.reserved > 0);
+    else if (metricFilter === 'damaged') r = r.filter((row) => row.damaged > 0);
+    else if (metricFilter === 'in_transit')
+      r = r.filter((row) => row.in_transit_in + row.in_transit_out > 0);
+    return r;
+  }, [rows, metricFilter]);
 
   const kpis = useMemo(() => {
     let low = 0;
-    let out = 0;
     let damaged = 0;
     let reserved = 0;
     let inTransit = 0;
     let totalValue = 0;
     for (const r of rows) {
       if (r.reorder_status === 'below_reorder') low += 1;
-      if (r.reorder_status === 'out_of_stock') out += 1;
       damaged += r.damaged;
       reserved += r.reserved;
       inTransit += r.in_transit_in + r.in_transit_out;
       totalValue += Number(r.extended_cost ?? 0);
     }
-    return { low, out, damaged, reserved, inTransit, totalValue };
+    return { low, damaged, reserved, inTransit, totalValue };
   }, [rows]);
 
   const createPoM = useMutation({
@@ -194,32 +227,41 @@ export default function StockOnHand() {
           cell: ({ row }) => <TableCategoryTags tags={[row.original.category_name]} />,
         },
         {
-          id: 'attrs',
-          header: t('stock.col.variant_attrs'),
+          id: 'variant_name',
+          header: () => <span title={t('stock.col.variant_name_hint')}>{t('stock.col.variant_name')}</span>,
           cell: ({ row }) => (
-            <span className="max-w-[12rem] truncate text-sm text-muted-foreground">
-              {row.original.variant_attributes?.trim() ? row.original.variant_attributes : '—'}
+            <span className="max-w-[12rem] truncate text-sm">
+              {row.original.variant_name?.trim() ||
+                row.original.variant_attributes?.trim() ||
+                '—'}
             </span>
           ),
         },
         {
-          id: 'sku',
-          accessorKey: 'variant_sku',
-          header: t('stock.col.variant_sku'),
+          id: 'ref_code',
+          header: () => <span title={t('stock.col.reference_code_hint')}>{t('stock.col.reference_code')}</span>,
           cell: ({ row }) => (
             <span className="num-latin tabular-nums" dir="ltr">
-              {row.original.variant_sku?.trim() || row.original.sku}
+              {row.original.reference_code?.trim() || '—'}
             </span>
           ),
         },
         { id: 'avail', accessorKey: 'available', header: t('stock.col.available') },
         { id: 'oh', accessorKey: 'on_hand', header: t('stock.col.on_hand') },
-        { id: 'rsv', accessorKey: 'reserved', header: t('stock.col.reserved') },
+        {
+          id: 'rsv',
+          accessorKey: 'reserved',
+          header: () => <span title={t('stock.col.reserved_hint')}>{t('stock.col.reserved')}</span>,
+        },
         { id: 'dmg', accessorKey: 'damaged', header: t('stock.col.damaged') },
-        { id: 'on_order', accessorKey: 'on_order', header: t('stock.col.on_order') },
+        {
+          id: 'on_order',
+          accessorKey: 'on_order',
+          header: () => <span title={t('stock.col.on_order_hint')}>{t('stock.col.on_order')}</span>,
+        },
         {
           id: 'st',
-          header: t('stock.col.status'),
+          header: () => <span title={t('stock.col.status_hint')}>{t('stock.col.status')}</span>,
           cell: ({ row }) => (
             <StatusBadge
               status={row.original.reorder_status}
@@ -227,7 +269,6 @@ export default function StockOnHand() {
             />
           ),
         },
-        // Hidden by default: lower-priority columns still accessible via column visibility
         {
           id: 'itin',
           accessorKey: 'in_transit_in',
@@ -240,7 +281,6 @@ export default function StockOnHand() {
           header: t('stock.col.in_transit_out'),
           meta: { defaultHidden: true },
         },
-        { id: 'rp', accessorKey: 'reorder_point', header: t('stock.col.reorder_point') },
         {
           id: 'cov',
           header: t('stock.col.days_cover'),
@@ -271,58 +311,61 @@ export default function StockOnHand() {
   type KpiCard = {
     label: string;
     value: string | number;
-    statusFilter?: string;
-    reorderOnly?: boolean;
+    metric?: MetricFilter;
+    reorderToggle?: boolean;
     active?: boolean;
+    clickable?: boolean;
     variant?: 'default' | 'warning' | 'danger' | 'success';
   };
 
   const kpiCards: KpiCard[] = [
     {
-      label: t('stock.kpi.out'),
-      value: kpis.out,
-      statusFilter: 'out_of_stock',
-      active: statusFilter === 'out_of_stock',
-      variant: kpis.out > 0 ? 'danger' : 'default',
-    },
-    {
       label: t('stock.kpi.low'),
       value: kpis.low,
-      statusFilter: 'below_reorder',
-      active: statusFilter === 'below_reorder',
-      variant: kpis.low > 0 ? 'warning' : 'default',
+      reorderToggle: true,
+      active: reorderOnly,
+      clickable: true,
+      variant: 'default',
     },
     {
       label: t('stock.kpi.reserved_units'),
       value: kpis.reserved,
+      metric: 'reserved',
+      active: metricFilter === 'reserved',
+      clickable: true,
       variant: 'default',
     },
     {
       label: t('stock.kpi.damaged_units'),
       value: kpis.damaged,
-      variant: kpis.damaged > 0 ? 'warning' : 'default',
+      metric: 'damaged',
+      active: metricFilter === 'damaged',
+      clickable: true,
+      variant: 'default',
     },
     {
       label: t('stock.kpi.in_transit_units'),
       value: kpis.inTransit,
+      metric: 'in_transit',
+      active: metricFilter === 'in_transit',
+      clickable: true,
       variant: 'default',
     },
     {
       label: t('stock.kpi.total_value'),
       value: formatMoney(kpis.totalValue),
+      clickable: false,
       variant: 'success',
     },
   ];
 
   function handleKpiClick(card: KpiCard) {
-    if (card.statusFilter) {
-      if (statusFilter === card.statusFilter) {
-        setParam('status_filter', null);
-        setParam('reorder_only', null);
-      } else {
-        setParam('status_filter', card.statusFilter);
-        setParam('reorder_only', '1');
-      }
+    if (card.reorderToggle) {
+      setReorderOnly(!reorderOnly);
+      return;
+    }
+    if (card.metric) {
+      setMetric(metricFilter === card.metric ? null : card.metric);
     }
   }
 
@@ -334,17 +377,31 @@ export default function StockOnHand() {
         actions={
           <div className="flex flex-wrap gap-2">
             {canRecordMovement ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setMovementFormKey((k) => k + 1);
-                  setMovementDialogOpen(true);
-                }}
-              >
-                {t('stock.action.movement')}
-              </Button>
+              <>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link to="/inventory/receipts/new">{t('movement.receipt.short')}</Link>
+                </Button>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link to="/inventory/reservations">{t('movement.reserve.short')}</Link>
+                </Button>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link to="/inventory/damage">{t('movement.damage.short')}</Link>
+                </Button>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link to="/inventory/stock-count">{t('movement.stock_count.short')}</Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setMovementFormKey((k) => k + 1);
+                    setMovementDialogOpen(true);
+                  }}
+                >
+                  {t('stock.action.movement')}
+                </Button>
+              </>
             ) : null}
             {canCreateTransfer ? (
               <Button type="button" variant="outline" size="sm" asChild>
@@ -366,30 +423,31 @@ export default function StockOnHand() {
       />
       <p className="text-xs text-muted-foreground">{t('stock.wavg_note')}</p>
 
-      {/* KPI Strip — clickable cards filter the table */}
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {kpiCards.map((card) => (
           <button
             key={card.label}
             type="button"
-            onClick={() => handleKpiClick(card)}
+            disabled={!card.clickable}
+            onClick={() => card.clickable && handleKpiClick(card)}
             className={cn(
-              'rounded-lg border bg-card p-3 text-start transition-all',
-              card.statusFilter
-                ? 'cursor-pointer hover:shadow-sm hover:ring-2 hover:ring-primary/40'
+              'rounded-lg border border-border bg-card p-3 text-start transition-all',
+              card.clickable
+                ? 'cursor-pointer hover:shadow-sm hover:ring-2 hover:ring-border'
                 : 'cursor-default',
-              card.active && 'ring-2 ring-primary shadow-sm',
-              card.variant === 'danger' && 'border-destructive/40',
-              card.variant === 'warning' && 'border-amber-400/40',
+              card.active &&
+                card.reorderToggle &&
+                'ring-2 ring-primary shadow-sm',
+              card.active &&
+                card.metric &&
+                'ring-2 ring-border shadow-sm',
               card.variant === 'success' && 'border-emerald-400/40',
             )}
           >
             <p className="text-xs text-muted-foreground">{card.label}</p>
             <p
               className={cn(
-                'mt-1 text-xl font-semibold tabular-nums num-latin',
-                card.variant === 'danger' && card.value !== 0 && 'text-destructive',
-                card.variant === 'warning' && card.value !== 0 && 'text-amber-700 dark:text-amber-300',
+                'mt-1 text-xl font-semibold tabular-nums num-latin text-foreground',
                 card.variant === 'success' && 'text-emerald-700 dark:text-emerald-400',
               )}
             >
@@ -401,12 +459,13 @@ export default function StockOnHand() {
 
       <div className="flex flex-col gap-4">
         <BranchStockFilterBar
-          branches={branches}
           branchId={branchId}
           onBranchId={(id) => setParam('branch_id', id == null ? null : String(id))}
           categoryId={categoryId}
           onCategoryId={(id) => setParam('category_id', id == null ? null : String(id))}
           categories={cats}
+          status={statusParam}
+          onStatus={(v) => setParam('status', v)}
         />
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[200px] flex-1 space-y-1">
@@ -422,10 +481,7 @@ export default function StockOnHand() {
             <Switch
               id="reorder-only"
               checked={reorderOnly}
-              onCheckedChange={(v) => {
-                setParam('reorder_only', v ? '1' : null);
-                if (!v) setParam('status_filter', null);
-              }}
+              onCheckedChange={(v) => setReorderOnly(v)}
             />
             <Label htmlFor="reorder-only">{t('stock.filter.reorder_only')}</Label>
           </div>

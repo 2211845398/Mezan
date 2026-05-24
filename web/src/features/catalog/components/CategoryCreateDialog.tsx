@@ -14,9 +14,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 
 import { createCategory } from '../api';
+import { generateCategorySlug } from '../lib/categorySlug';
 import { catalogKeys } from '../queries';
 import { CategoryImageUploadField } from './CategoryImageUploadField';
 
@@ -31,28 +31,24 @@ export function CategoryCreateDialog({ open, onOpenChange, parentId }: CategoryC
   const { t, i18n } = useTranslation('catalog');
   const qc = useQueryClient();
   const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     if (open) {
       setName('');
-      setSlug('');
       setImageUrl('');
-      setIsActive(true);
     }
   }, [open, parentId]);
 
   const createM = useMutation({
     mutationFn: () => {
-      const s = slug.trim() || name.toLowerCase().replace(/\s+/g, '-');
+      const trimmedName = name.trim();
       return createCategory({
-        name: name.trim(),
-        slug: s,
+        name: trimmedName,
+        slug: generateCategorySlug(trimmedName),
         parent_id: parentId,
         sort_order: 0,
-        is_active: isActive,
+        is_active: true,
         image_url: imageUrl.trim() === '' ? null : imageUrl.trim(),
       });
     },
@@ -75,40 +71,11 @@ export function CategoryCreateDialog({ open, onOpenChange, parentId }: CategoryC
             <Label>{t('categories.field.name')}</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-          <div className="space-y-1">
-            <Label>{t('categories.field.slug')}</Label>
-            <Input value={slug} onChange={(e) => setSlug(e.target.value)} dir={i18n.dir()} className="font-mono text-sm" />
-          </div>
           <CategoryImageUploadField
             value={imageUrl}
             onChange={setImageUrl}
             inputId={parentId == null ? 'category-create-root' : `category-create-${parentId}`}
           />
-          <div className="flex items-center gap-2">
-            {i18n.dir() === 'rtl' ? (
-              <>
-                <Switch
-                  checked={isActive}
-                  onCheckedChange={setIsActive}
-                  aria-labelledby="category-create-active-label"
-                />
-                <span className="shrink-0 text-sm font-medium" id="category-create-active-label">
-                  {isActive ? t('categories.field.active_state_on') : t('categories.field.active_state_off')}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="shrink-0 text-sm font-medium" id="category-create-active-label">
-                  {isActive ? t('categories.field.active_state_on') : t('categories.field.active_state_off')}
-                </span>
-                <Switch
-                  checked={isActive}
-                  onCheckedChange={setIsActive}
-                  aria-labelledby="category-create-active-label"
-                />
-              </>
-            )}
-          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

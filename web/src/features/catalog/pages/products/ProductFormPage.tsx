@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Layers, Package, Ruler } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -9,26 +10,41 @@ import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { FormContainer } from '@/components/shared/ContentSurface';
+import { PageTabNav } from '@/components/shared/PageTabNav';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePermission } from '@/hooks/usePermission';
+import { cn } from '@/lib/utils';
 
 import type { VariantDraftRow } from '../../api';
 import {
   createProduct,
   getProductWithVariants,
   listTaxDefinitions,
+  listUnitsOfMeasure,
   previewGenerateVariants,
   syncProductVariants,
   updateProduct,
 } from '../../api';
 import { ProductAttributesTab } from '../../components/ProductAttributesTab';
 import { ProductDataTab } from '../../components/ProductDataTab';
+import { ProductUnitsTab } from '../../components/ProductUnitsTab';
 import type { VariantAxisLine } from '../../components/ProductVariantAxesEditor';
-import { axesToPayload, mergePreviewWithDraftRows } from '../../lib/variantSyncHelpers';
+import {
+  axesToPayload,
+  mapApiVariantsToDraft,
+  mergePreviewWithDraftRows,
+} from '../../lib/variantSyncHelpers';
 import { cartesianVariantCount } from '../../lib/cartesianCount';
-import { catalogKeys, useCategoryTreeQuery, useProductQuery } from '../../queries';
+import {
+  formatConversionFactor,
+  normalizeProductUomsForSave,
+} from '../../lib/uomConversion';
+import {
+  catalogKeys,
+  useCategoryTreeQuery,
+  useProductQuery,
+} from '../../queries';
 
 function flattenCategoryTree(
   nodes: { id: number; name: string; is_active?: boolean; children?: typeof nodes }[],
@@ -48,25 +64,62 @@ function flattenCategoryTree(
   return o;
 }
 
-const productFormSchema = z.object({
-  category_id: z.number().min(1),
-  tag_category_ids: z.array(z.number()),
-  name: z.string().min(1),
-  sku: z.string().max(128).optional(),
-  barcode: z.string().optional().nullable(),
-  image_url: z.string().optional().nullable(),
-  output_vat_rate: z.string(),
-  tax_definition_ids: z.array(z.number()),
-  attributes: z.record(z.unknown()).optional(),
-  isActive: z.boolean(),
-});
+function createProductFormSchema(requiredMsg: string) {
+  return z.object({
+    category_id: z.number().min(1, requiredMsg),
+    tag_category_ids: z.array(z.number()),
+    name: z.string().min(1, requiredMsg),
+    sku: z.string().max(128).optional(),
+    uom_id: z.number().min(1),
+    alternative_uoms: z
+      .array(
+        z.object({
+          uom_id: z.number(),
+          factor_to_base: z.string(),
+        }),
+      )
+      .superRefine((rows, ctx) => {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const empty = row.uom_id <= 0 && row.factor_to_base.trim() === '';
+          if (empty) continue;
+          if (row.uom_id <= 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: requiredMsg,
+              path: [i, 'uom_id'],
+            });
+          }
+          const factorStr = row.factor_to_base.trim();
+          const factorNum = factorStr === '' ? 0 : Number(factorStr);
+          if (
+            factorStr === '' ||
+            !/^\d+$/.test(factorStr) ||
+            !Number.isInteger(factorNum) ||
+            factorNum <= 0
+          ) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: requiredMsg,
+              path: [i, 'factor_to_base'],
+            });
+          }
+        }
+      }),
+    image_url: z.string().optional().nullable(),
+    output_vat_rate: z.string(),
+    tax_definition_ids: z.array(z.number()),
+    isActive: z.boolean(),
+  });
+}
 
-type ProductFormValues = z.infer<typeof productFormSchema>;
+type ProductFormValues = z.infer<ReturnType<typeof createProductFormSchema>>;
 
-type ProductTab = 'productData' | 'attributes';
+type ProductTab = 'productData' | 'units' | 'attributes';
 
 export default function ProductFormPage() {
-  const { t } = useTranslation('catalog');
+  const { t, i18n } = useTranslation('catalog');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -80,8 +133,9 @@ export default function ProductFormPage() {
   const productIdValid =
     !isNew && rawProductId !== null && !Number.isNaN(rawProductId) && rawProductId > 0;
 
+  const tabParam = searchParams.get('tab');
   const activeTab: ProductTab =
-    searchParams.get('tab') === 'attributes' ? 'attributes' : 'productData';
+    tabParam === 'attributes' ? 'attributes' : tabParam === 'units' ? 'units' : 'productData';
 
   const { data: product, isLoading: loadingProduct } = useProductQuery(
     isNew || !productIdValid ? null : rawProductId,
@@ -91,6 +145,11 @@ export default function ProductFormPage() {
     queryKey: catalogKeys.taxDefinitions(true),
     queryFn: () => listTaxDefinitions(true),
   });
+  const { data: uoms = [] } = useQuery({
+    queryKey: ['catalog', 'units-of-measure'],
+    queryFn: () => listUnitsOfMeasure(),
+  });
+  const defaultUomId = uoms.find((u) => u.code === 'PIECE')?.id ?? uoms[0]?.id ?? 1;
   const flat = useMemo(() => flattenCategoryTree(tree, '', true), [tree]);
   const activeTaxOptions = useMemo(
     () => taxDefinitions.filter((d) => d.is_active).sort((a, b) => a.name.localeCompare(b.name)),
@@ -99,6 +158,11 @@ export default function ProductFormPage() {
 
   const allowed = isNew ? canCreate : canUpdate;
 
+  const productFormSchema = useMemo(
+    () => createProductFormSchema(tc('errors.validation_required')),
+    [tc],
+  );
+
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
@@ -106,11 +170,11 @@ export default function ProductFormPage() {
       tag_category_ids: [],
       name: '',
       sku: '',
-      barcode: '',
+      uom_id: 1,
+      alternative_uoms: [],
       image_url: '',
       output_vat_rate: '0',
       tax_definition_ids: [],
-      attributes: {},
       isActive: true,
     },
   });
@@ -133,14 +197,17 @@ export default function ProductFormPage() {
       tag_category_ids: tags,
       name: product.name,
       sku: product.sku,
-      barcode: product.barcode ?? '',
+      uom_id: product.uom_id ?? defaultUomId,
+      alternative_uoms: (product.alternative_uoms ?? []).map((a) => ({
+        uom_id: a.uom_id,
+        factor_to_base: formatConversionFactor(a.factor_to_base),
+      })),
       image_url: product.image_url ?? '',
       output_vat_rate: String(product.output_vat_rate ?? '0'),
       tax_definition_ids: [...(product.tax_definition_ids ?? [])],
-      attributes: (product.attributes as Record<string, unknown>) ?? {},
       isActive: product.status !== 'archived',
     });
-  }, [isNew, product, form, flat]);
+  }, [isNew, product, form, flat, defaultUomId]);
 
   const watchedPrimary = form.watch('category_id');
   useEffect(() => {
@@ -153,6 +220,7 @@ export default function ProductFormPage() {
 
   const [axes, setAxes] = useState<VariantAxisLine[]>([]);
   const [variantRows, setVariantRows] = useState<VariantDraftRow[]>([]);
+  const [variantsHydrated, setVariantsHydrated] = useState(isNew);
   const watchedName = form.watch('name');
 
   const hasVariantAxes = axes.some((a) => a.attributeId > 0 && a.selectedValueIds.length > 0);
@@ -161,35 +229,29 @@ export default function ProductFormPage() {
     if (isNew || !productIdValid || !rawProductId) {
       setAxes([]);
       setVariantRows([]);
+      setVariantsHydrated(true);
       return;
     }
+    setVariantsHydrated(false);
     let cancelled = false;
     void (async () => {
-      const res = await getProductWithVariants(rawProductId);
-      if (cancelled) {
-        return;
+      try {
+        const res = await getProductWithVariants(rawProductId);
+        if (cancelled) {
+          return;
+        }
+        setAxes(
+          (res.axes ?? []).map((line) => ({
+            attributeId: line.attribute_id,
+            selectedValueIds: [...line.value_ids],
+          })),
+        );
+        setVariantRows(mapApiVariantsToDraft(res.variants));
+      } finally {
+        if (!cancelled) {
+          setVariantsHydrated(true);
+        }
       }
-      setAxes(
-        (res.axes ?? []).map((line) => ({
-          attributeId: line.attribute_id,
-          selectedValueIds: [...line.value_ids],
-        })),
-      );
-      const nonDefault = res.variants.filter((v) => {
-        const av = v.attribute_values ?? {};
-        return !av._default;
-      });
-      setVariantRows(
-        nonDefault.map((v) => ({
-          id: v.id,
-          attribute_value_ids: v.attribute_value_ids ?? [],
-          sku: v.sku,
-          barcode: v.barcode ?? '',
-          active: v.active,
-          price_extra: String(v.price_extra ?? '0'),
-          display_label: v.display_label ?? v.sku,
-        })),
-      );
     })();
     return () => {
       cancelled = true;
@@ -201,10 +263,24 @@ export default function ProductFormPage() {
   const saveM = useMutation({
     mutationFn: async (v: ProductFormValues) => {
       const extraTags = v.tag_category_ids.filter((id) => id !== v.category_id);
-      const attrs: Record<string, unknown> = { ...(v.attributes as Record<string, unknown> | undefined) };
       const imageTrimmed = v.image_url?.trim() ?? '';
       const taxIds = [...new Set(v.tax_definition_ids)].sort((a, b) => a - b);
       const vatOut = taxIds.length > 0 ? '0' : v.output_vat_rate;
+      const filteredAltRows = v.alternative_uoms
+        .filter((row) => row.uom_id > 0 && row.factor_to_base.trim() !== '')
+        .map((row) => ({
+          uom_id: row.uom_id,
+          factor_to_base: formatConversionFactor(row.factor_to_base),
+        }));
+      const { uom_id: normalizedUomId, alternative_uoms } = normalizeProductUomsForSave(
+        v.uom_id,
+        filteredAltRows,
+        uoms,
+      );
+      const alternativeUomsPayload = alternative_uoms.map((row) => ({
+        uom_id: row.uom_id,
+        factor_to_base: parseInt(row.factor_to_base, 10),
+      }));
       const axesPayload = axesToPayload(axes);
       const hasAxes = Object.keys(axesPayload).length > 0;
 
@@ -214,9 +290,9 @@ export default function ProductFormPage() {
         const body: Parameters<typeof createProduct>[0] = {
           category_id: v.category_id,
           name: v.name,
-          barcode: hasAxes ? null : v.barcode || null,
+          uom_id: normalizedUomId,
+          alternative_uoms: alternativeUomsPayload,
           status: v.isActive ? 'active' : 'archived',
-          attributes: attrs,
           output_vat_rate: vatOut,
           sell_price_currency_id: null,
           category_ids: extraTags,
@@ -235,9 +311,9 @@ export default function ProductFormPage() {
           category_id: v.category_id,
           name: v.name,
           sku: product.sku,
-          barcode: hasAxes ? null : v.barcode || null,
+          uom_id: normalizedUomId,
+          alternative_uoms: alternativeUomsPayload,
           status: v.isActive ? 'active' : 'archived',
-          attributes: attrs,
           output_vat_rate: vatOut,
           sell_price_currency_id: null,
           category_ids: extraTags,
@@ -261,14 +337,20 @@ export default function ProductFormPage() {
           variants: rows.map((r) => ({
             id: r.id,
             attribute_value_ids: r.attribute_value_ids,
-            sku: r.sku,
-            barcode: r.barcode || null,
+            reference_code: r.reference_code.trim() || null,
             active: r.active,
             price_extra: r.price_extra || '0',
           })),
         });
         syncCount = result.created + result.updated;
-        setVariantRows(rows);
+        const refreshed = await getProductWithVariants(productId);
+        setAxes(
+          (refreshed.axes ?? []).map((line) => ({
+            attributeId: line.attribute_id,
+            selectedValueIds: [...line.value_ids],
+          })),
+        );
+        setVariantRows(mapApiVariantsToDraft(refreshed.variants));
       } else {
         const result = await syncProductVariants(productId, {
           axes: {},
@@ -299,7 +381,7 @@ export default function ProductFormPage() {
 
   if (!isNew && !productIdValid) {
     return (
-      <div className="p-6">
+      <div dir={i18n.dir()} className="p-6 text-start">
         <PageHeader title={t('products.edit')} actions={<BackButton to="/catalog/products" label={t('products.title')} />} />
         <p className="mt-4 text-sm text-destructive">{t('errors.not_found')}</p>
       </div>
@@ -308,7 +390,7 @@ export default function ProductFormPage() {
 
   if (!allowed) {
     return (
-      <div className="p-6">
+      <div dir={i18n.dir()} className="p-6 text-start">
         <PageHeader title={t('products.title')} actions={<BackButton to="/catalog/products" label={t('products.title')} />} />
         <p className="mt-4 text-sm text-muted-foreground">{t('products.no_permission')}</p>
       </div>
@@ -319,8 +401,52 @@ export default function ProductFormPage() {
     axes.map((a) => ({ valueIds: a.selectedValueIds })),
   );
 
+  const activeVariantCount = variantRows.filter((r) => r.active).length;
+
+  const variantBadge =
+    !isNew && activeVariantCount > 0 ? (
+      <span className="rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-xs num-latin">
+        {activeVariantCount}
+      </span>
+    ) : isNew && hasVariantAxes ? (
+      <span className="rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-xs num-latin">
+        {variantPreviewCount}
+      </span>
+    ) : undefined;
+
+  const productTabs = [
+    { id: 'productData', label: t('products.tabs.product_data'), icon: Package },
+    { id: 'units', label: t('products.tabs.units'), icon: Ruler },
+    {
+      id: 'attributes',
+      label: t('products.tabs.attributes_variants'),
+      icon: Layers,
+      badge: variantBadge,
+    },
+  ];
+
+  const tabSearchParam = (id: string) => {
+    if (id === 'attributes') return { tab: 'attributes' };
+    if (id === 'units') return { tab: 'units' };
+    return {};
+  };
+
+  const saveFooter = (
+    <>
+      <Button type="button" variant="outline" onClick={() => navigate('/catalog/products')}>
+        {t('actions.cancel')}
+      </Button>
+      <Button type="submit" disabled={saveM.isPending || loadingProduct || (!isNew && !product)}>
+        {t('actions.save')}
+      </Button>
+    </>
+  );
+
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
+    <div
+      dir={i18n.dir()}
+      className="flex flex-col gap-6 p-4 text-start md:p-6"
+    >
       <PageHeader
         title={isNew ? t('products.create') : t('products.edit')}
         actions={<BackButton to="/catalog/products" label={t('products.title')} />}
@@ -328,40 +454,35 @@ export default function ProductFormPage() {
 
       {isNew || product ? (
         <FormProvider {...form}>
-          <form onSubmit={form.handleSubmit((v) => saveM.mutate(v))} className="space-y-6">
-            <FormContainer maxWidth="full" className="max-w-6xl px-0 py-0">
-              <Tabs
-                value={activeTab}
-                onValueChange={(v) => setSearchParams(v === 'attributes' ? { tab: 'attributes' } : {})}
-              >
-                <TabsList className="mb-4">
-                  <TabsTrigger value="productData">{t('products.tabs.product_data')}</TabsTrigger>
-                  <TabsTrigger value="attributes">
-                    {t('products.tabs.attributes_variants')}
-                    {!isNew && variantRows.length > 0 ? (
-                      <span className="ms-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs num-latin">
-                        {variantRows.length}
-                      </span>
-                    ) : isNew && hasVariantAxes ? (
-                      <span className="ms-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs num-latin">
-                        {variantPreviewCount}
-                      </span>
-                    ) : null}
-                  </TabsTrigger>
-                </TabsList>
+          <form
+            onSubmit={form.handleSubmit((v) => saveM.mutate(v))}
+            className="space-y-6"
+            aria-busy={saveM.isPending}
+          >
+            <FormContainer
+              maxWidth="full"
+              className="mx-0 me-auto w-full max-w-full px-0 py-0"
+            >
+              <PageTabNav
+                mode="button"
+                items={productTabs}
+                activeId={activeTab}
+                onSelect={(id) => setSearchParams(tabSearchParam(id))}
+                className="mb-4"
+              />
 
-                <TabsContent value="productData" className="mt-0">
-                  <ProductDataTab
-                    form={form}
-                    flat={flat}
-                    tagOptions={tagOptions}
-                    activeTaxOptions={activeTaxOptions}
-                    hasVariantAxes={hasVariantAxes}
-                    showSimpleBarcode
-                  />
-                </TabsContent>
-
-                <TabsContent value="attributes" className="mt-0">
+              {activeTab === 'productData' ? (
+                <ProductDataTab
+                  form={form}
+                  flat={flat}
+                  tagOptions={tagOptions}
+                  activeTaxOptions={activeTaxOptions}
+                  footer={saveFooter}
+                />
+              ) : activeTab === 'units' ? (
+                <ProductUnitsTab form={form} uoms={uoms} footer={saveFooter} />
+              ) : (
+                <>
                   <ProductAttributesTab
                     productId={isNew ? null : rawProductId}
                     productName={watchedName}
@@ -371,17 +492,9 @@ export default function ProductFormPage() {
                     onVariantRowsChange={setVariantRows}
                     disabled={saveM.isPending}
                   />
-                </TabsContent>
-              </Tabs>
-
-              <div className="mt-6 flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => navigate('/catalog/products')}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button type="submit" disabled={saveM.isPending || loadingProduct || (!isNew && !product)}>
-                  {t('actions.save')}
-                </Button>
-              </div>
+                  <div className="mt-6 flex flex-wrap items-center justify-end gap-2">{saveFooter}</div>
+                </>
+              )}
             </FormContainer>
           </form>
         </FormProvider>

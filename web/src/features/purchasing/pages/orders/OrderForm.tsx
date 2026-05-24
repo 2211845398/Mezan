@@ -6,6 +6,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { DateField } from '@/components/shared/form/DateField';
@@ -22,8 +23,15 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
-import { getProduct } from '@/features/catalog/api';
+import { getProduct, searchProductVariantsForPurchasing } from '@/features/catalog/api';
+import { purchasingVariantNameLabel } from '@/features/catalog/lib/purchasingVariantLabel';
 import PoLineProductPicker from '@/features/purchasing/components/PoLineProductPicker';
+import PoLineUomSelect from '@/features/purchasing/components/PoLineUomSelect';
+import PoLineVariantSelect from '@/features/purchasing/components/PoLineVariantSelect';
+import {
+  buildProductUomOptions,
+  type ProductUomOption,
+} from '@/features/purchasing/lib/productUomOptions';
 import { poGoldOutlineButtonClass } from '@/features/purchasing/lib/poButtonStyles';
 import { supplierCurrencyLabel } from '@/features/purchasing/lib/supplierCurrencyLabel';
 import { fromISO, toISOStringUtc } from '@/lib/date';
@@ -46,10 +54,40 @@ type LineDraft = {
   product_id: number;
   qty: number;
   pick_label: string;
+  variant_id: number | null;
+  variant_pick_label: string;
+  uom_id: number;
+  uom_options: ProductUomOption[];
 };
 
 function newLine(): LineDraft {
-  return { key: crypto.randomUUID(), product_id: 0, qty: 1, pick_label: '' };
+  return {
+    key: crypto.randomUUID(),
+    product_id: 0,
+    qty: 1,
+    pick_label: '',
+    variant_id: null,
+    variant_pick_label: '',
+    uom_id: 0,
+    uom_options: [],
+  };
+}
+
+async function loadUomForProduct(
+  tCatalog: ReturnType<typeof useTranslation<'catalog'>>['t'],
+  productId: number,
+  preferredUomId?: number,
+): Promise<{ uom_id: number; uom_options: ProductUomOption[] }> {
+  const product = await getProduct(productId);
+  const uom_options = buildProductUomOptions(tCatalog, product);
+  const baseId = product.uom_id ?? uom_options[0]?.id ?? 0;
+  const uom_id =
+    preferredUomId != null &&
+    preferredUomId > 0 &&
+    uom_options.some((o) => o.id === preferredUomId)
+      ? preferredUomId
+      : baseId;
+  return { uom_id, uom_options };
 }
 
 type ReorderLocationState = {
@@ -64,6 +102,7 @@ export type OrderFormProps = {
 export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProps = {}) {
   const { id } = useParams<{ id: string }>();
   const { t, i18n } = useTranslation('purchasing');
+  const { t: tCatalog } = useTranslation('catalog');
   const fieldDir = i18n.dir();
   const localeSelectTriggerClass = cn(
     'h-9 min-w-0 [&>span]:line-clamp-none',
@@ -110,14 +149,27 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     reorderAppliedRef.current = true;
     setLines(
       st.map((ln) => ({
-        key: crypto.randomUUID(),
+        ...newLine(),
         product_id: ln.product_id,
         qty: ln.qty,
-        pick_label: '',
       })),
     );
+    void Promise.all(
+      st.map(async (ln, index) => {
+        try {
+          const { uom_id, uom_options } = await loadUomForProduct(tCatalog, ln.product_id);
+          setLines((prev) =>
+            prev.map((x, i) =>
+              i === index && x.product_id === ln.product_id ? { ...x, uom_id, uom_options } : x,
+            ),
+          );
+        } catch {
+          /* keep defaults */
+        }
+      }),
+    );
     navigate('.', { replace: true, state: {} });
-  }, [isNew, location.state, navigate]);
+  }, [isNew, location.state, navigate, tCatalog]);
 
   useEffect(() => {
     if (!existing) return;
@@ -130,30 +182,78 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     void (async () => {
       const ids = [...new Set(rawLines.map((l) => l.product_id))];
       const names: Record<number, string> = {};
+      const skus: Record<number, string> = {};
+      const uomByProduct: Record<number, { uom_id: number; uom_options: ProductUomOption[] }> =
+        {};
       await Promise.all(
         ids.map(async (pid) => {
           try {
             const p = await getProduct(pid);
             names[pid] = p.name;
+            skus[pid] = p.sku;
+            uomByProduct[pid] = {
+              uom_id: p.uom_id ?? 0,
+              uom_options: buildProductUomOptions(tCatalog, p),
+            };
           } catch {
             names[pid] = `#${pid}`;
+            skus[pid] = '';
+            uomByProduct[pid] = { uom_id: 0, uom_options: [] };
           }
         }),
       );
       if (cancelled) return;
-      setLines(
-        rawLines.map((ln) => ({
-          key: String(ln.id),
-          product_id: ln.product_id,
-          qty: ln.qty,
-          pick_label: names[ln.product_id] ?? `#${ln.product_id}`,
-        })),
+      const loaded = await Promise.all(
+        rawLines.map(async (ln) => {
+          const productName = names[ln.product_id] ?? `#${ln.product_id}`;
+          const productSku = skus[ln.product_id] ?? '';
+          const pick_label =
+            productSku.trim() !== ''
+              ? `${productName} — ${productSku}`
+              : productName;
+          let variant_id: number | null = null;
+          let variant_pick_label = '';
+          if (ln.variant_id != null && ln.variant_id > 0) {
+            variant_id = ln.variant_id;
+            try {
+              const hits = await searchProductVariantsForPurchasing({
+                product_id: ln.product_id,
+                limit: 200,
+              });
+              const hit = hits.find((h) => h.variant_id === ln.variant_id);
+              if (hit) {
+                variant_pick_label = purchasingVariantNameLabel(hit);
+              }
+            } catch {
+              variant_pick_label = `#${ln.variant_id}`;
+            }
+          }
+          const uomMeta = uomByProduct[ln.product_id];
+          const lineUomId = ln.uom_id ?? uomMeta?.uom_id ?? 0;
+          const uom_options = uomMeta?.uom_options ?? [];
+          const uom_id =
+            lineUomId > 0 && uom_options.some((o) => o.id === lineUomId)
+              ? lineUomId
+              : (uom_options[0]?.id ?? 0);
+          return {
+            key: String(ln.id),
+            product_id: ln.product_id,
+            qty: ln.qty,
+            pick_label,
+            variant_id,
+            variant_pick_label,
+            uom_id,
+            uom_options,
+          };
+        }),
       );
+      if (cancelled) return;
+      setLines(loaded);
     })();
     return () => {
       cancelled = true;
     };
-  }, [existing]);
+  }, [existing, tCatalog]);
 
   const supplierDisplayName = useMemo(() => {
     if (!selectedSupplier) return '';
@@ -167,11 +267,16 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
   }, [selectedSupplier]);
 
   const buildPayloadLines = (): PurchaseOrderLineCreate[] => {
-    const filtered = lines.filter((l) => l.product_id > 0 && l.qty > 0);
+    const filtered = lines.filter((l) => l.product_id > 0 && l.qty > 0 && l.uom_id > 0);
     if (filtered.length === 0) {
       throw new Error('lines');
     }
-    return filtered.map(({ product_id, qty }) => ({ product_id, qty }));
+    return filtered.map(({ product_id, qty, variant_id, uom_id }) => ({
+      product_id,
+      qty,
+      uom_id,
+      ...(variant_id != null && variant_id > 0 ? { variant_id } : {}),
+    }));
   };
 
   const buildHeader = () => {
@@ -212,11 +317,20 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
         product_id: pl.product_id,
         variant_id: pl.variant_id ?? null,
         qty: pl.qty,
+        uom_id: pl.uom_id,
+        qty_base: pl.qty,
+        uom_name: '',
+        uom_symbol: '',
         ...(pl.unit_cost != null && pl.unit_cost !== ''
           ? { unit_cost: String(pl.unit_cost) }
           : {}),
       }));
-      qc.setQueryData(purchasingKeys.order(poId), { ...prev, ...header, lines: optimisticLines });
+      qc.setQueryData(purchasingKeys.order(poId), {
+        ...prev,
+        ...header,
+        status: 'draft',
+        lines: optimisticLines,
+      });
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
@@ -238,7 +352,7 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     },
     onSuccess: async (row) => {
       await qc.invalidateQueries({ queryKey: purchasingKeys.root });
-      toast.success(t('orders.form.created'));
+      toast.success(isNew ? t('orders.form.created') : t('orders.form.saved_draft'));
       if (variant === 'dialog') {
         onDismiss?.();
         return;
@@ -278,8 +392,16 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     },
   });
 
+  const isDraftPo = isNew || existing?.status === 'draft';
+  const canSaveDraft = isNew;
+  const formDisabled =
+    saveDraft.isPending || send.isPending || (!isNew && existing != null && !isDraftPo);
+
   const formBody = (
     <div className="flex w-full flex-col gap-4">
+      {!isNew && existing != null && !isDraftPo ? (
+        <p className="text-sm text-muted-foreground">{t('orders.form.not_draft_readonly')}</p>
+      ) : null}
       <SectionCard title={t('orders.form.header_section')}>
         <div className="grid gap-4 md:grid-cols-12">
         <div className="grid gap-2 md:col-span-8" dir={fieldDir}>
@@ -287,6 +409,7 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
           <Select
             value={supplierId || '__none'}
             onValueChange={(v) => setSupplierId(v === '__none' ? '' : v)}
+            disabled={formDisabled}
           >
             <SelectTrigger dir={fieldDir} className={localeSelectTriggerClass}>
               <SelectValue placeholder="—" />
@@ -312,7 +435,11 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
         </div>
         <div className="grid gap-2 md:col-span-7" dir={fieldDir}>
           <Label>{t('orders.form.branch')}</Label>
-          <Select value={branchId || '__none'} onValueChange={(v) => setBranchId(v === '__none' ? '' : v)}>
+          <Select
+            value={branchId || '__none'}
+            onValueChange={(v) => setBranchId(v === '__none' ? '' : v)}
+            disabled={formDisabled}
+          >
             <SelectTrigger dir={fieldDir} className={localeSelectTriggerClass}>
               <SelectValue placeholder={t('orders.form.branch_hint')} />
             </SelectTrigger>
@@ -328,7 +455,7 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
         </div>
         <div className="grid gap-2 md:col-span-5">
           <Label>{t('orders.form.expected_date')}</Label>
-          <DateField value={expectedDate} onChange={setExpectedDate} />
+          <DateField value={expectedDate} onChange={setExpectedDate} disabled={formDisabled} />
         </div>
         </div>
       </SectionCard>
@@ -338,30 +465,69 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
         {lines.map((ln, idx) => (
           <div
             key={ln.key}
-            className="grid gap-3 rounded-lg border bg-muted/30 p-3 md:grid-cols-12 md:items-end"
+            className="grid grid-cols-1 gap-3 rounded-lg border bg-muted/30 p-3 md:grid-cols-12 md:items-end"
           >
-            <div className="md:col-span-9">
+            <div className="grid min-w-0 gap-2 md:col-span-5">
               <Label>{t('orders.form.product')}</Label>
               <PoLineProductPicker
-                disabled={saveDraft.isPending}
+                disabled={formDisabled}
                 pickLabel={ln.pick_label}
                 onPick={(row) => {
                   setLines((prev) =>
                     prev.map((x, i) =>
                       i === idx
-                        ? { ...x, product_id: row.product_id, pick_label: row.pick_label }
+                        ? {
+                            ...x,
+                            product_id: row.product_id,
+                            pick_label: row.pick_label,
+                            variant_id: null,
+                            variant_pick_label: '',
+                            uom_id: row.uom_id ?? 0,
+                            uom_options: [],
+                          }
                         : x,
                     ),
+                  );
+                  void loadUomForProduct(tCatalog, row.product_id, row.uom_id).then(
+                    ({ uom_id, uom_options }) => {
+                      setLines((prev) =>
+                        prev.map((x, i) =>
+                          i === idx && x.product_id === row.product_id
+                            ? { ...x, uom_id, uom_options }
+                            : x,
+                        ),
+                      );
+                    },
                   );
                 }}
               />
             </div>
-            <div className="md:col-span-2">
+            <div className="min-w-0 md:col-span-3">
+              <PoLineVariantSelect
+                compact
+                productId={ln.product_id}
+                variantId={ln.variant_id}
+                variantPickLabel={ln.variant_pick_label}
+                disabled={formDisabled}
+                onVariantPick={(variantId, label) =>
+                  setLines((prev) =>
+                    prev.map((x, i) =>
+                      i === idx
+                        ? { ...x, variant_id: variantId, variant_pick_label: label }
+                        : x,
+                    ),
+                  )
+                }
+              />
+            </div>
+            <div className="grid gap-2 md:col-span-2">
               <Label>{t('orders.form.qty')}</Label>
               <Input
+                className="h-9"
                 type="number"
                 min={1}
                 value={ln.qty}
+                disabled={formDisabled}
                 onChange={(e) =>
                   setLines((prev) =>
                     prev.map((x, i) => (i === idx ? { ...x, qty: Number(e.target.value) || 1 } : x)),
@@ -369,11 +535,27 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
                 }
               />
             </div>
-            <div className="md:col-span-1">
+            <div className="grid min-w-0 gap-2 md:col-span-1">
+              <Label>{t('orders.form.unit')}</Label>
+              <PoLineUomSelect
+                fullWidth
+                disabled={formDisabled || ln.product_id <= 0}
+                uomId={ln.uom_id}
+                options={ln.uom_options}
+                onChange={(uomId) =>
+                  setLines((prev) =>
+                    prev.map((x, i) => (i === idx ? { ...x, uom_id: uomId } : x)),
+                  )
+                }
+              />
+            </div>
+            <div className="flex items-end justify-end md:col-span-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
+                className="size-9 shrink-0"
+                disabled={formDisabled}
                 onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
                 aria-label="remove"
               >
@@ -387,6 +569,7 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
           variant="outline"
           size="sm"
           className="self-start"
+          disabled={formDisabled}
           onClick={() => setLines((prev) => [...prev, newLine()])}
         >
           <Plus className="me-2 size-4" />
@@ -396,24 +579,32 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
       </SectionCard>
 
       <SectionCard title={t('orders.form.notes')}>
-        <Textarea id="notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <Textarea
+          id="notes"
+          rows={3}
+          value={notes}
+          disabled={formDisabled}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </SectionCard>
 
       <div className="flex flex-wrap items-center justify-start gap-2 border-t pt-4">
-        <Button type="button" onClick={() => saveDraft.mutate()} disabled={saveDraft.isPending}>
-          {t('orders.form.save_draft')}
-        </Button>
+        {canSaveDraft ? (
+          <Button type="button" onClick={() => saveDraft.mutate()} disabled={formDisabled}>
+            {t('orders.form.save_draft')}
+          </Button>
+        ) : null}
         {variant === 'dialog' && onDismiss ? (
-          <Button type="button" variant="outline" onClick={onDismiss} disabled={saveDraft.isPending}>
+          <Button type="button" variant="outline" onClick={onDismiss} disabled={formDisabled}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>
         ) : null}
-        {!isNew && !Number.isNaN(poId) ? (
+        {!isNew && !Number.isNaN(poId) && isDraftPo ? (
           <Button
             type="button"
             variant="outline"
             className={cn(poGoldOutlineButtonClass)}
-            disabled={send.isPending || existing?.status !== 'draft'}
+            disabled={formDisabled}
             onClick={() => void send.mutateAsync()}
           >
             {t('orders.form.send')}
@@ -430,7 +621,14 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
   return (
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
-        title={isNew ? t('orders.new') : t('orders.edit')}
+        title={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {isNew ? t('orders.new') : t('orders.edit')}
+            {!isNew && existing?.status === 'draft' ? (
+              <StatusBadge status="draft" label={t('orders.status.draft')} />
+            ) : null}
+          </span>
+        }
         actions={<BackButton to="/purchasing/orders" label={t('orders.title')} />}
       />
       <div className="me-auto flex w-full max-w-6xl flex-col gap-4">{formBody}</div>

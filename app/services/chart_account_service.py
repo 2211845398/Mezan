@@ -10,11 +10,30 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ValidationError
-from app.models.chart_accounts import AccountType, ChartAccount
+from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
 from app.utils.money import q2
 
 
 MAX_COA_DEPTH = 5  # Root + 4 sub-levels per spec
+
+
+async def _account_has_children(db: AsyncSession, account_id: int) -> bool:
+    res = await db.execute(
+        select(ChartAccount.id).where(ChartAccount.parent_id == account_id).limit(1)
+    )
+    return res.scalar_one_or_none() is not None
+
+
+async def _refresh_parent_is_leaf(db: AsyncSession, parent_id: int | None) -> None:
+    """Recompute is_leaf on parent after child attach/detach."""
+    if parent_id is None:
+        return
+    parent = await _get_account_with_parents(db, parent_id)
+    if parent is None:
+        return
+    has_children = await _account_has_children(db, parent_id)
+    parent.is_leaf = not has_children and not parent.is_control
+    await db.flush()
 
 
 async def _get_account_with_parents(
@@ -124,11 +143,19 @@ async def create_chart_account(
     parent_id: int | None = None,
     is_control: bool = False,
     active: bool = True,
+    subledger_kind: SubledgerKind | None = None,
 ) -> ChartAccount:
     """Create a new Chart of Accounts entry with validation."""
     await validate_account_hierarchy(
         db, parent_id=parent_id, account_type=account_type
     )
+
+    kind = subledger_kind if subledger_kind is not None else SubledgerKind.NONE
+    if is_control and kind == SubledgerKind.NONE:
+        if account_type == AccountType.ASSET:
+            kind = SubledgerKind.CUSTOMER
+        elif account_type == AccountType.LIABILITY:
+            kind = SubledgerKind.SUPPLIER
 
     account = ChartAccount(
         code=code,
@@ -136,11 +163,14 @@ async def create_chart_account(
         account_type=account_type,
         parent_id=parent_id,
         is_control=is_control,
+        is_leaf=not is_control,
+        subledger_kind=kind,
         is_system=False,
         active=active,
     )
     db.add(account)
     await db.flush()
+    await _refresh_parent_is_leaf(db, parent_id)
     await db.refresh(account)
     return account
 
@@ -190,12 +220,72 @@ async def update_chart_account(
             parent = await _get_account_with_parents(db, current_id)
             current_id = parent.parent_id if parent else None
 
+    old_parent_id = account.parent_id
     for key, value in data.items():
         setattr(account, key, value)
 
+    if account.is_control:
+        account.is_leaf = False
+    elif not await _account_has_children(db, account.id):
+        account.is_leaf = True
+
     await db.flush()
+    if old_parent_id != account.parent_id:
+        await _refresh_parent_is_leaf(db, old_parent_id)
+        await _refresh_parent_is_leaf(db, account.parent_id)
+    elif account.parent_id is not None:
+        await _refresh_parent_is_leaf(db, account.parent_id)
     await db.refresh(account)
     return account
+
+
+def _suggest_child_code(parent_code: str, sibling_codes: list[str]) -> str:
+    """Suggest the next child account code under *parent_code*."""
+    prefix = parent_code
+    extensions: list[tuple[int, int]] = []
+    for code in sibling_codes:
+        if code.startswith(prefix) and len(code) > len(prefix):
+            suffix = code[len(prefix) :]
+            if suffix.isdigit():
+                extensions.append((int(suffix), len(suffix)))
+
+    if extensions:
+        next_num = max(n for n, _ in extensions) + 1
+        width = max(w for _, w in extensions)
+        return f"{prefix}{str(next_num).zfill(max(width, 2))}"
+
+    if prefix.isdigit():
+        return f"{prefix}01"
+
+    numeric_siblings = [c for c in sibling_codes if c.isdigit()]
+    if numeric_siblings:
+        max_code = max(int(c) for c in numeric_siblings)
+        width = max(len(c) for c in numeric_siblings)
+        return str(max_code + 1).zfill(width)
+
+    return f"{prefix}01"
+
+
+async def suggest_chart_account_code(
+    db: AsyncSession,
+    *,
+    parent_id: int | None,
+) -> str | None:
+    """Return the next suggested account code under *parent_id*, or None for roots."""
+    if parent_id is None:
+        return None
+
+    parent = await _get_account_with_parents(db, parent_id)
+    if parent is None:
+        raise ValidationError(f"Parent chart account {parent_id} not found")
+
+    result = await db.execute(
+        select(ChartAccount.code)
+        .where(ChartAccount.parent_id == parent_id)
+        .order_by(ChartAccount.code)
+    )
+    sibling_codes = [row[0] for row in result.all()]
+    return _suggest_child_code(parent.code, sibling_codes)
 
 
 async def get_chart_account(db: AsyncSession, account_id: int) -> ChartAccount | None:
@@ -326,16 +416,27 @@ async def get_chart_account_tree(
             "name": account.name,
             "account_type": account.account_type,
             "is_control": account.is_control,
+            "is_leaf": account.is_leaf,
+            "subledger_kind": _subledger_kind_value(account.subledger_kind),
             "is_system": account.is_system,
             "active": account.active,
             "depth": depths.get(account.id, 1),
-            "children": [build_node(child) for child in children_map.get(account.id, [])],
+            "children": [
+                build_node(child)
+                for child in sorted(
+                    children_map.get(account.id, []),
+                    key=lambda c: c.code,
+                )
+            ],
         }
         return node
 
     # Get root nodes (parent_id is None or parent not in our set)
     root_ids = {a.id for a in accounts}
-    roots = [a for a in accounts if a.parent_id is None or a.parent_id not in root_ids]
+    roots = sorted(
+        [a for a in accounts if a.parent_id is None or a.parent_id not in root_ids],
+        key=lambda a: a.code,
+    )
 
     return [build_node(root) for root in roots]
 
@@ -380,6 +481,8 @@ async def get_chart_account_tree_for_branch(
             "name": node["name"],
             "account_type": node["account_type"],
             "is_control": node["is_control"],
+            "is_leaf": node.get("is_leaf", True),
+            "subledger_kind": node.get("subledger_kind", SubledgerKind.NONE),
             "is_system": node["is_system"],
             "active": node["active"],
             "depth": node["depth"],
@@ -406,72 +509,177 @@ async def resolve_posting_account_id(db: AsyncSession, account_id: int) -> int:
             "Cannot post to an inactive chart account",
             details={"account_id": account_id},
         )
-    if account.is_control:
+    if account.is_control or not account.is_leaf:
         raise ValidationError(
             "Cannot post to a control (summary) account; use a leaf/posting account",
+            details={"account_id": account_id, "code": account.code},
+        )
+    if await _account_has_children(db, account_id):
+        raise ValidationError(
+            "Cannot post to a parent account; use a leaf posting account",
             details={"account_id": account_id, "code": account.code},
         )
     return int(account.id)
 
 
+def _subledger_kind_value(kind: SubledgerKind | str) -> str:
+    if isinstance(kind, SubledgerKind):
+        return kind.value
+    return str(kind)
+
+
+async def _validate_single_account_for_posting(
+    db: AsyncSession,
+    *,
+    aid: int,
+    customer_id: int | None = None,
+    supplier_id: int | None = None,
+    employee_id: int | None = None,
+    line_index: int | None = None,
+    require_subledger: bool = True,
+) -> ChartAccount:
+    account = await _get_account_with_parents(db, aid)
+    if account is None:
+        raise ValidationError(
+            "Unknown chart account for journal line",
+            details={"account_id": aid, "line": line_index},
+        )
+    if not account.active:
+        raise ValidationError(
+            "Cannot post to an inactive chart account",
+            details={"account_id": aid, "line": line_index},
+        )
+    if account.is_control or not account.is_leaf:
+        raise ValidationError(
+            "Cannot post to a control or non-leaf account; use a leaf posting account",
+            details={"account_id": aid, "line": line_index},
+        )
+    if await _account_has_children(db, aid):
+        raise ValidationError(
+            "Cannot post to a parent account that has child accounts",
+            details={"account_id": aid, "line": line_index},
+        )
+
+    sub_dims = sum(
+        1
+        for x in (customer_id, supplier_id, employee_id)
+        if x is not None
+    )
+    if sub_dims > 1:
+        raise ValidationError(
+            "Journal line may reference at most one sub-ledger entity",
+            details={"line": line_index},
+        )
+
+    kind = _subledger_kind_value(account.subledger_kind)
+    if require_subledger:
+        if kind == SubledgerKind.CUSTOMER.value:
+            if customer_id is None:
+                raise ValidationError(
+                    "Customer is required for this receivables account",
+                    details={"account_id": aid, "line": line_index},
+                )
+            if supplier_id is not None or employee_id is not None:
+                raise ValidationError(
+                    "Only customer_id is allowed for customer sub-ledger lines",
+                    details={"line": line_index},
+                )
+        elif kind == SubledgerKind.SUPPLIER.value:
+            if supplier_id is None:
+                raise ValidationError(
+                    "Supplier is required for this payables account",
+                    details={"account_id": aid, "line": line_index},
+                )
+            if customer_id is not None or employee_id is not None:
+                raise ValidationError(
+                    "Only supplier_id is allowed for supplier sub-ledger lines",
+                    details={"line": line_index},
+                )
+        elif kind == SubledgerKind.EMPLOYEE.value:
+            if employee_id is None:
+                raise ValidationError(
+                    "Employee is required for this employee sub-ledger account",
+                    details={"account_id": aid, "line": line_index},
+                )
+            if customer_id is not None or supplier_id is not None:
+                raise ValidationError(
+                    "Only employee_id is allowed for employee sub-ledger lines",
+                    details={"line": line_index},
+                )
+        elif sub_dims > 0:
+            raise ValidationError(
+                "Sub-ledger entity not allowed for this account",
+                details={"account_id": aid, "line": line_index},
+            )
+
+    return account
+
+
+async def _validate_account_hierarchy_chain(db: AsyncSession, account: ChartAccount) -> None:
+    aid = account.id
+    depth = await _calculate_depth(db, account.parent_id)
+    if depth > MAX_COA_DEPTH:
+        raise ValidationError(
+            f"Chart account exceeds maximum depth ({MAX_COA_DEPTH})",
+            details={"account_id": aid, "depth": depth},
+        )
+
+    leaf_type = account.account_type
+    current_id: int | None = account.id
+    visited: set[int] = set()
+    while current_id is not None:
+        if current_id in visited:
+            raise ValidationError(
+                "Circular reference detected in chart hierarchy",
+                details={"account_id": aid},
+            )
+        visited.add(current_id)
+        cur = await _get_account_with_parents(db, current_id)
+        if cur is None:
+            break
+        if cur.account_type != leaf_type:
+            raise ValidationError(
+                "Account type does not match ancestor chain (CoA type consistency)",
+                details={
+                    "account_id": aid,
+                    "expected_type": leaf_type.value,
+                    "ancestor_id": cur.id,
+                    "ancestor_type": cur.account_type.value,
+                },
+            )
+        current_id = cur.parent_id
+
+
 async def validate_accounts_for_journal_posting(
-    db: AsyncSession, *, account_ids: list[int]
+    db: AsyncSession,
+    *,
+    account_ids: list[int] | None = None,
+    lines: list[dict] | None = None,
 ) -> None:
-    """Strict CoA checks before GL posting (Epic 19.2).
+    """Strict CoA checks before GL posting (Epic 19.2 + sub-ledger).
 
-    Ensures each account exists, is active, is not a control-only node, sits within
-    max depth, and has a type-consistent ancestor chain.
+    Pass ``lines`` with account_id and optional customer_id/supplier_id/employee_id
+    for per-line sub-ledger validation. Legacy callers may pass ``account_ids`` only.
     """
-    unique_ids = sorted({int(x) for x in account_ids if x is not None})
+    if lines is not None:
+        for i, ln in enumerate(lines):
+            account = await _validate_single_account_for_posting(
+                db,
+                aid=int(ln["account_id"]),
+                customer_id=ln.get("customer_id"),
+                supplier_id=ln.get("supplier_id"),
+                employee_id=ln.get("employee_id"),
+                line_index=i,
+            )
+            await _validate_account_hierarchy_chain(db, account)
+        return
+
+    unique_ids = sorted({int(x) for x in (account_ids or []) if x is not None})
     for aid in unique_ids:
-        account = await _get_account_with_parents(db, aid)
-        if account is None:
-            raise ValidationError(
-                "Unknown chart account for journal line",
-                details={"account_id": aid},
-            )
-        if not account.active:
-            raise ValidationError(
-                "Cannot post to an inactive chart account",
-                details={"account_id": aid},
-            )
-        if account.is_control:
-            raise ValidationError(
-                "Cannot post to a control (summary) account; use a leaf/posting account",
-                details={"account_id": aid},
-            )
-
-        depth = await _calculate_depth(db, account.parent_id)
-        if depth > MAX_COA_DEPTH:
-            raise ValidationError(
-                f"Chart account exceeds maximum depth ({MAX_COA_DEPTH})",
-                details={"account_id": aid, "depth": depth},
-            )
-
-        leaf_type = account.account_type
-        current_id: int | None = account.id
-        visited: set[int] = set()
-        while current_id is not None:
-            if current_id in visited:
-                raise ValidationError(
-                    "Circular reference detected in chart hierarchy",
-                    details={"account_id": aid},
-                )
-            visited.add(current_id)
-            cur = await _get_account_with_parents(db, current_id)
-            if cur is None:
-                break
-            if cur.account_type != leaf_type:
-                raise ValidationError(
-                    "Account type does not match ancestor chain (CoA type consistency)",
-                    details={
-                        "account_id": aid,
-                        "expected_type": leaf_type.value,
-                        "ancestor_id": cur.id,
-                        "ancestor_type": cur.account_type.value,
-                    },
-                )
-            current_id = cur.parent_id
+        account = await _validate_single_account_for_posting(
+            db, aid=aid, require_subledger=False
+        )
+        await _validate_account_hierarchy_chain(db, account)
 
 
 async def delete_chart_account(db: AsyncSession, *, account_id: int) -> bool:
@@ -485,6 +693,48 @@ async def delete_chart_account(db: AsyncSession, *, account_id: int) -> bool:
 
     account = await _get_account_with_parents(db, account_id)
     if account:
+        parent_id = account.parent_id
         await db.delete(account)
         await db.flush()
+        await _refresh_parent_is_leaf(db, parent_id)
     return True
+
+
+async def list_postable_chart_accounts(
+    db: AsyncSession,
+    *,
+    active_only: bool = True,
+) -> list[dict]:
+    """Flat list of leaf posting accounts for journal/voucher pickers."""
+    stmt = select(ChartAccount).where(
+        ChartAccount.is_leaf == True,
+        ChartAccount.is_control == False,
+    )
+    if active_only:
+        stmt = stmt.where(ChartAccount.active == True)
+    stmt = stmt.order_by(ChartAccount.code)
+    res = await db.execute(stmt)
+    accounts = list(res.scalars().all())
+    by_id = {a.id: a for a in accounts}
+
+    rows: list[dict] = []
+    for a in accounts:
+        parent = by_id.get(a.parent_id) if a.parent_id else None
+        if parent is None and a.parent_id is not None:
+            parent = await _get_account_with_parents(db, a.parent_id)
+        kind = _subledger_kind_value(a.subledger_kind)
+        rows.append(
+            {
+                "id": a.id,
+                "code": a.code,
+                "name": a.name,
+                "account_type": a.account_type.value if hasattr(a.account_type, "value") else str(a.account_type),
+                "parent_id": a.parent_id,
+                "parent_code": parent.code if parent else None,
+                "parent_name": parent.name if parent else None,
+                "subledger_kind": kind,
+                "is_leaf": a.is_leaf,
+                "active": a.active,
+            }
+        )
+    return rows

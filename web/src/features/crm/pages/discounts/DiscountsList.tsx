@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
@@ -108,7 +109,10 @@ export default function DiscountsList() {
           id: 'st',
           accessorKey: 'status',
           header: t('discounts.col.status'),
-          cell: ({ row }) => t(`discounts.rule_status.${row.original.status}`),
+          cell: ({ row }) => {
+            const s = row.original.status;
+            return <StatusBadge status={s} label={t(`discounts.rule_status.${s}`)} />;
+          },
         },
         {
           id: 'sd',

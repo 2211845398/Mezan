@@ -16,12 +16,68 @@ from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.catalog_service import resolve_default_variant_id
+from app.services.product_uom_service import convert_product_qty_to_base, get_product_base_uom_id
 from app.services.document_posting_service import post_transfer_batch_receive_gl
-from app.services.inventory_service import apply_stock_movement
+from app.services.inventory_service import (
+    apply_stock_movement,
+    apply_stock_movement_extended,
+)
 from app.services.inventory_valuation_service import (
     apply_receipt_to_weighted_average,
     get_unit_cost_for_sale,
 )
+
+
+async def _stock_level(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    product_id: int,
+    variant_id: int,
+) -> StockLevel | None:
+    res = await db.execute(
+        select(StockLevel).where(
+            and_(
+                StockLevel.branch_id == branch_id,
+                StockLevel.product_id == product_id,
+                StockLevel.variant_id == variant_id,
+            )
+        )
+    )
+    return res.scalar_one_or_none()
+
+
+def _available_qty(level: StockLevel | None) -> int:
+    if level is None:
+        return 0
+    return int(level.on_hand) - int(level.reserved) - int(level.damaged)
+
+
+async def _assert_transfer_qty_available(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    product_id: int,
+    variant_id: int,
+    qty: int,
+) -> None:
+    if qty <= 0:
+        raise ValidationError("Transfer line qty must be positive", details={"qty": qty})
+    level = await _stock_level(
+        db, branch_id=branch_id, product_id=product_id, variant_id=variant_id
+    )
+    avail = _available_qty(level)
+    if avail < qty:
+        raise ValidationError(
+            "Insufficient available stock at sending branch",
+            details={
+                "branch_id": branch_id,
+                "product_id": product_id,
+                "variant_id": variant_id,
+                "requested": qty,
+                "available": avail,
+            },
+        )
 
 
 async def _get_batch(db: AsyncSession, batch_id: int) -> TransferBatch:
@@ -52,10 +108,20 @@ async def create_batch(
     batch = TransferBatch(**data, created_by_user_id=created_by_user_id, status="pending_dispatch")
     db.add(batch)
     await db.flush()
+    from_branch_id = int(data["from_branch_id"])
+    resolved_lines: list[tuple[int, int, int]] = []
     for ln in lines:
         row = dict(ln)
         product_id = int(row["product_id"])
         qty = int(row["qty"])
+        uom_id = row.get("uom_id")
+        if uom_id is None:
+            uom_id = await get_product_base_uom_id(db, product_id)
+        else:
+            uom_id = int(uom_id)
+        qty_base = await convert_product_qty_to_base(
+            db, product_id=product_id, uom_id=uom_id, qty=qty
+        )
         pick_vid = row.get("variant_id")
         if pick_vid is not None:
             vid = int(pick_vid)
@@ -73,13 +139,38 @@ async def create_batch(
             variant_id = vid
         else:
             variant_id = await resolve_default_variant_id(db, product_id=product_id)
+        await _assert_transfer_qty_available(
+            db,
+            branch_id=from_branch_id,
+            product_id=product_id,
+            variant_id=variant_id,
+            qty=qty_base,
+        )
         db.add(
             TransferLine(
                 transfer_batch_id=batch.id,
                 product_id=product_id,
                 variant_id=variant_id,
                 qty=qty,
+                uom_id=uom_id,
+                qty_base=qty_base,
             )
+        )
+        resolved_lines.append((product_id, variant_id, qty_base))
+
+    await db.flush()
+    for i, (product_id, variant_id, qty) in enumerate(resolved_lines):
+        await apply_stock_movement_extended(
+            db,
+            idempotency_key=f"transfer:{batch.id}:reserve:{i}",
+            branch_id=from_branch_id,
+            product_id=product_id,
+            variant_id=variant_id,
+            reserved_delta=qty,
+            reason="transfer_reserve",
+            ref_type="transfer_batch",
+            ref_id=str(batch.id),
+            movement_kind="transfer_reserve",
         )
     await db.commit()
     return await _get_batch(db, batch.id)
@@ -122,18 +213,26 @@ async def dispatch_batch(
     if not batch.lines:
         raise ValidationError("Batch has no lines")
 
-    # Deduct from source location (warehouse) once.
     for i, ln in enumerate(batch.lines):
-        await apply_stock_movement(
+        await _assert_transfer_qty_available(
+            db,
+            branch_id=batch.from_branch_id,
+            product_id=ln.product_id,
+            variant_id=ln.variant_id,
+            qty=ln.qty_base,
+        )
+        await apply_stock_movement_extended(
             db,
             idempotency_key=f"transfer:{batch.id}:dispatch:{i}",
             branch_id=batch.from_branch_id,
             product_id=ln.product_id,
-            qty_delta=-ln.qty,
+            variant_id=ln.variant_id,
+            on_hand_delta=-ln.qty_base,
+            reserved_delta=-ln.qty_base,
             reason="transfer_dispatch",
             ref_type="transfer_batch",
             ref_id=str(batch.id),
-            variant_id=ln.variant_id,
+            movement_kind="transfer_dispatch",
         )
 
     batch.status = "in_transit"
@@ -178,7 +277,7 @@ async def receive_batch(
             idempotency_key=f"transfer:{batch.id}:receive:{i}",
             branch_id=batch.to_branch_id,
             product_id=ln.product_id,
-            qty_delta=ln.qty,
+            qty_delta=ln.qty_base,
             reason="transfer_receive",
             ref_type="transfer_batch",
             ref_id=str(batch.id),
@@ -188,7 +287,7 @@ async def receive_batch(
             db,
             branch_id=batch.to_branch_id,
             product_id=ln.product_id,
-            qty_in=ln.qty,
+            qty_in=ln.qty_base,
             unit_cost=unit_cost,
             qty_on_hand_before=qty_on_hand_before,
             variant_id=ln.variant_id,
@@ -218,6 +317,19 @@ async def cancel_pending_batch(
         raise ValidationError(
             "Cancellation must be performed at the sending branch",
             details={"expected_branch_id": batch.from_branch_id, "actor_branch_id": actor_branch_id},
+        )
+    for i, ln in enumerate(batch.lines):
+        await apply_stock_movement_extended(
+            db,
+            idempotency_key=f"transfer:{batch.id}:cancel_reserve:{i}",
+            branch_id=batch.from_branch_id,
+            product_id=ln.product_id,
+            variant_id=ln.variant_id,
+            reserved_delta=-ln.qty_base,
+            reason="transfer_cancel",
+            ref_type="transfer_batch",
+            ref_id=str(batch.id),
+            movement_kind="transfer_cancel",
         )
     await db.delete(batch)
     await db.flush()

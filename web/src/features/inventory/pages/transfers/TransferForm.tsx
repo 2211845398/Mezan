@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { ChevronRight, Package } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { StatusStepper } from '@/components/shared/StatusStepper';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import {
@@ -25,7 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -45,16 +46,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import type { ProductVariantPurchasingSearchItem } from '@/features/catalog/api';
+import { getProduct, type ProductVariantPurchasingSearchItem } from '@/features/catalog/api';
+import { catalogKeys } from '@/features/catalog/queries';
+import PoLineUomSelect from '@/features/purchasing/components/PoLineUomSelect';
+import { buildProductUomOptions } from '@/features/purchasing/lib/productUomOptions';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
-import { cn } from '@/lib/utils';
+import { baseUnitsToDisplayQty, qtyToBaseUnits } from '@/lib/productUomQty';
+import { formatQtyWithUom } from '@/lib/formatQtyWithUom';
 
-import { draftLineFromSearchVariant, qtyAlreadyForVariant, type DraftTransferLine } from './transferDraft';
-import { TransferLineAttributesCell } from './TransferLineAttributesCell';
+import { draftLineFromSearchVariant, qtyBaseAlreadyForVariant, type DraftTransferLine } from './transferDraft';
 
 import {
   createTransferBatch,
@@ -67,21 +72,12 @@ import { VariantSearchSelect } from '../../components/VariantSearchSelect';
 import { inventoryKeys, stockOnHandQueryOptions } from '../../queries';
 import type { StockOnHandRow } from '../../types';
 
-function availableForVariant(rows: StockOnHandRow[], variantId: number): number {
-  return rows.find((r) => r.variant_id === variantId)?.available ?? 0;
+function stockRowForVariant(rows: StockOnHandRow[], variantId: number): StockOnHandRow | undefined {
+  return rows.find((r) => r.variant_id === variantId);
 }
 
-function transferStatusBadgeClass(status: string): string {
-  if (status === 'pending_dispatch') {
-    return 'border-amber-500/60 bg-amber-500/10 text-amber-950 dark:text-amber-50';
-  }
-  if (status === 'in_transit') {
-    return 'border-violet-500/60 bg-violet-500/10 text-violet-950 dark:text-violet-50';
-  }
-  if (status === 'received') {
-    return 'border-emerald-500/60 bg-emerald-500/10 text-emerald-950 dark:text-emerald-50';
-  }
-  return 'border-border bg-muted text-muted-foreground';
+function availableForVariant(rows: StockOnHandRow[], variantId: number): number {
+  return stockRowForVariant(rows, variantId)?.available ?? 0;
 }
 
 export type TransferFormProps = {
@@ -94,6 +90,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const navigate = useNavigate();
   const { t, i18n } = useTranslation('inventory');
   const { t: tc } = useTranslation('common');
+  const { t: tCatalog } = useTranslation('catalog');
   const qc = useQueryClient();
   const canUpdate = usePermission('inventory', 'update');
   const actorBranchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
@@ -114,16 +111,32 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const [to, setTo] = useState('');
   const [selectedVariant, setSelectedVariant] = useState<ProductVariantPurchasingSearchItem | null>(null);
   const [lineQty, setLineQty] = useState('1');
+  const [lineUomId, setLineUomId] = useState(0);
   const [lines, setLines] = useState<DraftTransferLine[]>([]);
+
+  const pickerProductId = selectedVariant?.product_id ?? 0;
+  const { data: pickerProduct } = useQuery({
+    queryKey: catalogKeys.product(pickerProductId),
+    queryFn: () => getProduct(pickerProductId),
+    enabled: pickerProductId > 0,
+  });
+  const lineUomOptions = useMemo(
+    () => (pickerProduct ? buildProductUomOptions(tCatalog, pickerProduct) : []),
+    [pickerProduct, tCatalog],
+  );
+
+  useEffect(() => {
+    if (lineUomOptions.length > 0) {
+      setLineUomId(lineUomOptions[0]!.id);
+    } else {
+      setLineUomId(0);
+    }
+  }, [pickerProductId, lineUomOptions]);
 
   const fromBranchName = useMemo(
     () => branches.find((b) => String(b.id) === from)?.name ?? null,
     [branches, from],
   );
-
-  const patchLine = useCallback((index: number, patch: Partial<DraftTransferLine>) => {
-    setLines((prev) => prev.map((row, j) => (j === index ? { ...row, ...patch } : row)));
-  }, []);
 
   const fromBranchId = from ? Number(from) : NaN;
   const stockQueryEnabled = Boolean(from) && Number.isFinite(fromBranchId);
@@ -145,7 +158,12 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
           if (l.variant_id == null) {
             throw new Error('unresolved_variant');
           }
-          return { product_id: l.product_id, qty: l.qty, variant_id: l.variant_id };
+          return {
+            product_id: l.product_id,
+            qty: l.qty,
+            uom_id: l.uom_id,
+            variant_id: l.variant_id,
+          };
         }),
       }),
     onSuccess: (b) => {
@@ -203,75 +221,57 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
     const newInner = (
       <>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <Label>{t('transfers.from')}</Label>
-            <Select
-              value={from}
-              onValueChange={(v) => {
-                setFrom(v);
-                setSelectedVariant(null);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {branches.map((b) => (
-                  <SelectItem key={b.id} value={String(b.id)}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>{t('transfers.to')}</Label>
-            <Select value={to} onValueChange={setTo}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {branches.map((b) => (
-                  <SelectItem key={`to-${b.id}`} value={String(b.id)}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <BranchCombobox
+            label={t('transfers.from')}
+            value={from ? Number(from) : null}
+            onChange={(id) => {
+              setFrom(id != null ? String(id) : '');
+              setSelectedVariant(null);
+            }}
+          />
+          <BranchCombobox
+            label={t('transfers.to')}
+            value={to ? Number(to) : null}
+            onChange={(id) => setTo(id != null ? String(id) : '')}
+          />
         </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-[240px] flex-1">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
+          <div className="min-w-0 md:col-span-6">
             <Label>{t('transfers.line.variant_picker')}</Label>
             <VariantSearchSelect
               value={selectedVariant?.variant_id ?? null}
               onChange={(_id, item) => setSelectedVariant(item)}
               disabled={!from || (stockQueryEnabled && stockLoading)}
             />
-            {/* Available stock hint */}
-            <p className="mt-1 text-xs text-muted-foreground">
-              {!from
-                ? t('transfers.errors.select_from_branch')
-                : stockQueryEnabled && stockLoading
-                  ? t('transfers.errors.stock_loading')
-                  : selectedVariant
-                    ? `${fromBranchName ?? t('transfers.from')}: ${availableForVariant(stockRows, selectedVariant.variant_id)} ${t('transfers.line.qty').toLowerCase()}`
-                    : null}
-            </p>
           </div>
-          <div>
+          <div className="md:col-span-2">
             <Label>{t('transfers.line.qty')}</Label>
             <Input
               value={lineQty}
               onChange={(e) => setLineQty(e.target.value)}
-              className="w-24"
+              className="h-9 w-full"
               type="number"
               min={1}
             />
           </div>
-          <Button
-            type="button"
-            onClick={() => {
+          <div className="md:col-span-2">
+            <Label>{t('transfers.line.uom')}</Label>
+            <PoLineUomSelect
+              fullWidth
+              disabled={!selectedVariant || lineUomOptions.length === 0}
+              uomId={lineUomId}
+              options={lineUomOptions}
+              onChange={setLineUomId}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="invisible hidden md:block" aria-hidden>
+              {t('actions.add_line')}
+            </Label>
+            <Button
+              type="button"
+              className="h-9 w-full"
+              onClick={() => {
               if (!from) {
                 toast.error(t('transfers.errors.select_from_branch'));
                 return;
@@ -285,44 +285,84 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                 toast.error(t('transfers.errors.select_variant'));
                 return;
               }
+              if (lineUomId <= 0) {
+                return;
+              }
               const q = Number(lineQty);
               if (!Number.isFinite(q) || q <= 0) {
                 return;
               }
               const vid = v.variant_id;
-              const already = qtyAlreadyForVariant(lines, vid);
-              const avail = availableForVariant(stockRows, vid);
-              if (already + q > avail) {
+              const qtyBase = qtyToBaseUnits(q, lineUomId, lineUomOptions);
+              const already = qtyBaseAlreadyForVariant(lines, vid);
+              const availBase = availableForVariant(stockRows, vid);
+              const uomOpt = lineUomOptions.find((o) => o.id === lineUomId);
+              const uomSym = uomOpt?.label?.split(/\s/).pop() ?? '';
+              if (already + qtyBase > availBase) {
                 toast.error(
                   t('transfers.errors.insufficient_at_source', {
-                    available: avail,
-                    requested: already + q,
+                    available: baseUnitsToDisplayQty(availBase, lineUomId, lineUomOptions),
+                    requested: baseUnitsToDisplayQty(already + qtyBase, lineUomId, lineUomOptions),
+                    uom: uomSym,
                   }),
                 );
                 return;
               }
-              setLines([...lines, draftLineFromSearchVariant(v, q)]);
+              setLines([...lines, draftLineFromSearchVariant(v, q, lineUomId, lineUomOptions)]);
               setSelectedVariant(null);
+              setLineQty('1');
             }}
-          >
-            {t('actions.add_line')}
-          </Button>
+            >
+              {t('actions.add_line')}
+            </Button>
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {!from
+            ? t('transfers.errors.select_from_branch')
+            : stockQueryEnabled && stockLoading
+              ? t('transfers.errors.stock_loading')
+              : selectedVariant && lineUomId > 0
+                ? (() => {
+                    const row = stockRowForVariant(stockRows, selectedVariant.variant_id);
+                    const uomOpt = lineUomOptions.find((o) => o.id === lineUomId);
+                    const uomSym = uomOpt?.label ?? '';
+                    if (!row) {
+                      return `${fromBranchName ?? t('transfers.from')}: 0`;
+                    }
+                    return t('transfers.line.stock_hint', {
+                      available: formatQtyWithUom(
+                        baseUnitsToDisplayQty(row.available, lineUomId, lineUomOptions),
+                        uomSym,
+                      ),
+                      reserved: formatQtyWithUom(
+                        baseUnitsToDisplayQty(row.reserved, lineUomId, lineUomOptions),
+                        uomSym,
+                      ),
+                      on_hand: formatQtyWithUom(
+                        baseUnitsToDisplayQty(row.on_hand, lineUomId, lineUomOptions),
+                        uomSym,
+                      ),
+                    });
+                  })()
+                : null}
+        </p>
         <div className="overflow-x-auto rounded-md border">
           <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[28%] text-start">{t('transfers.line.product')}</TableHead>
-                <TableHead className="w-[18%] text-start">{t('transfers.line.variant_sku')}</TableHead>
-                <TableHead className="w-[26%] text-start">{t('transfers.line.attributes')}</TableHead>
-                <TableHead className="w-[12%] text-start">{t('transfers.line.qty')}</TableHead>
+                <TableHead className="w-[22%] text-start">{t('transfers.line.product')}</TableHead>
+                <TableHead className="w-[22%] text-start">{t('transfers.line.variant_name')}</TableHead>
+                <TableHead className="w-[16%] text-start">{t('transfers.line.reference_code')}</TableHead>
+                <TableHead className="w-[10%] text-start">{t('transfers.line.qty')}</TableHead>
+                <TableHead className="w-[14%] text-start">{t('transfers.line.uom')}</TableHead>
                 <TableHead className="w-[16%] text-end">{t('transfers.line.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {lines.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
                     {t('transfers.lines_empty')}
                   </TableCell>
                 </TableRow>
@@ -330,13 +370,12 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                 lines.map((l, i) => (
                   <TableRow key={`line-${i}`}>
                     <TableCell className="align-top text-start font-medium">{l.product_name}</TableCell>
+                    <TableCell className="align-top text-start">{l.variant_name}</TableCell>
                     <TableCell className="align-top num-latin tabular-nums text-start" dir="ltr">
-                      {l.variant_sku}
-                    </TableCell>
-                    <TableCell className="align-top text-start">
-                      <TransferLineAttributesCell line={l} lineIndex={i} onPatchLine={patchLine} />
+                      {l.reference_code || '—'}
                     </TableCell>
                     <TableCell className="align-top tabular-nums text-start">{l.qty}</TableCell>
+                    <TableCell className="align-top text-start">{l.uom_label}</TableCell>
                     <TableCell className="align-top text-end">
                       <Button type="button" variant="ghost" size="sm" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
                         {t('transfers.remove_line')}
@@ -374,15 +413,16 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
               const totals = new Map<number, number>();
               for (const l of lines) {
                 if (l.variant_id == null) continue;
-                totals.set(l.variant_id, (totals.get(l.variant_id) ?? 0) + l.qty);
+                totals.set(l.variant_id, (totals.get(l.variant_id) ?? 0) + l.qty_base);
               }
-              for (const [variantId, totalQty] of totals) {
+              for (const [variantId, totalBase] of totals) {
                 const avail = availableForVariant(stockRows, variantId);
-                if (totalQty > avail) {
+                if (totalBase > avail) {
                   toast.error(
                     t('transfers.errors.insufficient_at_source', {
                       available: avail,
-                      requested: totalQty,
+                      requested: totalBase,
+                      uom: '',
                     }),
                   );
                   return;
@@ -468,9 +508,9 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const showRoleHintCard = batch.status !== 'received';
   const roleHintSingle =
     batch.status === 'pending_dispatch'
-      ? t('transfers.detail.dispatch_branch_hint')
+      ? t('transfers.detail.pending_reserve_hint')
       : batch.status === 'in_transit'
-        ? t('transfers.detail.receive_branch_hint')
+        ? t('transfers.detail.in_transit_dest_hint')
         : t('transfers.detail.dispatch_branch_hint');
 
   const transferSteps = [
@@ -487,9 +527,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
       <div className="flex flex-row flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">{t('transfers.detail.title', { id: batch.id })}</h1>
-          <Badge variant="outline" className={cn('font-medium', transferStatusBadgeClass(batch.status))}>
-            {statusLabel}
-          </Badge>
+          <StatusBadge status={batch.status} label={statusLabel} />
         </div>
         {variant === 'page' ? (
           <div className="shrink-0">
@@ -586,9 +624,10 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                 <TableRow>
                   <TableHead className="w-14">#</TableHead>
                   <TableHead>{t('transfers.line.product')}</TableHead>
-                  <TableHead>{t('transfers.line.variant_sku')}</TableHead>
-                  <TableHead>{t('transfers.line.attributes')}</TableHead>
-                  <TableHead className="w-28 text-end">{t('transfers.line.qty')}</TableHead>
+                  <TableHead>{t('transfers.line.variant_name')}</TableHead>
+                  <TableHead>{t('transfers.line.reference_code')}</TableHead>
+                  <TableHead className="w-20 text-end">{t('transfers.line.qty')}</TableHead>
+                  <TableHead className="w-24">{t('transfers.line.uom')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -600,13 +639,16 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                         ? ln.product_name
                         : `${t('transfers.line.product')} ${ln.product_id}`}
                     </TableCell>
-                    <TableCell className="num-latin tabular-nums" dir="ltr">
-                      {ln.variant_sku?.trim() ? ln.variant_sku : '—'}
+                    <TableCell className="text-sm">
+                      {ln.variant_name?.trim() || ln.variant_attributes?.trim() || '—'}
                     </TableCell>
-                    <TableCell className="max-w-[14rem] text-sm text-muted-foreground">
-                      {ln.variant_attributes?.trim() ? ln.variant_attributes : '—'}
+                    <TableCell className="num-latin tabular-nums" dir="ltr">
+                      {ln.reference_code?.trim() || '—'}
                     </TableCell>
                     <TableCell className="text-end tabular-nums">{ln.qty}</TableCell>
+                    <TableCell className="text-sm">
+                      {ln.uom_name?.trim() || '—'}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

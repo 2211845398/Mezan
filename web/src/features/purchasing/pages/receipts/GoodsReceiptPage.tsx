@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { getProductWithVariants } from '@/features/catalog/api';
+import { formatPurchasingVariantReceiveLabel } from '@/features/catalog/lib/purchasingVariantLabel';
 import { usePermission } from '@/hooks/usePermission';
 
 import GoodsReceiptFields from '../../components/GoodsReceiptFields';
@@ -43,15 +44,25 @@ export default function GoodsReceiptPage() {
     [po?.lines],
   );
 
-  const { data: productLabels = {} } = useQuery({
+  const { data: productMeta = { labels: {}, variantLabels: {} } } = useQuery({
     queryKey: ['purchasing', 'receive-labels', poId, productIds.join(',')],
     queryFn: async () => {
       const labels: Record<number, string> = {};
+      const variantLabels: Record<number, string> = {};
       for (const pid of productIds) {
         const pw = await getProductWithVariants(pid);
         labels[pid] = pw.product.name;
+        for (const v of pw.variants) {
+          variantLabels[v.id] = formatPurchasingVariantReceiveLabel({
+            display_name: pw.product.name,
+            sku: v.sku,
+            attribute_values: v.attribute_values,
+            reference_code: v.reference_code,
+            display_label: v.display_label,
+          });
+        }
       }
-      return labels;
+      return { labels, variantLabels };
     },
     enabled: !Number.isNaN(poId) && productIds.length > 0,
   });
@@ -82,7 +93,8 @@ export default function GoodsReceiptPage() {
             purchaseOrder={po}
             receipts={receipts}
             branches={branches}
-            productLabels={productLabels}
+            productLabels={productMeta.labels}
+            variantLabels={productMeta.variantLabels}
             onPosted={async () => {
               if (po.status === 'sent') {
                 try {

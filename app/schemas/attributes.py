@@ -17,6 +17,7 @@ class CatalogAttributeRead(BaseModel):
     sort_order: int
     metadata: dict[str, Any] | None = None
     value_count: int | None = None
+    usage_count: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -51,8 +52,16 @@ class CatalogAttributeCreate(BaseModel):
 
 class CatalogAttributeUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    code: str | None = Field(default=None, max_length=64)
     sort_order: int | None = None
     metadata: dict[str, Any] | None = None
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def normalize_code(cls, v: Any) -> str | None:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        return normalize_attribute_code(str(v))
 
 
 class CatalogAttributeValueRead(BaseModel):
@@ -98,8 +107,16 @@ class CatalogAttributeValueCreate(BaseModel):
 
 class CatalogAttributeValueUpdate(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=255)
+    code: str | None = Field(default=None, max_length=64)
     sort_order: int | None = None
     metadata: dict[str, Any] | None = None
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def normalize_code(cls, v: Any) -> str | None:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        return normalize_attribute_code(str(v))
 
 
 class CatalogAttributeValueMergeRequest(BaseModel):

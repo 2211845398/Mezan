@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.accounting_settings import AccountingSettings
-from app.models.chart_accounts import AccountType, ChartAccount
+from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
 from app.models.currency import Currency
 from app.models.permission import Permission
 from app.models.role import Role
@@ -345,6 +345,11 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
         ("6100", "Loyalty / Marketing Expense", AccountType.EXPENSE, False, True),
     ]
     for code, name, at, ctrl, sys in defs:
+        kind = SubledgerKind.NONE
+        if code == "1100":
+            kind = SubledgerKind.CUSTOMER
+        elif code == "2000":
+            kind = SubledgerKind.SUPPLIER
         db.add(
             ChartAccount(
                 code=code,
@@ -352,6 +357,8 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
                 account_type=at,
                 parent_id=None,
                 is_control=ctrl,
+                is_leaf=not ctrl,
+                subledger_kind=kind,
                 is_system=sys,
                 active=True,
             )
@@ -379,25 +386,45 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
     acc_res = await db.execute(select(ChartAccount).where(ChartAccount.code.in_(codes)))
     by_code = {a.code: a for a in acc_res.scalars().all()}
 
+    by_code["1100"].is_leaf = False
+
+    trade_ar = ChartAccount(
+        code="1110",
+        name="Trade Receivables",
+        account_type=AccountType.ASSET,
+        parent_id=by_code["1100"].id,
+        is_control=False,
+        is_leaf=True,
+        subledger_kind=SubledgerKind.CUSTOMER,
+        is_system=True,
+        active=True,
+    )
+    db.add(trade_ar)
+    await db.flush()
+    by_code["1110"] = trade_ar
+
     trade_ap = ChartAccount(
         code="2010",
         name="Trade Payables",
         account_type=AccountType.LIABILITY,
         parent_id=by_code["2000"].id,
         is_control=False,
+        is_leaf=True,
+        subledger_kind=SubledgerKind.SUPPLIER,
         is_system=True,
         active=True,
     )
     db.add(trade_ap)
     await db.flush()
     by_code["2010"] = trade_ap
+    by_code["2000"].is_leaf = False
 
     db.add(
         AccountingSettings(
             id=1,
             base_currency_id=cur.id,
             default_cash_account_id=by_code["1000"].id,
-            default_ar_account_id=by_code["1100"].id,
+            default_ar_account_id=by_code["1110"].id,
             default_ap_account_id=by_code["2010"].id,
             default_inventory_account_id=by_code["1200"].id,
             default_cogs_account_id=by_code["5000"].id,

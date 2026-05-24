@@ -41,11 +41,12 @@ async def post_journal_entry(
     idempotency_key: str,
     lines: list[dict],
     allow_posting_in_soft_closed: bool = False,
+    strict_subledger: bool = False,
 ) -> JournalEntry | None:
     """Insert a balanced journal batch. Returns existing entry if idempotency_key matches.
 
     Each line dict: account_id, branch_id, debit, credit; optional memo, currency_code,
-    transaction_amount, fx_rate (persisted on journal_entry_lines when provided).
+    transaction_amount, fx_rate, customer_id, supplier_id, employee_id.
     """
     existing = await db.execute(
         select(JournalEntry).where(JournalEntry.idempotency_key == idempotency_key)
@@ -56,8 +57,21 @@ async def post_journal_entry(
     if not lines:
         raise ValidationError("Journal entry must contain at least one line")
 
-    account_ids = [int(ln["account_id"]) for ln in lines]
-    await validate_accounts_for_journal_posting(db, account_ids=account_ids)
+    validation_lines = [
+        {
+            "account_id": int(ln["account_id"]),
+            "customer_id": ln.get("customer_id"),
+            "supplier_id": ln.get("supplier_id"),
+            "employee_id": ln.get("employee_id"),
+        }
+        for ln in lines
+    ]
+    if strict_subledger:
+        await validate_accounts_for_journal_posting(db, lines=validation_lines)
+    else:
+        await validate_accounts_for_journal_posting(
+            db, account_ids=[int(ln["account_id"]) for ln in lines]
+        )
 
     total_dr = Decimal("0")
     total_cr = Decimal("0")
@@ -92,6 +106,9 @@ async def post_journal_entry(
                 "currency_code": cc if isinstance(cc, str) and cc.strip() else None,
                 "transaction_amount": txn_amt,
                 "fx_rate": fx,
+                "customer_id": ln.get("customer_id"),
+                "supplier_id": ln.get("supplier_id"),
+                "employee_id": ln.get("employee_id"),
             }
         )
 
@@ -163,6 +180,12 @@ async def post_journal_entry(
             line_kw["transaction_amount"] = ln["transaction_amount"]
         if ln.get("fx_rate") is not None:
             line_kw["fx_rate"] = ln["fx_rate"]
+        if ln.get("customer_id") is not None:
+            line_kw["customer_id"] = int(ln["customer_id"])
+        if ln.get("supplier_id") is not None:
+            line_kw["supplier_id"] = int(ln["supplier_id"])
+        if ln.get("employee_id") is not None:
+            line_kw["employee_id"] = int(ln["employee_id"])
         db.add(JournalEntryLine(**line_kw))
     await db.flush()
     return je

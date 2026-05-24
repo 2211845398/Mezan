@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -53,21 +52,16 @@ export function CatalogAttributeValueCreatableMultiSelect({
 
   const trimmed = search.trim().toLowerCase();
   const filtered = useMemo(() => {
-    if (!trimmed) {
-      return values;
-    }
-    return values.filter(
-      (v) =>
-        v.label.toLowerCase().includes(trimmed) || v.code.toLowerCase().includes(trimmed),
-    );
+    if (!trimmed) return values;
+    return values.filter((v) => v.label.toLowerCase().includes(trimmed));
   }, [values, trimmed]);
 
   const canCreate =
-    trimmed.length > 0 &&
-    !values.some((v) => v.label.toLowerCase() === trimmed || v.code.toLowerCase() === trimmed);
+    trimmed.length > 0 && !values.some((v) => v.label.toLowerCase() === trimmed);
 
   const createM = useMutation({
-    mutationFn: () => createCatalogAttributeValue(attributeId, { label: search.trim() }),
+    mutationFn: (label: string) =>
+      createCatalogAttributeValue(attributeId, { label, code: null }),
     onSuccess: (val) => {
       void qc.invalidateQueries({ queryKey: valuesKey });
       if (!valueIds.includes(val.id)) {
@@ -77,6 +71,12 @@ export function CatalogAttributeValueCreatableMultiSelect({
     },
     onError: (err) => notifyApiError(err, t('errors.generic')),
   });
+
+  const beginCreate = (label: string) => {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) return;
+    createM.mutate(trimmedLabel);
+  };
 
   const toggle = (id: number) => {
     if (valueIds.includes(id)) {
@@ -92,24 +92,6 @@ export function CatalogAttributeValueCreatableMultiSelect({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-2">
-      {selectedLabels.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
-          {selectedLabels.map(({ id, label }) => (
-            <Badge key={id} variant="secondary" className="gap-1 pe-1">
-              {label}
-              <button
-                type="button"
-                className="rounded-full hover:bg-muted"
-                disabled={disabled}
-                onClick={() => remove(id)}
-                aria-label={t('actions.delete')}
-              >
-                <X className="size-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-      ) : null}
       <Popover modal={false} open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -138,7 +120,7 @@ export function CatalogAttributeValueCreatableMultiSelect({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && canCreate && !createM.isPending) {
                 e.preventDefault();
-                createM.mutate();
+                beginCreate(search);
               }
             }}
           >
@@ -153,7 +135,7 @@ export function CatalogAttributeValueCreatableMultiSelect({
                 {filtered.map((v) => {
                   const picked = valueIds.includes(v.id);
                   return (
-                    <CommandItem key={v.id} value={`${v.label} ${v.code}`} onSelect={() => toggle(v.id)}>
+                    <CommandItem key={v.id} value={v.label} onSelect={() => toggle(v.id)}>
                       <Check className={cn('me-2 size-4', picked ? 'opacity-100' : 'opacity-0')} />
                       {v.label}
                     </CommandItem>
@@ -162,7 +144,7 @@ export function CatalogAttributeValueCreatableMultiSelect({
                 {canCreate ? (
                   <CommandItem
                     value={`__create__${search}`}
-                    onSelect={() => createM.mutate()}
+                    onSelect={() => beginCreate(search)}
                     disabled={createM.isPending}
                   >
                     <Plus className="me-2 size-4" />
@@ -174,6 +156,27 @@ export function CatalogAttributeValueCreatableMultiSelect({
           </Command>
         </PopoverContent>
       </Popover>
+      {selectedLabels.length > 0 ? (
+        <div className="flex flex-wrap justify-start gap-2">
+          {selectedLabels.map(({ id, label }) => (
+            <span
+              key={id}
+              className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary/10 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm"
+            >
+              {label}
+              <button
+                type="button"
+                className="rounded-full hover:bg-primary/15"
+                disabled={disabled}
+                onClick={() => remove(id)}
+                aria-label={t('actions.delete')}
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

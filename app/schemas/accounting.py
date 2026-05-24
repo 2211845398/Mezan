@@ -197,6 +197,11 @@ class GeneralLedgerLineRead(BaseModel):
     credit: Decimal
     branch_id: int
     memo: str | None = None
+    customer_id: int | None = None
+    supplier_id: int | None = None
+    employee_id: int | None = None
+    partner_display_name: str | None = None
+    running_balance: Decimal
 
     model_config = ConfigDict(json_encoders={Decimal: str})
 
@@ -230,6 +235,10 @@ class JournalEntryLineRead(BaseModel):
     debit: Decimal
     credit: Decimal
     memo: str | None = None
+    customer_id: int | None = None
+    supplier_id: int | None = None
+    employee_id: int | None = None
+    subledger_kind: str | None = None
 
     model_config = ConfigDict(json_encoders={Decimal: str})
 
@@ -273,6 +282,9 @@ class ManualJournalLineIn(BaseModel):
     debit: Decimal = Field(default=Decimal("0"))
     credit: Decimal = Field(default=Decimal("0"))
     memo: str | None = Field(default=None, max_length=512)
+    customer_id: int | None = None
+    supplier_id: int | None = None
+    employee_id: int | None = None
 
 
 class ManualJournalCreate(BaseModel):

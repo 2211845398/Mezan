@@ -24,7 +24,14 @@ class PurchaseOrderLine(Base):
         ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    uom_id: Mapped[int] = mapped_column(
+        ForeignKey("units_of_measure.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    qty_base: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
 
     purchase_order = relationship("PurchaseOrder", back_populates="lines")
     product = relationship("Product")
+    unit_of_measure = relationship("UnitOfMeasure")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.encoders import jsonable_encoder
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,10 +13,6 @@ from app.core.config import settings
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.catalog import (
-    CategoryAttributeDefCreate,
-    CategoryAttributeDefListRead,
-    CategoryAttributeDefRead,
-    CategoryAttributeDefUpdate,
     CategoryCreate,
     CategoryImageUploadRead,
     CategoryRead,
@@ -30,6 +26,7 @@ from app.schemas.catalog import (
     TaxDefinitionCreate,
     TaxDefinitionRead,
     TaxDefinitionUpdate,
+    UnitOfMeasureRead,
 )
 from app.schemas.variant_generation import (
     VariantPreviewRequest,
@@ -40,6 +37,8 @@ from app.schemas.variant_generation import (
 from app.services import audit_service
 from app.schemas.variant_generation import ProductWithVariantsRead
 from app.services.variant_attribute_service import (
+    export_variant_barcodes_csv,
+    generate_missing_variant_barcodes,
     get_product_with_variants,
     preview_generate_variants,
     sync_product_variant_configuration,
@@ -49,21 +48,18 @@ from app.services.catalog_service import (
     archive_tax_definition,
     count_products,
     create_category,
-    create_category_attribute_def,
     create_product,
     create_tax_definition,
     delete_category,
-    delete_category_attribute_def,
-    filter_products_by_attributes,
     generate_product_barcode,
     get_category,
     get_product,
     get_tax_definition_row,
     list_categories,
-    list_category_attribute_defs_for_ui,
     list_category_tree,
     list_products,
     list_tax_definitions,
+    list_units_of_measure,
     product_to_read,
     products_to_reads,
     save_category_image_bytes,
@@ -71,12 +67,20 @@ from app.services.catalog_service import (
     search_product_variants_for_purchasing,
     unarchive_product,
     update_category,
-    update_category_attribute_def,
     update_product,
     update_tax_definition,
 )
 
 router = APIRouter()
+
+
+@router.get("/units-of-measure", response_model=list[UnitOfMeasureRead])
+async def list_units_of_measure_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_any_permission(("catalog", "read"), ("catalog", "create")),
+) -> list[UnitOfMeasureRead]:
+    return await list_units_of_measure(db)
 
 
 # Categories
@@ -210,124 +214,6 @@ async def delete_category_endpoint(
     await db.commit()
 
 
-# Category attribute definitions
-@router.get(
-    "/categories/{category_id}/attributes",
-    response_model=list[CategoryAttributeDefListRead],
-)
-async def list_category_attributes_endpoint(
-    category_id: int,
-    include_inherited: bool = Query(
-        False,
-        description="Include ancestor definitions not overridden on this category.",
-    ),
-    db: AsyncSession = Depends(get_db),
-    _: None = Depends(get_current_user),
-    __: None = require_any_permission(
-        ("catalog", "read"),
-        ("inventory", "read"),
-        ("inventory", "update"),
-    ),
-) -> list[CategoryAttributeDefListRead]:
-    rows = await list_category_attribute_defs_for_ui(
-        db, category_id=category_id, include_inherited=include_inherited
-    )
-    out: list[CategoryAttributeDefListRead] = []
-    for rec, is_inherited, src_name in rows:
-        base = CategoryAttributeDefRead.model_validate(rec)
-        out.append(
-            CategoryAttributeDefListRead(
-                **base.model_dump(),
-                is_inherited=is_inherited,
-                source_category_name=src_name,
-            )
-        )
-    return out
-
-
-@router.post(
-    "/categories/{category_id}/attributes",
-    response_model=CategoryAttributeDefRead,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_category_attribute_endpoint(
-    category_id: int,
-    body: CategoryAttributeDefCreate,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("catalog", "update"),
-) -> CategoryAttributeDefRead:
-    rec = await create_category_attribute_def(db, category_id=category_id, data=body.model_dump())
-    await audit_service.log(
-        session=db,
-        action="category_attribute_def.created",
-        resource_type="category_attribute_def",
-        resource_id=str(rec.id),
-        new_value=CategoryAttributeDefRead.model_validate(rec).model_dump(),
-        user_id=current_user.id,
-        request=request,
-    )
-    await db.commit()
-    return CategoryAttributeDefRead.model_validate(rec)
-
-
-@router.patch(
-    "/categories/{category_id}/attributes/{attr_id}",
-    response_model=CategoryAttributeDefRead,
-)
-async def update_category_attribute_endpoint(
-    category_id: int,
-    attr_id: int,
-    body: CategoryAttributeDefUpdate,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("catalog", "update"),
-) -> CategoryAttributeDefRead:
-    rec = await update_category_attribute_def(
-        db,
-        category_id=category_id,
-        attr_id=attr_id,
-        data=body.model_dump(exclude_unset=True),
-    )
-    await audit_service.log(
-        session=db,
-        action="category_attribute_def.updated",
-        resource_type="category_attribute_def",
-        resource_id=str(rec.id),
-        new_value=CategoryAttributeDefRead.model_validate(rec).model_dump(),
-        user_id=current_user.id,
-        request=request,
-    )
-    await db.commit()
-    return CategoryAttributeDefRead.model_validate(rec)
-
-
-@router.delete(
-    "/categories/{category_id}/attributes/{attr_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_category_attribute_endpoint(
-    category_id: int,
-    attr_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _: None = require_permission("catalog", "update"),
-) -> None:
-    await delete_category_attribute_def(db, category_id=category_id, attr_id=attr_id)
-    await audit_service.log(
-        session=db,
-        action="category_attribute_def.deleted",
-        resource_type="category_attribute_def",
-        resource_id=str(attr_id),
-        user_id=current_user.id,
-        request=request,
-    )
-    await db.commit()
-
-
 # Tax definitions (catalog output taxes)
 @router.get("/tax-definitions", response_model=list[TaxDefinitionRead])
 async def list_tax_definitions_endpoint(
@@ -427,6 +313,7 @@ async def archive_tax_definition_endpoint(
 )
 async def search_product_variants_endpoint(
     q: str | None = None,
+    product_id: int | None = None,
     attribute_value_id: int | None = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -441,7 +328,12 @@ async def search_product_variants_endpoint(
 ) -> list[ProductVariantPurchasingSearchItem]:
     """Search stock-keeping variants for purchasing line pickers (display name = product)."""
     return await search_product_variants_for_purchasing(
-        db, q=q, limit=limit, offset=offset, attribute_value_id=attribute_value_id
+        db,
+        q=q,
+        limit=limit,
+        offset=offset,
+        attribute_value_id=attribute_value_id,
+        product_id=product_id,
     )
 
 
@@ -454,7 +346,7 @@ async def create_product_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("catalog", "create"),
 ) -> ProductRead:
-    """Create a product; prefer `sell_price` over `attributes.price` going forward."""
+    """Create a product. Variant axes are configured through global attributes."""
     product = await create_product(db, data=body.model_dump(exclude_none=True))
     read = await product_to_read(db, product)
     await audit_service.log(
@@ -495,7 +387,6 @@ async def list_products_endpoint(
         category_id=category_id,
         category_include_descendants=category_include_descendants,
         status=status,
-        attributes_filter=None,
         branch_id=branch_id,
         in_stock_only=in_stock_only,
     )
@@ -568,7 +459,7 @@ async def update_product_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("catalog", "update"),
 ) -> ProductRead:
-    """Update a product; `attributes.price` remains accepted as a temporary compatibility path."""
+    """Update a product. Category-bound product attributes are not accepted."""
     product = await update_product(
         db, product_id=product_id, data=body.model_dump(exclude_unset=True)
     )
@@ -655,33 +546,6 @@ async def generate_barcode_endpoint(
     return read
 
 
-# Epic 18.8: Attribute-based product filtering
-@router.post("/products/filter-by-attributes", response_model=list[ProductRead])
-async def filter_products_by_attributes_endpoint(
-    category_id: int | None = None,
-    attributes_filter: dict | None = None,
-    limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-    db: AsyncSession = Depends(get_db),
-    _: None = Depends(get_current_user),
-    __: None = require_permission("catalog", "read"),
-) -> list[ProductRead]:
-    """Filter products by category and multiple attributes.
-
-    Example: {"color": "red", "size": "L"} finds products with both attributes.
-    """
-    if attributes_filter is None:
-        attributes_filter = {}
-    rows = await filter_products_by_attributes(
-        db,
-        category_id=category_id,
-        attributes_filter=attributes_filter,
-        limit=limit,
-        offset=offset,
-    )
-    return await products_to_reads(db, rows)
-
-
 @router.post(
     "/products/{product_id}/variants/preview-generate",
     response_model=VariantPreviewResponse,
@@ -740,3 +604,45 @@ async def get_product_with_variants_endpoint(
 ) -> ProductWithVariantsRead:
     """Get product template with saved axes, variants, stock, and costs."""
     return await get_product_with_variants(db, product_id)
+
+
+@router.get("/products/{product_id}/variants/barcode-export")
+async def export_variant_barcodes_endpoint(
+    product_id: int,
+    active_only: bool = Query(default=True),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("catalog", "read"),
+) -> Response:
+    csv_text = await export_variant_barcodes_csv(
+        db, product_id=product_id, active_only=active_only
+    )
+    return Response(
+        content=csv_text.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="product_{product_id}_barcodes.csv"'
+        },
+    )
+
+
+@router.post("/products/{product_id}/variants/generate-barcodes")
+async def generate_variant_barcodes_endpoint(
+    product_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("catalog", "update"),
+) -> dict[str, int]:
+    assigned = await generate_missing_variant_barcodes(db, product_id=product_id)
+    await audit_service.log(
+        session=db,
+        action="product.variant_barcodes_generated",
+        resource_type="product",
+        resource_id=str(product_id),
+        user_id=current_user.id,
+        request=request,
+        details={"assigned": assigned},
+    )
+    await db.commit()
+    return {"assigned": assigned}

@@ -62,7 +62,11 @@ class SalesInvoiceDetailRead(BaseModel):
     cart_id: int
     terminal_id: int
     branch_id: int
+    branch_name: str | None = None
     customer_id: int | None = None
+    customer_display: str | None = None
+    currency_code: str | None = None
+    company_legal_name: str | None = None
     subtotal: Decimal
     discount_total: Decimal
     tax_total: Decimal

@@ -21,6 +21,8 @@ import { formatCurrency } from '@/lib/format';
 import { notify } from '@/lib/toast';
 
 import type { SalesInvoiceListItem } from '../api';
+import { A4InvoicePrintButton } from '@/features/sales/print/A4InvoicePrintDialog';
+
 import { ReceiptModal } from '../components/ReceiptModal';
 import { thermalModelFromInvoiceDetail } from '../print/mapModel';
 import type { ThermalReceiptModel } from '../print/types';
@@ -184,6 +186,7 @@ export default function InvoiceLookup() {
                         >
                           {t('invoices.reprint')}
                         </Button>
+                        <A4InvoicePrintButton invoiceId={r.id} />
                         <Can resource="sales_invoices" action="void">
                           <Button
                             type="button"

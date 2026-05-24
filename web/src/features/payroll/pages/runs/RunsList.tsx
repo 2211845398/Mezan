@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { MonthYearField, type MonthYearValue } from '@/components/shared/form';
@@ -132,7 +133,10 @@ export default function RunsList() {
         {
           id: 'status',
           header: t('col.status'),
-          cell: ({ row }) => statusLabel(row.original.status, t),
+          cell: ({ row }) => {
+            const s = row.original.status;
+            return <StatusBadge status={s} label={statusLabel(s, t)} />;
+          },
         },
         {
           id: 'net',

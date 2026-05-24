@@ -9,7 +9,7 @@ import type { SortState, UrlQuery } from './types';
  *
  * Encoding:
  *   ?page=1
- *   &pageSize=20
+ *   &pageSize=10
  *   &sort=column:asc  (or  column:desc ;  empty = no sort)
  *   &q=free-text-search
  */
@@ -43,7 +43,7 @@ export function useTableUrlState(defaults?: Partial<UrlQuery>): [
     return {
       page: Number.isFinite(p) && p > 0 ? p : (defaults?.page ?? 1),
       pageSize:
-        Number.isFinite(ps) && ps > 0 ? ps : (defaults?.pageSize ?? 20),
+        Number.isFinite(ps) && ps > 0 ? ps : (defaults?.pageSize ?? 10),
       sort: parseSort(searchParams.get('sort')) ?? defaults?.sort ?? null,
       q: searchParams.get('q') ?? defaults?.q ?? '',
     };

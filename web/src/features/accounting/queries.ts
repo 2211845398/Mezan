@@ -14,6 +14,7 @@ export const accountingKeys = {
   }) => [...accountingKeys.root, 'journals', q] as const,
   journal: (id: number) => [...accountingKeys.root, 'journal', id] as const,
   chartAccounts: () => [...accountingKeys.root, 'chart-accounts'] as const,
+  postableAccounts: () => [...accountingKeys.root, 'chart-accounts', 'postable'] as const,
   trialBalance: (p: { as_of: string; branch_id?: number }) =>
     [...accountingKeys.root, 'tb', p] as const,
   incomeStatement: (p: { period_start: string; period_end: string; branch_id?: number }) =>
@@ -25,6 +26,9 @@ export const accountingKeys = {
     date_from: string;
     date_to: string;
     branch_id?: number;
+    customer_id?: number;
+    supplier_id?: number;
+    employee_id?: number;
   }) => [...accountingKeys.root, 'gl', p] as const,
   arOpen: (p: { branch_id?: number; status?: string }) =>
     [...accountingKeys.root, 'ar', p] as const,
@@ -89,10 +93,24 @@ export function journalDetailQueryOptions(id: number) {
   });
 }
 
-export function chartAccountsQueryOptions() {
+export function postableAccountsQueryOptions() {
   return queryOptions({
-    queryKey: accountingKeys.chartAccounts(),
-    queryFn: () => api.listChartAccounts(false),
+    queryKey: accountingKeys.postableAccounts(),
+    queryFn: () => api.listPostableChartAccounts(),
+  });
+}
+
+export function chartAccountsQueryOptions(includeInactive = false) {
+  return queryOptions({
+    queryKey: [...accountingKeys.chartAccounts(), includeInactive] as const,
+    queryFn: () => api.listChartAccounts(includeInactive),
+  });
+}
+
+export function chartAccountsTreeQueryOptions(activeOnly = false) {
+  return queryOptions({
+    queryKey: [...accountingKeys.chartAccountsTree(), activeOnly] as const,
+    queryFn: () => api.listChartAccountsTree(activeOnly),
   });
 }
 
@@ -126,6 +144,9 @@ export function generalLedgerQueryOptions(p: {
   date_from: string;
   date_to: string;
   branch_id?: number;
+  customer_id?: number;
+  supplier_id?: number;
+  employee_id?: number;
 }) {
   return queryOptions({
     queryKey: accountingKeys.gl(p),

@@ -40,6 +40,8 @@ class StockOnHandRowRead(BaseModel):
     sku: str
     variant_sku: str = ""
     variant_attributes: str = ""
+    variant_name: str = ""
+    reference_code: str = ""
     product_name: str
     product_image_url: str | None = Field(
         default=None,

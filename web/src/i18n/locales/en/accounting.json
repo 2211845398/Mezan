@@ -72,7 +72,15 @@
     "branch": "Branch",
     "add_line": "Add line",
     "submit": "Post",
-    "saved": "Journal posted"
+    "saved": "Journal posted",
+    "totals": "Totals",
+    "difference": "Difference",
+    "subledger": {
+      "entity": "Entity",
+      "customer": "Select customer",
+      "supplier": "Select supplier",
+      "employee": "Select employee"
+    }
   },
   "reversal": {
     "title": "Reverse journal #{{id}}",
@@ -128,10 +136,14 @@
   "gl": {
     "title": "General ledger",
     "account": "Account",
+    "subledger_filter": "Entity filter",
+    "all_entities": "All entities",
+    "open_in_new_tab": "Open in new tab",
     "col": {
       "date": "Date",
       "je": "JE #",
       "desc": "Description",
+      "partner": "Entity",
       "balance": "Running balance"
     }
   },
@@ -201,7 +213,8 @@
       "production": "Production"
     },
     "tree": {
-      "title": "Chart of accounts"
+      "title": "Chart of accounts",
+      "link_hint": "Chart of accounts management now lives on a dedicated dual-panel page (balance sheet and income statement)."
     },
     "voucher": {
       "title": "Receipt / Payment voucher",
@@ -313,6 +326,53 @@
       "rate": "Exchange rate to base",
       "rate_hint": "Units of base currency per 1 unit of this currency. Leave empty for base-like setup.",
       "save": "Save"
+    }
+  },
+  "coa": {
+    "title": "Chart of accounts",
+    "open_page": "Open chart of accounts",
+    "balance_sheet": "Balance sheet",
+    "income_statement": "Income statement",
+    "new_group": "New group",
+    "new_account": "New account",
+    "edit": "Edit",
+    "save": "Save",
+    "create": "Create",
+    "created": "Created",
+    "saved": "Saved",
+    "loading": "Loading…",
+    "empty": "No accounts in this panel.",
+    "name": "Name",
+    "code": "Code",
+    "parent": "Parent group",
+    "parent_placeholder": "Select parent group",
+    "parent_required": "Select parent group",
+    "parent_none": "No parent",
+    "parent_search": "Search groups…",
+    "parent_empty": "No groups found",
+    "subledger_kind": "Sub-ledger kind",
+    "system_account": "System",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "group_new_title": "New group",
+    "group_edit_title": "Edit group",
+    "account_new_title": "New account",
+    "account_edit_title": "Edit account",
+    "col": {
+      "name": "Name",
+      "code": "Code",
+      "actions": "Actions"
+    },
+    "subledger": {
+      "none": "None",
+      "customer": "Customers",
+      "supplier": "Suppliers",
+      "employee": "Employees"
+    },
+    "validation": {
+      "name": "Name is required",
+      "code": "Code is required",
+      "parent": "Parent group is required"
     }
   },
   "payment_terms": {

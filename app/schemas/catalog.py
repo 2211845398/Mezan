@@ -51,6 +51,33 @@ class ProductImageUploadRead(BaseModel):
     image_url: str = Field(min_length=1, max_length=1024)
 
 
+class UnitOfMeasureRead(BaseModel):
+    id: int
+    code: str
+    name: str
+    symbol: str
+    measurement_category: str = "discrete"
+
+    model_config = {"from_attributes": True}
+
+
+class ProductAlternativeUomWrite(BaseModel):
+    uom_id: int
+    factor_to_base: int = Field(
+        gt=0,
+        description="Whole number of base units in one unit of this alternative UoM.",
+    )
+
+
+class ProductAlternativeUomRead(BaseModel):
+    uom_id: int
+    uom_code: str
+    uom_name: str
+    uom_symbol: str
+    measurement_category: str
+    factor_to_base: int
+
+
 class ProductVariantPurchasingSearchItem(BaseModel):
     """Variant row for purchasing UIs (display name is the parent product)."""
 
@@ -59,7 +86,9 @@ class ProductVariantPurchasingSearchItem(BaseModel):
     category_id: int
     display_name: str
     sku: str
+    reference_code: str | None = None
     barcode: str | None = None
+    variant_label: str = ""
     variant_attributes: str = ""
     attribute_values: dict[str, Any] | None = None
 
@@ -67,50 +96,6 @@ class ProductVariantPurchasingSearchItem(BaseModel):
 class CategoryTreeNode(CategoryRead):
     children: list[CategoryTreeNode] = Field(default_factory=list)
     direct_product_count: int = 0
-
-
-class CategoryAttributeDefBase(BaseModel):
-    key: str = Field(min_length=1, max_length=64)
-    label: str = Field(min_length=1, max_length=255)
-    type: str = Field(min_length=1, max_length=32)
-    required: bool = False
-    options: dict[str, Any] | None = None
-    validation: dict[str, Any] | None = None
-    sort_order: int = 0
-    attribute_id: int | None = None
-    use_for_variants: bool = False
-
-
-class CategoryAttributeDefCreate(CategoryAttributeDefBase):
-    pass
-
-
-class CategoryAttributeDefUpdate(BaseModel):
-    label: str | None = Field(default=None, min_length=1, max_length=255)
-    type: str | None = Field(default=None, min_length=1, max_length=32)
-    required: bool | None = None
-    options: dict[str, Any] | None = None
-    validation: dict[str, Any] | None = None
-    sort_order: int | None = None
-    attribute_id: int | None = None
-    use_for_variants: bool | None = None
-
-
-class CategoryAttributeDefRead(CategoryAttributeDefBase):
-    id: int
-    category_id: int
-    inherited_from_category_id: int | None = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class CategoryAttributeDefListRead(CategoryAttributeDefRead):
-    """Attribute row as shown on a category admin page (own + optional inherited/virtual)."""
-
-    is_inherited: bool = False
-    source_category_name: str | None = None
 
 
 class TaxDefinitionCreate(BaseModel):
@@ -168,7 +153,6 @@ class ProductBase(BaseModel):
     sku: str = Field(min_length=1, max_length=128)
     barcode: str | None = Field(default=None, max_length=128)
     status: str = Field(default="active", max_length=32)
-    attributes: dict[str, Any] = Field(default_factory=dict)
     standard_cost: Decimal | None = None
     output_vat_rate: Decimal = Field(
         default=Decimal("0"),
@@ -177,6 +161,10 @@ class ProductBase(BaseModel):
         description="Tax-exclusive rate fraction, e.g. 0.15 for 15%",
     )
     image_url: str | None = Field(default=None, max_length=1024)
+    uom_id: int | None = Field(
+        default=None,
+        description="Unit of measure; defaults to Piece when omitted.",
+    )
 
 
 class ProductCreate(BaseModel):
@@ -187,11 +175,10 @@ class ProductCreate(BaseModel):
     sku: str | None = Field(
         default=None,
         max_length=128,
-        description="Omit or leave empty to auto-generate a unique SKU (e.g. PRD-000000001).",
+        description="Omit or leave empty to auto-generate from category slug + id (e.g. BEV-010). English letters, numbers, hyphens only.",
     )
     barcode: str | None = Field(default=None, max_length=128)
     status: str = Field(default="active", max_length=32)
-    attributes: dict[str, Any] = Field(default_factory=dict)
     standard_cost: Decimal | None = None
     output_vat_rate: Decimal = Field(
         default=Decimal("0"),
@@ -202,7 +189,7 @@ class ProductCreate(BaseModel):
     image_url: str | None = Field(default=None, max_length=1024)
     sell_price: Decimal | None = Field(
         default=None,
-        description="Preferred sell-price input. `attributes.price` remains accepted for compatibility.",
+        description="Preferred sell-price input.",
     )
     sell_price_currency_id: int | None = None
     category_ids: list[int] | None = Field(
@@ -212,6 +199,14 @@ class ProductCreate(BaseModel):
     tax_definition_ids: list[int] | None = Field(
         default=None,
         description="Output tax definitions applied to this product (parallel rates on exclusive base).",
+    )
+    uom_id: int | None = Field(
+        default=None,
+        description="Base unit of measure; defaults to Piece when omitted.",
+    )
+    alternative_uoms: list[ProductAlternativeUomWrite] | None = Field(
+        default=None,
+        description="Alternative units with conversion factor to the base unit.",
     )
 
     @field_validator("sku", mode="before")
@@ -231,7 +226,6 @@ class ProductUpdate(BaseModel):
     sku: str | None = Field(default=None, min_length=1, max_length=128)
     barcode: str | None = Field(default=None, max_length=128)
     status: str | None = Field(default=None, max_length=32)
-    attributes: dict[str, Any] | None = None
     standard_cost: Decimal | None = None
     output_vat_rate: Decimal | None = Field(
         default=None,
@@ -240,7 +234,7 @@ class ProductUpdate(BaseModel):
     )
     sell_price: Decimal | None = Field(
         default=None,
-        description="Preferred sell-price input. `attributes.price` remains accepted for compatibility.",
+        description="Preferred sell-price input.",
     )
     sell_price_currency_id: int | None = None
     category_ids: list[int] | None = Field(
@@ -252,6 +246,14 @@ class ProductUpdate(BaseModel):
         description="Replace applied tax definitions; omit to leave unchanged.",
     )
     image_url: str | None = Field(default=None, max_length=1024)
+    uom_id: int | None = Field(
+        default=None,
+        description="Base unit of measure; omit to leave unchanged.",
+    )
+    alternative_uoms: list[ProductAlternativeUomWrite] | None = Field(
+        default=None,
+        description="Replace alternative units; omit to leave unchanged.",
+    )
 
 
 class ProductRead(ProductBase):
@@ -268,7 +270,17 @@ class ProductRead(ProductBase):
     )
     variant_count: int = Field(
         default=0,
-        description="Number of product variants (stock-keeping units) for this template.",
+        description="Number of active product variants for this template.",
+    )
+    has_variants: bool = Field(
+        default=False,
+        description="True when the product has more than one active variant.",
+    )
+    uom_name: str = Field(default="Piece", description="Display name of the base unit of measure.")
+    uom_symbol: str = Field(default="pcs", description="Short symbol for base quantities.")
+    alternative_uoms: list[ProductAlternativeUomRead] = Field(
+        default_factory=list,
+        description="Alternative units with conversion to the base unit.",
     )
 
     model_config = {"from_attributes": True}

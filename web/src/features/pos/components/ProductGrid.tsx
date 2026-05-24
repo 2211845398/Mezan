@@ -9,6 +9,7 @@ import { resolveMediaUrl } from '@/lib/mediaUrl';
 export type ProductGridProps = {
   disabled?: boolean;
   onAddProduct: (productId: number, qty?: number) => void;
+  onPickProductWithVariants: (product: ProductRead) => void;
   /** Branch for stock filter (with {@link inStockOnly}). */
   branchId?: number | null;
   /** When true and {@link branchId} is set, only products with on_hand > 0 are listed. */
@@ -21,17 +22,23 @@ function productImageSrc(product: ProductRead): string | null {
   return resolveMediaUrl(raw) ?? raw;
 }
 
+function productHasVariants(product: ProductRead): boolean {
+  if (product.has_variants === true) return true;
+  return (product.variant_count ?? 0) > 1;
+}
+
 /** Single click = +1 after short delay; second click before delay = double-click → +2 total (POS convention). */
 const ProductTile = memo(function ProductTile({
   product,
   disabled,
   onAddProduct,
+  onPickProductWithVariants,
 }: {
   product: ProductRead;
   disabled: boolean;
   onAddProduct: (productId: number, qty?: number) => void;
+  onPickProductWithVariants: (product: ProductRead) => void;
 }) {
-  /** DOM timer id (`number` in browsers). */
   const clickTimerRef = useRef<number | null>(null);
 
   useEffect(
@@ -45,6 +52,14 @@ const ProductTile = memo(function ProductTile({
 
   const imgSrc = productImageSrc(product);
 
+  const handleAdd = (qty: number) => {
+    if (productHasVariants(product)) {
+      onPickProductWithVariants(product);
+      return;
+    }
+    onAddProduct(product.id, qty);
+  };
+
   return (
     <button
       type="button"
@@ -53,12 +68,12 @@ const ProductTile = memo(function ProductTile({
         if (clickTimerRef.current != null) {
           window.clearTimeout(clickTimerRef.current);
           clickTimerRef.current = null;
-          onAddProduct(product.id, 2);
+          handleAdd(2);
           return;
         }
         clickTimerRef.current = window.setTimeout(() => {
           clickTimerRef.current = null;
-          onAddProduct(product.id, 1);
+          handleAdd(1);
         }, 280);
       }}
       className="group flex min-h-0 flex-col overflow-hidden rounded-xl border bg-[#fcfbf8] text-start text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
@@ -84,7 +99,13 @@ const ProductTile = memo(function ProductTile({
   );
 });
 
-export function ProductGrid({ disabled, onAddProduct, branchId, inStockOnly }: ProductGridProps) {
+export function ProductGrid({
+  disabled,
+  onAddProduct,
+  onPickProductWithVariants,
+  branchId,
+  inStockOnly,
+}: ProductGridProps) {
   const [q, setQ] = useState('');
 
   const params = useMemo((): ListProductsParams => {
@@ -122,7 +143,13 @@ export function ProductGrid({ disabled, onAddProduct, branchId, inStockOnly }: P
       <div className="min-h-0 flex-1 overflow-y-auto px-0.5 pt-3">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-4">
           {products.map((product) => (
-            <ProductTile key={product.id} product={product} disabled={!!disabled} onAddProduct={onAddProduct} />
+            <ProductTile
+              key={product.id}
+              product={product}
+              disabled={!!disabled}
+              onAddProduct={onAddProduct}
+              onPickProductWithVariants={onPickProductWithVariants}
+            />
           ))}
         </div>
         {!products.length ? (

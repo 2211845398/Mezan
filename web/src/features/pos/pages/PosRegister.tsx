@@ -18,6 +18,8 @@ import { thermalModelFromCreditNote } from '../print/mapModel';
 import { CustomerPicker } from '../components/CustomerPicker';
 import { PosQuickAddCustomerDialog } from '../components/PosQuickAddCustomerDialog';
 import { ProductGrid } from '../components/ProductGrid';
+import { PosVariantPickerDialog } from '../components/PosVariantPickerDialog';
+import type { ProductRead } from '@/features/catalog/api';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { RegisterCartColumn } from '../components/RegisterCartColumn';
 import { PosDrawerMovementDialog } from '../components/PosDrawerMovementDialog';
@@ -115,6 +117,7 @@ function RegisterSession({
 
   const [tenderOpen, setTenderOpen] = useState(false);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+  const [variantPickerProduct, setVariantPickerProduct] = useState<ProductRead | null>(null);
 
   const addLine = useAddLine(cartId);
   /** Serialize add-line calls so each POST sees the previous response (avoids stale absolute qty races). */
@@ -153,12 +156,16 @@ function RegisterSession({
     }
   }, [cancelCart, cartId, qc]);
 
-  function onAddLine(productId: number, qty = 1) {
+  function onAddLine(productId: number, qty = 1, variantId?: number) {
     const pid = productId;
     if (!Number.isFinite(pid)) return;
     addLineChainRef.current = addLineChainRef.current
       .then(async () => {
-        await addLine.mutateAsync({ product_id: pid, qty });
+        await addLine.mutateAsync({
+          product_id: pid,
+          qty,
+          ...(variantId != null && variantId > 0 ? { variant_id: variantId } : {}),
+        });
       })
       .catch((e) => {
         notify.error(getApiErrorMessage(e));
@@ -284,20 +291,6 @@ function RegisterSession({
     }
   }
 
-  async function handleCancelCart() {
-    try {
-      if (activeCart.status === 'checkout_locked') {
-        await cancelCart.mutateAsync();
-        setTenderOpen(false);
-        return;
-      }
-      await cancelCart.mutateAsync();
-      await onOpenFreshCart({ dropDetailFor: cartId });
-    } catch (error) {
-      notifyApiError(error);
-    }
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(calc(24rem_-_50px),2.35fr)_minmax(calc(13rem_+_50px),1.32fr)_minmax(0,2.85fr)] xl:grid-rows-1 xl:gap-4 xl:overflow-hidden">
@@ -306,9 +299,9 @@ function RegisterSession({
           editable={editable}
           isLocked={isLocked}
           transactionsInShift={transactionsInShift}
-          onQtyChange={(lineId, productId, qty) => {
+          onQtyChange={(lineId, productId, variantId, qty) => {
             void updateQty
-              .mutateAsync({ line_id: lineId, product_id: productId, qty })
+              .mutateAsync({ line_id: lineId, product_id: productId, variant_id: variantId, qty })
               .catch((error) => notifyApiError(error));
           }}
           currency={POS_CURRENCY}
@@ -341,7 +334,6 @@ function RegisterSession({
           onCheckout={() => void openCheckout()}
           onPark={() => void handlePark()}
           onNewCart={() => void handlePark()}
-          onCancelCart={() => void handleCancelCart()}
           onShowParked={onShowParked}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 px-0.5 pt-2 sm:px-1">
@@ -381,6 +373,21 @@ function RegisterSession({
             branchId={posBranchId}
             inStockOnly
             onAddProduct={(productId, qty) => void onAddLine(productId, qty)}
+            onPickProductWithVariants={(product) => setVariantPickerProduct(product)}
+          />
+          <PosVariantPickerDialog
+            open={variantPickerProduct != null}
+            productId={variantPickerProduct?.id ?? null}
+            productName={variantPickerProduct?.name ?? ''}
+            branchId={posBranchId}
+            onOpenChange={(open) => {
+              if (!open) setVariantPickerProduct(null);
+            }}
+            onSelectVariant={(variantId) => {
+              const p = variantPickerProduct;
+              if (p) void onAddLine(p.id, 1, variantId);
+              setVariantPickerProduct(null);
+            }}
           />
         </div>
       </div>
@@ -674,7 +681,9 @@ export default function PosRegister() {
           open={receiptOpen}
           onOpenChange={(o) => {
             setReceiptOpen(o);
-            if (!o) setReceiptModel(null);
+            if (!o) {
+              setReceiptModel(null);
+            }
           }}
           model={receiptModel}
           creditMode={receiptCredit}

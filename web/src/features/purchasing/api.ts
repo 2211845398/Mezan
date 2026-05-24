@@ -118,6 +118,32 @@ export async function updateSupplier(id: number, body: SupplierUpdatePayload): P
   return data;
 }
 
+export type SupplierStatementLineRead = components['schemas']['SupplierStatementLineRead'];
+export type SupplierStatementRead = components['schemas']['SupplierStatementRead'];
+export type SupplierEvaluationRead = components['schemas']['SupplierEvaluationRead'];
+
+export async function getSupplierStatement(
+  supplierId: number,
+  params: { date_from: string; date_to: string; branch_id?: number },
+): Promise<SupplierStatementRead> {
+  const { data } = await apiClient.get<SupplierStatementRead>(
+    `/suppliers/${supplierId}/statement`,
+    { params },
+  );
+  return data;
+}
+
+export async function getSupplierEvaluation(
+  supplierId: number,
+  params?: { period_days?: number; branch_id?: number },
+): Promise<SupplierEvaluationRead> {
+  const { data } = await apiClient.get<SupplierEvaluationRead>(
+    `/suppliers/${supplierId}/evaluation`,
+    { params },
+  );
+  return data;
+}
+
 export async function listGoodsReceipts(purchaseOrderId: number): Promise<GoodsReceiptRead[]> {
   const { data } = await apiClient.get<GoodsReceiptRead[]>('/goods-receipts', {
     params: { purchase_order_id: purchaseOrderId },

@@ -37,8 +37,9 @@ class VariantPreviewResponse(BaseModel):
 class VariantSyncRow(BaseModel):
     id: int | None = None
     attribute_value_ids: list[int] = Field(default_factory=list)
-    sku: str = Field(min_length=1, max_length=128)
-    barcode: str | None = Field(default=None, max_length=128)
+    sku: str | None = Field(default=None, max_length=128, description="Ignored; server computes system SKU.")
+    reference_code: str | None = Field(default=None, max_length=128)
+    barcode: str | None = Field(default=None, max_length=128, description="Ignored; server assigns EAN-13.")
     active: bool = True
     price_extra: Decimal = Field(default=Decimal("0"), ge=Decimal("0"))
 
@@ -62,6 +63,7 @@ class ProductAxisLineRead(BaseModel):
 class ProductVariantDetailRead(BaseModel):
     id: int
     sku: str
+    reference_code: str | None = None
     barcode: str | None
     attribute_values: dict
     attribute_value_ids: list[int]

@@ -15,7 +15,7 @@ def normalize_attribute_code(raw: str, *, max_len: int = 64) -> str:
     normalized = unicodedata.normalize("NFKD", s)
     parts: list[str] = []
     for ch in normalized:
-        if ch.isalnum():
+        if "A" <= ch <= "Z" or "a" <= ch <= "z" or "0" <= ch <= "9":
             parts.append(ch.upper())
         elif ch in "-_ ":
             parts.append("-")

@@ -1,9 +1,8 @@
-import { X } from 'lucide-react';
+import { Archive } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -14,6 +13,14 @@ import {
 } from '@/components/ui/table';
 
 import type { VariantDraftRow } from '../api';
+import {
+  VARIANT_GRID_COL_WIDTHS,
+  VARIANT_TABLE_MIN_WIDTH,
+  variantGridInputCls,
+  variantGridReadOnlyCls,
+  variantGridTd,
+  variantGridTh,
+} from '../lib/variantGridLayout';
 
 type Props = {
   rows: VariantDraftRow[];
@@ -22,6 +29,16 @@ type Props = {
   onRowsChange: (rows: VariantDraftRow[]) => void;
 };
 
+function VariantGridColgroup() {
+  return (
+    <colgroup>
+      {VARIANT_GRID_COL_WIDTHS.map((w, i) => (
+        <col key={i} className={w} />
+      ))}
+    </colgroup>
+  );
+}
+
 export function ProductVariantsGrid({ rows, productName, disabled, onRowsChange }: Props) {
   const { t } = useTranslation('catalog');
 
@@ -29,8 +46,8 @@ export function ProductVariantsGrid({ rows, productName, disabled, onRowsChange 
     onRowsChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   };
 
-  const removeRow = (index: number) => {
-    onRowsChange(rows.filter((_, i) => i !== index));
+  const archiveRow = (index: number) => {
+    onRowsChange(rows.map((r, i) => (i === index ? { ...r, active: false } : r)));
   };
 
   if (rows.length === 0) {
@@ -40,75 +57,90 @@ export function ProductVariantsGrid({ rows, productName, disabled, onRowsChange 
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('products.variants.col.variant')}</TableHead>
-            <TableHead>{t('products.variants.col.sku')}</TableHead>
-            <TableHead>{t('products.variants.col.barcode')}</TableHead>
-            <TableHead>{t('products.variants.col.price_extra')}</TableHead>
-            <TableHead className="w-20">{t('products.variants.col.active')}</TableHead>
-            <TableHead className="w-10" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row, idx) => (
-            <TableRow key={row.id ?? `${row.sku}-${idx}`}>
-              <TableCell className="text-sm">{row.display_label || productName}</TableCell>
-              <TableCell>
-                <Input
-                  className="h-8 font-mono text-xs"
-                  value={row.sku}
-                  disabled={disabled}
-                  onChange={(e) => patchRow(idx, { sku: e.target.value })}
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  className="h-8 font-mono text-xs"
-                  value={row.barcode}
-                  disabled={disabled}
-                  placeholder="—"
-                  autoComplete="off"
-                  onChange={(e) => patchRow(idx, { barcode: e.target.value })}
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  className="h-8 num-latin text-xs"
-                  dir="ltr"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={row.price_extra}
-                  disabled={disabled}
-                  onChange={(e) => patchRow(idx, { price_extra: e.target.value })}
-                />
-              </TableCell>
-              <TableCell>
-                <Switch
-                  checked={row.active}
-                  disabled={disabled}
-                  onCheckedChange={(active) => patchRow(idx, { active })}
-                />
-              </TableCell>
-              <TableCell>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={disabled}
-                  onClick={() => removeRow(idx)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </TableCell>
+    <div className="w-full min-w-0 space-y-2">
+      <div className="w-full max-w-full overflow-hidden rounded-md border">
+        <Table
+          containerClassName="overflow-x-auto"
+          className={`w-full table-fixed ${VARIANT_TABLE_MIN_WIDTH}`}
+        >
+          <VariantGridColgroup />
+          <TableHeader>
+            <TableRow>
+              <TableHead className={variantGridTh}>{t('products.variants.col.variant')}</TableHead>
+              <TableHead className={variantGridTh}>{t('products.variants.col.system_sku')}</TableHead>
+              <TableHead className={variantGridTh}>{t('products.variants.col.reference_code')}</TableHead>
+              <TableHead className={variantGridTh}>{t('products.variants.col.barcode')}</TableHead>
+              <TableHead className={variantGridTh}>{t('products.variants.col.price_extra')}</TableHead>
+              <TableHead className={variantGridTh} />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, idx) => {
+              const label = row.display_label || productName;
+              return (
+                <TableRow key={row.id ?? `${row.sku}-${idx}`}>
+                  <TableCell className={variantGridTd} title={label}>
+                    <span className="block truncate text-sm">{label}</span>
+                  </TableCell>
+                  <TableCell className={variantGridTd}>
+                    <Input
+                      className={`${variantGridReadOnlyCls} font-mono`}
+                      dir="ltr"
+                      value={row.sku}
+                      readOnly
+                      disabled={disabled}
+                    />
+                  </TableCell>
+                  <TableCell className={variantGridTd}>
+                    <Input
+                      className={`${variantGridInputCls} font-mono`}
+                      dir="ltr"
+                      value={row.reference_code}
+                      disabled={disabled}
+                      onChange={(e) => patchRow(idx, { reference_code: e.target.value })}
+                    />
+                  </TableCell>
+                  <TableCell className={variantGridTd}>
+                    <Input
+                      className={`${variantGridReadOnlyCls} font-mono`}
+                      dir="ltr"
+                      value={row.barcode}
+                      readOnly
+                      disabled={disabled}
+                      placeholder="—"
+                    />
+                  </TableCell>
+                  <TableCell className={variantGridTd}>
+                    <Input
+                      className={`${variantGridInputCls} num-latin`}
+                      dir="ltr"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={row.price_extra}
+                      disabled={disabled}
+                      onChange={(e) => patchRow(idx, { price_extra: e.target.value })}
+                    />
+                  </TableCell>
+                  <TableCell className={variantGridTd}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      disabled={disabled}
+                      onClick={() => archiveRow(idx)}
+                      aria-label={t('products.variants.archive')}
+                    >
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

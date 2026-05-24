@@ -2,6 +2,8 @@
 
 Technical reference for how the **master catalog**, **stock engine**, **purchasing pipeline**, and **point of sale (POS)** connect in Mezan. Describes database tables, keys, relationships, backend orchestration, and web UI flows.
 
+> Current architecture: category-bound product attributes have been removed. Product axes and variant filtering use the global `attributes` / `attribute_values` dictionary, `product_attribute_lines`, and `product_variant_attributes`.
+
 **Code layout (enforced):**
 
 | Layer | Path | Responsibility |
@@ -20,7 +22,7 @@ Technical reference for how the **master catalog**, **stock engine**, **purchasi
 flowchart TB
   subgraph catalog [Master catalog]
     CAT[categories]
-    CAD[category_attribute_defs]
+    ATTR[attributes / attribute_values]
     PRD[products]
     PV[product_variants]
     PP[product_prices]
@@ -56,7 +58,7 @@ flowchart TB
   end
 
   CAT --> PRD
-  CAD --> CAT
+  PRD --> ATTR
   PRD --> PV
   PRD --> PP
   PRD --> PTD --> TD
@@ -78,7 +80,7 @@ flowchart TB
   INV --> SM
 ```
 
-**Central idea:** A **product** is the merchandising and tax record; a **product variant** is the stock-keeping unit (SKU/barcode). All quantity tracking (`stock_levels`, movements, PO receipts, POS sales) is **per branch + product + variant**. Categories shape **dynamic attributes** and navigation; they do not hold stock.
+**Central idea:** A **product** is the merchandising and tax record; a **product variant** is the stock-keeping unit (SKU/barcode). All quantity tracking (`stock_levels`, movements, PO receipts, POS sales) is **per branch + product + variant**. Categories are navigation/taxonomy only; attributes are global catalog master data.
 
 ---
 
@@ -99,29 +101,20 @@ Hierarchical product taxonomy (adjacency list via `parent_id`).
 | `is_active` | bool | Inactive nodes hidden in many UIs |
 | `created_at`, `updated_at` | timestamptz | |
 
-**Relationships:** `parent` / `children` (self), `attribute_defs`, `products` (primary `products.category_id`), `product_tag_links` via `product_categories`.
+**Relationships:** `parent` / `children` (self), `products` (primary `products.category_id`), `product_tag_links` via `product_categories`.
 
 ---
 
-### 2.2 `category_attribute_defs`
+### 2.2 Global attribute dictionary (`attributes` / `attribute_values`)
 
-Schema of dynamic fields for products in a category (and inherited from ancestors).
+Master data for variant axes (color, size, …). Managed at `/catalog/attributes`; not tied to categories.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | PK | |
-| `category_id` | FK → `categories.id` | `ON DELETE CASCADE` |
-| `inherited_from_category_id` | FK → `categories.id`, nullable | Set when row was propagated from an ancestor |
-| `key` | string | Unique per category: `uq_cat_attr_defs_category_key` |
-| `label` | string | UI label |
-| `type` | string | `text`, `int`, `float`, `bool`, `date`, … |
-| `required` | bool | |
-| `options` | JSONB, nullable | e.g. select options |
-| `validation` | JSONB, nullable | min/max, regex, etc. |
-| `sort_order` | int | |
-| `created_at`, `updated_at` | timestamptz | |
+| Table | Key columns | Notes |
+|-------|-------------|-------|
+| `attributes` | `code`, `name`, `sort_order` | Unique `code` (ASCII) |
+| `attribute_values` | `attribute_id`, `code`, `label` | Unique `(attribute_id, code)` |
 
-**Usage:** Product values live in `products.attributes` (JSONB), validated against merged defs for the product’s primary category.
+Product templates link axes via `product_attribute_lines` + `product_attribute_line_values`. Variants store choices in `product_variant_attributes` (source of truth) with JSONB cache on `product_variants.attribute_values`.
 
 ---
 
@@ -138,14 +131,31 @@ Master catalog row (one sellable concept).
 | `sku` | string | **Unique** globally |
 | `barcode` | string, nullable | **Unique** when set; auto EAN-13 internal code if empty on create |
 | `status` | string | `active` \| `archived` |
-| `attributes` | JSONB | Category-driven fields; may include compat key `price` |
 | `standard_cost` | Numeric(14,4), nullable | Fallback cost when no branch average |
 | `output_vat_rate` | Numeric(8,4) | Decimal fraction (0.15 = 15%); legacy/product-level rate |
+| `uom_id` | FK → `units_of_measure.id` | **Base unit** for inventory count and PO/receipt qty |
 | `created_at`, `updated_at` | timestamptz | |
 
-**Relationships:** `variants`, `category_links` (`product_categories`), `tax_definition_links`, `category`.
+**Relationships:** `variants`, `category_links` (`product_categories`), `tax_definition_links`, `unit_conversions`, `category`.
 
-**On create (`catalog_service.create_product`):** Auto SKU `PRD-{id}`, optional internal barcode, default `ProductVariant`, `product_prices` row if `sell_price` provided, tax links synced.
+**On create (`catalog_service.create_product`):** Auto SKU `PRD-{id}`, optional internal barcode, default `ProductVariant`, `product_prices` row if `sell_price` provided, tax links synced, optional `alternative_uoms` synced.
+
+---
+
+### 2.3.1 `units_of_measure` and `product_unit_conversions`
+
+Master UoM dictionary (seeded: Piece, Box, Kg, Meter) plus per-product alternatives.
+
+| Table | Purpose |
+|-------|---------|
+| `units_of_measure` | Global list: `code`, `name`, `symbol`, `measurement_category` (`discrete`, `weight`, `length`, `volume`) |
+| `product_unit_conversions` | Alternative UoM per product: `factor_to_base` = how many **base** units in 1 alternative unit (e.g. 1 Box = 12 Pieces → `12`) |
+
+**Rules:** Alternative UoM must share `measurement_category` with the product base unit; base unit cannot appear as an alternative row. PO and goods receipt quantities remain in the **base** unit for now.
+
+**API:** `GET /catalog/units-of-measure`; `alternative_uoms` on product create/update/read.
+
+**Web:** Product form tab **Units** (`ProductUnitsTab`) — base unit select + alternative rows with conversion factor.
 
 ---
 
@@ -172,8 +182,6 @@ Stock-keeping entity (color/size/SKU). **Inventory and POS lines reference varia
 | `attributes` | Global axes: `code`, `name`, `sort_order` |
 | `attribute_values` | Normalized values per axis (`code`, `label`, optional `metadata` e.g. hex) |
 | `product_variant_attributes` | Pivot `(variant_id, attribute_id, attribute_value_id)` — unique one value per axis per variant |
-
-`category_attribute_defs.attribute_id` + `use_for_variants` link a category field to a catalog axis for Cartesian generation.
 
 **Generator APIs:**
 
@@ -358,7 +366,9 @@ Vendor master (used by PO and goods receipts). See `app/models/suppliers.py` for
 | `purchase_order_id` | FK → `purchase_orders.id` | `ON DELETE CASCADE` |
 | `product_id` | FK → `products.id` | |
 | `variant_id` | FK → `product_variants.id`, nullable | May be chosen at receipt if null |
-| `qty` | int | Ordered quantity |
+| `qty` | int | Ordered quantity in the line’s `uom_id` |
+| `uom_id` | FK → `units_of_measure.id` | Must be the product base unit or a configured alternative |
+| `qty_base` | int | Same quantity converted to the product base unit (for stock and open-PO reporting) |
 | `unit_cost` | Numeric(14,4), nullable | Optional at PO time; required at receipt |
 
 ---
@@ -438,19 +448,18 @@ Vendor master (used by PO and goods receipts). See `app/models/suppliers.py` for
 
 ## 4. Backend business logic
 
-### 4.1 Categories and attributes
+### 4.1 Categories and global attributes
 
-**Service:** `app/services/catalog_service.py`  
-**API:** `app/api/v1/catalog.py` — `/categories`, `/categories/tree`, `/categories/{id}/attributes`
+**Service:** `app/services/catalog_service.py`, `app/services/attribute_service.py`  
+**API:** `app/api/v1/catalog.py` — `/categories`, `/categories/tree`; `/catalog/attributes` (+ values)
 
 | Operation | Behavior |
 |-----------|----------|
 | Create/update category | Validates parent; unique name per parent |
-| Attribute defs | CRUD on category; propagation to descendants with `inherited_from_category_id` |
-| List attrs for UI | `list_category_attribute_defs_for_ui()` merges local + ancestor defs |
+| Global attributes | CRUD on `attributes` / `attribute_values` at `/catalog/attributes` |
 | Delete category | Fails if products or children block (`IntegrityError` → conflict) |
 
-Products **must** reference an existing category. Changing category re-validates `attributes` against the new category’s merged schema.
+Products **must** reference an existing category. Variant axes are configured per product (not per category).
 
 ---
 
@@ -533,6 +542,8 @@ stateDiagram-v2
 | Update PO | Only while `draft`; replaces line set |
 
 PO lines may omit `variant_id`; receiving then **requires** `variant_id` on the receipt line.
+
+Each line stores `qty` in `uom_id` (base or alternative unit) and a persisted `qty_base` for inventory. Goods receipt compares received `qty` to the line’s ordered `qty` in the **same** unit; stock movements and open-PO aggregates use `qty_base`.
 
 ---
 
@@ -646,12 +657,13 @@ Router definitions: `web/src/routes/router.tsx`.
 | Screen | File | Load | Save |
 |--------|------|------|------|
 | Category tree | `catalog/pages/categories/CategoriesTree.tsx` | `useCategoryTreeQuery`, CRUD via `catalog/api.ts` | Create dialog, edit inline, image upload |
-| Category properties | `CategoryPropertiesPage.tsx` | `useCategoryAttributesQuery` | `CategoryAttributeForm` → POST/PATCH/DELETE attributes |
+| Category detail | `CategoryPropertiesPage.tsx` | `useCategoryQuery`, tree | Edit name/slug/image; subcategories tab |
+| Attribute dictionary | `attributes/AttributesPage.tsx` | `listCatalogAttributes` | CRUD attributes and values |
 | Product list | `ProductsList.tsx` | `useProductListQuery` | Navigate to form |
-| Product form | `ProductFormPage.tsx` | `useProductQuery`, tree, tax defs, **dynamic `AttributeFieldset`** from category attrs | `createProduct` / `updateProduct`; Zod schema; category change reloads attribute defs |
+| Product form | `ProductFormPage.tsx` | `useProductQuery`, tree, tax defs; **Attributes tab** with global axes | `createProduct` / `updateProduct`; variant sync via `/variants/sync` |
 | Taxes | `TaxesList.tsx`, `TaxForm.tsx` | `listTaxDefinitions` | CRUD tax definitions |
 
-**Shared components:** `AttributeFieldset`, `ProductCategoryChips`, `BarcodeRepeater`, `ProductImageUploadField`.
+**Shared components:** `ProductVariantAxesEditor`, `ProductVariantsGrid`, `CatalogAttributeCreatableMultiSelect`, `ProductCategoryChips`, `BarcodeRepeater`, `ProductImageUploadField`.
 
 **Data layer:** `catalog/queries.ts` (React Query keys), `catalog/api.ts` (typed OpenAPI client).
 
@@ -774,7 +786,8 @@ For audit gaps and planned improvements, see [GAP_REPORT.md](../GAP_REPORT.md) (
 
 | Area | Models | Services | API | Web feature |
 |------|--------|----------|-----|-------------|
-| Categories | `category.py`, `category_attribute_def.py` | `catalog_service.py` | `catalog.py` | `features/catalog/` |
+| Categories | `category.py` | `catalog_service.py` | `catalog.py` | `features/catalog/` |
+| Attributes | `catalog_attribute.py`, `catalog_attribute_value.py` | `attribute_service.py`, `variant_attribute_service.py` | `attributes.py`, `catalog.py` | `features/catalog/` |
 | Products | `product.py`, `product_variant.py`, `product_price.py` | `catalog_service.py`, `pricing_service.py` | `catalog.py` | `features/catalog/` |
 | Inventory | `stock_level.py`, `stock_movement.py` | `inventory_service.py`, `inventory_*` | `inventory_*.py` | `features/inventory/` |
 | PO / GR | `purchase_order*.py`, `goods_receipt*.py` | `purchase_order_service.py`, `goods_receipt_service.py` | `purchase_orders.py`, `goods_receipts.py` | `features/purchasing/` |

@@ -65,6 +65,51 @@ async def test_po_line_without_variant_stores_null(db_session) -> None:
 
 
 @pytest.mark.asyncio
+async def test_po_line_with_preset_variant_stores_variant_id(db_session) -> None:
+    category = Category(
+        name="POV Cat Preset",
+        slug=f"pov-preset-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add(category)
+    await db_session.flush()
+
+    product = Product(
+        category_id=category.id,
+        name="Preset Shirt",
+        sku=f"ps-{uuid.uuid4().hex[:6]}",
+        status="active",
+        attributes={},
+        standard_cost=Decimal("5.0000"),
+        output_vat_rate=Decimal("0"),
+    )
+    db_session.add(product)
+    await db_session.flush()
+
+    variant = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-BLU",
+        attribute_values={"color": "blue"},
+        active=True,
+    )
+    db_session.add(variant)
+    await db_session.flush()
+
+    po = await create_po(
+        db_session,
+        created_by_user_id=None,
+        data={
+            "supplier_name": "Supplier",
+            "branch_id": None,
+            "lines": [{"product_id": product.id, "variant_id": variant.id, "qty": 3}],
+        },
+    )
+    pol = po.lines[0]
+    assert pol.variant_id == variant.id
+
+
+@pytest.mark.asyncio
 async def test_receive_requires_variant_when_po_line_open(db_session) -> None:
     branch = Branch(
         name="Recv Branch",
@@ -384,6 +429,84 @@ async def test_receive_uses_po_line_variant_when_preset(db_session) -> None:
     po_row = await db_session.get(PurchaseOrder, po.id)
     assert po_row is not None
     assert po_row.status == "closed"
+
+
+@pytest.mark.asyncio
+async def test_receive_rejects_mismatched_variant_on_preset_po_line(db_session) -> None:
+    branch = Branch(
+        name="Recv Branch Mismatch",
+        code=f"RBM-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add(branch)
+    await db_session.flush()
+
+    category = Category(
+        name="POV Cat Mismatch",
+        slug=f"povm-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add(category)
+    await db_session.flush()
+
+    product = Product(
+        category_id=category.id,
+        name="Shirt Mismatch",
+        sku=f"shm-{uuid.uuid4().hex[:6]}",
+        status="active",
+        attributes={},
+        standard_cost=Decimal("5.0000"),
+        output_vat_rate=Decimal("0"),
+    )
+    db_session.add(product)
+    await db_session.flush()
+
+    v_locked = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-LOCK",
+        attribute_values={},
+        active=True,
+    )
+    v_other = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-OTHER",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add_all([v_locked, v_other])
+    await db_session.flush()
+
+    po = await create_po(
+        db_session,
+        created_by_user_id=None,
+        data={
+            "supplier_name": "Supplier",
+            "branch_id": branch.id,
+            "lines": [{"product_id": product.id, "variant_id": v_locked.id, "qty": 2}],
+        },
+    )
+    await mark_po_sent(db_session, po_id=po.id)
+    pol_id = po.lines[0].id
+
+    with pytest.raises(ValidationError, match="does not match PO line"):
+        await receive_goods_for_purchase_order(
+            db_session,
+            purchase_order_id=po.id,
+            branch_id=branch.id,
+            lines=[
+                {
+                    "purchase_order_line_id": pol_id,
+                    "qty": 2,
+                    "unit_cost": Decimal("6.5"),
+                    "variant_id": v_other.id,
+                }
+            ],
+            idempotency_key=f"gr-mismatch-{uuid.uuid4().hex}",
+            created_by_user_id=None,
+        )
 
 
 @pytest.mark.asyncio
@@ -719,7 +842,7 @@ async def test_receive_goods_api_po_deferred_variant(
             "category_id": cid,
             "name": f"ApiShirt_{suffix}",
             "status": "active",
-            "attributes": {},
+            "output_vat_rate": "0",
         },
     )
     assert prod.status_code == 201, prod.text

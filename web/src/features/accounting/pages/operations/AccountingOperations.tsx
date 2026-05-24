@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { BookOpen, Coins, Factory, FileText, Network } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -7,6 +8,7 @@ import { toast } from 'sonner';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
+import { PageTabNav } from '@/components/shared/PageTabNav';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { listCustomers } from '@/features/crm/api';
 import { listSuppliers } from '@/features/purchasing/api';
@@ -36,9 +37,7 @@ import { newIdempotencyKey } from '@/lib/idempotency';
 
 import AccountPicker from '../../components/AccountPicker';
 import {
-  type ChartAccountTreeNode,
   listBoms,
-  listChartAccountsTree,
   postOpeningBalance,
   postPaymentVoucher,
   postReceiptVoucher,
@@ -47,28 +46,7 @@ import {
 } from '../../api';
 import { accountingKeys } from '../../queries';
 
-function AccountTree({ nodes, level = 0 }: { nodes: ChartAccountTreeNode[]; level?: number }) {
-  return (
-    <div className="space-y-1">
-      {nodes.map((node) => (
-        <div key={node.id}>
-          <div
-            className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm"
-            style={{ marginInlineStart: level * 14 }}
-          >
-            <span className="font-medium">
-              {node.code} · {node.name}
-            </span>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-              {node.account_type}
-            </span>
-          </div>
-          {node.children?.length ? <AccountTree nodes={node.children} level={level + 1} /> : null}
-        </div>
-      ))}
-    </div>
-  );
-}
+type OperationsTab = 'tree' | 'vouchers' | 'opening' | 'fx' | 'production';
 
 type FxPreviewLine = {
   account_id?: number;
@@ -81,6 +59,7 @@ type FxPreviewLine = {
 
 export default function AccountingOperations() {
   const { t } = useTranslation('accounting');
+  const [tab, setTab] = useState<OperationsTab>('tree');
   const branchId = useAuthStore((s) => s.activeBranchId) ?? 0;
   const today = useMemo(() => utcCalendarDayKey(now()), []);
   const [entryDate, setEntryDate] = useState(today);
@@ -92,10 +71,6 @@ export default function AccountingOperations() {
   const [description, setDescription] = useState('');
   const [fxDate, setFxDate] = useState(today);
 
-  const tree = useQuery({
-    queryKey: accountingKeys.chartAccountsTree(),
-    queryFn: listChartAccountsTree,
-  });
   const boms = useQuery({
     queryKey: accountingKeys.boms(),
     queryFn: listBoms,
@@ -196,23 +171,32 @@ export default function AccountingOperations() {
         title={t('operations.title')}
         subtitle={t('operations.subtitle')}
       />
-      <Tabs defaultValue="tree">
-        <TabsList className="flex flex-wrap">
-          <TabsTrigger value="tree">{t('operations.tab.tree')}</TabsTrigger>
-          <TabsTrigger value="vouchers">{t('operations.tab.vouchers')}</TabsTrigger>
-          <TabsTrigger value="opening">{t('operations.tab.opening')}</TabsTrigger>
-          <TabsTrigger value="fx">{t('operations.tab.fx')}</TabsTrigger>
-          <TabsTrigger value="production">{t('operations.tab.production')}</TabsTrigger>
-        </TabsList>
+      <PageTabNav
+        mode="button"
+        activeId={tab}
+        onSelect={(id) => setTab(id as OperationsTab)}
+        items={[
+          { id: 'tree', label: t('operations.tab.tree'), icon: Network },
+          { id: 'vouchers', label: t('operations.tab.vouchers'), icon: FileText },
+          { id: 'opening', label: t('operations.tab.opening'), icon: BookOpen },
+          { id: 'fx', label: t('operations.tab.fx'), icon: Coins },
+          { id: 'production', label: t('operations.tab.production'), icon: Factory },
+        ]}
+      />
 
-        <TabsContent value="tree" className="mt-4">
+      {tab === 'tree' ? (
+        <div className="mt-4">
           <SectionCard title={t('operations.tree.title')}>
-            {tree.isLoading ? <p className="text-sm text-muted-foreground">{t('operations.loading')}</p> : null}
-            {tree.data ? <AccountTree nodes={tree.data} /> : null}
+            <p className="mb-4 text-sm text-muted-foreground">{t('operations.tree.link_hint')}</p>
+            <Button type="button" variant="default" asChild>
+              <Link to="/accounting/chart-accounts">{t('coa.open_page')}</Link>
+            </Button>
           </SectionCard>
-        </TabsContent>
+        </div>
+      ) : null}
 
-        <TabsContent value="vouchers" className="mt-4 space-y-4">
+      {tab === 'vouchers' ? (
+        <div className="mt-4 space-y-4">
           <SectionCard title={t('operations.voucher.title')}>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="grid gap-1">
@@ -287,9 +271,11 @@ export default function AccountingOperations() {
               </Button>
             </div>
           </SectionCard>
-        </TabsContent>
+        </div>
+      ) : null}
 
-        <TabsContent value="opening" className="mt-4">
+      {tab === 'opening' ? (
+        <div className="mt-4">
           <SectionCard title={t('operations.opening.title')}>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="grid gap-1">
@@ -322,9 +308,11 @@ export default function AccountingOperations() {
               {t('operations.opening.post')}
             </Button>
           </SectionCard>
-        </TabsContent>
+        </div>
+      ) : null}
 
-        <TabsContent value="fx" className="mt-4">
+      {tab === 'fx' ? (
+        <div className="mt-4">
           <SectionCard title={t('operations.fx.title')}>
             <p className="mb-3 text-sm text-muted-foreground">
               <Link className="underline" to="/accounting/currencies">
@@ -373,9 +361,11 @@ export default function AccountingOperations() {
               <p className="mt-3 text-sm text-muted-foreground">{t('operations.fx.no_adjustments')}</p>
             ) : null}
           </SectionCard>
-        </TabsContent>
+        </div>
+      ) : null}
 
-        <TabsContent value="production" className="mt-4">
+      {tab === 'production' ? (
+        <div className="mt-4">
           <SectionCard title={t('operations.production.title')}>
             <div className="grid gap-3 md:grid-cols-2">
               {(boms.data ?? []).map((bom) => (
@@ -392,8 +382,8 @@ export default function AccountingOperations() {
               ) : null}
             </div>
           </SectionCard>
-        </TabsContent>
-      </Tabs>
+        </div>
+      ) : null}
     </div>
   );
 }

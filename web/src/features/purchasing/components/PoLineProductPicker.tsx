@@ -8,7 +8,12 @@ import { listProducts } from '@/features/catalog/api';
 type Props = {
   disabled?: boolean;
   pickLabel: string;
-  onPick: (row: { product_id: number; pick_label: string }) => void;
+  onPick: (row: {
+    product_id: number;
+    pick_label: string;
+    uom_id?: number;
+    uom_symbol?: string;
+  }) => void;
 };
 
 export default function PoLineProductPicker({ disabled, pickLabel, onPick }: Props) {
@@ -33,6 +38,7 @@ export default function PoLineProductPicker({ disabled, pickLabel, onPick }: Pro
   return (
     <div className="relative">
       <Input
+        className="h-9"
         disabled={disabled}
         value={inputValue}
         placeholder={t('orders.form.product_search_placeholder')}
@@ -65,6 +71,8 @@ export default function PoLineProductPicker({ disabled, pickLabel, onPick }: Pro
                     onPick({
                       product_id: p.id,
                       pick_label: `${p.name} — ${p.sku}`,
+                      uom_id: p.uom_id,
+                      uom_symbol: p.uom_symbol ?? 'pcs',
                     });
                     setOpen(false);
                     setQ('');

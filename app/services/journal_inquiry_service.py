@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import NotFoundError
-from app.models.chart_accounts import AccountType, ChartAccount
+from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.utils.money import q2
 
@@ -131,6 +131,10 @@ class JournalLineDetail:
     debit: Decimal
     credit: Decimal
     memo: str | None
+    customer_id: int | None = None
+    supplier_id: int | None = None
+    employee_id: int | None = None
+    subledger_kind: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +179,8 @@ async def get_journal_entry_detail(
             continue
         at = acc.account_type
         at_s = at.value if isinstance(at, AccountType) else str(at)
+        sk = acc.subledger_kind
+        sk_s = sk.value if isinstance(sk, SubledgerKind) else str(sk)
         lines.append(
             JournalLineDetail(
                 line_no=ln.line_no,
@@ -186,6 +192,10 @@ async def get_journal_entry_detail(
                 debit=q2(ln.debit),
                 credit=q2(ln.credit),
                 memo=ln.memo,
+                customer_id=ln.customer_id,
+                supplier_id=ln.supplier_id,
+                employee_id=ln.employee_id,
+                subledger_kind=sk_s,
             )
         )
     return JournalEntryDetail(

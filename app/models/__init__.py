@@ -16,7 +16,6 @@ from app.models.branch_sequence import BranchSequence
 from app.models.category import Category
 from app.models.catalog_attribute import CatalogAttribute
 from app.models.catalog_attribute_value import CatalogAttributeValue
-from app.models.category_attribute_def import CategoryAttributeDef
 from app.models.chart_accounts import AccountType, ChartAccount
 from app.models.currency import Currency
 from app.models.customer_profile import CustomerOnboardingToken, CustomerProfile
@@ -58,6 +57,7 @@ from app.models.product_attribute_line import ProductAttributeLine
 from app.models.product_attribute_line_value import ProductAttributeLineValue
 from app.models.product_category import ProductCategory
 from app.models.product_tax_definition import ProductTaxDefinition
+from app.models.product_unit_conversion import ProductUnitConversion
 from app.models.tax_definition import TaxDefinition
 from app.models.product_variant import ProductVariant
 from app.models.product_variant_attribute import ProductVariantAttribute
@@ -74,6 +74,7 @@ from app.models.stock_movement import StockMovement
 from app.models.suppliers import Supplier
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
+from app.models.unit_of_measure import UnitOfMeasure
 from app.models.user_onboarding import UserOnboarding
 from app.models.user_permission_override import UserPermissionOverride
 from app.models.user_role import UserRole
@@ -101,7 +102,6 @@ __all__ = [
     "CatalogAttribute",
     "CatalogAttributeValue",
     "ChartAccount",
-    "CategoryAttributeDef",
     "Currency",
     "CustomerOnboardingToken",
     "CustomerProfile",
@@ -170,6 +170,7 @@ __all__ = [
     "ProductAttributeLineValue",
     "ProductCategory",
     "ProductTaxDefinition",
+    "ProductUnitConversion",
     "ProductPrice",
     "ProductVariant",
     "ProductVariantAttribute",
@@ -185,6 +186,7 @@ __all__ = [
     "FiscalPeriod",
     "TransferBatch",
     "TransferLine",
+    "UnitOfMeasure",
     "User",
     "UserOnboarding",
     "UserPermissionOverride",

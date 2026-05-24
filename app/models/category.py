@@ -39,11 +39,5 @@ class Category(Base):
 
     parent = relationship("Category", remote_side="Category.id", back_populates="children")
     children = relationship("Category", back_populates="parent")
-    attribute_defs = relationship(
-        "CategoryAttributeDef",
-        back_populates="category",
-        foreign_keys="[CategoryAttributeDef.category_id]",
-        cascade="all, delete-orphan",
-    )
     products = relationship("Product", back_populates="category")
     product_tag_links = relationship("ProductCategory", back_populates="category")

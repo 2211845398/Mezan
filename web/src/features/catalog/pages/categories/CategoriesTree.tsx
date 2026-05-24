@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Eye, EyeOff, FolderTree, ImageIcon, Package, Plus } from 'lucide-react';
+import { ChevronRight, Eye, EyeOff, FolderTree, ImageIcon, Package, Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { notifyApiError } from '@/api/errorMessages';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { usePermission } from '@/hooks/usePermission';
@@ -37,8 +38,9 @@ export default function CategoriesTree() {
   const qc = useQueryClient();
   const canCreate = usePermission('catalog', 'create');
   const canUpdate = usePermission('catalog', 'update');
-  const { data: treeRaw = [], isLoading, refetch } = useCategoryTreeQuery();
+  const { data: treeRaw = [], isLoading, isFetching, refetch } = useCategoryTreeQuery();
   const [showHidden, setShowHidden] = useState(false);
+  const [categorySearch, setCategorySearch] = useState('');
   const tree = useMemo(
     () => (showHidden ? treeRaw : filterActiveCategoryTree(treeRaw)),
     [treeRaw, showHidden],
@@ -53,6 +55,14 @@ export default function CategoriesTree() {
     const node = byId.get(path[path.length - 1]!);
     return node?.children ?? [];
   }, [byId, path, tree]);
+
+  const filteredChildren = useMemo(() => {
+    const q = categorySearch.trim().toLowerCase();
+    if (!q) return currentChildren;
+    return currentChildren.filter(
+      (node) => node.name.toLowerCase().includes(q) || node.slug.toLowerCase().includes(q),
+    );
+  }, [categorySearch, currentChildren]);
 
   const breadcrumbs = useMemo(() => {
     const parts: { id: number | null; name: string }[] = [{ id: null, name: t('categories.browse_root') }];
@@ -89,12 +99,17 @@ export default function CategoriesTree() {
 
   const enterCategory = (id: number) => {
     setPath((p) => [...p, id]);
+    setCategorySearch('');
   };
 
   const goToCrumb = (idx: number) => {
     if (idx < 0) return;
     setPath((p) => p.slice(0, idx));
+    setCategorySearch('');
   };
+
+  const searchHasNoResults =
+    !isLoading && currentChildren.length > 0 && filteredChildren.length === 0;
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -108,41 +123,67 @@ export default function CategoriesTree() {
                 {currentParentId == null ? t('categories.add_root') : t('categories.child')}
               </Button>
             ) : null}
-            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
-              {t('actions.refresh')}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              title={t('actions.refresh')}
+              aria-label={t('actions.refresh')}
+            >
+              <RefreshCw className={cn('size-4', isFetching && 'animate-spin')} />
             </Button>
           </div>
         }
       />
-      <p className="text-sm text-muted-foreground">{t('categories.browse_lead')}</p>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label="breadcrumb" className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm">
-          {breadcrumbs.map((crumb, idx) => (
-            <span key={crumb.id ?? 'root'} className="flex items-center gap-1">
-              {idx > 0 ? <ChevronRight className="size-4 text-muted-foreground" aria-hidden /> : null}
-              <button
-                type="button"
-                className={cn(
-                  'rounded-md px-2 py-1 font-medium transition-colors hover:bg-muted',
-                  idx === breadcrumbs.length - 1 ? 'text-foreground' : 'text-muted-foreground',
-                )}
-                onClick={() => goToCrumb(idx)}
-              >
-                {crumb.name}
-              </button>
-            </span>
-          ))}
-        </nav>
-        <div className="flex shrink-0 items-center gap-2">
-          <Switch id="show-hidden" checked={showHidden} onCheckedChange={setShowHidden} />
-          <Label htmlFor="show-hidden" className="shrink-0 text-sm font-normal whitespace-nowrap">
-            {t('categories.show_hidden')}
-          </Label>
+      <nav
+        aria-label="breadcrumb"
+        className="flex min-w-0 flex-wrap items-center gap-1 text-sm"
+      >
+        {breadcrumbs.map((crumb, idx) => (
+          <span key={crumb.id ?? 'root'} className="flex items-center gap-1">
+            {idx > 0 ? <ChevronRight className="size-4 text-muted-foreground" aria-hidden /> : null}
+            <button
+              type="button"
+              className={cn(
+                'rounded-md px-2 py-1 font-medium transition-colors hover:bg-muted',
+                idx === breadcrumbs.length - 1 ? 'text-foreground' : 'text-muted-foreground',
+              )}
+              onClick={() => goToCrumb(idx)}
+            >
+              {crumb.name}
+            </button>
+          </span>
+        ))}
+      </nav>
+
+      {!isLoading ? (
+        <div className="flex w-full flex-wrap items-center justify-between gap-4">
+          <Input
+            id="category-search"
+            value={categorySearch}
+            onChange={(e) => setCategorySearch(e.target.value)}
+            placeholder={t('categories.search_ph')}
+            aria-label={t('categories.search_label')}
+            className="h-9 min-w-[12rem] max-w-md sm:max-w-md"
+          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch id="show-hidden" checked={showHidden} onCheckedChange={setShowHidden} />
+            <Label htmlFor="show-hidden" className="shrink-0 text-sm font-normal whitespace-nowrap">
+              {t('categories.show_hidden')}
+            </Label>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {isLoading ? <p className="text-sm text-muted-foreground">{t('loading')}</p> : null}
+
+      {searchHasNoResults ? (
+        <p className="text-sm text-muted-foreground">{t('categories.search_empty')}</p>
+      ) : null}
 
       {!isLoading && currentChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-muted/20 p-8 text-center">
@@ -151,13 +192,13 @@ export default function CategoriesTree() {
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {canCreate ? (
-              <Button type="button" variant="outline" size="sm" className="h-8" onClick={openCreateFromHeader}>
+              <Button type="button" variant="outline" size="sm" className="h-7" onClick={openCreateFromHeader}>
                 <Plus className="me-1 size-3" />
                 {currentParentId == null ? t('categories.add_root') : t('categories.child')}
               </Button>
             ) : null}
             {currentParentId != null ? (
-              <Button type="button" variant="outline" size="sm" className="h-8" asChild>
+              <Button type="button" variant="outline" size="sm" className="h-7" asChild>
                 <Link to={`/catalog/products?category_id=${currentParentId}&category_subtree=1`}>
                   <Package className="me-1 size-3" />
                   {t('categories.view_products')}
@@ -165,17 +206,17 @@ export default function CategoriesTree() {
               </Button>
             ) : null}
             {currentParentId != null ? (
-              <Button type="button" variant="outline" size="sm" className="h-8" asChild>
-                <Link to={`/catalog/categories/${currentParentId}`}>{t('categories.properties')}</Link>
+              <Button type="button" variant="outline" size="sm" className="h-7" asChild>
+                <Link to={`/catalog/categories/${currentParentId}`}>{t('categories.details')}</Link>
               </Button>
             ) : null}
           </div>
         </div>
       ) : null}
 
-      {!isLoading && currentChildren.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {currentChildren.map((node) => (
+      {!isLoading && filteredChildren.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {filteredChildren.map((node) => (
             <Card
               key={node.id}
               role="button"
@@ -192,7 +233,7 @@ export default function CategoriesTree() {
                 }
               }}
             >
-              <div className="relative aspect-[4/3] w-full bg-muted">
+              <div className="relative aspect-[3/2] w-full bg-muted">
                 {node.image_url ? (
                   <img
                     src={resolveMediaUrl(node.image_url) ?? node.image_url}
@@ -202,7 +243,7 @@ export default function CategoriesTree() {
                   />
                 ) : (
                   <div className="flex size-full items-center justify-center text-muted-foreground">
-                    <ImageIcon className="size-10 opacity-50" aria-hidden />
+                    <ImageIcon className="size-8 opacity-50" aria-hidden />
                   </div>
                 )}
                 {!node.is_active ? (
@@ -213,7 +254,7 @@ export default function CategoriesTree() {
                   </div>
                 ) : null}
               </div>
-              <CardContent className="space-y-2 p-4">
+              <CardContent className="space-y-1.5 p-3">
                 <p className="line-clamp-2 font-semibold leading-tight">{node.name}</p>
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="rounded-full bg-muted px-2 py-0.5">
@@ -229,7 +270,7 @@ export default function CategoriesTree() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8"
+                      className="h-7"
                       onClick={(e) => {
                         e.stopPropagation();
                         openCreateUnder(node.id);
@@ -239,12 +280,12 @@ export default function CategoriesTree() {
                       {t('categories.child')}
                     </Button>
                   ) : null}
-                  <Button type="button" variant="outline" size="sm" className="h-8" asChild>
+                  <Button type="button" variant="outline" size="sm" className="h-7" asChild>
                     <Link to={`/catalog/categories/${node.id}`} onClick={(e) => e.stopPropagation()}>
-                      {t('categories.properties')}
+                      {t('categories.details')}
                     </Link>
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-8" asChild>
+                  <Button type="button" variant="outline" size="sm" className="h-7" asChild>
                     <Link to={`/catalog/products?category_id=${node.id}&category_subtree=1`} onClick={(e) => e.stopPropagation()}>
                       <Package className="me-1 size-3" />
                       {t('categories.view_products')}
@@ -255,7 +296,7 @@ export default function CategoriesTree() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8"
+                      className="h-7"
                       onClick={(e) => {
                         e.stopPropagation();
                         void toggleActiveM.mutate({ id: node.id, next: !node.is_active });

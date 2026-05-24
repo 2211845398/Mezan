@@ -116,13 +116,24 @@ async def general_ledger_endpoint(
     date_from: date = Query(...),
     date_to: date = Query(...),
     branch_id: int | None = Query(default=None),
+    customer_id: int | None = Query(default=None),
+    supplier_id: int | None = Query(default=None),
+    employee_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
     __: None = require_permission("accounting", "read"),
 ) -> list[GeneralLedgerLineRead]:
-    return await gl_lines_svc(
-        db, account_id=account_id, date_from=date_from, date_to=date_to, branch_id=branch_id
+    rows = await gl_lines_svc(
+        db,
+        account_id=account_id,
+        date_from=date_from,
+        date_to=date_to,
+        branch_id=branch_id,
+        customer_id=customer_id,
+        supplier_id=supplier_id,
+        employee_id=employee_id,
     )
+    return [GeneralLedgerLineRead.model_validate(r) for r in rows]
 
 
 @router.get("/accounting/income-statement", response_model=IncomeStatementRead)
@@ -533,6 +544,10 @@ def _journal_detail_to_read(d: JournalEntryDetail) -> JournalEntryDetailRead:
                 debit=ln.debit,
                 credit=ln.credit,
                 memo=ln.memo,
+                customer_id=ln.customer_id,
+                supplier_id=ln.supplier_id,
+                employee_id=ln.employee_id,
+                subledger_kind=ln.subledger_kind,
             )
             for ln in d.lines
         ],
@@ -679,6 +694,9 @@ async def create_manual_journal_entry(
                 "debit": ln.debit,
                 "credit": ln.credit,
                 "memo": ln.memo,
+                "customer_id": ln.customer_id,
+                "supplier_id": ln.supplier_id,
+                "employee_id": ln.employee_id,
             }
         )
     source_id = str(uuid.uuid4())[:32]
@@ -690,6 +708,7 @@ async def create_manual_journal_entry(
         source_id=source_id,
         idempotency_key=ikey,
         lines=line_dicts,
+        strict_subledger=True,
     )
     if je is None:
         ex2 = await get_journal_by_idempotency(db, ikey)

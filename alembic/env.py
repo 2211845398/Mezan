@@ -23,7 +23,6 @@ from app.models import (  # noqa: F401
     BranchProductCost,
     BranchSequence,
     Category,
-    CategoryAttributeDef,
     ChartAccount,
     Currency,
     DiscountRule,

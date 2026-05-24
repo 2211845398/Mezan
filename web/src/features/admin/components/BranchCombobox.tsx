@@ -30,6 +30,8 @@ export type BranchComboboxProps = {
   id?: string;
   /** Allow clearing branch (null). */
   allowClear?: boolean;
+  /** Label for the cleared / all-branches option. */
+  clearLabel?: string;
   includeArchived?: boolean;
 };
 
@@ -41,6 +43,7 @@ export function BranchCombobox({
   label,
   id,
   allowClear,
+  clearLabel,
   includeArchived = false,
 }: BranchComboboxProps) {
   const { t } = useTranslation('admin');
@@ -51,10 +54,12 @@ export function BranchCombobox({
 
   const labelText = useMemo(() => {
     if (value == null || value === 0) {
-      return allowClear ? t('branches.picker_clear') : t('branches.picker_placeholder');
+      return allowClear
+        ? (clearLabel ?? t('branches.picker_clear'))
+        : t('branches.picker_placeholder');
     }
     return getBranchLabel(branches, value) || `#${value}`;
-  }, [allowClear, branches, t, value]);
+  }, [allowClear, branches, clearLabel, t, value]);
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -103,7 +108,7 @@ export function BranchCombobox({
                         value == null || value === 0 ? 'opacity-100' : 'opacity-0',
                       )}
                     />
-                    {t('branches.picker_clear')}
+                    {clearLabel ?? t('branches.picker_clear')}
                   </CommandItem>
                 ) : null}
                 {branches.map((b: BranchRead) => {

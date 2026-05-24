@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from app.models.chart_accounts import AccountType
+from app.models.chart_accounts import AccountType, SubledgerKind
 
 
 class ChartAccountRead(BaseModel):
@@ -18,12 +18,29 @@ class ChartAccountRead(BaseModel):
     account_type: AccountType
     parent_id: int | None
     is_control: bool
+    is_leaf: bool = True
+    subledger_kind: SubledgerKind = SubledgerKind.NONE
     is_system: bool
     active: bool
     depth: int = 0  # Computed field
 
     class Config:
         from_attributes = True
+
+
+class PostableChartAccountRead(BaseModel):
+    """Leaf posting account for journal line pickers."""
+
+    id: int
+    code: str
+    name: str
+    account_type: AccountType
+    parent_id: int | None
+    parent_code: str | None = None
+    parent_name: str | None = None
+    subledger_kind: SubledgerKind = SubledgerKind.NONE
+    is_leaf: bool = True
+    active: bool = True
 
 
 class ChartAccountCreate(BaseModel):
@@ -34,6 +51,7 @@ class ChartAccountCreate(BaseModel):
     account_type: AccountType
     parent_id: int | None = Field(None, description="Parent account ID (null for root)")
     is_control: bool = Field(default=False)
+    subledger_kind: SubledgerKind = Field(default=SubledgerKind.NONE)
     active: bool = Field(default=True)
 
 
@@ -45,7 +63,14 @@ class ChartAccountUpdate(BaseModel):
     account_type: AccountType | None = None
     parent_id: int | None = Field(None, description="Parent account ID (null for root)")
     is_control: bool | None = None
+    subledger_kind: SubledgerKind | None = None
     active: bool | None = None
+
+
+class ChartAccountSuggestCodeRead(BaseModel):
+    """Suggested next account code under a parent group."""
+
+    suggested_code: str | None = None
 
 
 class ChartAccountTreeNode(BaseModel):
@@ -56,6 +81,8 @@ class ChartAccountTreeNode(BaseModel):
     name: str
     account_type: AccountType
     is_control: bool
+    is_leaf: bool = True
+    subledger_kind: SubledgerKind = SubledgerKind.NONE
     is_system: bool
     active: bool
     depth: int
@@ -73,6 +100,8 @@ class ChartAccountTreeBranchNode(BaseModel):
     name: str
     account_type: AccountType
     is_control: bool
+    is_leaf: bool = True
+    subledger_kind: SubledgerKind = SubledgerKind.NONE
     is_system: bool
     active: bool
     depth: int
