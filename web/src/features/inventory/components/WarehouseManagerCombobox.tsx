@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/command';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { employeesQueryOptions } from '@/features/hr/queries';
+import { employeesPickerQueryOptions } from '@/features/hr/queries';
 import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +31,7 @@ export function WarehouseManagerCombobox({ value, onChange, disabled, label }: P
   const { t } = useTranslation('inventory');
   const { i18n } = useTranslation();
   const [open, setOpen] = useState(false);
-  const { data: employees = [], isLoading } = useQuery(employeesQueryOptions());
+  const { data: employees = [], isLoading } = useQuery(employeesPickerQueryOptions());
 
   const options = useMemo(
     () =>

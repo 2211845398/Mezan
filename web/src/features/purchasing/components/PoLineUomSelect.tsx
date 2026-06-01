@@ -48,7 +48,7 @@ export default function PoLineUomSelect({
 
   return (
     <Select
-      value={uomId > 0 ? String(uomId) : undefined}
+      value={uomId > 0 ? String(uomId) : ''}
       onValueChange={(v) => onChange(Number(v))}
       disabled={disabled || uomId <= 0}
     >

@@ -7,6 +7,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class PurchaseOrderLineBase(BaseModel):
     product_id: int
@@ -72,6 +74,10 @@ class PurchaseOrderRead(PurchaseOrderBase):
     lines: list[PurchaseOrderLineRead] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class PurchaseOrderListResponse(PaginatedListResponse[PurchaseOrderRead]):
+    """Paginated purchase order list."""
 
 
 class PurchaseOrderSendRequest(BaseModel):

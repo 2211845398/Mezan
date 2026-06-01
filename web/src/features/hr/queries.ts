@@ -29,10 +29,21 @@ export const hrKeys = {
   anomalies: (payload: string) => [...hrKeys.root, 'anomalies', payload] as const,
 };
 
-export function employeesQueryOptions() {
+export function employeesQueryOptions(args: { limit: number; offset: number }) {
   return queryOptions({
-    queryKey: hrKeys.employees(),
-    queryFn: () => api.listEmployees(),
+    queryKey: [...hrKeys.employees(), args.limit, args.offset] as const,
+    queryFn: () => api.listEmployees({ limit: args.limit, offset: args.offset }),
+  });
+}
+
+export function employeesPickerQueryOptions() {
+  return queryOptions({
+    queryKey: [...hrKeys.employees(), 'picker'] as const,
+    queryFn: async () => {
+      const res = await api.listEmployees({ limit: 200, offset: 0 });
+      return res.items;
+    },
+    staleTime: 60_000,
   });
 }
 

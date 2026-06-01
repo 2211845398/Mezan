@@ -33,6 +33,8 @@ export type BranchComboboxProps = {
   /** Label for the cleared / all-branches option. */
   clearLabel?: string;
   includeArchived?: boolean;
+  /** Show branch code under name in the dropdown (default true). */
+  showCode?: boolean;
 };
 
 export function BranchCombobox({
@@ -45,6 +47,7 @@ export function BranchCombobox({
   allowClear,
   clearLabel,
   includeArchived = false,
+  showCode = true,
 }: BranchComboboxProps) {
   const { t } = useTranslation('admin');
   const { t: tc } = useTranslation('common');
@@ -130,7 +133,7 @@ export function BranchCombobox({
                       />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-start">
                         <span className="leading-tight">{b.name}</span>
-                        {b.code ? (
+                        {showCode && b.code ? (
                           <span dir="ltr" className="font-mono text-xs text-muted-foreground">
                             {b.code}
                           </span>

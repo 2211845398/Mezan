@@ -1,10 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 
-import { notifyApiError } from '@/api/errorMessages';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -16,14 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useCategoryTreeQuery } from '@/features/catalog/queries';
-import { purchasingKeys } from '@/features/purchasing/queries';
 import { usePermission } from '@/hooks/usePermission';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-import { postCreatePurchaseOrdersFromReorder } from '../../api';
 import { BranchStockFilterBar } from '../../components/BranchStockFilterBar';
+import { InventoryStockNavActions } from '../../components/InventoryStockNavActions';
 import { inventoryKeys, useStockOnHandQuery } from '../../queries';
 import type { StockOnHandRow } from '../../types';
 import AdjustmentForm from '../adjustments/AdjustmentForm';
@@ -52,11 +48,7 @@ type MetricFilter = 'reserved' | 'damaged' | 'in_transit';
 
 export default function StockOnHand() {
   const { t } = useTranslation('inventory');
-  const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const canCreatePo = usePermission('purchase_orders', 'create');
-  const canRecordMovement = usePermission('stock_adjustments', 'create');
-  const canCreateTransfer = usePermission('inventory', 'update');
 
   const branchId = useMemo(() => {
     const raw = searchParams.get('branch_id');
@@ -182,16 +174,6 @@ export default function StockOnHand() {
     return { low, damaged, reserved, inTransit, totalValue };
   }, [rows]);
 
-  const createPoM = useMutation({
-    mutationFn: () => postCreatePurchaseOrdersFromReorder({}),
-    onSuccess: async (res) => {
-      await qc.invalidateQueries({ queryKey: inventoryKeys.root });
-      await qc.invalidateQueries({ queryKey: purchasingKeys.root });
-      toast.success(t('stock.po_created', { count: res.created.length }));
-    },
-    onError: (e) => notifyApiError(e, t('errors.generic')),
-  });
-
   const columns = useMemo(
     () =>
       defineColumns<StockOnHandRow>()([
@@ -228,6 +210,7 @@ export default function StockOnHand() {
         },
         {
           id: 'variant_name',
+          meta: { visibilityLabel: t('stock.col.variant_name') },
           header: () => <span title={t('stock.col.variant_name_hint')}>{t('stock.col.variant_name')}</span>,
           cell: ({ row }) => (
             <span className="max-w-[12rem] truncate text-sm">
@@ -239,6 +222,7 @@ export default function StockOnHand() {
         },
         {
           id: 'ref_code',
+          meta: { visibilityLabel: t('stock.col.reference_code') },
           header: () => <span title={t('stock.col.reference_code_hint')}>{t('stock.col.reference_code')}</span>,
           cell: ({ row }) => (
             <span className="num-latin tabular-nums" dir="ltr">
@@ -251,16 +235,19 @@ export default function StockOnHand() {
         {
           id: 'rsv',
           accessorKey: 'reserved',
+          meta: { visibilityLabel: t('stock.col.reserved') },
           header: () => <span title={t('stock.col.reserved_hint')}>{t('stock.col.reserved')}</span>,
         },
         { id: 'dmg', accessorKey: 'damaged', header: t('stock.col.damaged') },
         {
           id: 'on_order',
           accessorKey: 'on_order',
+          meta: { visibilityLabel: t('stock.col.on_order') },
           header: () => <span title={t('stock.col.on_order_hint')}>{t('stock.col.on_order')}</span>,
         },
         {
           id: 'st',
+          meta: { visibilityLabel: t('stock.col.status') },
           header: () => <span title={t('stock.col.status_hint')}>{t('stock.col.status')}</span>,
           cell: ({ row }) => (
             <StatusBadge
@@ -373,55 +360,17 @@ export default function StockOnHand() {
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
         title={t('stock.title')}
-        subtitle={t('stock.subtitle')}
         actions={
           <div className="flex flex-wrap gap-2">
-            {canRecordMovement ? (
-              <>
-                <Button type="button" variant="outline" size="sm" asChild>
-                  <Link to="/inventory/receipts/new">{t('movement.receipt.short')}</Link>
-                </Button>
-                <Button type="button" variant="outline" size="sm" asChild>
-                  <Link to="/inventory/reservations">{t('movement.reserve.short')}</Link>
-                </Button>
-                <Button type="button" variant="outline" size="sm" asChild>
-                  <Link to="/inventory/damage">{t('movement.damage.short')}</Link>
-                </Button>
-                <Button type="button" variant="outline" size="sm" asChild>
-                  <Link to="/inventory/stock-count">{t('movement.stock_count.short')}</Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMovementFormKey((k) => k + 1);
-                    setMovementDialogOpen(true);
-                  }}
-                >
-                  {t('stock.action.movement')}
-                </Button>
-              </>
-            ) : null}
-            {canCreateTransfer ? (
-              <Button type="button" variant="outline" size="sm" asChild>
-                <Link to="/inventory/transfers/new">{t('stock.action.transfer')}</Link>
-              </Button>
-            ) : null}
-            {canCreatePo ? (
-              <Button
-                type="button"
-                size="sm"
-                disabled={createPoM.isPending}
-                onClick={() => void createPoM.mutate()}
-              >
-                {t('stock.action.create_po_alerts')}
-              </Button>
-            ) : null}
+            <InventoryStockNavActions
+              onOpenMovementDialog={() => {
+                setMovementFormKey((k) => k + 1);
+                setMovementDialogOpen(true);
+              }}
+            />
           </div>
         }
       />
-      <p className="text-xs text-muted-foreground">{t('stock.wavg_note')}</p>
 
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {kpiCards.map((card) => (
@@ -437,7 +386,7 @@ export default function StockOnHand() {
                 : 'cursor-default',
               card.active &&
                 card.reorderToggle &&
-                'ring-2 ring-primary shadow-sm',
+                'ring-2 ring-border shadow-sm',
               card.active &&
                 card.metric &&
                 'ring-2 ring-border shadow-sm',
@@ -483,7 +432,9 @@ export default function StockOnHand() {
               checked={reorderOnly}
               onCheckedChange={(v) => setReorderOnly(v)}
             />
-            <Label htmlFor="reorder-only">{t('stock.filter.reorder_only')}</Label>
+            <Label htmlFor="reorder-only" className="font-normal text-muted-foreground">
+              {t('stock.filter.reorder_only')}
+            </Label>
           </div>
         </div>
       </div>

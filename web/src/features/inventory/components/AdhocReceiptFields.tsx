@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -75,7 +75,7 @@ export default function AdhocReceiptFields({ onCancel }: Props) {
         .filter((l) => l.product_id > 0 && l.uom_id > 0 && Number(l.qty) > 0)
         .map((l) => ({
           product_id: l.product_id,
-          variant_id: l.variant_id && l.variant_id > 0 ? l.variant_id : undefined,
+          ...(l.variant_id != null && l.variant_id > 0 ? { variant_id: l.variant_id } : {}),
           qty: Number(l.qty),
           uom_id: l.uom_id,
           unit_cost: l.unit_cost.trim().replace(',', '.'),
@@ -119,6 +119,7 @@ export default function AdhocReceiptFields({ onCancel }: Props) {
           label={t('adjustments.field.branch')}
           value={branchId}
           onChange={setBranchId}
+          showCode={false}
         />
         <SupplierCombobox
           label={t('movement.receipt.supplier')}
@@ -174,8 +175,8 @@ function AdhocReceiptLineRow({
   canRemove: boolean;
   onPatch: (patch: Partial<DraftLine>) => void;
   onRemove: () => void;
-  t: (key: string) => string;
-  tCatalog: (key: string, options?: Record<string, unknown>) => string;
+  t: TFunction<'inventory'>;
+  tCatalog: TFunction<'catalog'>;
 }) {
   const pid = line.product_id;
   const { data: product } = useQuery({
@@ -188,7 +189,11 @@ function AdhocReceiptLineRow({
     [product, tCatalog],
   );
   const uomDisplay = uomOptions.find((o) => o.id === line.uom_id)?.label ?? '—';
-  const unitCostLabel = receiveUnitCostLabel(t, line.uom_id, uomOptions);
+  const unitCostLabel = receiveUnitCostLabel(
+    (key, opts) => String(t(key as never, opts as never)),
+    line.uom_id,
+    uomOptions,
+  );
 
   useEffect(() => {
     if (uomOptions.length > 0 && line.uom_id <= 0) {
@@ -220,6 +225,7 @@ function AdhocReceiptLineRow({
               variantId={line.variant_id}
               variantPickLabel={line.variant_label}
               disabled={pid <= 0}
+              placeholder={t('movement.field.variant_placeholder')}
               onVariantPick={(vid, label) => onPatch({ variant_id: vid, variant_label: label })}
             />
           </div>

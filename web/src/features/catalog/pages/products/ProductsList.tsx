@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Pencil, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,17 +31,11 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { usePermission } from '@/hooks/usePermission';
 
-import { postArchiveProduct, postUnarchiveProduct, type ProductRead } from '../../api';
+import { listTaxDefinitions, postArchiveProduct, postUnarchiveProduct, type ProductRead } from '../../api';
+import { CategoryCombobox } from '../../components/CategoryCombobox';
 import { ProductCategoryChips } from '../../components/ProductCategoryChips';
+import { ProductTaxChips } from '../../components/ProductTaxChips';
 import { catalogKeys, useCategoryTreeQuery, useProductListQuery } from '../../queries';
-
-/** Table display: normalize API decimal strings to a fixed number of fraction digits. */
-function formatCatalogTableDecimals(raw: string | null | undefined, fractionDigits = 3): string | null {
-  if (raw == null || raw === '') return null;
-  const n = Number.parseFloat(raw);
-  if (!Number.isFinite(n)) return raw;
-  return n.toFixed(fractionDigits);
-}
 
 function flattenCategoryTree(
   nodes: { id: number; name: string; is_active?: boolean; children?: typeof nodes }[],
@@ -138,6 +132,15 @@ export default function ProductsList() {
   const { data: treeData = [] } = useCategoryTreeQuery();
   const categoryOptions = useMemo(() => flattenCategoryTree(treeData), [treeData]);
 
+  const { data: taxDefinitions = [] } = useQuery({
+    queryKey: [...catalogKeys.root, 'taxDefinitions', 'active'],
+    queryFn: () => listTaxDefinitions(true),
+  });
+  const taxById = useMemo(
+    () => new Map(taxDefinitions.map((d) => [d.id, d] as const)),
+    [taxDefinitions],
+  );
+
   const archiveProduct = useMutation({
     mutationFn: async (row: ProductRead) =>
       row.status === 'archived' ? postUnarchiveProduct(row.id) : postArchiveProduct(row.id),
@@ -216,9 +219,11 @@ export default function ProductsList() {
           id: 'vat',
           header: t('products.col.vat'),
           cell: ({ row }) => (
-            <span className="num-latin tabular-nums" dir="ltr">
-              {formatCatalogTableDecimals(String(row.original.output_vat_rate ?? '0')) ?? '0.000'}
-            </span>
+            <ProductTaxChips
+              taxDefinitionIds={row.original.tax_definition_ids}
+              outputVatRate={row.original.output_vat_rate}
+              taxById={taxById}
+            />
           ),
         },
         {
@@ -253,7 +258,7 @@ export default function ProductsList() {
           },
         },
       ]),
-    [t, canUpdate, categoryNameById, archiveProduct, navigate],
+    [t, canUpdate, categoryNameById, taxById, archiveProduct, navigate],
   );
 
   return (
@@ -297,32 +302,23 @@ export default function ProductsList() {
         </div>
         <div className="min-w-48 space-y-1">
           <Label>{t('products.filter.category')}</Label>
-          <Select
-            value={categoryId == null ? 'all' : String(categoryId)}
-            onValueChange={(v) => {
-              if (v === 'all') {
+          <CategoryCombobox
+            value={categoryId}
+            onChange={(id) => {
+              if (id == null) {
                 setQuery({ category_id: null, category_subtree: null, page: null });
               } else {
                 setQuery({
-                  category_id: v,
+                  category_id: String(id),
                   category_subtree: categorySubtree ? '1' : null,
                   page: null,
                 });
               }
             }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('products.filter.all')}</SelectItem>
-              {categoryOptions.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={categoryOptions.map((c) => ({ id: c.id, label: c.name }))}
+            allowAll
+            allLabel={t('products.filter.all')}
+          />
         </div>
         <div className="flex items-center gap-2 pb-2">
           <Switch

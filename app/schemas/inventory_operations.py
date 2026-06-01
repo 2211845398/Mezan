@@ -58,6 +58,8 @@ class DamagedPositionRead(BaseModel):
     variant_name: str
     reference_code: str
     qty_damaged: int
+    movement_id: int | None = None
+    reason: str | None = None
 
 
 class DamagedActionCreate(BaseModel):
@@ -73,6 +75,7 @@ class DamagedActionCreate(BaseModel):
 class StockCountExportRequest(BaseModel):
     branch_id: int
     category_id: int | None = None
+    category_include_descendants: bool = False
     product_ids: list[int] | None = None
     q: str | None = None
     responsible_name: str = Field(default="", max_length=128)

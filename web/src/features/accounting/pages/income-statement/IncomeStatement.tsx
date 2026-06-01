@@ -7,20 +7,12 @@ import { DateField } from '@/components/shared/form/DateField';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
 import { now, utcCalendarDayKey } from '@/lib/date';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
+import { AccountingBranchFilter } from '../../components/AccountingBranchFilter';
 import { incomeStatementQueryOptions } from '../../queries';
 
 type LineRow = { account_id: number; code: string; name: string; amount: string; depth?: number };
@@ -81,24 +73,19 @@ export default function IncomeStatement() {
   const d0 = defaultIsPeriod();
   const [ps, setPs] = useState(d0.ps);
   const [pe, setPe] = useState(d0.pe);
-  const [branch, setBranch] = useState('__all');
+  const [branchId, setBranchId] = useState<number | null>(null);
   const [applied, setApplied] = useState<{
     period_start: string;
     period_end: string;
     branch_id?: number;
   }>({ period_start: d0.ps, period_end: d0.pe });
-  const { data: branches = [] } = useQuery({
-    queryKey: adminKeys.branches(false),
-    queryFn: () => listBranches({ include_archived: false }),
-  });
   const { data, isLoading } = useQuery(incomeStatementQueryOptions(applied));
 
   const apply = () => {
-    const b = branch === '__all' ? undefined : Number(branch);
     setApplied(
-      b === undefined
+      branchId == null
         ? { period_start: ps, period_end: pe }
-        : { period_start: ps, period_end: pe, branch_id: b },
+        : { period_start: ps, period_end: pe, branch_id: branchId },
     );
   };
 
@@ -113,27 +100,20 @@ export default function IncomeStatement() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('is.period_start')}</Label>
-          <DateField value={ps} onChange={setPs} />
+          <DateField value={ps} onChange={setPs} className="w-[200px]" />
         </div>
         <div className="grid gap-1">
           <Label>{t('is.period_end')}</Label>
-          <DateField value={pe} onChange={setPe} />
+          <DateField value={pe} onChange={setPe} className="w-[200px]" />
         </div>
         <div className="grid gap-1">
           <Label>{t('toolbar.branch')}</Label>
-          <Select value={branch} onValueChange={setBranch}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">{t('toolbar.all_branches')}</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={String(b.id)}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AccountingBranchFilter
+            value={branchId}
+            onChange={setBranchId}
+            clearLabel={t('toolbar.all_branches')}
+            className="w-[200px]"
+          />
         </div>
         <Button type="button" onClick={apply}>
           {t('toolbar.apply')}
@@ -144,15 +124,15 @@ export default function IncomeStatement() {
         <div className="space-y-6">
           {/* KPI metric tiles */}
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{t('is.revenue')}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums num-latin text-blue-700 dark:text-blue-300">
+            <div className="rounded-lg border border-muted bg-muted/50 p-4">
+              <p className="text-xs font-medium text-muted-foreground">{t('is.revenue')}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums num-latin text-foreground">
                 {formatMoney(data.total_revenue)}
               </p>
             </div>
-            <div className="rounded-lg border bg-card p-4">
-              <p className="text-xs font-medium text-destructive">{t('is.expense')}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums num-latin text-destructive">
+            <div className="rounded-lg border border-muted bg-muted/50 p-4">
+              <p className="text-xs font-medium text-muted-foreground">{t('is.expense')}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums num-latin text-foreground">
                 {formatMoney(data.total_expense)}
               </p>
             </div>

@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { ChevronRight, Package } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -28,16 +28,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -50,16 +44,29 @@ import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { getProduct, type ProductVariantPurchasingSearchItem } from '@/features/catalog/api';
+import { getProduct, searchProductVariantsForPurchasing } from '@/features/catalog/api';
+import { purchasingVariantNameLabel } from '@/features/catalog/lib/purchasingVariantLabel';
 import { catalogKeys } from '@/features/catalog/queries';
+import PoLineProductPicker from '@/features/purchasing/components/PoLineProductPicker';
 import PoLineUomSelect from '@/features/purchasing/components/PoLineUomSelect';
-import { buildProductUomOptions } from '@/features/purchasing/lib/productUomOptions';
+import PoLineVariantSelect from '@/features/purchasing/components/PoLineVariantSelect';
+import { localizedPoLineUomDisplay } from '@/features/purchasing/lib/poLineUomDisplay';
+import {
+  buildProductUomOptions,
+  type ProductUomOption,
+} from '@/features/purchasing/lib/productUomOptions';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
 import { baseUnitsToDisplayQty, qtyToBaseUnits } from '@/lib/productUomQty';
 import { formatQtyWithUom } from '@/lib/formatQtyWithUom';
 
-import { draftLineFromSearchVariant, qtyBaseAlreadyForVariant, type DraftTransferLine } from './transferDraft';
+import {
+  draftLineFromBatchLine,
+  draftLineFromProductVariant,
+  draftLineUomDisplay,
+  draftLineVariantDisplay,
+  type DraftTransferLine,
+} from './transferDraft';
 
 import {
   createTransferBatch,
@@ -67,10 +74,10 @@ import {
   getTransferBatch,
   postDispatchTransfer,
   postReceiveTransfer,
+  updateTransferBatch,
 } from '../../api';
-import { VariantSearchSelect } from '../../components/VariantSearchSelect';
 import { inventoryKeys, stockOnHandQueryOptions } from '../../queries';
-import type { StockOnHandRow } from '../../types';
+import type { StockOnHandRow, TransferLineRead } from '../../types';
 
 function stockRowForVariant(rows: StockOnHandRow[], variantId: number): StockOnHandRow | undefined {
   return rows.find((r) => r.variant_id === variantId);
@@ -80,6 +87,42 @@ function availableForVariant(rows: StockOnHandRow[], variantId: number): number 
   return stockRowForVariant(rows, variantId)?.available ?? 0;
 }
 
+function availableForVariantWithBatchReserve(
+  rows: StockOnHandRow[],
+  variantId: number,
+  batchLines: { variant_id?: number | null; qty_base?: number; qty: number }[] | undefined,
+): number {
+  const base = availableForVariant(rows, variantId);
+  if (!batchLines?.length) return base;
+  const reservedOnBatch = batchLines
+    .filter((l) => l.variant_id === variantId)
+    .reduce((s, l) => s + (l.qty_base ?? l.qty), 0);
+  return base + reservedOnBatch;
+}
+
+function totalQtyBaseForVariant(lines: DraftTransferLine[], variantId: number): number {
+  return lines
+    .filter((l) => l.variant_id === variantId)
+    .reduce((s, l) => s + l.qty_base, 0);
+}
+
+async function loadUomForProduct(
+  tCatalog: ReturnType<typeof useTranslation<'catalog'>>['t'],
+  productId: number,
+  preferredUomId?: number,
+): Promise<{ uom_id: number; uom_options: ProductUomOption[] }> {
+  const product = await getProduct(productId);
+  const uom_options = buildProductUomOptions(tCatalog, product);
+  const baseId = product.uom_id ?? uom_options[0]?.id ?? 0;
+  const uom_id =
+    preferredUomId != null &&
+    preferredUomId > 0 &&
+    uom_options.some((o) => o.id === preferredUomId)
+      ? preferredUomId
+      : baseId;
+  return { uom_id, uom_options };
+}
+
 export type TransferFormProps = {
   variant?: 'page' | 'dialog';
   onDismiss?: () => void;
@@ -87,6 +130,7 @@ export type TransferFormProps = {
 
 export default function TransferForm({ variant = 'page', onDismiss }: TransferFormProps = {}) {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation('inventory');
   const { t: tc } = useTranslation('common');
@@ -94,14 +138,19 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const qc = useQueryClient();
   const canUpdate = usePermission('inventory', 'update');
   const actorBranchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
-  const isNew = !id || id === 'new';
-  const batchId = id && !isNew ? Number(id) : null;
+  const isNew = /\/inventory\/transfers\/new\/?$/.test(location.pathname);
+  const isEdit = /\/inventory\/transfers\/\d+\/edit\/?$/.test(location.pathname);
+  const viewBatchId = !isNew && !isEdit && id ? Number(id) : null;
+  const editBatchId = isEdit && id ? Number(id) : null;
+  const batchId = viewBatchId ?? editBatchId;
 
   const { data: batch, refetch } = useQuery({
     queryKey: inventoryKeys.transfer(batchId ?? 0),
     queryFn: () => getTransferBatch(batchId!),
-    enabled: batchId != null && !Number.isNaN(batchId),
+    enabled: batchId != null && !Number.isNaN(batchId) && !isNew,
   });
+
+  const [editHydrated, setEditHydrated] = useState(false);
 
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
@@ -109,29 +158,40 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   });
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariantPurchasingSearchItem | null>(null);
+  const [lineProductId, setLineProductId] = useState(0);
+  const [lineProductPickLabel, setLineProductPickLabel] = useState('');
+  const [lineVariantId, setLineVariantId] = useState<number | null>(null);
+  const [lineVariantPickLabel, setLineVariantPickLabel] = useState('');
   const [lineQty, setLineQty] = useState('1');
   const [lineUomId, setLineUomId] = useState(0);
+  const [lineUomOptions, setLineUomOptions] = useState<ProductUomOption[]>([]);
   const [lines, setLines] = useState<DraftTransferLine[]>([]);
 
-  const pickerProductId = selectedVariant?.product_id ?? 0;
+  const resetLineEntry = () => {
+    setLineProductId(0);
+    setLineProductPickLabel('');
+    setLineVariantId(null);
+    setLineVariantPickLabel('');
+    setLineQty('1');
+    setLineUomId(0);
+    setLineUomOptions([]);
+  };
+
   const { data: pickerProduct } = useQuery({
-    queryKey: catalogKeys.product(pickerProductId),
-    queryFn: () => getProduct(pickerProductId),
-    enabled: pickerProductId > 0,
+    queryKey: catalogKeys.product(lineProductId),
+    queryFn: () => getProduct(lineProductId),
+    enabled: lineProductId > 0,
   });
-  const lineUomOptions = useMemo(
-    () => (pickerProduct ? buildProductUomOptions(tCatalog, pickerProduct) : []),
-    [pickerProduct, tCatalog],
-  );
 
   useEffect(() => {
-    if (lineUomOptions.length > 0) {
-      setLineUomId(lineUomOptions[0]!.id);
-    } else {
-      setLineUomId(0);
-    }
-  }, [pickerProductId, lineUomOptions]);
+    if (lineProductId <= 0 || !pickerProduct) return;
+    const opts = buildProductUomOptions(tCatalog, pickerProduct);
+    setLineUomOptions(opts);
+    const baseId = pickerProduct.uom_id ?? opts[0]?.id ?? 0;
+    setLineUomId((prev) =>
+      prev > 0 && opts.some((o) => o.id === prev) ? prev : baseId,
+    );
+  }, [lineProductId, pickerProduct, tCatalog]);
 
   const fromBranchName = useMemo(
     () => branches.find((b) => String(b.id) === from)?.name ?? null,
@@ -149,22 +209,25 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
     enabled: stockQueryEnabled,
   });
 
+  const buildPayloadLines = () =>
+    lines.map((l) => {
+      if (l.variant_id == null) {
+        throw new Error('unresolved_variant');
+      }
+      return {
+        product_id: l.product_id,
+        qty: l.qty,
+        uom_id: l.uom_id,
+        variant_id: l.variant_id,
+      };
+    });
+
   const createM = useMutation({
     mutationFn: () =>
       createTransferBatch({
         from_branch_id: Number(from),
         to_branch_id: Number(to),
-        lines: lines.map((l) => {
-          if (l.variant_id == null) {
-            throw new Error('unresolved_variant');
-          }
-          return {
-            product_id: l.product_id,
-            qty: l.qty,
-            uom_id: l.uom_id,
-            variant_id: l.variant_id,
-          };
-        }),
+        lines: buildPayloadLines(),
       }),
     onSuccess: (b) => {
       void qc.invalidateQueries({ queryKey: inventoryKeys.root });
@@ -178,8 +241,202 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
+  const updateM = useMutation({
+    mutationFn: () =>
+      updateTransferBatch(editBatchId!, {
+        from_branch_id: Number(from),
+        to_branch_id: Number(to),
+        lines: buildPayloadLines(),
+      }),
+    onSuccess: (b) => {
+      void qc.invalidateQueries({ queryKey: inventoryKeys.root });
+      toast.success(t('transfers.updated'));
+      if (onDismiss) {
+        onDismiss();
+      } else {
+        navigate(`/inventory/transfers/${b.id}`);
+      }
+    },
+    onError: (error) => notifyApiError(error, t('errors.generic')),
+  });
+
+  useEffect(() => {
+    if (!isEdit || !batch) {
+      setEditHydrated(false);
+      return;
+    }
+    setFrom(String(batch.from_branch_id));
+    setTo(String(batch.to_branch_id));
+    let cancelled = false;
+    void (async () => {
+      const loaded = await Promise.all(
+        (batch.lines ?? []).map(async (ln) => {
+          let draft = draftLineFromBatchLine(ln, tCatalog);
+          if (ln.variant_id != null && ln.variant_id > 0) {
+            try {
+              const hits = await searchProductVariantsForPurchasing({
+                product_id: ln.product_id,
+                limit: 200,
+              });
+              const hit = hits.find((h) => h.variant_id === ln.variant_id);
+              if (hit) {
+                draft = {
+                  ...draft,
+                  variant_name: purchasingVariantNameLabel(hit),
+                  reference_code: (hit.reference_code ?? '').trim() || draft.reference_code,
+                };
+              }
+            } catch {
+              /* keep API labels */
+            }
+          }
+          return draft;
+        }),
+      );
+      if (cancelled) return;
+      setLines(loaded);
+      resetLineEntry();
+      setEditHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit, batch?.id, batch?.updated_at, tCatalog]);
+
+  const lineQtySnapshotRef = useRef<{ qty: number; qty_base: number }>({ qty: 1, qty_base: 1 });
+
+  const maxAvailableAtSource = (
+    rows: StockOnHandRow[],
+    variantId: number,
+    serverBatchLines?: TransferLineRead[],
+  ) =>
+    isEdit
+      ? availableForVariantWithBatchReserve(rows, variantId, serverBatchLines)
+      : availableForVariant(rows, variantId);
+
+  const showInsufficientAtSource = (
+    sample: DraftTransferLine,
+    availBase: number,
+    requestedBase: number,
+    uomOptions: ProductUomOption[],
+  ) => {
+    const uomSym = sample.uom_label.split(/\s/).pop() ?? '';
+    toast.error(
+      t('transfers.errors.insufficient_at_source', {
+        available: baseUnitsToDisplayQty(availBase, sample.uom_id, uomOptions),
+        requested: baseUnitsToDisplayQty(requestedBase, sample.uom_id, uomOptions),
+        uom: uomSym,
+      }),
+    );
+  };
+
+  const validateAllDraftLinesStock = async (
+    draftLines: DraftTransferLine[],
+    serverBatchLines?: TransferLineRead[],
+  ): Promise<boolean> => {
+    if (!from || stockQueryEnabled && stockLoading) {
+      if (stockQueryEnabled && stockLoading) {
+        toast.error(t('transfers.errors.stock_loading'));
+      }
+      return false;
+    }
+    let rows = stockRows;
+    if (stockQueryEnabled) {
+      rows = await qc.fetchQuery(
+        stockOnHandQueryOptions({
+          branch_id: from,
+          limit: 2000,
+          offset: 0,
+        }),
+      );
+    }
+    const totals = new Map<number, number>();
+    for (const l of draftLines) {
+      if (l.variant_id == null) continue;
+      totals.set(l.variant_id, (totals.get(l.variant_id) ?? 0) + l.qty_base);
+    }
+    for (const [variantId, totalBase] of totals) {
+      const avail = maxAvailableAtSource(rows, variantId, serverBatchLines);
+      if (totalBase > avail) {
+        const sample = draftLines.find((l) => l.variant_id === variantId);
+        if (!sample) continue;
+        const { uom_options } = await loadUomForProduct(tCatalog, sample.product_id, sample.uom_id);
+        showInsufficientAtSource(sample, avail, totalBase, uom_options);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const commitLineQty = (index: number) => {
+    const line = lines[index];
+    if (!line) return;
+    const snap = lineQtySnapshotRef.current;
+    const q = line.qty;
+    if (!Number.isFinite(q) || q <= 0) {
+      setLines((prev) =>
+        prev.map((l, i) => (i === index ? { ...l, qty: snap.qty, qty_base: snap.qty_base } : l)),
+      );
+      return;
+    }
+    if (line.variant_id == null || line.variant_id <= 0) return;
+
+    void (async () => {
+      try {
+        const product = await getProduct(line.product_id);
+        const uomOptions = buildProductUomOptions(tCatalog, product);
+        const qty_base = qtyToBaseUnits(q, line.uom_id, uomOptions);
+        const vid = line.variant_id!;
+        const draftWithNew = lines.map((l, i) =>
+          i === index ? { ...l, qty: q, qty_base } : l,
+        );
+        let rows = stockRows;
+        if (stockQueryEnabled) {
+          rows = await qc.fetchQuery(
+            stockOnHandQueryOptions({
+              branch_id: from,
+              limit: 2000,
+              offset: 0,
+            }),
+          );
+        }
+        const totalBase = totalQtyBaseForVariant(draftWithNew, vid);
+        const availBase = maxAvailableAtSource(rows, vid, batch?.lines);
+        if (totalBase > availBase) {
+          showInsufficientAtSource(line, availBase, totalBase, uomOptions);
+          setLines((prev) =>
+            prev.map((l, i) =>
+              i === index ? { ...l, qty: snap.qty, qty_base: snap.qty_base } : l,
+            ),
+          );
+          return;
+        }
+        const uomOpt = uomOptions.find((o) => o.id === line.uom_id);
+        setLines((prev) =>
+          prev.map((l, i) =>
+            i === index
+              ? {
+                  ...l,
+                  qty: q,
+                  qty_base,
+                  uom_label: uomOpt?.label ?? l.uom_label,
+                }
+              : l,
+          ),
+        );
+        lineQtySnapshotRef.current = { qty: q, qty_base };
+      } catch {
+        setLines((prev) =>
+          prev.map((l, i) =>
+            i === index ? { ...l, qty: snap.qty, qty_base: snap.qty_base } : l,
+          ),
+        );
+      }
+    })();
+  };
+
   const disp = useMutation({
-    mutationFn: () => postDispatchTransfer(batchId!),
+    mutationFn: () => postDispatchTransfer(viewBatchId!),
     onSuccess: () => {
       void refetch();
       toast.success(t('transfers.dispatched'));
@@ -187,7 +444,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
   const recv = useMutation({
-    mutationFn: () => postReceiveTransfer(batchId!),
+    mutationFn: () => postReceiveTransfer(viewBatchId!),
     onSuccess: () => {
       void refetch();
       toast.success(t('transfers.received_ok'));
@@ -197,10 +454,10 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
 
   const cancelM = useMutation({
     mutationFn: async () => {
-      if (batchId == null || Number.isNaN(batchId)) {
+      if (viewBatchId == null || Number.isNaN(viewBatchId)) {
         throw new Error('missing_batch');
       }
-      await deleteTransferBatch(batchId);
+      await deleteTransferBatch(viewBatchId);
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: inventoryKeys.root });
@@ -217,31 +474,105 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
 
   const [cancelOpen, setCancelOpen] = useState(false);
 
-  if (isNew) {
+  if (isNew || isEdit) {
+    if (isEdit) {
+      if (batch == null || editBatchId == null || Number.isNaN(editBatchId)) {
+        return <p className="p-4 text-muted-foreground">{t('loading')}</p>;
+      }
+      if (batch.status !== 'pending_dispatch') {
+        return (
+          <div className="flex flex-col gap-4 p-6">
+            <p className="text-muted-foreground">{t('transfers.errors.update_not_pending')}</p>
+            <Button type="button" variant="outline" asChild>
+              <Link to={`/inventory/transfers/${batch.id}`}>{t('actions.back')}</Link>
+            </Button>
+          </div>
+        );
+      }
+      if (!editHydrated) {
+        return <p className="p-4 text-muted-foreground">{t('loading')}</p>;
+      }
+    }
+
+    const savePending = isEdit ? updateM.isPending : createM.isPending;
+
     const newInner = (
       <>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <BranchCombobox
-            label={t('transfers.from')}
-            value={from ? Number(from) : null}
-            onChange={(id) => {
-              setFrom(id != null ? String(id) : '');
-              setSelectedVariant(null);
-            }}
-          />
-          <BranchCombobox
-            label={t('transfers.to')}
-            value={to ? Number(to) : null}
-            onChange={(id) => setTo(id != null ? String(id) : '')}
-          />
+          {isEdit ? (
+            <>
+              <div className="grid gap-2">
+                <Label>{t('transfers.from')}</Label>
+                <div
+                  className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
+                  aria-readonly
+                >
+                  {batch?.from_branch_name?.trim() || from || '—'}
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>{t('transfers.to')}</Label>
+                <div
+                  className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
+                  aria-readonly
+                >
+                  {batch?.to_branch_name?.trim() || to || '—'}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <BranchCombobox
+                label={t('transfers.from')}
+                value={from ? Number(from) : null}
+                onChange={(id) => {
+                  setFrom(id != null ? String(id) : '');
+                  resetLineEntry();
+                }}
+                showCode={false}
+              />
+              <BranchCombobox
+                label={t('transfers.to')}
+                value={to ? Number(to) : null}
+                onChange={(id) => setTo(id != null ? String(id) : '')}
+                showCode={false}
+              />
+            </>
+          )}
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
-          <div className="min-w-0 md:col-span-6">
-            <Label>{t('transfers.line.variant_picker')}</Label>
-            <VariantSearchSelect
-              value={selectedVariant?.variant_id ?? null}
-              onChange={(_id, item) => setSelectedVariant(item)}
+          <div className="min-w-0 md:col-span-5">
+            <Label>{t('transfers.line.product')}</Label>
+            <PoLineProductPicker
               disabled={!from || (stockQueryEnabled && stockLoading)}
+              pickLabel={lineProductPickLabel}
+              onPick={(row) => {
+                setLineProductId(row.product_id);
+                setLineProductPickLabel(row.pick_label);
+                setLineVariantId(null);
+                setLineVariantPickLabel('');
+                void loadUomForProduct(tCatalog, row.product_id, row.uom_id).then(
+                  ({ uom_id, uom_options }) => {
+                    setLineUomOptions(uom_options);
+                    setLineUomId(uom_id);
+                  },
+                );
+              }}
+            />
+          </div>
+          <div className="min-w-0 md:col-span-3">
+            <PoLineVariantSelect
+              compact
+              labelMode="variant"
+              placeholder={t('transfers.variant_search_placeholder')}
+              productId={lineProductId}
+              variantId={lineVariantId}
+              variantPickLabel={lineVariantPickLabel}
+              disabled={!from || lineProductId <= 0 || (stockQueryEnabled && stockLoading)}
+              onVariantPick={(variantId, label) => {
+                setLineVariantId(variantId);
+                setLineVariantPickLabel(label);
+              }}
             />
           </div>
           <div className="md:col-span-2">
@@ -252,66 +583,107 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
               className="h-9 w-full"
               type="number"
               min={1}
+              disabled={lineVariantId == null || lineVariantId <= 0}
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <Label>{t('transfers.line.uom')}</Label>
             <PoLineUomSelect
               fullWidth
-              disabled={!selectedVariant || lineUomOptions.length === 0}
+              disabled={lineProductId <= 0 || lineUomOptions.length === 0}
               uomId={lineUomId}
               options={lineUomOptions}
               onChange={setLineUomId}
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <Label className="invisible hidden md:block" aria-hidden>
               {t('actions.add_line')}
             </Label>
             <Button
               type="button"
               className="h-9 w-full"
+              disabled={lineVariantId == null || lineVariantId <= 0}
               onClick={() => {
-              if (!from) {
-                toast.error(t('transfers.errors.select_from_branch'));
-                return;
-              }
-              if (stockQueryEnabled && stockLoading) {
-                toast.error(t('transfers.errors.stock_loading'));
-                return;
-              }
-              const v = selectedVariant;
-              if (v == null) {
-                toast.error(t('transfers.errors.select_variant'));
-                return;
-              }
-              if (lineUomId <= 0) {
-                return;
-              }
-              const q = Number(lineQty);
-              if (!Number.isFinite(q) || q <= 0) {
-                return;
-              }
-              const vid = v.variant_id;
-              const qtyBase = qtyToBaseUnits(q, lineUomId, lineUomOptions);
-              const already = qtyBaseAlreadyForVariant(lines, vid);
-              const availBase = availableForVariant(stockRows, vid);
-              const uomOpt = lineUomOptions.find((o) => o.id === lineUomId);
-              const uomSym = uomOpt?.label?.split(/\s/).pop() ?? '';
-              if (already + qtyBase > availBase) {
-                toast.error(
-                  t('transfers.errors.insufficient_at_source', {
-                    available: baseUnitsToDisplayQty(availBase, lineUomId, lineUomOptions),
-                    requested: baseUnitsToDisplayQty(already + qtyBase, lineUomId, lineUomOptions),
-                    uom: uomSym,
-                  }),
-                );
-                return;
-              }
-              setLines([...lines, draftLineFromSearchVariant(v, q, lineUomId, lineUomOptions)]);
-              setSelectedVariant(null);
-              setLineQty('1');
-            }}
+                void (async () => {
+                  if (!from) {
+                    toast.error(t('transfers.errors.select_from_branch'));
+                    return;
+                  }
+                  if (stockQueryEnabled && stockLoading) {
+                    toast.error(t('transfers.errors.stock_loading'));
+                    return;
+                  }
+                  if (lineProductId <= 0) {
+                    toast.error(t('transfers.errors.select_product'));
+                    return;
+                  }
+                  if (lineVariantId == null || lineVariantId <= 0) {
+                    toast.error(t('transfers.errors.select_variant'));
+                    return;
+                  }
+                  if (lineUomId <= 0) {
+                    return;
+                  }
+                  const q = Number(lineQty);
+                  if (!Number.isFinite(q) || q <= 0) {
+                    return;
+                  }
+                  const hits = await searchProductVariantsForPurchasing({
+                    product_id: lineProductId,
+                    limit: 200,
+                  });
+                  const hit = hits.find((h) => h.variant_id === lineVariantId);
+                  if (!hit) {
+                    toast.error(t('transfers.errors.variant_not_found'));
+                    return;
+                  }
+                  const vid = lineVariantId;
+                  const qtyBase = qtyToBaseUnits(q, lineUomId, lineUomOptions);
+                  const draftWithNew = [
+                    ...lines,
+                    {
+                      ...draftLineFromProductVariant(
+                        hit,
+                        q,
+                        lineUomId,
+                        lineUomOptions,
+                        lineProductPickLabel,
+                        lineVariantPickLabel,
+                      ),
+                      qty_base: qtyBase,
+                    },
+                  ];
+                  const totalBase = totalQtyBaseForVariant(draftWithNew, vid);
+                  const availBase = maxAvailableAtSource(stockRows, vid, batch?.lines);
+                  if (totalBase > availBase) {
+                    const sample = draftWithNew.find((l) => l.variant_id === vid)!;
+                    showInsufficientAtSource(sample, availBase, totalBase, lineUomOptions);
+                    return;
+                  }
+                  const row = draftLineFromProductVariant(
+                    hit,
+                    q,
+                    lineUomId,
+                    lineUomOptions,
+                    lineProductPickLabel,
+                    lineVariantPickLabel,
+                  );
+                  const altUom = lineUomOptions.find((o) => o.id === lineUomId);
+                  const baseSym = pickerProduct?.uom_symbol?.trim();
+                  const baseName = pickerProduct?.uom_name?.trim();
+                  if (altUom?.isBase && baseSym) {
+                    row.uom_symbol = baseSym;
+                    row.uom_name = baseName;
+                  }
+                  row.uom_label =
+                    localizedPoLineUomDisplay(tCatalog, row.uom_symbol, row.uom_name) ||
+                    altUom?.label ||
+                    row.uom_label;
+                  setLines([...lines, row]);
+                  resetLineEntry();
+                })();
+              }}
             >
               {t('actions.add_line')}
             </Button>
@@ -322,9 +694,9 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
             ? t('transfers.errors.select_from_branch')
             : stockQueryEnabled && stockLoading
               ? t('transfers.errors.stock_loading')
-              : selectedVariant && lineUomId > 0
+              : lineVariantId != null && lineVariantId > 0 && lineUomId > 0
                 ? (() => {
-                    const row = stockRowForVariant(stockRows, selectedVariant.variant_id);
+                    const row = stockRowForVariant(stockRows, lineVariantId);
                     const uomOpt = lineUomOptions.find((o) => o.id === lineUomId);
                     const uomSym = uomOpt?.label ?? '';
                     if (!row) {
@@ -351,12 +723,12 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
           <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[22%] text-start">{t('transfers.line.product')}</TableHead>
-                <TableHead className="w-[22%] text-start">{t('transfers.line.variant_name')}</TableHead>
-                <TableHead className="w-[16%] text-start">{t('transfers.line.reference_code')}</TableHead>
-                <TableHead className="w-[10%] text-start">{t('transfers.line.qty')}</TableHead>
-                <TableHead className="w-[14%] text-start">{t('transfers.line.uom')}</TableHead>
-                <TableHead className="w-[16%] text-end">{t('transfers.line.actions')}</TableHead>
+                <TableHead className="w-[22%] align-middle text-start">{t('transfers.line.product')}</TableHead>
+                <TableHead className="w-[22%] align-middle text-start">{t('transfers.line.variant_name')}</TableHead>
+                <TableHead className="w-[14%] align-middle text-center">{t('stock.col.reference_code')}</TableHead>
+                <TableHead className="w-[10%] align-middle text-end tabular-nums">{t('transfers.line.qty')}</TableHead>
+                <TableHead className="w-[14%] align-middle text-start">{t('transfers.line.uom')}</TableHead>
+                <TableHead className="w-[18%] align-middle text-end">{t('transfers.line.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -368,16 +740,52 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                 </TableRow>
               ) : (
                 lines.map((l, i) => (
-                  <TableRow key={`line-${i}`}>
-                    <TableCell className="align-top text-start font-medium">{l.product_name}</TableCell>
-                    <TableCell className="align-top text-start">{l.variant_name}</TableCell>
-                    <TableCell className="align-top num-latin tabular-nums text-start" dir="ltr">
-                      {l.reference_code || '—'}
+                  <TableRow key={`line-${l.variant_id ?? i}-${l.product_id}`}>
+                    <TableCell className="align-middle text-start font-medium">{l.product_name}</TableCell>
+                    <TableCell className="align-middle text-start">{draftLineVariantDisplay(l)}</TableCell>
+                    <TableCell className="align-middle text-center">
+                      <span
+                        className="mx-auto block max-w-full truncate num-latin tabular-nums"
+                        dir="ltr"
+                        title={l.reference_code || undefined}
+                      >
+                        {l.reference_code || '—'}
+                      </span>
                     </TableCell>
-                    <TableCell className="align-top tabular-nums text-start">{l.qty}</TableCell>
-                    <TableCell className="align-top text-start">{l.uom_label}</TableCell>
-                    <TableCell className="align-top text-end">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setLines(lines.filter((_, j) => j !== i))}>
+                    <TableCell className="align-middle text-end tabular-nums num-latin">
+                      {isEdit ? (
+                        <Input
+                          type="number"
+                          min={1}
+                          className="ms-auto h-8 w-20 text-end"
+                          value={l.qty}
+                          onFocus={() => {
+                            lineQtySnapshotRef.current = { qty: l.qty, qty_base: l.qty_base };
+                          }}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const next = raw === '' ? 0 : Number(raw);
+                            setLines((prev) =>
+                              prev.map((row, idx) =>
+                                idx === i ? { ...row, qty: Number.isFinite(next) ? next : row.qty } : row,
+                              ),
+                            );
+                          }}
+                          onBlur={() => commitLineQty(i)}
+                        />
+                      ) : (
+                        l.qty
+                      )}
+                    </TableCell>
+                    <TableCell className="align-middle text-start">{draftLineUomDisplay(tCatalog, l)}</TableCell>
+                    <TableCell className="align-middle text-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setLines(lines.filter((_, j) => j !== i))}
+                      >
                         {t('transfers.remove_line')}
                       </Button>
                     </TableCell>
@@ -391,7 +799,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
           <Button
             type="button"
             disabled={
-              createM.isPending ||
+              savePending ||
               !lines.length ||
               lines.some((l) => l.variant_id == null) ||
               !from ||
@@ -399,39 +807,30 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
               from === to
             }
             onClick={() => {
-              if (!from || !to || from === to || !lines.length) {
-                return;
-              }
-              if (lines.some((l) => l.variant_id == null)) {
-                toast.error(t('transfers.errors.resolve_lines'));
-                return;
-              }
-              if (stockQueryEnabled && stockLoading) {
-                toast.error(t('transfers.errors.stock_loading'));
-                return;
-              }
-              const totals = new Map<number, number>();
-              for (const l of lines) {
-                if (l.variant_id == null) continue;
-                totals.set(l.variant_id, (totals.get(l.variant_id) ?? 0) + l.qty_base);
-              }
-              for (const [variantId, totalBase] of totals) {
-                const avail = availableForVariant(stockRows, variantId);
-                if (totalBase > avail) {
-                  toast.error(
-                    t('transfers.errors.insufficient_at_source', {
-                      available: avail,
-                      requested: totalBase,
-                      uom: '',
-                    }),
-                  );
+              void (async () => {
+                if (!from || !to || from === to || !lines.length) {
                   return;
                 }
-              }
-              void createM.mutate();
+                if (lines.some((l) => l.variant_id == null)) {
+                  toast.error(t('transfers.errors.resolve_lines'));
+                  return;
+                }
+                const stockOk = await validateAllDraftLinesStock(
+                  lines,
+                  isEdit ? batch?.lines : undefined,
+                );
+                if (!stockOk) {
+                  return;
+                }
+                if (isEdit) {
+                  updateM.mutate();
+                } else {
+                  createM.mutate();
+                }
+              })();
             }}
           >
-            {t('actions.create')}
+            {isEdit ? t('actions.save') : t('actions.create')}
           </Button>
           {onDismiss ? (
             <Button type="button" variant="ghost" onClick={onDismiss}>
@@ -439,7 +838,9 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
             </Button>
           ) : (
             <Button type="button" variant="ghost" asChild>
-              <Link to="/inventory/transfers">{t('actions.cancel')}</Link>
+              <Link to={isEdit && editBatchId ? `/inventory/transfers/${editBatchId}` : '/inventory/transfers'}>
+                {t('actions.cancel')}
+              </Link>
             </Button>
           )}
         </div>
@@ -475,12 +876,29 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
               <BreadcrumbSeparator>
                 <ChevronRight className="size-4 rtl:rotate-180" />
               </BreadcrumbSeparator>
+              {isEdit && editBatchId ? (
+                <>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
+                      <Link to={`/inventory/transfers/${editBatchId}`}>
+                        {t('transfers.detail.title', { id: editBatchId })}
+                      </Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator>
+                    <ChevronRight className="size-4 rtl:rotate-180" />
+                  </BreadcrumbSeparator>
+                </>
+              ) : null}
               <BreadcrumbItem>
-                <BreadcrumbPage>{t('transfers.new')}</BreadcrumbPage>
+                <BreadcrumbPage>{isEdit ? t('transfers.edit') : t('transfers.new')}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-          <PageHeader title={t('transfers.new')} subtitle={t('transfers.subtitle')} />
+          <PageHeader
+            title={isEdit ? t('transfers.edit') : t('transfers.new')}
+            subtitle={t('transfers.subtitle')}
+          />
           <div className="w-full max-w-5xl space-y-6 me-auto">{newInner}</div>
         </div>
       );
@@ -504,6 +922,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const showDispatch = canUpdate && batch.status === 'pending_dispatch' && branchAllowsDispatch;
   const showReceive = canUpdate && batch.status === 'in_transit' && branchAllowsReceive;
   const showCancel = canUpdate && batch.status === 'pending_dispatch' && branchAllowsDispatch;
+  const showEdit = canUpdate && batch.status === 'pending_dispatch' && branchAllowsDispatch;
   const creatorDisplay = batch.created_by_user_name?.trim() || null;
   const showRoleHintCard = batch.status !== 'received';
   const roleHintSingle =
@@ -545,7 +964,6 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
         <Card className="flex min-h-0 flex-col border-2 border-border/80 shadow-sm">
           <CardHeader className="space-y-1 pb-2">
             <CardTitle className="text-lg">{t('transfers.detail.route_title')}</CardTitle>
-            <CardDescription>{t('transfers.detail.cost_note')}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col space-y-6">
             <div className="flex flex-col items-stretch gap-3 rounded-lg border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -625,7 +1043,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                   <TableHead className="w-14">#</TableHead>
                   <TableHead>{t('transfers.line.product')}</TableHead>
                   <TableHead>{t('transfers.line.variant_name')}</TableHead>
-                  <TableHead>{t('transfers.line.reference_code')}</TableHead>
+                  <TableHead className="text-center">{t('stock.col.reference_code')}</TableHead>
                   <TableHead className="w-20 text-end">{t('transfers.line.qty')}</TableHead>
                   <TableHead className="w-24">{t('transfers.line.uom')}</TableHead>
                 </TableRow>
@@ -642,12 +1060,18 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                     <TableCell className="text-sm">
                       {ln.variant_name?.trim() || ln.variant_attributes?.trim() || '—'}
                     </TableCell>
-                    <TableCell className="num-latin tabular-nums" dir="ltr">
-                      {ln.reference_code?.trim() || '—'}
+                    <TableCell className="text-center">
+                      <span
+                        className="mx-auto block max-w-full truncate num-latin tabular-nums"
+                        dir="ltr"
+                        title={ln.reference_code?.trim() || undefined}
+                      >
+                        {ln.reference_code?.trim() || '—'}
+                      </span>
                     </TableCell>
                     <TableCell className="text-end tabular-nums">{ln.qty}</TableCell>
                     <TableCell className="text-sm">
-                      {ln.uom_name?.trim() || '—'}
+                      {localizedPoLineUomDisplay(tCatalog, ln.uom_symbol, ln.uom_name) || '—'}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -656,12 +1080,6 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
           </CardContent>
         </Card>
       </div>
-
-      {showRoleHintCard ? (
-        <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-          <p>{roleHintSingle}</p>
-        </div>
-      ) : null}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
@@ -673,6 +1091,11 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
               onClick={() => setCancelOpen(true)}
             >
               {t('transfers.cancel')}
+            </Button>
+          ) : null}
+          {showEdit ? (
+            <Button type="button" variant="outline" asChild>
+              <Link to={`/inventory/transfers/${batch.id}/edit`}>{t('transfers.edit')}</Link>
             </Button>
           ) : null}
           {showDispatch ? (
@@ -692,6 +1115,12 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
           ) : null}
         </div>
       </div>
+
+      {showRoleHintCard ? (
+        <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+          <p>{roleHintSingle}</p>
+        </div>
+      ) : null}
 
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent>

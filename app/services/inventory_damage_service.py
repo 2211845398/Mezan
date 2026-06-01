@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ValidationError
+from app.core.errors import validation_error
 from app.models.branch import Branch
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
@@ -14,6 +14,29 @@ from app.models.stock_movement import StockMovement
 from app.schemas.inventory_operations import DamagedPositionRead
 from app.services.inventory_human_movement_service import apply_human_inventory_movement
 from app.utils.variant_display import variant_value_labels_summary
+
+
+async def _latest_damage_mark(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    product_id: int,
+    variant_id: int,
+) -> StockMovement | None:
+    res = await db.execute(
+        select(StockMovement)
+        .where(
+            and_(
+                StockMovement.branch_id == branch_id,
+                StockMovement.product_id == product_id,
+                StockMovement.variant_id == variant_id,
+                StockMovement.movement_kind == "damage_mark",
+            )
+        )
+        .order_by(StockMovement.id.desc())
+        .limit(1)
+    )
+    return res.scalar_one_or_none()
 
 
 async def list_damaged_positions(
@@ -38,6 +61,12 @@ async def list_damaged_positions(
     out: list[DamagedPositionRead] = []
     for sl, branch_name, product_name, pv in res.all():
         ref = (pv.reference_code or "").strip()
+        latest = await _latest_damage_mark(
+            db,
+            branch_id=sl.branch_id,
+            product_id=sl.product_id,
+            variant_id=sl.variant_id,
+        )
         out.append(
             DamagedPositionRead(
                 branch_id=sl.branch_id,
@@ -48,6 +77,8 @@ async def list_damaged_positions(
                 variant_name=variant_value_labels_summary(pv.attribute_values) or str(product_name),
                 reference_code=ref,
                 qty_damaged=int(sl.damaged),
+                movement_id=latest.id if latest else None,
+                reason=latest.reason if latest else None,
             )
         )
     return out
@@ -66,7 +97,7 @@ async def scrap_damaged_position(
     notes: str | None = None,
 ) -> StockMovement:
     if quantity <= 0:
-        raise ValidationError("quantity must be positive", details={"quantity": quantity})
+        validation_error("quantity_positive_required", "quantity must be positive", quantity=quantity)
     return await apply_human_inventory_movement(
         db,
         user_id=user_id,
@@ -95,7 +126,7 @@ async def unmark_damaged_position(
     notes: str | None = None,
 ) -> StockMovement:
     if quantity <= 0:
-        raise ValidationError("quantity must be positive", details={"quantity": quantity})
+        validation_error("quantity_positive_required", "quantity must be positive", quantity=quantity)
     return await apply_human_inventory_movement(
         db,
         user_id=user_id,

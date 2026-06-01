@@ -6,6 +6,7 @@
     "submit": "إرسال",
     "cancel": "إلغاء",
     "create": "إنشاء",
+    "save": "حفظ",
     "add_line": "إضافة بند"
   },
   "errors": { "generic": "حدث خطأ." },
@@ -132,7 +133,25 @@
       "damage_unmark": "إلغاء تالف",
       "reserve": "حجز",
       "release": "إلغاء حجز",
-      "count_adjust": "تسوية جرد"
+      "count_adjust": "تسوية جرد",
+      "transfer_reserve": "حجز تحويل",
+      "transfer_dispatch": "إرسال تحويل",
+      "transfer_cancel": "إلغاء تحويل"
+    },
+    "reason": {
+      "transfer_receive": "استلام تحويل",
+      "transfer_dispatch": "إرسال تحويل",
+      "transfer_cancel": "إلغاء تحويل",
+      "transfer_reserve": "حجز تحويل",
+      "manual_movement": "حركة يدوية",
+      "manual_adjustment": "تسوية يدوية",
+      "manual_reserve": "حجز يدوي",
+      "sale": "بيع",
+      "damage_scrap": "إتلاف تالف",
+      "damage_unmark": "إلغاء تالف",
+      "reserve_release": "إلغاء حجز",
+      "damage_mark": "تسجيل تالف",
+      "stock_count": "جرد مخزني"
     },
     "filter": {
       "kind": "نوع الحركة",
@@ -155,11 +174,15 @@
     "more_flows": "عمليات أخرى"
   },
   "movement": {
-    "field": { "uom": "الوحدة", "variant": "المتغير" },
     "add_line": "إضافة سطر",
     "remove_line": "إزالة السطر",
+    "field": {
+      "uom": "الوحدة",
+      "variant": "المتغير",
+      "variant_placeholder": "اختر المتغير"
+    },
     "receipt": {
-      "short": "استلام بضاعة",
+      "short": "استلام",
       "title": "استلام بضاعة (بدون أمر شراء)",
       "subtitle": "إدخال بضاعة واردة مع مورد اختياري وتكلفة وحدة.",
       "section": "بيانات الاستلام",
@@ -172,7 +195,7 @@
       "posted": "تم تسجيل الاستلام"
     },
     "reserve": {
-      "short": "الحجوزات",
+      "short": "المحجوزات",
       "new": "حجز جديد",
       "new_subtitle": "حجز كمية من المخزون المتاح.",
       "submit": "تأكيد الحجز",
@@ -188,7 +211,7 @@
       "released": "تم إلغاء الحجز"
     },
     "damage": {
-      "short": "تالف",
+      "short": "التلف",
       "new": "تسجيل تالف",
       "title": "تسجيل تالف",
       "subtitle": "تسجيل كمية تالفة في المخزون.",
@@ -208,8 +231,41 @@
       "posted": "تم التسجيل"
     },
     "stock_count": {
-      "short": "ورقة جرد",
-      "title": "تصدير ورقة جرد",
+      "short": "الجرد",
+      "title": "الجرد",
+      "list_title": "إصدارات الجرد",
+      "issue_page_title": "إصدار جرد جديد",
+      "issue_submit": "إصدار جرد",
+      "include_subcategories": "يشمل التصنيفات الفرعية",
+      "download_pdf": "تنزيل PDF",
+      "issue": "إصدار جرد",
+      "issued": "تم إصدار الجرد (إصدار {{version}})",
+      "fill": "تعبئة الجرد",
+      "fill_title": "تعبئة الجرد — إصدار {{version}}",
+      "save": "حفظ مسودة",
+      "saved": "تم حفظ الجرد",
+      "post": "ترحيل التسويات",
+      "post_requires_all_lines": "أكمل العد الفعلي لكل المنتجات قبل الترحيل",
+      "posted": "تم ترحيل {{count}} تسوية",
+      "col_version": "الإصدار",
+      "col_branch": "الفرع",
+      "col_date": "التاريخ",
+      "col_responsible": "المسؤول",
+      "col_status": "الحالة",
+      "col_lines": "الأسطر",
+      "col_product": "المنتج",
+      "col_variant": "المتغير",
+      "col_reference": "رمز المستخدم",
+      "col_on_hand": "الرصيد",
+      "col_reserved": "المحجوز",
+      "col_counted": "العد الفعلي",
+      "col_damaged": "التالف",
+      "col_variance": "الفرق",
+      "col_notes": "ملاحظات",
+      "status_draft": "قيد العمل",
+      "status_in_progress": "قيد التعبئة",
+      "status_posted": "مرحّل",
+      "status_cancelled": "ملغى",
       "responsible": "المسؤول عن الجرد",
       "responsible_placeholder": "اختر مسؤول مخزن…",
       "responsible_search": "بحث بالاسم…",
@@ -222,6 +278,8 @@
     "title": "التحويلات الداخلية",
     "subtitle": "متابعة الشحنات بين الفروع",
     "new": "تحويل جديد",
+    "edit": "تعديل التحويل",
+    "updated": "تم تحديث التحويل",
     "created": "تم إنشاء التحويل",
     "created_pending_dispatch": "الدُفعة بانتظار الإرسال. تم حجز الكمية في فرع المصدر حتى الإرسال أو الإلغاء.",
     "attributes_no_match": "لا يوجد متغير يطابق قيم الخصائص. عدّل الاختيار.",
@@ -236,7 +294,7 @@
       "list_fallback": "منتج #{{id}} × {{qty}}",
       "variant_picker": "المنتج والمتغير",
       "variant_name": "المتغير",
-      "reference_code": "كود المستخدم",
+      "reference_code": "رمز المستخدم",
       "variant_sku": "SKU المتغير",
       "attributes": "الخصائص",
       "actions": "إجراءات",
@@ -279,12 +337,15 @@
     "variant_search_placeholder": "بحث باسم المنتج أو رمز العميل…",
     "variant_clear": "إزالة المتغير",
     "variant_search_empty": "لا نتائج",
-    "lines_empty": "لا توجد بنود بعد. أضف متغيراً وكمية.",
+    "lines_empty": "لا توجد بنود بعد. أضف منتجاً ومتغيراً وكمية.",
     "remove_line": "إزالة",
     "errors": {
       "select_from_branch": "اختر فرع المصدر (من فرع) أولاً.",
       "stock_loading": "جاري تحميل أرصدة الفرع، حاول مرة أخرى بعد لحظات.",
-      "select_variant": "اختر منتجاً ومتغيراً (SKU) من القائمة.",
+      "select_product": "اختر المنتج من القائمة.",
+      "select_variant": "اختر المتغير (SKU) من القائمة.",
+      "variant_not_found": "لم يُعثر على المتغير لهذا المنتج. أعد الاختيار.",
+      "update_not_pending": "لا يمكن تعديل التحويل بعد الإرسال أو الاستلام.",
       "insufficient_at_source": "الكمية المتاحة في فرع المصدر {{available}} — المطلوب إجمالاً {{requested}} (بما في ذلك البنود الحالية).",
       "resolve_lines": "أكمل خصائص كل بند بحيث يطابق سطراً واحداً من المتغيرات قبل الإنشاء."
     },
@@ -307,7 +368,10 @@
       "qty_total": "{{qty}} وحدة",
       "dispatched_at": "تاريخ الإرسال",
       "received_at": "تاريخ الاستلام",
-      "refresh": "تحديث"
+      "refresh": "تحديث",
+      "route": "من {{from}} إلى {{to}}",
+      "preview_overflow": "+{{count}} تحويل إضافي في هذه المرحلة",
+      "open_full_list": "عرض السجل الكامل"
     }
   },
   "scans": {

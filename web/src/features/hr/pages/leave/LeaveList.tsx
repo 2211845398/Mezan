@@ -22,7 +22,7 @@ import { inclusiveCalendarDaySpan } from '@/lib/date';
 import type { LeaveRequestRead } from '../../api';
 import { leaveRequestRowSearchValue } from '../../lib/hrTableSearch';
 import { formatVacationBalanceRemaining } from '../../lib/leaveBalanceDisplay';
-import { employeesQueryOptions, leaveListQueryOptions } from '../../queries';
+import { employeesPickerQueryOptions, leaveListQueryOptions } from '../../queries';
 import LeaveApproveDrawer from './LeaveApproveDrawer';
 
 export default function LeaveList() {
@@ -33,7 +33,7 @@ export default function LeaveList() {
   const { data: rows = [], isLoading, isError, refetch } = useQuery(
     leaveListQueryOptions(st === undefined ? {} : { status: st }),
   );
-  const { data: emps = [] } = useQuery(employeesQueryOptions());
+  const { data: emps = [] } = useQuery(employeesPickerQueryOptions());
   const [sel, setSel] = useState<LeaveRequestRead | null>(null);
   const [open, setOpen] = useState(false);
 

@@ -252,4 +252,47 @@ describe('API error message extraction', () => {
     const t = i18n.getFixedT('ar', 'common');
     expect(getLocalizedApiErrorMessage(err, t)).toBe(t('apiErrors.control_account_posting'));
   });
+
+  it('localized transfer stock error uses details.code in Arabic', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'Insufficient available stock at sending branch',
+            details: {
+              code: 'insufficient_transfer_stock',
+              branch_id: 1,
+              available: 2,
+              requested: 10,
+            },
+          },
+        },
+      },
+      null,
+    );
+    const tAr = i18n.getFixedT('ar', 'common');
+    const tEn = i18n.getFixedT('en', 'common');
+    expect(getLocalizedApiErrorMessage(err, tAr)).toBe(tAr('apiErrors.insufficient_transfer_stock'));
+    expect(getLocalizedApiErrorMessage(err, tEn)).toBe(tEn('apiErrors.insufficient_transfer_stock'));
+  });
+
+  it('falls back to generic copy when API message is untranslated', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'Some brand new backend sentence without a code',
+            details: {},
+          },
+        },
+      },
+      null,
+    );
+    const t = i18n.getFixedT('ar', 'common');
+    expect(getLocalizedApiErrorMessage(err, t)).toBe(t('errors.generic'));
+  });
 });

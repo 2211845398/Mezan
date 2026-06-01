@@ -1,4 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import type { PaginatedList } from '@/api/pagination';
+import { paginatedParams } from '@/api/pagination';
+import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { Pencil, Plus } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -51,10 +55,13 @@ export default function DiscountsList() {
   const qc = useQueryClient();
   const canCreate = usePermission('discounts', 'create');
   const canUpdate = usePermission('discounts', 'update');
-  const { data: raw = [], isLoading, isError, refetch } = useQuery(
-    discountsListQueryOptions({ limit: 100, offset: 0 }),
-  );
-  const rows = useMemo(() => sortDiscounts(raw), [raw]);
+  const [urlQuery] = useTableUrlState({ pageSize: 20 });
+  const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
+  const listArgs = { limit, offset };
+
+  const { data, isLoading, isError, refetch } = useQuery(discountsListQueryOptions(listArgs));
+  const rows = useMemo(() => sortDiscounts(data?.items ?? []), [data?.items]);
+  const totalRows = data?.total ?? 0;
 
   const openNew = searchParams.get('new') === '1';
   const rawEdit = searchParams.get('edit');
@@ -73,17 +80,21 @@ export default function DiscountsList() {
       return updateDiscountRule(r.id, { status: next });
     },
     onMutate: async (r) => {
-      await qc.cancelQueries({ queryKey: crmKeys.discounts({ limit: 100, offset: 0 }) });
-      const prev = qc.getQueryData<DiscountRuleRead[]>(crmKeys.discounts({ limit: 100, offset: 0 }));
-      qc.setQueryData<DiscountRuleRead[]>(crmKeys.discounts({ limit: 100, offset: 0 }), (old) =>
-        (old ?? []).map((x) =>
-          x.id === r.id ? { ...x, status: x.status === 'active' ? 'disabled' : 'active' } : x,
-        ),
-      );
+      await qc.cancelQueries({ queryKey: crmKeys.discounts(listArgs) });
+      const prev = qc.getQueryData<PaginatedList<DiscountRuleRead>>(crmKeys.discounts(listArgs));
+      qc.setQueryData<PaginatedList<DiscountRuleRead>>(crmKeys.discounts(listArgs), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.map((x) =>
+            x.id === r.id ? { ...x, status: x.status === 'active' ? 'disabled' : 'active' } : x,
+          ),
+        };
+      });
       return { prev };
     },
     onError: (error, _r, ctx) => {
-      if (ctx?.prev) qc.setQueryData(crmKeys.discounts({ limit: 100, offset: 0 }), ctx.prev);
+      if (ctx?.prev) qc.setQueryData(crmKeys.discounts(listArgs), ctx.prev);
       notifyApiError(error, t('errors.generic'));
     },
     onSuccess: () => {
@@ -172,9 +183,10 @@ export default function DiscountsList() {
         }
       />
       <DataTable
-        mode="client"
+        mode="server"
         columns={columns}
         data={rows}
+        totalRows={totalRows}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}

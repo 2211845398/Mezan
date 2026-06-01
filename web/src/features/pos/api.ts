@@ -1,4 +1,6 @@
 import { apiClient } from '@/api/client';
+import type { PaginatedItem } from '@/api/listTypes';
+import type { PaginatedList } from '@/api/pagination';
 import type { paths } from '@/api/generated/schema';
 
 type CurrentShiftParams =
@@ -37,8 +39,7 @@ type SalesInvoiceRead =
   paths['/api/v1/pos/sales/finalize']['post']['responses']['200']['content']['application/json'];
 type SalesInvoiceDetailRead =
   paths['/api/v1/sales-invoices/{invoice_id}']['get']['responses']['200']['content']['application/json'];
-type SalesInvoiceListItem =
-  paths['/api/v1/sales-invoices']['get']['responses']['200']['content']['application/json'][number];
+type SalesInvoiceListItem = PaginatedItem<'/api/v1/sales-invoices'>;
 
 type ListInvoicesParams = paths['/api/v1/sales-invoices']['get']['parameters']['query'];
 
@@ -212,8 +213,10 @@ export async function getSalesInvoice(invoiceId: number): Promise<SalesInvoiceDe
 
 export async function listSalesInvoices(
   params: ListInvoicesParams,
-): Promise<SalesInvoiceListItem[]> {
-  const { data } = await apiClient.get<SalesInvoiceListItem[]>('/sales-invoices', { params });
+): Promise<PaginatedList<SalesInvoiceListItem>> {
+  const { data } = await apiClient.get<PaginatedList<SalesInvoiceListItem>>('/sales-invoices', {
+    params,
+  });
   return data;
 }
 

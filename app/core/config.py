@@ -117,6 +117,33 @@ class Settings(BaseSettings):
         default=None, description="Inline FCM service-account JSON string"
     )
 
+    # Outbound email (purchase orders, future password reset, etc.)
+    EMAIL_ENABLED: bool = Field(
+        default=False,
+        description="When false, outbound email is logged only (mock sender)",
+    )
+    EMAIL_PROVIDER: str = Field(
+        default="mock",
+        description="Email provider: mock or smtp",
+    )
+    SMTP_HOST: str | None = Field(default=None, description="SMTP server hostname")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port")
+    SMTP_USER: str | None = Field(default=None, description="SMTP authentication username")
+    SMTP_PASSWORD: str | None = Field(default=None, description="SMTP authentication password")
+    SMTP_USE_TLS: bool = Field(default=True, description="Use STARTTLS on SMTP connection")
+    SMTP_USE_SSL: bool = Field(
+        default=False,
+        description="Use implicit SSL (typically port 465); mutually exclusive with STARTTLS",
+    )
+    EMAIL_FROM: str | None = Field(default=None, description="Default From address for outbound mail")
+    EMAIL_FROM_NAME: str | None = Field(
+        default=None, description="Display name for the default From address"
+    )
+    COMPANY_DISPLAY_NAME: str = Field(
+        default="Mezan",
+        description="Company name shown on purchase-order PDFs and supplier emails",
+    )
+
     # Temporary customer GC (CRM): delete abandoned temp profiles after N days when safe.
     CUSTOMER_GC_ENABLED: bool = Field(
         default=True,

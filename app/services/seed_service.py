@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.accounting_settings import AccountingSettings
-from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
 from app.models.currency import Currency
 from app.models.permission import Permission
 from app.models.role import Role
@@ -311,9 +310,17 @@ async def seed_permissions_and_roles(db: AsyncSession) -> None:
 
 
 async def seed_accounting_defaults(db: AsyncSession) -> None:
-    """Idempotent: currencies, chart of accounts, and default GL mapping (tests + fresh DB)."""
+    """Idempotent: currencies, hierarchical CoA, and default GL mapping."""
+    from app.services.coa_seed_service import (
+        build_accounting_settings,
+        plant_coa_tree,
+        upgrade_coa_skeleton,
+    )
+
     res = await db.execute(select(AccountingSettings).where(AccountingSettings.id == 1))
     if res.scalar_one_or_none():
+        await upgrade_coa_skeleton(db)
+        await db.commit()
         return
 
     cur = Currency(
@@ -326,122 +333,12 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
     db.add(cur)
     await db.flush()
 
-    defs: list[tuple[str, str, AccountType, bool, bool]] = [
-        ("1000", "Cash on Hand", AccountType.ASSET, False, True),
-        ("1010", "Card Clearing", AccountType.ASSET, False, True),
-        ("1015", "Other Payments Clearing", AccountType.ASSET, False, True),
-        ("1100", "Accounts Receivable", AccountType.ASSET, True, True),
-        ("1200", "Inventory", AccountType.ASSET, False, True),
-        ("2000", "Accounts Payable", AccountType.LIABILITY, True, True),
-        ("2100", "Payroll Liability", AccountType.LIABILITY, False, True),
-        ("2110", "Payroll Deductions Payable", AccountType.LIABILITY, False, True),
-        ("2200", "Output VAT Payable", AccountType.LIABILITY, False, True),
-        ("4000", "Sales Revenue", AccountType.REVENUE, False, True),
-        ("4090", "Sales Discounts", AccountType.EXPENSE, False, True),
-        ("5000", "Cost of Goods Sold", AccountType.EXPENSE, False, True),
-        ("6000", "Salary Expense", AccountType.EXPENSE, False, True),
-        ("1020", "Cash Over and Short", AccountType.EXPENSE, False, True),
-        ("2150", "Loyalty Points Liability", AccountType.LIABILITY, False, True),
-        ("6100", "Loyalty / Marketing Expense", AccountType.EXPENSE, False, True),
-    ]
-    for code, name, at, ctrl, sys in defs:
-        kind = SubledgerKind.NONE
-        if code == "1100":
-            kind = SubledgerKind.CUSTOMER
-        elif code == "2000":
-            kind = SubledgerKind.SUPPLIER
-        db.add(
-            ChartAccount(
-                code=code,
-                name=name,
-                account_type=at,
-                parent_id=None,
-                is_control=ctrl,
-                is_leaf=not ctrl,
-                subledger_kind=kind,
-                is_system=sys,
-                active=True,
-            )
-        )
+    by_code = await plant_coa_tree(db)
+    db.add(await build_accounting_settings(db, currency_id=cur.id, by_code=by_code))
     await db.flush()
+    from app.services.branch_accounting_service import provision_all_branches
 
-    codes = (
-        "1000",
-        "1010",
-        "1015",
-        "1100",
-        "1200",
-        "2000",
-        "2100",
-        "2110",
-        "2200",
-        "4000",
-        "4090",
-        "5000",
-        "6000",
-        "1020",
-        "2150",
-        "6100",
-    )
-    acc_res = await db.execute(select(ChartAccount).where(ChartAccount.code.in_(codes)))
-    by_code = {a.code: a for a in acc_res.scalars().all()}
-
-    by_code["1100"].is_leaf = False
-
-    trade_ar = ChartAccount(
-        code="1110",
-        name="Trade Receivables",
-        account_type=AccountType.ASSET,
-        parent_id=by_code["1100"].id,
-        is_control=False,
-        is_leaf=True,
-        subledger_kind=SubledgerKind.CUSTOMER,
-        is_system=True,
-        active=True,
-    )
-    db.add(trade_ar)
-    await db.flush()
-    by_code["1110"] = trade_ar
-
-    trade_ap = ChartAccount(
-        code="2010",
-        name="Trade Payables",
-        account_type=AccountType.LIABILITY,
-        parent_id=by_code["2000"].id,
-        is_control=False,
-        is_leaf=True,
-        subledger_kind=SubledgerKind.SUPPLIER,
-        is_system=True,
-        active=True,
-    )
-    db.add(trade_ap)
-    await db.flush()
-    by_code["2010"] = trade_ap
-    by_code["2000"].is_leaf = False
-
-    db.add(
-        AccountingSettings(
-            id=1,
-            base_currency_id=cur.id,
-            default_cash_account_id=by_code["1000"].id,
-            default_ar_account_id=by_code["1110"].id,
-            default_ap_account_id=by_code["2010"].id,
-            default_inventory_account_id=by_code["1200"].id,
-            default_cogs_account_id=by_code["5000"].id,
-            default_sales_revenue_account_id=by_code["4000"].id,
-            default_card_clearing_account_id=by_code["1010"].id,
-            default_other_clearing_account_id=by_code["1015"].id,
-            default_sales_discount_account_id=by_code["4090"].id,
-            default_salary_expense_account_id=by_code["6000"].id,
-            default_payroll_liability_account_id=by_code["2100"].id,
-            default_payroll_deductions_payable_account_id=by_code["2110"].id,
-            default_output_tax_payable_account_id=by_code["2200"].id,
-            default_cash_over_short_account_id=by_code["1020"].id,
-            default_loyalty_liability_account_id=by_code["2150"].id,
-            default_loyalty_expense_account_id=by_code["6100"].id,
-            default_loyalty_point_value=Decimal("0.01"),
-        )
-    )
+    await provision_all_branches(db)
     await db.commit()
 
 

@@ -47,7 +47,7 @@ import {
   sendPurchaseOrder,
   updatePurchaseOrder,
 } from '../../api';
-import { purchaseOrderQueryOptions, purchasingKeys, suppliersQueryOptions } from '../../queries';
+import { purchaseOrderQueryOptions, purchasingKeys, suppliersPickerQueryOptions } from '../../queries';
 
 type LineDraft = {
   key: string;
@@ -121,7 +121,7 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
     ...purchaseOrderQueryOptions(poId),
     enabled: !isNew && !Number.isNaN(poId),
   });
-  const { data: suppliers = [] } = useQuery(suppliersQueryOptions());
+  const { data: suppliers = [] } = useQuery(suppliersPickerQueryOptions());
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),

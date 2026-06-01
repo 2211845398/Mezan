@@ -8,6 +8,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class CategoryBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
@@ -284,3 +286,7 @@ class ProductRead(ProductBase):
     )
 
     model_config = {"from_attributes": True}
+
+
+class ProductListResponse(PaginatedListResponse[ProductRead]):
+    """Paginated product catalog list."""

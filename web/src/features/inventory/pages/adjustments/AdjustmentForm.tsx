@@ -94,7 +94,6 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
       {variant === 'page' ? (
         <h1 className="text-2xl font-semibold tracking-tight">{t('adjustments.new')}</h1>
       ) : null}
-      <p className="text-xs text-muted-foreground">{t('adjustments.dialog_hint')}</p>
       <div>
         <Label>{t('adjustments.field.branch')}</Label>
         <Select value={branchId} onValueChange={setBranchId}>
@@ -197,31 +196,6 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
             <Link to="/inventory/adjustments">{t('actions.cancel')}</Link>
           </Button>
         )}
-      </div>
-      <div className="border-t pt-3 text-sm">
-        <p className="font-medium">{t('adjustments.more_flows')}</p>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground">
-          <li>
-            <Link className="text-primary hover:underline" to="/inventory/receipts/new">
-              {t('movement.receipt.title')}
-            </Link>
-          </li>
-          <li>
-            <Link className="text-primary hover:underline" to="/inventory/reservations">
-              {t('movement.reserve.list_title')}
-            </Link>
-          </li>
-          <li>
-            <Link className="text-primary hover:underline" to="/inventory/damage">
-              {t('movement.damage.title')}
-            </Link>
-          </li>
-          <li>
-            <Link className="text-primary hover:underline" to="/inventory/stock-count">
-              {t('movement.stock_count.title')}
-            </Link>
-          </li>
-        </ul>
       </div>
     </div>
   );

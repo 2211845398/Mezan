@@ -4,9 +4,10 @@ Safety:
 - Refuses to run when ENVIRONMENT is production unless MEZAN_ALLOW_DEV_SEED=1.
 
 With ``--reset``, truncates all ``public`` tables except ``alembic_version``,
-then runs base seeds (permissions, accounting, notification templates) and
-inserts multiple branches, an admin user (home branch), categories, products,
-prices, stock, and one authorized POS terminal per branch.
+then runs :mod:`app.scripts.core_seed` and inserts branches, catalog, POS terminals,
+customers, suppliers, purchase orders, shifts/invoices, attendance, and payroll drafts.
+
+Core production seed runs automatically via Docker entrypoint; this script is manual only.
 
 Dev terminal API keys (plain text, log on first create only) use the pattern
 ``pos_dev_{branch_code}_mezan2026`` — see README.
@@ -37,12 +38,14 @@ from app.models.role import Role
 from app.models.stock_level import StockLevel
 from app.models.user_role import UserRole
 from app.models.users import User
-from app.services.seed_service import (
-    ADMIN_ROLE_CODE,
-    seed_accounting_defaults,
-    seed_notification_templates,
-    seed_permissions_and_roles,
+from app.services.branch_accounting_service import (
+    ensure_terminal_cash_account,
+    provision_branch_accounting,
 )
+from app.services.catalog_service import get_default_uom_id
+from app.scripts.core_seed import run_core_seed
+from app.scripts.dev_seed_fixtures import seed_dev_extended_fixtures
+from app.services.seed_service import ADMIN_ROLE_CODE
 from app.utils.security import hash_password, hash_token
 
 logger = logging.getLogger(__name__)
@@ -155,8 +158,12 @@ async def _get_or_create_branches(db: AsyncSession) -> list[Branch]:
         )
         db.add(b)
         await db.flush()
+        await provision_branch_accounting(db, branch_id=b.id)
         branches.append(b)
         logger.info("Created branch %s (%s).", code, b.name)
+    for b in branches:
+        if b.accounting_chart_provisioned_at is None:
+            await provision_branch_accounting(db, branch_id=b.id)
     return branches
 
 
@@ -245,6 +252,7 @@ async def _ensure_products_prices_stock_terminals(
     categories: dict[str, Category],
 ) -> None:
     currency_id = await _base_currency_id(db)
+    default_uom_id = await get_default_uom_id(db)
     branch_by_code = {b.code: b for b in branches}
     now = datetime.now(UTC)
 
@@ -258,7 +266,7 @@ async def _ensure_products_prices_stock_terminals(
                 name=name,
                 sku=sku,
                 barcode=None,
-                uom_id=1,
+                uom_id=default_uom_id,
                 status="active",
                 standard_cost=price * Decimal("0.6"),
                 output_vat_rate=vat,
@@ -331,16 +339,16 @@ async def _ensure_products_prices_stock_terminals(
         if res_t.scalar_one_or_none() is not None:
             continue
         api_key_plain = f"pos_dev_{branch.code.lower()}_mezan2026"
-        db.add(
-            POSTerminal(
-                branch_id=branch.id,
-                name=f"Dev register ({branch.name})",
-                terminal_code=term_code,
-                api_key_hash=hash_token(api_key_plain),
-                is_authorized=True,
-            )
+        terminal = POSTerminal(
+            branch_id=branch.id,
+            name=f"Dev register ({branch.name})",
+            terminal_code=term_code,
+            api_key_hash=hash_token(api_key_plain),
+            is_authorized=True,
         )
+        db.add(terminal)
         await db.flush()
+        await ensure_terminal_cash_account(db, terminal.id)
         logger.info(
             "Created POS terminal %s — API key (dev only): %s",
             term_code,
@@ -355,9 +363,19 @@ async def seed_dev_fixtures(
 ) -> None:
     branches = await _get_or_create_branches(db)
     primary = branches[0]
-    await _ensure_dev_admin(db, email=email, password=password, primary_branch=primary)
+    admin_user = await _ensure_dev_admin(
+        db, email=email, password=password, primary_branch=primary
+    )
     categories = await _get_or_create_categories(db)
     await _ensure_products_prices_stock_terminals(db, branches, categories)
+    currency_id = await _base_currency_id(db)
+    await seed_dev_extended_fixtures(
+        db,
+        branches=branches,
+        admin_user=admin_user,
+        currency_id=currency_id,
+        dev_password=password,
+    )
     await db.commit()
 
 
@@ -373,18 +391,16 @@ async def run_dev_seed(
     if reset:
         await truncate_public_tables_except_alembic()
 
+    await run_core_seed()
+
+    if not email_f or not password_f:
+        logger.info(
+            "Core seed complete. Skipping dev fixtures: configure DEFAULT_ADMIN_EMAIL and "
+            "DEFAULT_ADMIN_PASSWORD or pass --email / --password."
+        )
+        return
+
     async with AsyncSessionLocal() as db:
-        await seed_permissions_and_roles(db)
-        await seed_accounting_defaults(db)
-        await seed_notification_templates(db)
-
-        if not email_f or not password_f:
-            logger.info(
-                "Skipping dev branches/catalog/admin: configure DEFAULT_ADMIN_EMAIL and "
-                "DEFAULT_ADMIN_PASSWORD or pass --email / --password."
-            )
-            return
-
         await seed_dev_fixtures(db, email_f, password_f)
 
 

@@ -6,7 +6,7 @@ from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, ValidationError
+from app.core.errors import ConflictError, conflict_error, validation_error
 from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
 from app.services.catalog_service import resolve_default_variant_id
@@ -63,7 +63,10 @@ async def apply_stock_movement_extended(
     user_id: int | None = None,
 ) -> StockMovement:
     if on_hand_delta == 0 and reserved_delta == 0 and damaged_delta == 0:
-        raise ValidationError("At least one of on_hand_delta, reserved_delta, damaged_delta must be non-zero")
+        validation_error(
+            "stock_delta_zero",
+            "At least one of on_hand_delta, reserved_delta, damaged_delta must be non-zero",
+        )
 
     resolved_variant_id = (
         variant_id if variant_id is not None else await resolve_default_variant_id(db, product_id=product_id)
@@ -120,13 +123,12 @@ async def apply_stock_movement_extended(
                 )
                 upd = await db.execute(stmt)
                 if upd.scalar_one_or_none() is None:
-                    raise ConflictError(
+                    conflict_error(
+                        "stock_update_conflict",
                         "Stock update conflict",
-                        details={
-                            "branch_id": branch_id,
-                            "product_id": product_id,
-                            "variant_id": resolved_variant_id,
-                        },
+                        branch_id=branch_id,
+                        product_id=product_id,
+                        variant_id=resolved_variant_id,
                     )
 
                 chk = await db.execute(select(StockLevel).where(StockLevel.id == level.id))
@@ -161,12 +163,15 @@ async def apply_stock_movement_extended(
                 return movement
             if attempt == 0:
                 continue
-            raise ConflictError("Inventory movement conflict") from e
+            raise ConflictError(
+                "Inventory movement conflict",
+                details={"code": "inventory_movement_conflict"},
+            ) from e
 
         await db.refresh(movement)
         return movement
 
-    raise ConflictError("Inventory movement conflict")
+    conflict_error("inventory_movement_conflict", "Inventory movement conflict")
 
 
 async def apply_stock_movement(
@@ -182,7 +187,7 @@ async def apply_stock_movement(
     variant_id: int | None = None,
 ) -> StockMovement:
     if qty_delta == 0:
-        raise ValidationError("qty_delta cannot be zero")
+        validation_error("qty_delta_zero", "qty_delta cannot be zero")
     return await apply_stock_movement_extended(
         db,
         idempotency_key=idempotency_key,

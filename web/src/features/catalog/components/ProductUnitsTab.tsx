@@ -79,7 +79,7 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
   const baseCategory = baseUom?.measurement_category ?? 'discrete';
 
   const { fields, append, remove } = useFieldArray({
-    control: form.control,
+    control: form.control as never,
     name: 'alternative_uoms',
   });
 
@@ -119,7 +119,7 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
           <FormItem className="w-full max-w-[10.5rem]">
             <FormLabel>{t('products.units.base_unit')}</FormLabel>
             <Select
-              value={field.value > 0 ? String(field.value) : undefined}
+              value={field.value > 0 ? String(field.value) : ''}
               onValueChange={(v) => {
                 field.onChange(Number(v));
                 form.setValue('alternative_uoms', [], { shouldDirty: true });
@@ -182,7 +182,7 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
                         <FormItem className="w-full min-w-[9rem] max-w-[11rem] shrink-0 space-y-1">
                           <FormLabel className="text-xs">{t('products.units.alt_unit')}</FormLabel>
                           <Select
-                            value={f.value > 0 ? String(f.value) : undefined}
+                            value={f.value > 0 ? String(f.value) : ''}
                             onValueChange={(v) => f.onChange(Number(v))}
                           >
                             <FormControl>

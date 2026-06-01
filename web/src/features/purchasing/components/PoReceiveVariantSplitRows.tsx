@@ -60,11 +60,9 @@ export default function PoReceiveVariantSplitRows({
           key={row.key}
           variant={
             <PoReceiveVariantSelect
-              nameOnly
-              receiveLabel
               productId={productId}
               value={row.variant_id > 0 ? String(row.variant_id) : ''}
-              disabled={disabled}
+              disabled={disabled ?? false}
               title={row.pick_label || undefined}
               onChange={(variantId, label) => {
                 onChange(
@@ -83,7 +81,7 @@ export default function PoReceiveVariantSplitRows({
             <ReceiveUnitCostHint productId={productId} uomId={uomId} unitCost={row.unit_cost} />
           }
           qtyMax={remaining}
-          disabled={disabled}
+          disabled={disabled ?? false}
           onQtyChange={(v) => {
             onChange(rows.map((r, i) => (i === idx ? { ...r, qty: v } : r)));
           }}
@@ -96,7 +94,7 @@ export default function PoReceiveVariantSplitRows({
               variant="ghost"
               size="icon"
               className="size-9 shrink-0"
-              disabled={disabled}
+              disabled={disabled ?? false}
               onClick={() => onChange(rows.filter((_, i) => i !== idx))}
               aria-label="remove"
             >

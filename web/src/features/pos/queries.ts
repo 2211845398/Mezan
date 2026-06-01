@@ -140,11 +140,13 @@ export function useTodayInvoices(terminalId: number | null, businessDate?: strin
   const dayKey = businessDate ?? utcCalendarDayKey(now());
   return useQuery({
     queryKey: invoiceKeys.list(terminalId ?? 0, dayKey),
-    queryFn: () =>
-      listSalesInvoices({
+    queryFn: async () => {
+      const page = await listSalesInvoices({
         terminal_id: terminalId!,
         business_date: businessDate ?? dayKey,
-      }),
+      });
+      return page.items;
+    },
     enabled: terminalId != null,
     staleTime: 30_000,
   });

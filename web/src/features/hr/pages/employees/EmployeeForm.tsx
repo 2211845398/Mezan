@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
+import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { FormContainer, SectionCard } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
@@ -23,7 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { listBranches, listUsers } from '@/features/admin/api';
+import { listBranches } from '@/features/admin/api';
+import { usersPickerQueryOptions } from '@/features/admin/queries';
 import { adminKeys } from '@/features/admin/queries';
 import { notify } from '@/lib/toast';
 
@@ -61,10 +63,7 @@ export default function EmployeeForm() {
   const eid = id && !isNew ? Number(id) : NaN;
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { data: users = [] } = useQuery({
-    queryKey: adminKeys.userList(),
-    queryFn: listUsers,
-  });
+  const { data: users = [] } = useQuery(usersPickerQueryOptions());
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
@@ -161,6 +160,7 @@ export default function EmployeeForm() {
         <SectionCard>
           <form
             className="flex flex-col gap-4"
+            onKeyDown={handleFormEnterSubmit}
             onSubmit={form.handleSubmit(
               async (v) => {
                 setFormError(null);

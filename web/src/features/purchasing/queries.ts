@@ -17,10 +17,28 @@ export const purchasingKeys = {
   receipts: (poId: number) => [...purchasingKeys.root, 'receipts', poId] as const,
 };
 
-export function purchaseOrdersQueryOptions(status?: string) {
+export function purchaseOrdersQueryOptions(args: {
+  status?: string;
+  limit: number;
+  offset: number;
+}) {
   return queryOptions({
-    queryKey: purchasingKeys.orders(status),
-    queryFn: () => api.listPurchaseOrders({ limit: 200, offset: 0, ...(status ? { status } : {}) }),
+    queryKey: [...purchasingKeys.orders(args.status), args.limit, args.offset] as const,
+    queryFn: () =>
+      api.listPurchaseOrders({
+        limit: args.limit,
+        offset: args.offset,
+        ...(args.status ? { status: args.status } : {}),
+      }),
+  });
+}
+
+export function purchaseOrderStatusTotalQueryOptions(status: string) {
+  return queryOptions({
+    queryKey: [...purchasingKeys.orders(status), 'total-only'] as const,
+    queryFn: () => api.listPurchaseOrders({ status, limit: 1, offset: 0 }),
+    select: (data) => data.total,
+    staleTime: 60_000,
   });
 }
 
@@ -32,10 +50,22 @@ export function purchaseOrderQueryOptions(id: number) {
   });
 }
 
-export function suppliersQueryOptions() {
+export function suppliersQueryOptions(args: { limit: number; offset: number }) {
   return queryOptions({
-    queryKey: purchasingKeys.suppliers(),
-    queryFn: () => api.listSuppliers(),
+    queryKey: [...purchasingKeys.suppliers(), args.limit, args.offset] as const,
+    queryFn: () => api.listSuppliers({ limit: args.limit, offset: args.offset }),
+  });
+}
+
+/** Dropdowns/comboboxes: first page only (max 200). */
+export function suppliersPickerQueryOptions() {
+  return queryOptions({
+    queryKey: [...purchasingKeys.suppliers(), 'picker'] as const,
+    queryFn: async () => {
+      const res = await api.listSuppliers({ limit: 200, offset: 0 });
+      return res.items;
+    },
+    staleTime: 60_000,
   });
 }
 

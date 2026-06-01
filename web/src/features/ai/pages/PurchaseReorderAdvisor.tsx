@@ -4,9 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { isAxiosError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -22,6 +30,9 @@ import { notify } from '@/lib/toast';
 
 import { postPurchaseReorder, type PurchaseReorderResponse } from '../api';
 
+const FALLBACK_TOAST_CLASS =
+  '!border-amber-400/70 !bg-amber-50 !text-amber-950 shadow-sm dark:!border-amber-600 dark:!bg-amber-950/40 dark:!text-amber-50';
+
 export type ReorderLineState = {
   product_id: number;
   qty: number;
@@ -29,15 +40,24 @@ export type ReorderLineState = {
   supplier_id?: number | null;
 };
 
+function reorderUrgencyLabel(t: (k: string) => string, raw: string): string {
+  const k = raw?.toLowerCase?.() ?? '';
+  if (k === 'high' || k === 'medium' || k === 'low') {
+    return t(`reorder.urgency_level.${k}`);
+  }
+  return raw;
+}
+
 export default function PurchaseReorderAdvisor() {
   const { t } = useTranslation('ai');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
-  const [branchId, setBranchId] = useState('');
+  const [branch, setBranch] = useState('__all');
   const [lookback, setLookback] = useState(30);
   const [leadTime, setLeadTime] = useState(7);
   const [safety, setSafety] = useState(3);
   const [result, setResult] = useState<PurchaseReorderResponse | null>(null);
+  const [friendlyError, setFriendlyError] = useState<string | null>(null);
   const runKeyRef = useRef<string | null>(null);
 
   const { data: branches = [] } = useQuery({
@@ -51,7 +71,7 @@ export default function PurchaseReorderAdvisor() {
       runKeyRef.current = key;
       return postPurchaseReorder(
         {
-          branch_id: branchId ? Number(branchId) : null,
+          branch_id: branch === '__all' ? null : Number(branch),
           lookback_days: lookback,
           lead_time_days: leadTime,
           safety_stock_days: safety,
@@ -62,11 +82,33 @@ export default function PurchaseReorderAdvisor() {
     },
     onSuccess: (r) => {
       setResult(r);
+      setFriendlyError(null);
       runKeyRef.current = null;
-      notify.success(tc('toasts.analysis_complete'));
+      if (r.model === 'deterministic_fallback') {
+        notify.warning(t('reorder.fallback_notice_toast'), {
+          id: 'purchase-reorder-fallback',
+          durationMs: 9000,
+          className: FALLBACK_TOAST_CLASS,
+        });
+      } else {
+        notify.success(tc('toasts.analysis_complete'));
+      }
     },
-    onError: () => {
+    onError: (e) => {
+      setResult(null);
       runKeyRef.current = null;
+      if (isAxiosError(e)) {
+        const d = e.response?.data as { detail?: unknown } | undefined;
+        const msg =
+          typeof d?.detail === 'string'
+            ? d.detail
+            : Array.isArray(d?.detail)
+              ? d.detail.map((x: { msg?: string }) => x.msg).join(', ')
+              : t('reorder.error_generic');
+        setFriendlyError(msg);
+      } else {
+        setFriendlyError(t('reorder.error_generic'));
+      }
       toast.error(t('reorder.error'));
     },
   });
@@ -92,30 +134,30 @@ export default function PurchaseReorderAdvisor() {
     navigate('/purchasing/orders/new', { state: { reorderLines: lines } });
   };
 
-  return (
-    <div className="flex flex-col gap-6 p-4">
-      <div>
-        <h1 className="text-xl font-semibold">{t('reorder.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('reorder.subtitle')}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{t('reorder.idempotency_note')}</p>
-      </div>
+  const isFallback = result?.model === 'deterministic_fallback';
+  const hasSuggestions = (result?.suggestions.length ?? 0) > 0;
 
-      <div className="flex flex-wrap items-end gap-4">
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <h1 className="text-xl font-semibold">{t('reorder.title')}</h1>
+      <p className="max-w-2xl text-sm text-muted-foreground">{t('reorder.hint')}</p>
+
+      <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
-          <Label htmlFor="br">{t('reorder.branch')}</Label>
-          <select
-            id="br"
-            className="flex h-10 w-48 rounded-md border border-input bg-background px-3 text-sm"
-            value={branchId}
-            onChange={(e) => setBranchId(e.target.value)}
-          >
-            <option value="">{t('reorder.branch_all')}</option>
-            {branches.map((b) => (
-              <option key={b.id} value={String(b.id)}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          <Label>{t('reorder.branch')}</Label>
+          <Select value={branch} onValueChange={setBranch}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">{t('reorder.branch_all')}</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={String(b.id)}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid gap-1">
           <Label htmlFor="lb">{t('reorder.lookback')}</Label>
@@ -126,7 +168,8 @@ export default function PurchaseReorderAdvisor() {
             max={365}
             value={lookback}
             onChange={(e) => setLookback(Number(e.target.value) || 30)}
-            className="w-24"
+            className="w-[120px]"
+            inputMode="numeric"
           />
         </div>
         <div className="grid gap-1">
@@ -138,7 +181,8 @@ export default function PurchaseReorderAdvisor() {
             max={180}
             value={leadTime}
             onChange={(e) => setLeadTime(Number(e.target.value) || 7)}
-            className="w-24"
+            className="w-[120px]"
+            inputMode="numeric"
           />
         </div>
         <div className="grid gap-1">
@@ -150,29 +194,27 @@ export default function PurchaseReorderAdvisor() {
             max={60}
             value={safety}
             onChange={(e) => setSafety(Number(e.target.value) || 0)}
-            className="w-24"
+            className="w-[120px]"
+            inputMode="numeric"
           />
         </div>
-        <Button
-          type="button"
-          onClick={() => void run.mutate()}
-          disabled={run.isPending}
-        >
+        <Button type="button" onClick={() => void run.mutate()} disabled={run.isPending}>
           {t('reorder.run')}
         </Button>
       </div>
 
-      {result ? (
+      {friendlyError ? <p className="text-sm text-destructive">{friendlyError}</p> : null}
+
+      {result && !hasSuggestions ? (
+        <p className="text-sm text-muted-foreground">{t('reorder.empty')}</p>
+      ) : null}
+
+      {result && hasSuggestions ? (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">
-              {t('reorder.meta', { model: result.model, at: result.generated_at })}
-            </p>
-            {result.suggestions.length > 0 ? (
-              <Button type="button" variant="secondary" size="sm" onClick={createPoFromAll}>
-                {t('reorder.create_po_all')}
-              </Button>
-            ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={createPoFromAll}>
+              {t('reorder.create_po_all')}
+            </Button>
           </div>
           <Table>
             <TableHeader>
@@ -189,8 +231,13 @@ export default function PurchaseReorderAdvisor() {
                 <TableRow key={`${s.product_id}-${s.branch_id ?? 'x'}`}>
                   <TableCell>{s.product_name}</TableCell>
                   <TableCell className="tabular-nums num-latin">{s.recommended_order_qty}</TableCell>
-                  <TableCell>{s.urgency}</TableCell>
-                  <TableCell className="max-w-md text-sm text-muted-foreground">{s.rationale}</TableCell>
+                  <TableCell>{reorderUrgencyLabel(t, s.urgency)}</TableCell>
+                  <TableCell
+                    className="max-w-md text-sm text-muted-foreground"
+                    dir={isFallback ? 'rtl' : 'auto'}
+                  >
+                    {s.rationale}
+                  </TableCell>
                   <TableCell>
                     <Button
                       type="button"
@@ -205,9 +252,6 @@ export default function PurchaseReorderAdvisor() {
               ))}
             </TableBody>
           </Table>
-          {result.suggestions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('reorder.empty')}</p>
-          ) : null}
         </div>
       ) : null}
     </div>

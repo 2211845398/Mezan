@@ -113,16 +113,16 @@ async def list_coa_endpoint(
     _: None = require_permission("accounting", "read"),
 ) -> list[ChartAccountRead]:
     """List Chart of Accounts entries as a flat list."""
+    from app.services.chart_account_service import build_parent_depth_cache
+
     accounts = await list_chart_accounts(
         db, active_only=active_only, account_type=account_type
     )
-    # Calculate depths for each account
-    from app.services.chart_account_service import _calculate_depth
+    depth_cache = await build_parent_depth_cache(db)
     result = []
     for account in accounts:
-        depth = await _calculate_depth(db, account.parent_id)
         read = ChartAccountRead.model_validate(account)
-        read.depth = depth
+        read.depth = depth_cache[account.parent_id]
         result.append(read)
     return result
 
@@ -164,6 +164,10 @@ async def create_coa_endpoint(
         is_control=body.is_control,
         active=body.active,
         subledger_kind=body.subledger_kind,
+        name_ar=body.name_ar,
+        name_en=body.name_en,
+        branch_id=body.branch_id,
+        pos_terminal_id=body.pos_terminal_id,
     )
     await audit_service.log(
         session=db,

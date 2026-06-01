@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
@@ -10,6 +10,7 @@ from app.db.database import get_db
 from app.models.users import User
 from app.schemas.discount import (
     DiscountRuleCreate,
+    DiscountRuleListResponse,
     DiscountRuleRead,
     DiscountRuleUpdate,
 )
@@ -54,17 +55,20 @@ async def create_discount_rule_endpoint(
     return DiscountRuleRead.model_validate(rule)
 
 
-@router.get("/discounts", response_model=list[DiscountRuleRead])
+@router.get("/discounts", response_model=DiscountRuleListResponse)
 async def list_discount_rules_endpoint(
     status_filter: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("discounts", "read"),
-) -> list[DiscountRuleRead]:
-    rules = await list_discount_rules(db, status=status_filter, limit=limit, offset=offset)
-    return [DiscountRuleRead.model_validate(r) for r in rules]
+) -> DiscountRuleListResponse:
+    rules, total = await list_discount_rules(
+        db, status=status_filter, limit=limit, offset=offset
+    )
+    items = [DiscountRuleRead.model_validate(r) for r in rules]
+    return DiscountRuleListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/discounts/{rule_id}", response_model=DiscountRuleRead)

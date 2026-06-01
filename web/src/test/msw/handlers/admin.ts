@@ -20,7 +20,14 @@ const user2: UserRead = {
 } as UserRead;
 
 export const adminHandlers = [
-  http.get(`${BASE}/users`, () => HttpResponse.json([DEFAULT_USER, user2])),
+  http.get(`${BASE}/users`, () =>
+    HttpResponse.json({
+      items: [DEFAULT_USER, user2],
+      total: 2,
+      limit: 20,
+      offset: 0,
+    }),
+  ),
   http.get(`${BASE}/users/onboarding-assignees`, () => HttpResponse.json([DEFAULT_USER, user2])),
   http.get(`${BASE}/users/1`, () => HttpResponse.json(DEFAULT_USER)),
   http.get(`${BASE}/users/2`, () => HttpResponse.json(user2)),
@@ -41,6 +48,7 @@ export const adminHandlers = [
       status: 'pending_onboarding',
       branch_id: null,
       last_login_at: null,
+      bootstrap_admin_protected: false,
     } satisfies UserRead);
   }),
   http.get(`${BASE}/users/:id/roles`, () => HttpResponse.json([])),

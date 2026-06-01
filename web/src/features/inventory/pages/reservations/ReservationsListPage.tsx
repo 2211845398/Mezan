@@ -7,7 +7,10 @@ import { toast } from 'sonner';
 import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  InventoryListHeader,
+  InventoryProductSearchField,
+} from '../../components/InventoryListHeader';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,6 +36,24 @@ export default function ReservationsListPage() {
 
   const [releaseRow, setReleaseRow] = useState<ReservationRead | null>(null);
   const [releaseQty, setReleaseQty] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
+
+  const filteredRows = useMemo(() => {
+    const q = searchDraft.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const hay = [
+        String(r.movement_id),
+        r.product_name,
+        r.variant_name,
+        r.reference_code,
+        r.branch_name,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, searchDraft]);
 
   const releaseM = useMutation({
     mutationFn: async () => {
@@ -56,12 +77,20 @@ export default function ReservationsListPage() {
   const columns = useMemo(
     () =>
       defineColumns<ReservationRead>()([
+        {
+          id: 'movement_id',
+          accessorKey: 'movement_id',
+          header: t('adjustments.col.movement_no'),
+          cell: ({ row }) => (
+            <span className="tabular-nums num-latin font-medium">{row.original.movement_id}</span>
+          ),
+        },
         { id: 'branch', header: t('stock.col.branch'), cell: ({ row }) => row.original.branch_name },
         { id: 'product', header: t('stock.col.product'), cell: ({ row }) => row.original.product_name },
         { id: 'variant', header: t('stock.col.variant_name'), cell: ({ row }) => row.original.variant_name },
         {
           id: 'ref',
-          header: t('transfers.line.reference_code'),
+          header: t('stock.col.reference_code'),
           cell: ({ row }) => row.original.reference_code || '—',
         },
         { id: 'open', accessorKey: 'qty_open', header: t('movement.reserve.open_qty') },
@@ -89,24 +118,33 @@ export default function ReservationsListPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageHeader
+      <InventoryListHeader
         title={t('movement.reserve.list_title')}
-        subtitle={t('movement.reserve.list_subtitle')}
         actions={
-          <div className="flex gap-2">
+          <>
             <Button type="button" size="sm" asChild>
               <Link to="/inventory/reservations/new">{t('movement.reserve.new')}</Link>
             </Button>
             <Button type="button" variant="outline" size="sm" asChild>
               <Link to="/inventory/stock">{t('actions.back')}</Link>
             </Button>
-          </div>
+          </>
         }
       />
       <DataTable
         mode="client"
+        showSearch={false}
+        toolbarLeading={
+          <InventoryProductSearchField
+            searchId="reserve-search"
+            searchLabel={t('stock.search.label')}
+            searchPlaceholder={t('stock.search.placeholder')}
+            searchValue={searchDraft}
+            onSearchChange={setSearchDraft}
+          />
+        }
         columns={columns}
-        data={rows}
+        data={filteredRows}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}

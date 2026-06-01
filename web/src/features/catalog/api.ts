@@ -1,7 +1,9 @@
 import { apiClient } from '@/api/client';
+import type { PaginatedItem } from '@/api/listTypes';
+import type { PaginatedList } from '@/api/pagination';
 import type { components, paths } from '@/api/generated/schema';
 
-type ProductReadBase = paths['/api/v1/products']['get']['responses']['200']['content']['application/json'][number];
+type ProductReadBase = PaginatedItem<'/api/v1/products'>;
 type ProductCreateBase = paths['/api/v1/products']['post']['requestBody']['content']['application/json'];
 type ProductUpdateBase = paths['/api/v1/products/{product_id}']['patch']['requestBody']['content']['application/json'];
 
@@ -46,10 +48,11 @@ export type ProductUpdate = ProductUpdateBase & {
   uom_id?: number | null;
   alternative_uoms?: ProductAlternativeUomWrite[] | null;
 };
-type CategoryRead = paths['/api/v1/categories']['get']['responses']['200']['content']['application/json'][number];
+type CategoryRead = components['schemas']['CategoryRead'];
 type CategoryCreate = paths['/api/v1/categories']['post']['requestBody']['content']['application/json'];
 type CategoryUpdate = paths['/api/v1/categories/{category_id}']['patch']['requestBody']['content']['application/json'];
-type CategoryTreeNode = paths['/api/v1/categories/tree']['get']['responses']['200']['content']['application/json'][number];
+type CategoryTreeNode =
+  paths['/api/v1/categories/tree']['get']['responses']['200']['content']['application/json'][number];
 
 export type CatalogAttributeRead = {
   id: number;
@@ -219,24 +222,11 @@ export async function listProducts(params: {
   limit?: number;
   offset?: number;
 }): Promise<ProductRead[]> {
-  const { data } = await apiClient.get<ProductRead[]>('/products', { params });
-  return data;
+  const { items } = await listProductsWithTotal(params);
+  return items;
 }
 
-function productListTotalFromHeaders(headers: Record<string, unknown>, rowCount: number): number {
-  const get =
-    headers && typeof (headers as { get?: (name: string) => string | undefined }).get === 'function'
-      ? (headers as { get: (name: string) => string | undefined }).get.bind(headers)
-      : (name: string) => {
-          const v = (headers as Record<string, string | undefined>)[name];
-          return typeof v === 'string' ? v : undefined;
-        };
-  const raw = get('x-total-count') ?? get('X-Total-Count');
-  const n = raw != null && raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
-  return Number.isFinite(n) ? n : rowCount;
-}
-
-/** Same as {@link listProducts} plus total row count from `X-Total-Count` (catalog list pagination). */
+/** Paginated catalog product list (`items` + `total` in response body). */
 export async function listProductsWithTotal(params: {
   q?: string;
   category_id?: number;
@@ -247,10 +237,8 @@ export async function listProductsWithTotal(params: {
   limit?: number;
   offset?: number;
 }): Promise<{ items: ProductRead[]; total: number }> {
-  const res = await apiClient.get<ProductRead[]>('/products', { params });
-  const items = res.data;
-  const total = productListTotalFromHeaders(res.headers as Record<string, unknown>, items.length);
-  return { items, total };
+  const { data } = await apiClient.get<PaginatedList<ProductRead>>('/products', { params });
+  return { items: data.items, total: data.total };
 }
 
 export async function getProduct(id: number): Promise<ProductRead> {

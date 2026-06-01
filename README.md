@@ -59,9 +59,9 @@ mezan/
    docker-compose exec api alembic upgrade head
    ```
 
-5. **Seed the database (only if startup seeding is disabled)**
+5. **Core seed** runs automatically in the API entrypoint after migrations. To run manually:
    ```bash
-   docker-compose exec api uv run python -m app.scripts.seed
+   docker-compose exec api uv run python -m app.scripts.core_seed
    ```
 
 6. **Access the application**
@@ -92,9 +92,9 @@ mezan/
    uv run alembic upgrade head
    ```
 
-5. **Seed the database**
+5. **Core seed** (after migrations; also runs in Docker entrypoint)
    ```bash
-   uv run python -m app.scripts.seed
+   uv run python -m app.scripts.core_seed
    ```
 
 6. **Run the application**
@@ -114,27 +114,84 @@ Create a `.env` file based on `.env.example` with the following variables:
 - `DATABASE_URL`: PostgreSQL connection string
 - `POSTGRES_*`: Database configuration variables
 
-## Startup Seeding
+### Email (purchase order PDF to suppliers)
 
-Startup seeding is now explicit:
+When sending a purchase order to a supplier, the API attaches a PDF and emails the supplier's `contact.email`. Sending is atomic: if delivery fails, the PO stays in `draft`.
 
-- **Development compose** enables `SEED_ON_STARTUP=true` for convenience.
-- **Production compose** forces `SEED_ON_STARTUP=false` so deploys do not re-run seed logic on every restart.
-- **Manual seeding** is available through `app/scripts/seed.py`:
+| Variable | Description |
+|----------|-------------|
+| `EMAIL_ENABLED` | `true` to send real mail; `false` logs only (default in dev) |
+| `EMAIL_PROVIDER` | `mock` or `smtp` |
+| `SMTP_HOST`, `SMTP_PORT` | SMTP server (required when using `smtp` with `EMAIL_ENABLED=true`) |
+| `SMTP_USER`, `SMTP_PASSWORD` | Optional SMTP credentials |
+| `SMTP_USE_TLS` | STARTTLS (default `true`, port 587) |
+| `SMTP_USE_SSL` | Implicit SSL (e.g. port 465) |
+| `EMAIL_FROM`, `EMAIL_FROM_NAME` | Sender address and display name |
+| `COMPANY_DISPLAY_NAME` | Header on PO PDF and email subject (default `Mezan`) |
+
+#### Local dev with Mailpit
+
+Development Compose includes **Mailpit** (`mezan_mailpit_dev`) to capture outbound SMTP without a real mailbox.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `localhost:1025` | SMTP (plain, no auth/TLS) |
+| [http://localhost:8025](http://localhost:8025) | Web UI — inspect PO emails and PDF attachments |
+
+Start the stack:
+
+```bash
+docker compose up -d db mailpit api
+```
+
+`docker-compose.yml` sets API email defaults to `SMTP_HOST=mailpit`, port `1025`, TLS/SSL off. Align `.env` the same when the API runs in Docker.
+
+| API runtime | `SMTP_HOST` |
+|-------------|-------------|
+| Inside Docker (`mezan_api_dev`) | `mailpit` |
+| On the host (`uv run uvicorn …`) | `localhost` (Mailpit ports are published to the host) |
+
+Example `.env` for Mailpit:
+
+```env
+EMAIL_ENABLED=true
+EMAIL_PROVIDER=smtp
+SMTP_HOST=mailpit
+SMTP_PORT=1025
+SMTP_USE_TLS=false
+SMTP_USE_SSL=false
+EMAIL_FROM=noreply@mezan.local
+EMAIL_FROM_NAME=Mezan
+```
+
+Suppliers need `contact.email` before `POST /api/v1/purchase-orders/{id}/send` (dev seed suppliers may have an empty contact — set email in the UI first).
+
+## Core seeding (production-safe)
+
+**`app/scripts/core_seed.py`** seeds permissions, roles, default CoA / accounting settings, notification templates, and optionally the default admin (when `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD` are set). It is idempotent.
+
+- **Docker entrypoint** runs `core_seed` after `alembic upgrade head` on every API container start.
+- **Development compose** also sets `SEED_ON_STARTUP=true` so uvicorn lifespan re-runs core seed after hot reload (safe but redundant with entrypoint).
+- **Production compose** sets `SEED_ON_STARTUP=false`; only the entrypoint runs core seed.
+
+Manual:
 
 ```bash
 # Local
-uv run python -m app.scripts.seed
+uv run python -m app.scripts.core_seed
 
 # Docker Compose
-docker-compose exec api uv run python -m app.scripts.seed
+docker-compose exec api uv run python -m app.scripts.core_seed
+
+# Legacy alias (same as core_seed)
+uv run python -m app.scripts.seed
 ```
 
 If you want a default admin account to be created during manual or startup seeding, set both `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD`. While that email matches a user in the database, the API keeps that account **active** (it rejects other account statuses), refuses to remove its `ADMIN` role assignment, rejects assigning additional roles, and blocks admin-initiated password-reset requests and permission-override APIs for that user (so the deployment always keeps one reachable full-access administrator).
 
 ## Dev database bootstrap
 
-`app/scripts/dev_seed.py` loads a **rich local dataset** (multiple branches, admin with a home `branch_id`, categories, products, sell prices, stock, and one authorized POS terminal per branch). It is **separate** from the minimal `app/scripts/seed.py` and is safe to delete or stop using in your workflow.
+`app/scripts/dev_seed.py` loads a **rich local dataset** on top of core seed: branches, catalog, POS terminals, customers, suppliers, purchase orders, POS shifts/invoices, attendance, and payroll drafts. It is **manual only** and separate from `core_seed`.
 
 **Safety:** the script **refuses to run** when `ENVIRONMENT` is `production` or `prod` unless you set `MEZAN_ALLOW_DEV_SEED=1` (explicit opt-in).
 

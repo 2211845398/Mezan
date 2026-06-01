@@ -7,13 +7,6 @@ import { notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import type { BranchRead } from '@/features/admin/types';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
@@ -61,7 +54,10 @@ export default function GoodsReceiptFields({
   const qc = useQueryClient();
   const receivedByLine = useMemo(() => aggregateReceivedQtyByPoLine(receipts), [receipts]);
 
-  const [recvBranch, setRecvBranch] = useState('');
+  const recvBranchDisplay = useMemo(() => {
+    if (po.branch_id == null) return '—';
+    return branches.find((b) => b.id === po.branch_id)?.name ?? `#${po.branch_id}`;
+  }, [branches, po.branch_id]);
   const [recvQty, setRecvQty] = useState<Record<number, string>>({});
   const [recvUnitCost, setRecvUnitCost] = useState<Record<number, string>>({});
   const [splitsByLine, setSplitsByLine] = useState<Record<number, ReceiveSplitRow[]>>({});
@@ -73,9 +69,6 @@ export default function GoodsReceiptFields({
 
   useEffect(() => {
     idempotencyKeyRef.current = newIdempotencyKey();
-    if (po.branch_id != null) {
-      setRecvBranch(String(po.branch_id));
-    }
     const qtyInit: Record<number, string> = {};
     const costInit: Record<number, string> = {};
     const splitInit: Record<number, ReceiveSplitRow[]> = {};
@@ -91,11 +84,14 @@ export default function GoodsReceiptFields({
     setRecvQty(qtyInit);
     setRecvUnitCost(costInit);
     setSplitsByLine(splitInit);
-  }, [po.branch_id, po.lines, receivedByLine]);
+  }, [po.lines, receivedByLine]);
 
   const receiveM = useMutation({
     mutationFn: async () => {
-      const branch_id = Number(recvBranch);
+      const branch_id = po.branch_id ?? 0;
+      if (branch_id <= 0) {
+        throw new Error('missing_po_branch');
+      }
       const lines: Array<{
         purchase_order_line_id: number;
         qty: number;
@@ -204,23 +200,12 @@ export default function GoodsReceiptFields({
     <div className="grid gap-4">
       <div className="grid gap-2 md:max-w-sm">
         <Label>{t('orders.receive.branch')}</Label>
-        <Select
-          value={recvBranch || '__'}
-          onValueChange={(v) => setRecvBranch(v === '__' ? '' : v)}
-          disabled={pending}
+        <div
+          className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
+          aria-readonly
         >
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder="—" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__">—</SelectItem>
-            {branches.map((b) => (
-              <SelectItem key={b.id} value={String(b.id)}>
-                {b.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {recvBranchDisplay}
+        </div>
       </div>
 
       {(po.lines ?? []).map((ln) => {

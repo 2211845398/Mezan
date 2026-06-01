@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import type { PaginatedList } from '@/api/pagination';
 
 import type {
   BackupStatusRead,
@@ -30,8 +31,11 @@ import type {
   UserUpdateBody,
 } from './types';
 
-export async function listUsers(): Promise<UserRead[]> {
-  const { data } = await apiClient.get<UserRead[]>('/users');
+export async function listUsers(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<PaginatedList<UserRead>> {
+  const { data } = await apiClient.get<PaginatedList<UserRead>>('/users', { params });
   return data;
 }
 

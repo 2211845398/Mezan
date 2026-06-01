@@ -7,6 +7,11 @@
     "title": "Suppliers",
     "new": "New supplier",
     "edit": "Edit supplier",
+    "view": "View",
+    "tabs": {
+      "data": "Supplier details",
+      "statement": "Account statement"
+    },
     "search_label": "Search suppliers",
     "search_placeholder": "Name or code…",
     "col": {
@@ -39,6 +44,11 @@
         "credit": "Credit",
         "balance": "Balance"
       },
+      "desc": {
+        "goods_receipt": "Goods receipt #{{id}}",
+        "ap_payment": "Supplier payment #{{id}}",
+        "ap_open_item": "AP open item #{{id}}"
+      },
       "metric": {
         "open_balance": "Open balance",
         "total_purchases": "Total purchases (period)",
@@ -58,8 +68,8 @@
       "payment_terms": "Payment terms",
       "contact_phone": "Contact phone",
       "contact_email": "Contact email",
+      "contact_section": "Contact & accounting",
       "payables_account_id": "Payables account",
-      "payables_hint": "When left empty, the default accounts payable account is used.",
       "validation_summary": "Please fix the highlighted fields before saving.",
       "save": "Save",
       "created": "Supplier saved"
@@ -107,7 +117,7 @@
       "add_line": "Add line",
       "save_draft": "Save as draft",
       "send": "Send to supplier",
-      "sent_toast": "Purchase order sent",
+      "sent_toast": "Purchase order sent and PDF emailed to the supplier",
       "footer_total": "Total",
       "created": "Purchase order saved",
       "saved_draft": "Draft saved",

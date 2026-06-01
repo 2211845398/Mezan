@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class EmployeeProfileCreate(BaseModel):
     user_id: int
@@ -60,6 +62,10 @@ class EmployeeProfileRead(BaseModel):
     user_branch_name: str | None = None
     user_role_code: str | None = None
     user_role_name: str | None = None
+
+
+class EmployeeListResponse(PaginatedListResponse[EmployeeProfileRead]):
+    """Paginated employee profile list."""
 
 
 class IdentityDocumentImageResponse(BaseModel):

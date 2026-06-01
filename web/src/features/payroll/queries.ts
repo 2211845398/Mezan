@@ -6,6 +6,8 @@ export type PayslipListFilters = {
   status?: string;
   period_start?: string;
   period_end?: string;
+  limit?: number;
+  offset?: number;
 };
 
 export const payrollKeys = {
@@ -17,6 +19,8 @@ export const payrollKeys = {
       filters.status ?? 'all',
       filters.period_start ?? '',
       filters.period_end ?? '',
+      filters.limit ?? 20,
+      filters.offset ?? 0,
     ] as const,
   detail: (id: number) => [...payrollKeys.root, 'payslip', id] as const,
   overview: (period_start: string, period_end: string) =>
@@ -30,6 +34,8 @@ export function payslipsQueryOptions(filters: PayslipListFilters = {}) {
     queryKey: payrollKeys.list(filters),
     queryFn: () =>
       api.listPayslips({
+        limit: filters.limit ?? 20,
+        offset: filters.offset ?? 0,
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.period_start && filters.period_end
           ? { period_start: filters.period_start, period_end: filters.period_end }

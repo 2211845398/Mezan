@@ -10,6 +10,7 @@ import {
   type AuthUser,
   useAuthStore,
 } from '@/features/auth/stores/authStore';
+import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { sanitizeNextPath } from '@/lib/nextPath';
 import { notify } from '@/lib/toast';
 
@@ -73,6 +74,7 @@ export default function LoginPage() {
 
       <form
         className="space-y-4"
+        onKeyDown={handleFormEnterSubmit}
         onSubmit={(e) => {
           void form.handleSubmit(onSubmit)(e);
         }}

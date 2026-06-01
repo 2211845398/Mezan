@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { Pencil, Plus } from 'lucide-react';
+import { Eye, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { paginatedParams } from '@/api/pagination';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -26,15 +28,22 @@ export default function SuppliersList() {
   const { t, i18n } = useTranslation('purchasing');
   const isAr = i18n.language.startsWith('ar');
   const canCreate = usePermission('suppliers', 'create');
-  const canUpdate = usePermission('suppliers', 'update');
+  const canRead = usePermission('suppliers', 'read');
 
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [newDialogKey, setNewDialogKey] = useState(0);
-  const [editId, setEditId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
 
-  const { data: rows = [], isLoading, isError, refetch } = useQuery(suppliersQueryOptions());
+  const [urlQuery] = useTableUrlState({ pageSize: 20 });
+  const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
+
+  const { data, isLoading, isError, refetch } = useQuery(
+    suppliersQueryOptions({ limit, offset }),
+  );
   const { data: paymentTerms = [] } = useQuery(paymentTermsQueryOptions(false));
+
+  const rows = data?.items ?? [];
+  const totalRows = data?.total ?? 0;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -52,7 +61,9 @@ export default function SuppliersList() {
         {
           id: 'name',
           accessorFn: (row) =>
-            [formatPersonName(row.first_name, row.father_name, row.family_name), row.code].filter(Boolean).join(' '),
+            [formatPersonName(row.first_name, row.father_name, row.family_name), row.code]
+              .filter(Boolean)
+              .join(' '),
           header: t('suppliers.col.name'),
           cell: ({ row }) => {
             const name =
@@ -61,14 +72,7 @@ export default function SuppliersList() {
                 row.original.father_name,
                 row.original.family_name,
               ) || row.original.code;
-            return (
-              <Link
-                to={`/purchasing/suppliers/${row.original.id}`}
-                className="font-medium text-primary hover:underline"
-              >
-                {name}
-              </Link>
-            );
+            return <span className="font-medium">{name}</span>;
           },
         },
         {
@@ -101,21 +105,21 @@ export default function SuppliersList() {
         {
           id: 'actions',
           header: '',
+          enableGlobalFilter: false,
           cell: ({ row }) =>
-            canUpdate ? (
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => setEditId(row.original.id)}
-                aria-label={t('suppliers.edit')}
-              >
-                <Pencil className="size-4" />
+            canRead ? (
+              <Button type="button" size="icon" variant="ghost" asChild>
+                <Link
+                  to={`/purchasing/suppliers/${row.original.id}`}
+                  aria-label={t('suppliers.view')}
+                >
+                  <Eye className="size-4" />
+                </Link>
               </Button>
             ) : null,
         },
       ]),
-    [canUpdate, isAr, paymentTerms, t],
+    [canRead, isAr, paymentTerms, t],
   );
 
   return (
@@ -139,9 +143,10 @@ export default function SuppliersList() {
       />
 
       <DataTable
-        mode="client"
+        mode="server"
         columns={columns}
         data={filtered}
+        totalRows={totalRows}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
@@ -159,7 +164,6 @@ export default function SuppliersList() {
         }
       />
 
-      {/* New supplier drawer */}
       <FloatingFormDialog
         open={newDialogOpen}
         onOpenChange={setNewDialogOpen}
@@ -171,25 +175,6 @@ export default function SuppliersList() {
             key={newDialogKey}
             variant="dialog"
             onDismiss={() => setNewDialogOpen(false)}
-          />
-        ) : null}
-      </FloatingFormDialog>
-
-      {/* Edit supplier drawer */}
-      <FloatingFormDialog
-        open={editId != null}
-        onOpenChange={(open) => {
-          if (!open) setEditId(null);
-        }}
-        title={t('suppliers.edit')}
-        maxWidth="lg"
-      >
-        {editId != null ? (
-          <SupplierForm
-            key={`edit-${editId}`}
-            variant="dialog"
-            editId={editId}
-            onDismiss={() => setEditId(null)}
           />
         ) : null}
       </FloatingFormDialog>

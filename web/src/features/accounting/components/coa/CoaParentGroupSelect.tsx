@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 
 import type { ChartAccountRead } from '../../api';
+import { resolveCoaDisplayName } from '../../lib/coaDisplayName';
 
 type Props = {
   value: number | null;
@@ -40,8 +41,10 @@ export function CoaParentGroupSelect({
       return required ? t('coa.parent_required') : t('coa.parent_none');
     }
     const opt = options.find((o) => o.id === value);
-    return opt ? `${opt.code} · ${opt.name}` : t('coa.parent_placeholder');
-  }, [options, required, t, value]);
+    return opt
+      ? `${opt.code} · ${resolveCoaDisplayName(opt, i18n.language)}`
+      : t('coa.parent_placeholder');
+  }, [options, required, t, value, i18n.language]);
 
   return (
     <Popover modal={false} open={open} onOpenChange={setOpen}>
@@ -81,22 +84,25 @@ export function CoaParentGroupSelect({
                   {t('coa.parent_none')}
                 </CommandItem>
               ) : null}
-              {options.map((opt) => (
-                <CommandItem
-                  key={opt.id}
-                  value={`${opt.code} ${opt.name}`}
-                  onSelect={() => {
-                    onChange(opt.id);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn('me-2 size-4', value === opt.id ? 'opacity-100' : 'opacity-0')}
-                  />
-                  <span className="font-mono text-xs text-muted-foreground">{opt.code}</span>
-                  <span className="ms-2">{opt.name}</span>
-                </CommandItem>
-              ))}
+              {options.map((opt) => {
+                const label = resolveCoaDisplayName(opt, i18n.language);
+                return (
+                  <CommandItem
+                    key={opt.id}
+                    value={`${opt.code} ${label}`}
+                    onSelect={() => {
+                      onChange(opt.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn('me-2 size-4', value === opt.id ? 'opacity-100' : 'opacity-0')}
+                    />
+                    <span className="font-mono text-xs text-muted-foreground">{opt.code}</span>
+                    <span className="ms-2">{label}</span>
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

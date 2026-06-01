@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import not_found_error, validation_error
 from app.models.branch import Branch
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
@@ -80,16 +80,19 @@ async def release_reservation(
 ) -> StockMovement:
     reserve_mv = await db.get(StockMovement, reserve_movement_id)
     if reserve_mv is None or reserve_mv.movement_kind != "reserve":
-        raise NotFoundError(
+        not_found_error(
+            "reserve_movement_not_found",
             "Reserve movement not found",
-            details={"reserve_movement_id": reserve_movement_id},
+            reserve_movement_id=reserve_movement_id,
         )
     reserved = int(reserve_mv.reserved_delta or 0)
     released = await _released_qty_for_reserve(db, reserve_movement_id=reserve_movement_id)
     if quantity > reserved - released:
-        raise ValidationError(
+        validation_error(
+            "release_qty_exceeds_open",
             "Cannot release more than open reserved quantity",
-            details={"open": reserved - released, "requested": quantity},
+            open=reserved - released,
+            requested=quantity,
         )
     return await apply_human_inventory_movement(
         db,

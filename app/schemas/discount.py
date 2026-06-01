@@ -8,6 +8,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class DiscountType(StrEnum):
     FLAT = "flat"
@@ -101,6 +103,10 @@ class DiscountRuleRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class DiscountRuleListResponse(PaginatedListResponse[DiscountRuleRead]):
+    """Paginated discount rule list."""
 
 
 # ---------------------------------------------------------------------------

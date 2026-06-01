@@ -39,8 +39,13 @@ export function ColumnVisibilityMenu<TData>({
         <DropdownMenuLabel>{t('table.columns')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {columns.map((column) => {
+          const meta = column.columnDef.meta as { visibilityLabel?: string } | undefined;
+          const header = column.columnDef.header;
+          const fallback =
+            meta?.visibilityLabel ??
+            (typeof header === 'string' ? header : column.id);
           const label = t(`table.columns_${column.id}`, {
-            defaultValue: String(column.columnDef.header ?? column.id),
+            defaultValue: fallback,
           });
           const visible = column.getIsVisible();
           return (

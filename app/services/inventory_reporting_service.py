@@ -144,6 +144,7 @@ async def list_stock_on_hand(
     *,
     branch_id: int | None = None,
     category_id: int | None = None,
+    category_ids: set[int] | None = None,
     q: str | None = None,
     reorder_only: bool = False,
     status: str | None = None,
@@ -172,7 +173,9 @@ async def list_stock_on_hand(
     )
     if branch_id is not None:
         stmt = stmt.where(StockLevel.branch_id == branch_id)
-    if category_id is not None:
+    if category_ids is not None:
+        stmt = stmt.where(Product.category_id.in_(category_ids))
+    elif category_id is not None:
         stmt = stmt.where(Product.category_id == category_id)
     if q and q.strip():
         like = f"%{q.strip()}%"

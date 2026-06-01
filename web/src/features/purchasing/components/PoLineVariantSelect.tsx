@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
 
 import PoReceiveVariantSelect from './PoReceiveVariantSelect';
 
@@ -13,6 +12,7 @@ type Props = {
   compact?: boolean;
   /** `optional` = PO label; `variant` = inventory label; `none` = hide label. */
   labelMode?: 'optional' | 'variant' | 'none';
+  placeholder?: string;
   onVariantPick: (variantId: number | null, label: string) => void;
 };
 
@@ -23,6 +23,7 @@ export default function PoLineVariantSelect({
   disabled,
   compact = false,
   labelMode = 'optional',
+  placeholder,
   onVariantPick,
 }: Props) {
   const { t } = useTranslation('purchasing');
@@ -52,7 +53,7 @@ export default function PoLineVariantSelect({
       productId={productId}
       value={hasVariant ? String(variantId) : ''}
       disabled={disabled}
-      placeholder={t('orders.form.variant_optional_placeholder')}
+      placeholder={placeholder ?? t('orders.form.variant_optional_placeholder')}
       title={hasVariant && variantPickLabel ? variantPickLabel : undefined}
       onChange={(id, label) => onVariantPick(id, label)}
     />

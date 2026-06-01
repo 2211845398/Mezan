@@ -40,6 +40,16 @@ services:
       NOTIFICATIONS_ENABLED: "true"
       API_HOST: 0.0.0.0
       API_PORT: 8000
+      # Outbound email (Mailpit in dev; override via .env for production SMTP)
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-false}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@mezan.local}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Mezan}
+      COMPANY_DISPLAY_NAME: ${COMPANY_DISPLAY_NAME:-Mezan}
     ports:
       - "8000:8000"
     volumes:
@@ -51,6 +61,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     networks:
       - mezan_network
     command: ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
@@ -75,6 +87,19 @@ services:
           path: pyproject.toml
         - action: rebuild
           path: uv.lock
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mezan_mailpit_dev
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - mezan_network
+    deploy:
+      resources:
+        limits:
+          memory: 64M
 
   pgadmin:
     image: dpage/pgadmin4:latest

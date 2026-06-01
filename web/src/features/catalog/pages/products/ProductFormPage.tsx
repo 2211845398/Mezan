@@ -14,7 +14,7 @@ import { PageTabNav } from '@/components/shared/PageTabNav';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
-import { cn } from '@/lib/utils';
+import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 
 import type { VariantDraftRow } from '../../api';
 import {
@@ -81,6 +81,7 @@ function createProductFormSchema(requiredMsg: string) {
       .superRefine((rows, ctx) => {
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
+          if (!row) continue;
           const empty = row.uom_id <= 0 && row.factor_to_base.trim() === '';
           if (empty) continue;
           if (row.uom_id <= 0) {
@@ -220,7 +221,7 @@ export default function ProductFormPage() {
 
   const [axes, setAxes] = useState<VariantAxisLine[]>([]);
   const [variantRows, setVariantRows] = useState<VariantDraftRow[]>([]);
-  const [variantsHydrated, setVariantsHydrated] = useState(isNew);
+  const [, setVariantsHydrated] = useState(isNew);
   const watchedName = form.watch('name');
 
   const hasVariantAxes = axes.some((a) => a.attributeId > 0 && a.selectedValueIds.length > 0);
@@ -456,6 +457,7 @@ export default function ProductFormPage() {
         <FormProvider {...form}>
           <form
             onSubmit={form.handleSubmit((v) => saveM.mutate(v))}
+            onKeyDown={handleFormEnterSubmit}
             className="space-y-6"
             aria-busy={saveM.isPending}
           >
@@ -473,14 +475,14 @@ export default function ProductFormPage() {
 
               {activeTab === 'productData' ? (
                 <ProductDataTab
-                  form={form}
+                  form={form as never}
                   flat={flat}
                   tagOptions={tagOptions}
                   activeTaxOptions={activeTaxOptions}
                   footer={saveFooter}
                 />
               ) : activeTab === 'units' ? (
-                <ProductUnitsTab form={form} uoms={uoms} footer={saveFooter} />
+                <ProductUnitsTab form={form as never} uoms={uoms} footer={saveFooter} />
               ) : (
                 <>
                   <ProductAttributesTab

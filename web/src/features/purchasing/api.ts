@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import type { PaginatedList } from '@/api/pagination';
 import type { components } from '@/api/generated/schema';
 
 export type PurchaseOrderRead = components['schemas']['PurchaseOrderRead'];
@@ -52,8 +53,10 @@ export async function listPurchaseOrders(params?: {
   limit?: number;
   offset?: number;
   status?: string;
-}): Promise<PurchaseOrderRead[]> {
-  const { data } = await apiClient.get<PurchaseOrderRead[]>('/purchase-orders', { params });
+}): Promise<PaginatedList<PurchaseOrderRead>> {
+  const { data } = await apiClient.get<PaginatedList<PurchaseOrderRead>>('/purchase-orders', {
+    params,
+  });
   return data;
 }
 
@@ -98,8 +101,11 @@ export async function closePurchaseOrder(id: number): Promise<PurchaseOrderRead>
   return data;
 }
 
-export async function listSuppliers(): Promise<SupplierRead[]> {
-  const { data } = await apiClient.get<SupplierRead[]>('/suppliers');
+export async function listSuppliers(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<PaginatedList<SupplierRead>> {
+  const { data } = await apiClient.get<PaginatedList<SupplierRead>>('/suppliers', { params });
   return data;
 }
 

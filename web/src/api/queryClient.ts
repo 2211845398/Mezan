@@ -22,6 +22,7 @@ export function createQueryClient(): QueryClient {
         retry: (count, err) => count < 2 && !is4xx(err),
         refetchOnWindowFocus: true,
         networkMode: 'offlineFirst',
+        placeholderData: (previousData: unknown) => previousData,
       },
       mutations: {
         retry: 0,

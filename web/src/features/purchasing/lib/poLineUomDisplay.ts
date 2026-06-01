@@ -20,9 +20,16 @@ export function localizedPoLineUomDisplay(
   uomName?: string | null,
 ): string {
   const sym = (uomSymbol ?? '').trim();
-  const lower = sym.toLowerCase();
-  const code = SYMBOL_TO_UOM_CODE[lower] ?? sym.toUpperCase();
-  if (code) {
+  const name = (uomName ?? '').trim();
+  const resolveCode = (raw: string): string | null => {
+    const key = raw.trim();
+    if (!key) return null;
+    const lower = key.toLowerCase();
+    return SYMBOL_TO_UOM_CODE[lower] ?? key.toUpperCase();
+  };
+  for (const candidate of [sym, name]) {
+    const code = resolveCode(candidate);
+    if (!code) continue;
     const symKey = `products.uom_codes.${code}.symbol`;
     const symTr = t(symKey);
     if (symTr !== symKey) return symTr;
@@ -30,7 +37,6 @@ export function localizedPoLineUomDisplay(
     const nameTr = t(nameKey);
     if (nameTr !== nameKey) return nameTr;
   }
-  const name = (uomName ?? '').trim();
   if (name) return name;
   return sym;
 }

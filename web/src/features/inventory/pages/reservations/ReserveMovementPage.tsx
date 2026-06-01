@@ -97,6 +97,7 @@ export default function ReserveMovementPage() {
           variantLabel={variantLabel}
           uomId={uomId}
           qty={qty}
+          variantLabelMode="variant"
           onProductId={setProductId}
           onVariant={(id, label) => {
             setVariantId(id);

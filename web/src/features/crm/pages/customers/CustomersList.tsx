@@ -1,4 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+
+import { paginatedParams } from '@/api/pagination';
+import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { Eye } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,11 +26,11 @@ export default function CustomersList() {
   const { t, i18n } = useTranslation('crm');
   const [search, setSearch] = useState('');
   const [applied, setApplied] = useState('');
-  const [page, setPage] = useState(0);
+  const [urlQuery, { setPage }] = useTableUrlState({ pageSize: 30 });
+  const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
   const [activation, setActivation] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
-  const pageSize = 30;
   const canCreate = usePermission('customers', 'create');
   const listArgs = useMemo(() => {
     const p: {
@@ -36,13 +39,13 @@ export default function CustomersList() {
       search?: string;
       activation: 'all' | 'active' | 'pending' | 'suspended';
     } = {
-      limit: pageSize,
-      offset: page * pageSize,
+      limit,
+      offset,
       activation,
     };
     if (applied.trim()) p.search = applied.trim();
     return p;
-  }, [applied, page, pageSize, activation]);
+  }, [applied, limit, offset, activation]);
   const { data, isLoading, isError, refetch } = useQuery(customersListQueryOptions(listArgs));
   const rows = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -131,7 +134,7 @@ export default function CustomersList() {
                 className="h-10 shrink-0"
                 onClick={() => {
                   setApplied(search.trim());
-                  setPage(0);
+                  setPage(1);
                   void refetch();
                 }}
               >
@@ -154,7 +157,7 @@ export default function CustomersList() {
                 className="h-full min-h-0 shrink-0 rounded-md px-3 py-0 shadow-none"
                 onClick={() => {
                   setActivation('all');
-                  setPage(0);
+                  setPage(1);
                 }}
               >
                 {t('customers.filter_all')}
@@ -165,7 +168,7 @@ export default function CustomersList() {
                 className="h-full min-h-0 shrink-0 rounded-md px-3 py-0 shadow-none"
                 onClick={() => {
                   setActivation('active');
-                  setPage(0);
+                  setPage(1);
                 }}
               >
                 {t('customers.filter_active')}
@@ -176,7 +179,7 @@ export default function CustomersList() {
                 className="h-full min-h-0 shrink-0 rounded-md px-3 py-0 shadow-none"
                 onClick={() => {
                   setActivation('pending');
-                  setPage(0);
+                  setPage(1);
                 }}
               >
                 {t('customers.filter_pending')}
@@ -187,7 +190,7 @@ export default function CustomersList() {
                 className="h-full min-h-0 shrink-0 rounded-md px-3 py-0 shadow-none"
                 onClick={() => {
                   setActivation('suspended');
-                  setPage(0);
+                  setPage(1);
                 }}
               >
                 {t('customers.filter_suspended')}
@@ -210,30 +213,16 @@ export default function CustomersList() {
       </div>
       <p className="text-sm text-muted-foreground">{t('customers.total', { total })}</p>
       <DataTable
-        mode="client"
+        mode="server"
         showSearch={false}
         columns={columns}
         data={rows}
+        totalRows={total}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
         tableDir={i18n.dir() === 'rtl' ? 'rtl' : 'ltr'}
       />
-      {total > pageSize ? (
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-            {t('customers.prev')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={(page + 1) * pageSize >= total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t('customers.next')}
-          </Button>
-        </div>
-      ) : null}
 
       <FloatingFormDialog
         open={newCustomerOpen}

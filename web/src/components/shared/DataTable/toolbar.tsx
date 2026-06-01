@@ -38,7 +38,7 @@ export function Toolbar<TData>({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-3 pb-3',
+        'flex flex-wrap items-end gap-3 pb-3',
         showSearch === false && !toolbarLeading ? 'justify-end' : 'justify-between',
       )}
     >

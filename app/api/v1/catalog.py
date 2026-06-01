@@ -20,6 +20,7 @@ from app.schemas.catalog import (
     CategoryUpdate,
     ProductCreate,
     ProductImageUploadRead,
+    ProductListResponse,
     ProductRead,
     ProductUpdate,
     ProductVariantPurchasingSearchItem,
@@ -362,7 +363,7 @@ async def create_product_endpoint(
     return read
 
 
-@router.get("/products")
+@router.get("/products", response_model=ProductListResponse)
 async def list_products_endpoint(
     q: str | None = None,
     category_id: int | None = None,
@@ -370,12 +371,12 @@ async def list_products_endpoint(
     status: str | None = None,
     branch_id: int | None = None,
     in_stock_only: bool = False,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("catalog", "read"),
-) -> JSONResponse:
+) -> ProductListResponse:
     if in_stock_only and branch_id is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -402,10 +403,7 @@ async def list_products_endpoint(
         offset=offset,
     )
     reads = await products_to_reads(db, rows)
-    return JSONResponse(
-        content=jsonable_encoder(reads),
-        headers={"X-Total-Count": str(total)},
-    )
+    return ProductListResponse(items=reads, total=total, limit=limit, offset=offset)
 
 
 @router.post("/products/images", response_model=ProductImageUploadRead)

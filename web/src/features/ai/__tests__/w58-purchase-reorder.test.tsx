@@ -38,11 +38,32 @@ describe('W-5.8 purchase reorder advisor', () => {
     );
     const u = userEvent.setup();
     renderWithProviders(<PurchaseReorderAdvisor />);
+    expect(screen.queryByText(/idempotency/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Model:/i)).not.toBeInTheDocument();
     const runBtn = screen.getByRole('button', { name: /run advisor/i });
     expect(runBtn).not.toBeDisabled();
     await u.click(runBtn);
     await screen.findByText(/no suggestions/i);
     expect(posts).toBe(1);
     expect(runBtn).not.toBeDisabled();
+  });
+
+  it('does not render model metadata in the page on fallback response', async () => {
+    server.use(
+      http.post(`${API}/ai/advisory/purchase-reorder`, async () =>
+        HttpResponse.json({
+          model: 'deterministic_fallback',
+          generated_at: '2026-06-01T14:23:53.490088Z',
+          facts_used: {},
+          suggestions: [],
+        }),
+      ),
+    );
+    const u = userEvent.setup();
+    renderWithProviders(<PurchaseReorderAdvisor />);
+    await u.click(screen.getByRole('button', { name: /run advisor/i }));
+    await screen.findByText(/no suggestions/i);
+    expect(screen.queryByText(/deterministic_fallback/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/2026-06-01T14:23:53/i)).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import type { PaginatedList } from '@/api/pagination';
 import type { components } from '@/api/generated/schema';
 
 export type PayslipRead = components['schemas']['PayslipRead'];
@@ -86,8 +87,10 @@ export async function listPayslips(params?: {
   status?: string;
   period_start?: string;
   period_end?: string;
-}): Promise<PayslipRead[]> {
-  const { data } = await apiClient.get<PayslipRead[]>('/payroll/payslips', { params });
+  limit?: number;
+  offset?: number;
+}): Promise<PaginatedList<PayslipRead>> {
+  const { data } = await apiClient.get<PaginatedList<PayslipRead>>('/payroll/payslips', { params });
   return data;
 }
 

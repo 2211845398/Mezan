@@ -1,4 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+
+import { paginatedParams } from '@/api/pagination';
+import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { ArrowRight, Eye, UserCheck } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +25,13 @@ import { employeesQueryOptions } from '../../queries';
 export default function EmployeesList() {
   const { t, i18n } = useTranslation('hr');
   const canOnboardingRead = usePermission('onboarding', 'read');
-  const { data: rows = [], isLoading, isError, refetch } = useQuery(employeesQueryOptions());
+  const [urlQuery] = useTableUrlState({ pageSize: 20 });
+  const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
+  const { data, isLoading, isError, refetch } = useQuery(
+    employeesQueryOptions({ limit, offset }),
+  );
+  const rows = data?.items ?? [];
+  const totalRows = data?.total ?? 0;
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
@@ -172,9 +181,10 @@ export default function EmployeesList() {
         }
       />
       <DataTable
-        mode="client"
+        mode="server"
         columns={columns}
         data={rows}
+        totalRows={totalRows}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}

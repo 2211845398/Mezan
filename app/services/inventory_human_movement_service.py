@@ -8,7 +8,7 @@ from typing import Literal
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import not_found_error, validation_error
 from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
 from app.services.catalog_service import resolve_default_variant_id
@@ -100,46 +100,50 @@ async def apply_human_inventory_movement(
 
     if transaction_type == "count_adjust":
         if qty_signed is None:
-            raise ValidationError("qty_signed is required for count_adjust")
+            validation_error("qty_signed_required_count_adjust", "qty_signed is required for count_adjust")
         if qty_signed == 0:
-            raise ValidationError("qty_signed cannot be zero")
+            validation_error("qty_signed_zero", "qty_signed cannot be zero")
         on_hand_delta = int(qty_signed)
         q = abs(on_hand_delta)
     elif transaction_type == "release":
         if reserve_movement_id is None:
-            raise ValidationError("reserve_movement_id is required for release")
+            validation_error("reserve_movement_id_required", "reserve_movement_id is required for release")
         if quantity is None or quantity <= 0:
-            raise ValidationError("quantity must be a positive integer")
+            validation_error("quantity_positive_required", "quantity must be a positive integer")
         q = int(quantity)
         reserve_mv = await db.get(StockMovement, reserve_movement_id)
         if reserve_mv is None or reserve_mv.movement_kind != "reserve":
-            raise NotFoundError(
+            not_found_error(
+                "reserve_movement_not_found",
                 "Reserve movement not found",
-                details={"reserve_movement_id": reserve_movement_id},
+                reserve_movement_id=reserve_movement_id,
             )
         if (
             reserve_mv.branch_id != branch_id
             or reserve_mv.product_id != product_id
             or reserve_mv.variant_id != resolved_variant_id
         ):
-            raise ValidationError(
+            validation_error(
+                "release_branch_product_mismatch",
                 "Release must match the reserved branch, product, and variant",
-                details={"reserve_movement_id": reserve_movement_id},
+                reserve_movement_id=reserve_movement_id,
             )
         reserved_amt = int(reserve_mv.reserved_delta or 0)
         already = await _released_qty_for_reserve(db, reserve_movement_id=reserve_movement_id)
         open_qty = reserved_amt - already
         if q > open_qty:
-            raise ValidationError(
+            validation_error(
+                "release_qty_exceeds_open",
                 "Cannot release more than the open reserved quantity",
-                details={"open": open_qty, "requested": q},
+                open=open_qty,
+                requested=q,
             )
         reserved_delta = -q
         ref_type = "reserve_release"
         ref_id = str(reserve_movement_id)
     else:
         if quantity is None or quantity <= 0:
-            raise ValidationError("quantity must be a positive integer")
+            validation_error("quantity_positive_required", "quantity must be a positive integer")
         line_uom = uom_id if uom_id is not None else await get_product_base_uom_id(db, product_id)
         q = await convert_product_qty_to_base(
             db, product_id=product_id, uom_id=line_uom, qty=int(quantity)
@@ -149,32 +153,55 @@ async def apply_human_inventory_movement(
             on_hand_delta = q
         elif transaction_type == "issue_stock":
             if sellable < q:
-                raise ValidationError("Insufficient sellable stock", details={"sellable": sellable, "requested": q})
+                validation_error(
+                    "insufficient_sellable_stock",
+                    "Insufficient sellable stock",
+                    sellable=sellable,
+                    requested=q,
+                )
             on_hand_delta = -q
         elif transaction_type == "return_stock":
             on_hand_delta = q
         elif transaction_type == "damage_mark":
             if sellable < q:
-                raise ValidationError("Insufficient sellable stock to mark damaged", details={"sellable": sellable})
+                validation_error(
+                    "insufficient_sellable_stock_damage_mark",
+                    "Insufficient sellable stock to mark damaged",
+                    sellable=sellable,
+                )
             damaged_delta = q
         elif transaction_type == "damage_scrap":
             if dm < q:
-                raise ValidationError("Insufficient damaged stock to scrap", details={"damaged": dm})
+                validation_error(
+                    "insufficient_damaged_stock_scrap",
+                    "Insufficient damaged stock to scrap",
+                    damaged=dm,
+                )
             on_hand_delta = -q
             damaged_delta = -q
         elif transaction_type == "damage_unmark":
             if dm < q:
-                raise ValidationError(
+                validation_error(
+                    "insufficient_damaged_stock_unmark",
                     "Insufficient damaged stock to unmark",
-                    details={"damaged": dm, "requested": q},
+                    damaged=dm,
+                    requested=q,
                 )
             damaged_delta = -q
         elif transaction_type == "reserve":
             if sellable < q:
-                raise ValidationError("Insufficient sellable stock to reserve", details={"sellable": sellable})
+                validation_error(
+                    "insufficient_sellable_stock_reserve",
+                    "Insufficient sellable stock to reserve",
+                    sellable=sellable,
+                )
             reserved_delta = q
         else:
-            raise ValidationError("Unknown transaction_type", details={"transaction_type": transaction_type})
+            validation_error(
+                "unknown_transaction_type",
+                "Unknown transaction_type",
+                transaction_type=transaction_type,
+            )
 
     movement = await apply_stock_movement_extended(
         db,
@@ -194,7 +221,10 @@ async def apply_human_inventory_movement(
     )
     if transaction_type == "add_stock":
         if unit_cost is None or unit_cost <= 0:
-            raise ValidationError("unit_cost is required and must be positive for add_stock")
+            validation_error(
+                "unit_cost_required_add_stock",
+                "unit_cost is required and must be positive for add_stock",
+            )
         await apply_receipt_to_weighted_average(
             db,
             branch_id=branch_id,

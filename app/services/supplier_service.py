@@ -5,15 +5,16 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
-from app.models.chart_accounts import AccountType, ChartAccount
+from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
 from app.models.currency import Currency
 from app.models.payment_terms import PaymentTerm
 from app.models.suppliers import Supplier
 from app.schemas.suppliers import SupplierRead
+from app.services.branch_accounting_service import default_payables_account_id
 from app.services.currency_service import resolve_currency_id
 from app.utils.person_name import person_name_sql_expr
 
@@ -49,6 +50,11 @@ async def _validate_payables_account_id(
         raise ValidationError(
             "This account cannot be used for supplier payables",
             details={"payables_account_id": payables_account_id, "code": account.code},
+        )
+    if account.subledger_kind != SubledgerKind.SUPPLIER:
+        raise ValidationError(
+            "Payables account must use supplier sub-ledger",
+            details={"payables_account_id": payables_account_id},
         )
 
 
@@ -103,6 +109,8 @@ async def create_supplier(
     pt_id, pt_label = await _sync_payment_terms_fields(
         db, payment_terms_id=payment_terms_id, payment_terms=payment_terms
     )
+    if payables_account_id is None:
+        payables_account_id = await default_payables_account_id(db)
     await _validate_payables_account_id(db, payables_account_id)
 
     s = Supplier(
@@ -148,19 +156,37 @@ async def list_suppliers(db: AsyncSession) -> list[Supplier]:
     return list(res.scalars().all())
 
 
-async def list_suppliers_read(db: AsyncSession) -> list[SupplierRead]:
+def _supplier_list_order():
+    return (
+        person_name_sql_expr(Supplier.first_name, Supplier.father_name, Supplier.family_name)
+        .asc()
+        .nulls_last(),
+        Supplier.id.asc(),
+    )
+
+
+async def list_suppliers_read(
+    db: AsyncSession,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[SupplierRead], int]:
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
+    total = int(
+        await db.scalar(select(func.count()).select_from(Supplier)) or 0
+    )
     q = (
         select(Supplier, Currency)
         .join(Currency, Currency.id == Supplier.currency_id)
-        .order_by(
-            person_name_sql_expr(Supplier.first_name, Supplier.father_name, Supplier.family_name)
-            .asc()
-            .nulls_last(),
-            Supplier.id.asc(),
-        )
+        .order_by(*_supplier_list_order())
+        .limit(limit)
+        .offset(offset)
     )
     res = await db.execute(q)
-    return [supplier_to_read(s, cur) for s, cur in res.all()]
+    items = [supplier_to_read(s, cur) for s, cur in res.all()]
+    return items, total
 
 
 async def get_supplier_read(db: AsyncSession, supplier_id: int) -> SupplierRead:

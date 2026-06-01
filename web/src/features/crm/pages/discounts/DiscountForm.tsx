@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -201,11 +202,11 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
 
       <div className="grid gap-1">
         <Label>{t('discounts.start_day')}</Label>
-        <Input type="date" value={startDay} onChange={(e) => setStartDay(e.target.value)} />
+        <DateField value={startDay} onChange={setStartDay} />
       </div>
       <div className="grid gap-1">
         <Label>{t('discounts.end_day')}</Label>
-        <Input type="date" value={endDay} onChange={(e) => setEndDay(e.target.value)} />
+        <DateField value={endDay} onChange={setEndDay} />
       </div>
 
       <div className="flex flex-wrap gap-2 pt-1">

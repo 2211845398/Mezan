@@ -107,7 +107,8 @@ describe('W-5.7 CRM', () => {
     const late = '2025-01-01T00:00:00Z';
     server.use(
       http.get(`${API}/discounts`, () =>
-        HttpResponse.json([
+        HttpResponse.json({
+          items: [
           {
             id: 1,
             name: 'A',
@@ -150,7 +151,11 @@ describe('W-5.7 CRM', () => {
             created_at: late,
             updated_at: late,
           },
-        ]),
+          ],
+          total: 2,
+          limit: 20,
+          offset: 0,
+        }),
       ),
     );
     renderWithProviders(<DiscountsList />);

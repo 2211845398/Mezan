@@ -57,6 +57,8 @@ export type TransferLineRead = {
   qty_base?: number;
   uom_id?: number;
   uom_name?: string;
+  uom_code?: string;
+  uom_symbol?: string;
   product_name?: string;
   variant_sku?: string;
   variant_name?: string;

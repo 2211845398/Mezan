@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
 
-import { suppliersQueryOptions } from '../queries';
+import { suppliersPickerQueryOptions } from '../queries';
 
 const NO_SUPPLIER = '__no_supplier__';
 
@@ -43,7 +43,7 @@ export function SupplierCombobox({
   const { t } = useTranslation('purchasing');
   const { i18n } = useTranslation();
   const [open, setOpen] = useState(false);
-  const { data: suppliers = [], isLoading } = useQuery(suppliersQueryOptions());
+  const { data: suppliers = [], isLoading } = useQuery(suppliersPickerQueryOptions());
 
   const options = useMemo(
     () =>

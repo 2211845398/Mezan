@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { getApiErrorMessage } from '@/api/errorMessages';
+import { getLocalizedApiErrorMessage } from '@/api/errorMessages';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import {
   floatingFormApproveButtonClassName,
@@ -41,6 +41,7 @@ export default function PendingOnboardingDetail() {
   const { onboardingId } = useParams<{ onboardingId: string }>();
   const id = Number(onboardingId);
   const { t, i18n } = useTranslation('hr');
+  const { t: tc } = useTranslation('common');
   const { t: tAdmin } = useTranslation('admin');
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -88,7 +89,7 @@ export default function PendingOnboardingDetail() {
       toast.success(t('pending.identity_scan_uploaded'));
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err, t('hr_errors.generic')));
+      toast.error(getLocalizedApiErrorMessage(err, tc, t('hr_errors.generic')));
     },
   });
 
@@ -150,7 +151,7 @@ export default function PendingOnboardingDetail() {
       navigate('/hr/employees');
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err, t('hr_errors.generic')));
+      toast.error(getLocalizedApiErrorMessage(err, tc, t('hr_errors.generic')));
     },
   });
 

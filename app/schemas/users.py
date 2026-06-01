@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class UserCreate(BaseModel):
     """Schema for creating a new user (staff)."""
@@ -50,6 +52,10 @@ class UserRead(BaseModel):
     last_login_at: datetime | None = None
     employee_profile_id: int | None = None
     bootstrap_admin_protected: bool = False
+
+
+class UserListResponse(PaginatedListResponse[UserRead]):
+    """Paginated user list."""
 
 
 class UserOnboardingRead(BaseModel):

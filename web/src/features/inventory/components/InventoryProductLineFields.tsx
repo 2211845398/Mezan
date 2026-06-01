@@ -68,13 +68,13 @@ export default function InventoryProductLineFields({
       <div className={showVariant ? 'min-w-0 md:col-span-4' : 'min-w-0 md:col-span-5'}>
         <Label>{t('adjustments.field.product')}</Label>
         <ProductSearch
-          clearable={productClearable}
-          value={productId == null ? undefined : String(productId)}
+          {...(productClearable ? { clearable: true } : {})}
+          value={productId == null ? '' : String(productId)}
           onChange={(id) => {
             onProductId(id);
             onVariant(null, '');
           }}
-          disabled={disabled}
+          {...(disabled !== undefined ? { disabled } : {})}
         />
       </div>
       {showVariant ? (
@@ -86,6 +86,9 @@ export default function InventoryProductLineFields({
             variantId={variantId}
             variantPickLabel={variantLabel}
             disabled={disabled || pid <= 0}
+            placeholder={
+              variantLabelMode === 'variant' ? t('movement.field.variant_placeholder') : undefined
+            }
             onVariantPick={onVariant}
           />
         </div>

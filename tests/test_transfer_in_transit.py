@@ -18,11 +18,13 @@ from app.models.unit_of_measure import UnitOfMeasure
 from app.services.catalog_service import create_product
 from app.services.inventory_reporting_service import list_stock_on_hand
 from app.services.inventory_service import apply_stock_movement
+from app.core.errors import StateTransitionError
 from app.services.transfer_service import (
     cancel_pending_batch,
     create_batch,
     dispatch_batch,
     receive_batch,
+    update_pending_batch,
 )
 
 
@@ -117,6 +119,7 @@ async def test_transfer_reserve_and_in_transit_flow(db_session) -> None:
     ).scalar_one()
     assert sl_from.on_hand == 20
     assert sl_from.reserved == xfer_qty
+    assert sl_from.on_hand - sl_from.reserved - sl_from.damaged == 20 - xfer_qty
 
     dispatched = await dispatch_batch(db_session, batch_id=batch.id)
     assert dispatched.status == "in_transit"
@@ -145,6 +148,78 @@ async def test_transfer_reserve_and_in_transit_flow(db_session) -> None:
     assert dest_after is not None
     assert dest_after.on_hand == xfer_qty
     assert dest_after.in_transit_in == 0
+
+
+@pytest.mark.asyncio
+async def test_transfer_update_pending_changes_reserve(db_session) -> None:
+    b_from = Branch(
+        name="Xfer From",
+        code=f"XU-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    b_to = Branch(
+        name="Xfer To",
+        code=f"XV-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add_all([b_from, b_to])
+    await db_session.flush()
+
+    product, pv = await _seed_product_with_stock(db_session, branch_id=b_from.id, qty=20)
+    batch = await create_batch(
+        db_session,
+        created_by_user_id=None,
+        data={
+            "from_branch_id": b_from.id,
+            "to_branch_id": b_to.id,
+            "lines": [{"product_id": product.id, "variant_id": pv.id, "qty": 5}],
+        },
+    )
+
+    sl = (
+        await db_session.execute(
+            select(StockLevel).where(
+                StockLevel.branch_id == b_from.id,
+                StockLevel.product_id == product.id,
+                StockLevel.variant_id == pv.id,
+            )
+        )
+    ).scalar_one()
+    assert sl.on_hand == 20
+    assert sl.reserved == 5
+
+    updated = await update_pending_batch(
+        db_session,
+        batch_id=batch.id,
+        data={
+            "from_branch_id": b_from.id,
+            "to_branch_id": b_to.id,
+            "lines": [{"product_id": product.id, "variant_id": pv.id, "qty": 3}],
+        },
+    )
+    assert updated.status == "pending_dispatch"
+    assert len(updated.lines) == 1
+    assert updated.lines[0].qty == 3
+
+    await db_session.refresh(sl)
+    assert sl.on_hand == 20
+    assert sl.reserved == 3
+
+    await dispatch_batch(db_session, batch_id=batch.id)
+    with pytest.raises(StateTransitionError, match="pending_dispatch"):
+        await update_pending_batch(
+            db_session,
+            batch_id=batch.id,
+            data={
+                "from_branch_id": b_from.id,
+                "to_branch_id": b_to.id,
+                "lines": [{"product_id": product.id, "variant_id": pv.id, "qty": 1}],
+            },
+        )
 
 
 @pytest.mark.asyncio

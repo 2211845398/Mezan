@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ValidationError
+from app.core.errors import not_found_error, validation_error
 from app.models.suppliers import Supplier
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.catalog_service import resolve_default_variant_id
@@ -27,12 +27,12 @@ async def receive_adhoc_goods(
     notes: str | None = None,
 ) -> list[int]:
     if not lines:
-        raise ValidationError("At least one receipt line is required")
+        validation_error("receipt_no_lines_required", "At least one receipt line is required")
     await require_branch_open_for_operations(db, branch_id)
     if supplier_id is not None:
         sup = await db.get(Supplier, supplier_id)
         if sup is None:
-            raise ValidationError("Supplier not found", details={"supplier_id": supplier_id})
+            not_found_error("supplier_not_found", "Supplier not found", supplier_id=supplier_id)
 
     header_note = (notes or "").strip()
     if supplier_id is not None:

@@ -14,6 +14,10 @@ describe('localizedPoLineUomDisplay', () => {
   it('translates known English symbols', () => {
     expect(localizedPoLineUomDisplay(t, 'box', 'Box')).toBe('صندوق');
   });
+
+  it('translates known English names when symbol is missing', () => {
+    expect(localizedPoLineUomDisplay(t, undefined, 'Piece')).toBe('قطعة');
+  });
 });
 
 describe('formatPoLineQty', () => {

@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client';
 import type { paths } from '@/api/generated/schema';
+import { omitUndefined } from '@/lib/omitUndefined';
 
 import type {
   InventoryPolicyRead,
@@ -103,10 +104,14 @@ export type HumanMovementBody = {
   unit_cost?: string | number;
 };
 
+type HumanMovementBodyInput = {
+  [K in keyof HumanMovementBody]: HumanMovementBody[K] | undefined;
+};
+
 export async function postHumanInventoryMovement(
-  body: HumanMovementBody,
+  body: HumanMovementBodyInput,
 ): Promise<{ movement_id: number }> {
-  const { data } = await apiClient.post('/inventory/movements', body);
+  const { data } = await apiClient.post('/inventory/movements', omitUndefined(body));
   return data;
 }
 
@@ -146,6 +151,8 @@ export type DamagedPositionRead = {
   variant_name: string;
   reference_code: string;
   qty_damaged: number;
+  movement_id?: number | null;
+  reason?: string | null;
 };
 
 export async function listDamagedPositions(params?: {
@@ -193,9 +200,111 @@ export async function postReleaseReservation(
   return data;
 }
 
+export type StockCountSessionRead = {
+  id: number;
+  branch_id: number;
+  branch_name: string;
+  version_no: number;
+  status: string;
+  category_id?: number | null;
+  responsible_name: string;
+  created_by?: number | null;
+  created_at: string;
+  posted_at?: string | null;
+  line_count: number;
+};
+
+export type StockCountLineRead = {
+  id: number;
+  product_id: number;
+  variant_id: number;
+  product_name: string;
+  variant_name: string;
+  reference_code: string;
+  system_on_hand: number;
+  system_reserved: number;
+  system_damaged: number;
+  counted_qty?: number | null;
+  damaged_counted?: number | null;
+  notes?: string | null;
+  variance?: number | null;
+};
+
+export type StockCountSessionDetailRead = StockCountSessionRead & {
+  lines: StockCountLineRead[];
+};
+
+export async function listStockCountSessions(params?: {
+  branch_id?: number;
+  limit?: number;
+}): Promise<StockCountSessionRead[]> {
+  const { data } = await apiClient.get<StockCountSessionRead[]>('/inventory/stock-count/sessions', {
+    params,
+  });
+  return data;
+}
+
+export async function createStockCountSession(body: {
+  branch_id: number;
+  category_id?: number | null;
+  category_include_descendants?: boolean;
+  product_ids?: number[] | null;
+  responsible_name?: string;
+}): Promise<StockCountSessionDetailRead> {
+  const { data } = await apiClient.post<StockCountSessionDetailRead>(
+    '/inventory/stock-count/sessions',
+    body,
+  );
+  return data;
+}
+
+export async function getStockCountSession(sessionId: number): Promise<StockCountSessionDetailRead> {
+  const { data } = await apiClient.get<StockCountSessionDetailRead>(
+    `/inventory/stock-count/sessions/${sessionId}`,
+  );
+  return data;
+}
+
+export async function patchStockCountLines(
+  sessionId: number,
+  lines: { id: number; counted_qty?: number | null; damaged_counted?: number | null; notes?: string | null }[],
+): Promise<StockCountSessionDetailRead> {
+  const { data } = await apiClient.patch<StockCountSessionDetailRead>(
+    `/inventory/stock-count/sessions/${sessionId}/lines`,
+    { lines },
+  );
+  return data;
+}
+
+export async function postStockCountSession(
+  sessionId: number,
+): Promise<{ session_id: number; movements_posted: number }> {
+  const { data } = await apiClient.post(`/inventory/stock-count/sessions/${sessionId}/post`);
+  return data;
+}
+
+export async function downloadStockCountSessionPdf(sessionId: number): Promise<string> {
+  const res = await apiClient.get<Blob>(`/inventory/stock-count/sessions/${sessionId}/pdf`, {
+    responseType: 'blob',
+  });
+  const blob = res.data;
+  const disposition = res.headers['content-disposition'] as string | undefined;
+  let filename = `stock_count_${sessionId}.pdf`;
+  const match = disposition?.match(/filename="?([^";]+)"?/);
+  if (match?.[1]) filename = match[1];
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return filename;
+}
+
 export async function downloadStockCountPdf(body: {
   branch_id: number;
   category_id?: number | null;
+  category_include_descendants?: boolean;
   product_ids?: number[] | null;
   q?: string | null;
   responsible_name?: string;
@@ -276,6 +385,11 @@ export async function getTransferBatch(id: number): Promise<TransferRead> {
 
 export async function createTransferBatch(body: TransferCreate): Promise<TransferRead> {
   const { data } = await apiClient.post<TransferRead>('/transfers', body);
+  return data;
+}
+
+export async function updateTransferBatch(id: number, body: TransferCreate): Promise<TransferRead> {
+  const { data } = await apiClient.put<TransferRead>(`/transfers/${id}`, body);
   return data;
 }
 

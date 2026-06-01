@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { handleDialogFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 
 import { createCategory } from '../api';
 import { generateCategorySlug } from '../lib/categorySlug';
@@ -63,36 +64,38 @@ export function CategoryCreateDialog({ open, onOpenChange, parentId }: CategoryC
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent dir={i18n.dir()}>
-        <DialogHeader>
-          <DialogTitle>{t('categories.new')}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>{t('categories.field.name')}</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim() && !createM.isPending) {
+              void createM.mutate();
+            }
+          }}
+          onKeyDown={handleDialogFormEnterSubmit}
+        >
+          <DialogHeader>
+            <DialogTitle>{t('categories.new')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>{t('categories.field.name')}</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <CategoryImageUploadField
+              value={imageUrl}
+              onChange={setImageUrl}
+              inputId={parentId == null ? 'category-create-root' : `category-create-${parentId}`}
+            />
           </div>
-          <CategoryImageUploadField
-            value={imageUrl}
-            onChange={setImageUrl}
-            inputId={parentId == null ? 'category-create-root' : `category-create-${parentId}`}
-          />
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t('actions.cancel')}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              if (name.trim()) {
-                void createM.mutate();
-              }
-            }}
-            disabled={createM.isPending}
-          >
-            {t('actions.save')}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t('actions.cancel')}
+            </Button>
+            <Button type="submit" disabled={createM.isPending || !name.trim()}>
+              {t('actions.save')}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

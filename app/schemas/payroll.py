@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class PayslipGenerateRequest(BaseModel):
     employee_profile_id: int
@@ -57,6 +59,10 @@ class PayslipRead(BaseModel):
     paid_by_user_id: int | None = None
     user_full_name: str | None = None
     user_email: str | None = None
+
+
+class PayslipListResponse(PaginatedListResponse[PayslipRead]):
+    """Paginated payslip list."""
 
 
 class PayslipAdjustmentsPatch(BaseModel):

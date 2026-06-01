@@ -17,6 +17,7 @@ from app.schemas.terminal import (
     TerminalUpdate,
 )
 from app.services import audit_service
+from app.services.branch_accounting_service import ensure_terminal_cash_account
 from app.services.branch_scope import require_branch_open_for_operations
 from app.utils.security import hash_token
 
@@ -67,6 +68,8 @@ async def create_terminal(
         is_authorized=False,
     )
     db.add(terminal)
+    await db.flush()
+    await ensure_terminal_cash_account(db, terminal.id)
     await db.commit()
     await db.refresh(terminal)
     await audit_service.log(

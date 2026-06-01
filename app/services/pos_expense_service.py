@@ -80,6 +80,7 @@ async def record_pos_expense(
         branch_id=shift.branch_id,
         memo=f"POS expense {expense.id} by user {user_id}",
         idempotency_key=f"pos-expense:{expense.id}",
+        terminal_id=shift.terminal_id,
     )
 
     await db.refresh(expense)

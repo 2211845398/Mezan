@@ -1,9 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { DateField } from '@/components/shared/form/DateField';
 import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -16,46 +16,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
+import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
+import { InventoryStockNavActions } from '../../components/InventoryStockNavActions';
 import type { StockMovement } from '../../api';
 import { useMovementsQuery } from '../../queries';
+import { formatMovementKind, formatMovementReason } from '../../utils/movementLabels';
 import AdjustmentForm from './AdjustmentForm';
-
-const MOVEMENT_KINDS = [
-  'increase',
-  'decrease',
-  'damage',
-  'count_adjustment',
-  'receipt',
-  'sale',
-  'transfer_out',
-  'transfer_in',
-] as const;
 
 export default function AdjustmentsList() {
   const { t } = useTranslation('inventory');
   const canCreate = usePermission('stock_adjustments', 'create');
   const { data: rows = [], isLoading, isError, refetch } = useMovementsQuery({ limit: 200, offset: 0 });
-  const { data: branches = [] } = useQuery({
-    queryKey: adminKeys.branches(false),
-    queryFn: () => listBranches({ include_archived: false }),
-  });
 
   const [movementDialogOpen, setMovementDialogOpen] = useState(false);
   const [movementFormKey, setMovementFormKey] = useState(0);
-  const [branchFilter, setBranchFilter] = useState('__all');
+  const [branchFilter, setBranchFilter] = useState<number | null>(null);
   const [kindFilter, setKindFilter] = useState('__all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
+
+  const kindOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      if (r.movement_kind?.trim()) set.add(r.movement_kind.trim());
+    }
+    return [...set].sort();
+  }, [rows]);
 
   const filtered = useMemo(() => {
+    const q = searchDraft.trim().toLowerCase();
     return rows.filter((r) => {
-      if (branchFilter !== '__all' && String(r.branch_id) !== branchFilter) return false;
+      if (branchFilter != null && r.branch_id !== branchFilter) return false;
       if (kindFilter !== '__all' && r.movement_kind !== kindFilter) return false;
       if (dateFrom) {
         const d = r.created_at ? String(r.created_at).slice(0, 10) : '';
@@ -65,9 +61,18 @@ export default function AdjustmentsList() {
         const d = r.created_at ? String(r.created_at).slice(0, 10) : '';
         if (d > dateTo) return false;
       }
+      if (q) {
+        const kindLabel = formatMovementKind(r.movement_kind, t);
+        const reasonLabel = formatMovementReason(r.reason, t);
+        const hay = [r.branch_name, r.product_name, kindLabel, reasonLabel, r.movement_kind, r.reason]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [rows, branchFilter, kindFilter, dateFrom, dateTo]);
+  }, [rows, branchFilter, kindFilter, dateFrom, dateTo, searchDraft, t]);
 
   const columns = useMemo(
     () =>
@@ -105,9 +110,13 @@ export default function AdjustmentsList() {
         {
           id: 'kind',
           header: t('adjustments.col.kind'),
-          cell: ({ row }) => row.original.movement_kind ?? '—',
+          cell: ({ row }) => formatMovementKind(row.original.movement_kind, t),
         },
-        { id: 'reason', accessorKey: 'reason', header: t('adjustments.col.reason') },
+        {
+          id: 'reason',
+          header: t('adjustments.col.reason'),
+          cell: ({ row }) => formatMovementReason(row.original.reason, t),
+        },
         {
           id: 'at',
           accessorKey: 'created_at',
@@ -124,38 +133,40 @@ export default function AdjustmentsList() {
       <PageHeader
         title={t('adjustments.title')}
         actions={
-          canCreate ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setMovementFormKey((k) => k + 1);
-                setMovementDialogOpen(true);
-              }}
-            >
-              {t('adjustments.new')}
-            </Button>
-          ) : null
+          <div className="flex flex-wrap gap-2">
+            <InventoryStockNavActions
+              onOpenMovementDialog={
+                canCreate
+                  ? () => {
+                      setMovementFormKey((k) => k + 1);
+                      setMovementDialogOpen(true);
+                    }
+                  : undefined
+              }
+            />
+          </div>
         }
       />
 
-      {/* Filter bar */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/20 p-3">
-        <div className="grid gap-1">
-          <Label>{t('stock.filter.branch')}</Label>
-          <Select value={branchFilter} onValueChange={setBranchFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">{t('stock.filter.all_branches')}</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={String(b.id)}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="min-w-[12rem] flex-1 space-y-1">
+          <Label htmlFor="adj-search">{t('stock.search.label')}</Label>
+          <Input
+            id="adj-search"
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
+            placeholder={t('stock.search.placeholder')}
+          />
+        </div>
+        <div className="min-w-[12rem] flex-1 space-y-1">
+          <BranchCombobox
+            label={t('stock.filter.branch')}
+            value={branchFilter}
+            onChange={setBranchFilter}
+            allowClear
+            clearLabel={t('stock.filter.all_branches')}
+            showCode={false}
+          />
         </div>
         <div className="grid gap-1">
           <Label>{t('adjustments.filter.kind')}</Label>
@@ -165,9 +176,9 @@ export default function AdjustmentsList() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all">{t('adjustments.filter.all_kinds')}</SelectItem>
-              {MOVEMENT_KINDS.map((k) => (
+              {kindOptions.map((k) => (
                 <SelectItem key={k} value={k}>
-                  {t(`adjustments.kind.${k}`, k)}
+                  {formatMovementKind(k, t)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -175,32 +186,23 @@ export default function AdjustmentsList() {
         </div>
         <div className="grid gap-1">
           <Label>{t('adjustments.filter.date_from')}</Label>
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="w-[160px]"
-          />
+          <DateField value={dateFrom} onChange={setDateFrom} className="w-[160px]" />
         </div>
         <div className="grid gap-1">
           <Label>{t('adjustments.filter.date_to')}</Label>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="w-[160px]"
-          />
+          <DateField value={dateTo} onChange={setDateTo} className="w-[160px]" />
         </div>
-        {(branchFilter !== '__all' || kindFilter !== '__all' || dateFrom || dateTo) ? (
+        {(branchFilter != null || kindFilter !== '__all' || dateFrom || dateTo || searchDraft) ? (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => {
-              setBranchFilter('__all');
+              setBranchFilter(null);
               setKindFilter('__all');
               setDateFrom('');
               setDateTo('');
+              setSearchDraft('');
             }}
           >
             {t('adjustments.filter.clear')}
@@ -210,6 +212,7 @@ export default function AdjustmentsList() {
 
       <DataTable
         mode="client"
+        showSearch={false}
         columns={columns}
         data={filtered}
         isLoading={isLoading}

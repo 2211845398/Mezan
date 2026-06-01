@@ -22,6 +22,7 @@ dependencies = [
     "fpdf2>=2.8.0",
     "arabic-reshaper>=3.0.0",
     "python-bidi>=0.6.0",
+    "aiosmtplib>=3.0.0",
 ]
 
 [build-system]

@@ -294,6 +294,12 @@ class ManualJournalCreate(BaseModel):
     idempotency_key: str | None = None
 
 
+class ManualJournalUpdate(BaseModel):
+    entry_date: date
+    description: str = Field(max_length=512)
+    lines: list[ManualJournalLineIn] = Field(min_length=2)
+
+
 class StatementAccountLineRead(BaseModel):
     account_id: int
     code: str

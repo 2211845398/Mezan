@@ -146,12 +146,71 @@ export function getApiErrorMessage(
   return fallback;
 }
 
-const LEGACY_DETAIL_TO_API_KEY: Record<string, string> = {
+const GENERIC_API_ERROR_CODES = new Set([
+  'validation_error',
+  'conflict',
+  'resource_not_found',
+  'invalid_state_transition',
+  'permission_denied',
+  'not_authenticated',
+  'external_service_error',
+  'bad_request',
+  'http_error',
+  'rate_limited',
+  'internal_error',
+]);
+
+const LEGACY_MESSAGE_TO_API_KEY: Record<string, string> = {
   'Email already exists': 'email_already_exists',
   EmailAlreadyExists: 'email_already_exists',
   'Cannot post to a control (summary) account; use a leaf/posting account':
     'control_account_posting',
+  'Insufficient available stock at sending branch': 'insufficient_transfer_stock',
+  'Transfer line qty must be positive': 'transfer_qty_positive',
+  'from_branch_id and to_branch_id must be different': 'transfer_same_branch',
+  'Transfer batch requires at least one line': 'transfer_no_lines',
+  'Batch has no lines': 'transfer_no_lines',
+  'variant_id does not match product_id': 'transfer_variant_product_mismatch',
+  'Batch must be pending_dispatch to dispatch': 'transfer_not_pending_dispatch',
+  'Dispatch must be performed at the sending branch': 'transfer_dispatch_wrong_branch',
+  'Batch must be in_transit to receive': 'transfer_not_in_transit',
+  'Receipt must be performed at the receiving branch': 'transfer_receive_wrong_branch',
+  'Only pending_dispatch transfers can be cancelled': 'transfer_cancel_not_pending',
+  'Only pending_dispatch transfers can be updated': 'transfer_update_not_pending',
+  'Cancellation must be performed at the sending branch': 'transfer_cancel_wrong_branch',
+  'Transfer batch not found': 'transfer_batch_not_found',
+  'Insufficient sellable stock': 'insufficient_sellable_stock',
+  'All stock count lines must have counted quantity before posting': 'stock_count_incomplete_lines',
+  'Cart not found': 'cart_not_found',
+  'Cart is not active': 'cart_not_active',
+  'Terminal not found': 'terminal_not_found',
+  'Shift not found, does not belong to terminal, or is not open': 'shift_not_found',
+  'Product not found': 'product_not_found',
+  'This discount code is reserved for loyalty redemption': 'pos_discount_reserved',
+  'This discount code is already applied to the cart': 'pos_discount_already_applied',
+  'Cannot lock checkout for an empty cart': 'checkout_empty_cart',
+  'Cannot park an empty cart': 'park_empty_cart',
 };
+
+const LEGACY_DETAIL_TO_API_KEY: Record<string, string> = {
+  email_already_exists: 'email_already_exists',
+};
+
+function translateApiErrorKey(t: TFunction<'common'>, key: string): string | null {
+  const i18nKey = `apiErrors.${key}` as const;
+  const translated = t(i18nKey);
+  return translated !== i18nKey ? translated : null;
+}
+
+function devLogUntranslatedApiError(error: ApiError, raw: string): void {
+  if (import.meta.env.DEV) {
+    console.warn('[api] Untranslated error message', {
+      code: error.code,
+      detailsCode: detailsMachineCode(error.details),
+      message: raw,
+    });
+  }
+}
 
 /**
  * User-facing API error text in the current UI language (stable backend codes,
@@ -175,24 +234,26 @@ export function getLocalizedApiErrorMessage(
     }
 
     const machine = detailsMachineCode(error.details);
-    if (machine && machine !== 'validation_error') {
-      const key = `apiErrors.${machine}` as const;
-      const translated = t(key);
-      if (translated !== key) return translated;
+    if (machine) {
+      const translated = translateApiErrorKey(t, machine);
+      if (translated) return translated;
+    }
+
+    if (error.code && !GENERIC_API_ERROR_CODES.has(error.code)) {
+      const translated = translateApiErrorKey(t, error.code);
+      if (translated) return translated;
     }
 
     const rawDetail = detailString(error.details);
     if (rawDetail) {
-      const legacyKey = LEGACY_DETAIL_TO_API_KEY[rawDetail];
-      if (legacyKey) {
-        const key = `apiErrors.${legacyKey}` as const;
-        const translated = t(key);
-        if (translated !== key) return translated;
+      const legacyDetailKey = LEGACY_DETAIL_TO_API_KEY[rawDetail];
+      if (legacyDetailKey) {
+        const translated = translateApiErrorKey(t, legacyDetailKey);
+        if (translated) return translated;
       }
       if (rawDetail.includes('_') && !rawDetail.includes(' ')) {
-        const key = `apiErrors.${rawDetail}` as const;
-        const translated = t(key);
-        if (translated !== key) return translated;
+        const translated = translateApiErrorKey(t, rawDetail);
+        if (translated) return translated;
       }
     }
 
@@ -202,15 +263,40 @@ export function getLocalizedApiErrorMessage(
         return localizedValidationItemMessage(items[0]!, t);
       }
       const vm = firstValidationMessage(error);
-      if (vm) return vm;
+      if (vm) {
+        const legacy = LEGACY_MESSAGE_TO_API_KEY[vm];
+        if (legacy) {
+          const translated = translateApiErrorKey(t, legacy);
+          if (translated) return translated;
+        }
+      }
     }
 
     if (error instanceof ServerError) return fb;
-    if (error.message && error.message !== 'Request failed') return error.message;
+
+    const rawMessage = error.message?.trim() ?? '';
+    if (rawMessage && rawMessage !== 'Request failed') {
+      const legacy = LEGACY_MESSAGE_TO_API_KEY[rawMessage];
+      if (legacy) {
+        const translated = translateApiErrorKey(t, legacy);
+        if (translated) return translated;
+      }
+      devLogUntranslatedApiError(error, rawMessage);
+    }
     return fb;
   }
 
-  if (error instanceof Error && error.message.trim()) return error.message;
+  if (error instanceof Error && error.message.trim()) {
+    const legacy = LEGACY_MESSAGE_TO_API_KEY[error.message.trim()];
+    if (legacy) {
+      const translated = translateApiErrorKey(t, legacy);
+      if (translated) return translated;
+    }
+    if (import.meta.env.DEV) {
+      console.warn('[api] Untranslated client error', error.message);
+    }
+    return fb;
+  }
   return fb;
 }
 

@@ -13,7 +13,12 @@ from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.transfer_batch import TransferBatch
 from app.models.users import User
-from app.schemas.transfers import TransferBatchCreate, TransferBatchRead, TransferLineRead
+from app.schemas.transfers import (
+    TransferBatchCreate,
+    TransferBatchRead,
+    TransferBatchUpdate,
+    TransferLineRead,
+)
 from app.utils.person_name import person_name_sql_expr
 from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 from app.services import audit_service
@@ -25,6 +30,7 @@ from app.services.transfer_service import (
     get_batch,
     list_batches,
     receive_batch,
+    update_pending_batch,
 )
 
 router = APIRouter()
@@ -92,23 +98,27 @@ async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatc
 
     out: list[TransferBatchRead] = []
     for batch in batches:
-        lines = [
-            TransferLineRead(
-                id=ln.id,
-                product_id=ln.product_id,
-                qty=ln.qty,
-                qty_base=ln.qty_base,
-                uom_id=ln.uom_id,
-                uom_name=(uom_map.get(ln.uom_id).name if ln.uom_id in uom_map else ""),
-                variant_id=ln.variant_id,
-                product_name=pmap.get(ln.product_id, ""),
-                variant_sku=vsku.get(ln.variant_id, ""),
-                variant_name=vname.get(ln.variant_id, ""),
-                reference_code=vref.get(ln.variant_id, ""),
-                variant_attributes=vattr.get(ln.variant_id, ""),
+        lines: list[TransferLineRead] = []
+        for ln in batch.lines:
+            uom_row = uom_map.get(ln.uom_id)
+            lines.append(
+                TransferLineRead(
+                    id=ln.id,
+                    product_id=ln.product_id,
+                    qty=ln.qty,
+                    qty_base=ln.qty_base,
+                    uom_id=ln.uom_id,
+                    uom_name=uom_row.name if uom_row else "",
+                    uom_code=uom_row.code if uom_row else "",
+                    uom_symbol=uom_row.symbol if uom_row else "",
+                    variant_id=ln.variant_id,
+                    product_name=pmap.get(ln.product_id, ""),
+                    variant_sku=vsku.get(ln.variant_id, ""),
+                    variant_name=vname.get(ln.variant_id, ""),
+                    reference_code=vref.get(ln.variant_id, ""),
+                    variant_attributes=vattr.get(ln.variant_id, ""),
+                )
             )
-            for ln in batch.lines
-        ]
         creator_name: str | None = None
         if batch.created_by_user_id is not None:
             raw = umap.get(batch.created_by_user_id, "")
@@ -166,6 +176,30 @@ async def list_transfer_batches_endpoint(
 ) -> list[TransferBatchRead]:
     rows = await list_batches(db, limit=limit, offset=offset)
     return await _transfer_batches_to_read(db, rows)
+
+
+@router.put("/transfers/{batch_id}", response_model=TransferBatchRead)
+async def update_transfer_batch_endpoint(
+    batch_id: int,
+    body: TransferBatchUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("inventory", "update"),
+) -> TransferBatchRead:
+    batch = await update_pending_batch(db, batch_id=batch_id, data=body.model_dump())
+    await audit_service.log(
+        session=db,
+        action="transfer_batch.updated",
+        resource_type="transfer_batch",
+        resource_id=str(batch.id),
+        new_value=TransferBatchRead.model_validate(batch).model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    enriched = await _transfer_batches_to_read(db, [batch])
+    return enriched[0]
 
 
 @router.get("/transfers/{batch_id}", response_model=TransferBatchRead)

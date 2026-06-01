@@ -297,13 +297,36 @@ async def list_payslips_read(
     status: str | None = None,
     period_start: date | None = None,
     period_end: date | None = None,
-) -> list[PayslipRead]:
-    """List payslips with linked user display fields (for API responses)."""
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[PayslipRead], int]:
+    """Paginated payslips with linked user display fields (for API responses)."""
+    from sqlalchemy import func
+
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
+    count_stmt = select(func.count()).select_from(Payslip)
+    if status is not None:
+        count_stmt = count_stmt.where(Payslip.status == status)
+    if period_start is not None and period_end is not None:
+        count_stmt = count_stmt.where(
+            Payslip.period_start == period_start,
+            Payslip.period_end == period_end,
+        )
+    total = int(await db.scalar(count_stmt) or 0)
+
     stmt = (
-        select(Payslip, person_name_sql_expr(User.first_name, User.father_name, User.family_name), User.email)
+        select(
+            Payslip,
+            person_name_sql_expr(User.first_name, User.father_name, User.family_name),
+            User.email,
+        )
         .join(EmployeeProfile, EmployeeProfile.id == Payslip.employee_profile_id)
         .join(User, User.id == EmployeeProfile.user_id)
         .order_by(Payslip.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     if status is not None:
         stmt = stmt.where(Payslip.status == status)
@@ -319,7 +342,7 @@ async def list_payslips_read(
         out.append(
             base.model_copy(update={"user_full_name": full_name, "user_email": email}),
         )
-    return out
+    return out, total
 
 
 async def approve_payslip(

@@ -27,6 +27,7 @@ from app.schemas.payroll import (
     PayslipAdjustmentsPatch,
     PayslipApproveRequest,
     PayslipGenerateRequest,
+    PayslipListResponse,
     PayslipRead,
 )
 from app.services import audit_service
@@ -146,26 +147,31 @@ async def generate_payslip_endpoint(
     return PayslipRead.model_validate(payslip)
 
 
-@router.get("/payroll/payslips", response_model=list[PayslipRead])
+@router.get("/payroll/payslips", response_model=PayslipListResponse)
 async def list_payslips_endpoint(
     status: str | None = None,
     period_start: date | None = Query(None),
     period_end: date | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("payroll", "read"),
-) -> list[PayslipRead]:
+) -> PayslipListResponse:
     if (period_start is None) ^ (period_end is None):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="period_start and period_end must be provided together",
         )
-    return await list_payslips_read(
+    items, total = await list_payslips_read(
         db,
         status=status,
         period_start=period_start,
         period_end=period_end,
+        limit=limit,
+        offset=offset,
     )
+    return PayslipListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/payroll/payslips/{payslip_id}", response_model=PayslipRead)

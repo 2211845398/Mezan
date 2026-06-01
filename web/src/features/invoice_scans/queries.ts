@@ -8,8 +8,16 @@ export const invoiceScanKeys = {
   detail: (id: number) => [...invoiceScanKeys.root, 'detail', id] as const,
 };
 
-export function invoiceScansListQueryOptions(params?: { status?: string; limit?: number; offset?: number }) {
-  const q = { limit: params?.limit ?? 200, offset: params?.offset ?? 0, ...(params?.status ? { status: params.status } : {}) };
+export function invoiceScansListQueryOptions(params?: {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const q = {
+    limit: params?.limit ?? 20,
+    offset: params?.offset ?? 0,
+    ...(params?.status ? { status: params.status } : {}),
+  };
   return queryOptions({
     queryKey: invoiceScanKeys.list(q as Record<string, unknown>),
     queryFn: () => api.listInvoiceScans(q),

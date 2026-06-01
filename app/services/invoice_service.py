@@ -477,23 +477,36 @@ async def list_sales_invoices_for_terminal_window(
     terminal_id: int,
     start_inclusive: datetime,
     end_exclusive: datetime,
-) -> list[SalesInvoiceListItem]:
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[SalesInvoiceListItem], int]:
     t_res = await db.execute(select(POSTerminal).where(POSTerminal.id == terminal_id))
     terminal = t_res.scalar_one_or_none()
     if not terminal:
         raise NotFoundError("Terminal not found")
 
+    from sqlalchemy import func
+
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
+    filt = (
+        SalesInvoice.terminal_id == terminal_id,
+        SalesInvoice.branch_id == terminal.branch_id,
+        SalesInvoice.created_at >= start_inclusive,
+        SalesInvoice.created_at < end_exclusive,
+        SalesInvoice.voided_at.is_(None),
+    )
+    total = int(
+        await db.scalar(select(func.count()).select_from(SalesInvoice).where(*filt)) or 0
+    )
     inv_res = await db.execute(
         select(SalesInvoice, CustomerProfile)
         .outerjoin(CustomerProfile, SalesInvoice.customer_id == CustomerProfile.id)
-        .where(
-            SalesInvoice.terminal_id == terminal_id,
-            SalesInvoice.branch_id == terminal.branch_id,
-            SalesInvoice.created_at >= start_inclusive,
-            SalesInvoice.created_at < end_exclusive,
-            SalesInvoice.voided_at.is_(None),
-        )
+        .where(*filt)
         .order_by(SalesInvoice.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     rows = inv_res.all()
     out: list[SalesInvoiceListItem] = []
@@ -519,7 +532,7 @@ async def list_sales_invoices_for_terminal_window(
                 created_at=inv.created_at,
             )
         )
-    return out
+    return out, total
 
 
 async def list_sales_invoices_register_page(

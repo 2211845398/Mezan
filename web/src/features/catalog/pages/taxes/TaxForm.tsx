@@ -11,7 +11,7 @@ import { FormContainer } from '@/components/shared/ContentSurface';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { handleDialogFormEnterSubmit, handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 
 import { archiveTaxDefinition, createTaxDefinition, type TaxDefinitionRead, updateTaxDefinition } from '../../api';
 import { catalogKeys } from '../../queries';
@@ -19,8 +19,13 @@ import { catalogKeys } from '../../queries';
 const schema = z.object({
   name: z.string().min(1),
   code: z.string().optional().nullable(),
-  rate: z.string().min(1),
-  is_active: z.boolean(),
+  ratePercent: z
+    .string()
+    .min(1)
+    .refine((v) => {
+      const n = Number.parseFloat(v);
+      return Number.isFinite(n) && n >= 0 && n <= 100;
+    }),
 });
 
 type Values = z.infer<typeof schema>;
@@ -31,12 +36,21 @@ type Props = {
   onDismiss?: () => void;
 };
 
-function rateToFormString(rate: string): string {
+function rateFractionToPercent(rate: string): string {
   const n = Number.parseFloat(String(rate));
   if (!Number.isFinite(n)) {
     return '0';
   }
-  return String(n);
+  const pct = n * 100;
+  return String(Number.isInteger(pct) ? pct : Math.round(pct * 10000) / 10000);
+}
+
+function percentToRateFraction(percent: string): string {
+  const n = Number.parseFloat(percent.trim());
+  if (!Number.isFinite(n)) {
+    return '0';
+  }
+  return String(n / 100);
 }
 
 export default function TaxForm({ variant = 'page', existing, onDismiss }: Props) {
@@ -49,8 +63,7 @@ export default function TaxForm({ variant = 'page', existing, onDismiss }: Props
     defaultValues: {
       name: '',
       code: '',
-      rate: '0',
-      is_active: true,
+      ratePercent: '0',
     },
   });
 
@@ -61,8 +74,7 @@ export default function TaxForm({ variant = 'page', existing, onDismiss }: Props
     form.reset({
       name: existing.name,
       code: existing.code ?? '',
-      rate: rateToFormString(existing.rate),
-      is_active: existing.is_active,
+      ratePercent: rateFractionToPercent(existing.rate),
     });
   }, [existing, form]);
 
@@ -72,8 +84,8 @@ export default function TaxForm({ variant = 'page', existing, onDismiss }: Props
       const body = {
         name: v.name.trim(),
         code: codeTrim === '' ? null : codeTrim,
-        rate: v.rate.trim(),
-        is_active: v.is_active,
+        rate: percentToRateFraction(v.ratePercent),
+        is_active: true,
       };
       if (isEdit && existing) {
         return updateTaxDefinition(existing.id, body);
@@ -102,6 +114,7 @@ export default function TaxForm({ variant = 'page', existing, onDismiss }: Props
     <FormProvider {...form}>
       <form
         onSubmit={form.handleSubmit((v) => saveM.mutate(v))}
+        onKeyDown={variant === 'dialog' ? handleDialogFormEnterSubmit : handleFormEnterSubmit}
         className={variant === 'dialog' ? 'space-y-4' : 'max-w-xl space-y-4'}
       >
         <FormField
@@ -132,29 +145,27 @@ export default function TaxForm({ variant = 'page', existing, onDismiss }: Props
         />
         <FormField
           control={form.control}
-          name="rate"
+          name="ratePercent"
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t('taxes.field.rate')}</FormLabel>
               <FormControl>
-                <Input {...field} className="num-latin" inputMode="decimal" autoComplete="off" />
+                <div className="relative">
+                  <Input
+                    {...field}
+                    className="num-latin pe-8"
+                    inputMode="decimal"
+                    autoComplete="off"
+                  />
+                  <span
+                    className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-muted-foreground"
+                    aria-hidden
+                  >
+                    %
+                  </span>
+                </div>
               </FormControl>
-              <p className="text-muted-foreground text-xs">{t('taxes.field.rate_hint')}</p>
               <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="is_active"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-              <div className="space-y-0.5">
-                <FormLabel>{t('taxes.field.active')}</FormLabel>
-              </div>
-              <FormControl>
-                <Switch checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
             </FormItem>
           )}
         />

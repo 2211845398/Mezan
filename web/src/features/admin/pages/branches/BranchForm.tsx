@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { handleDialogFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 
 import type { BranchRead } from '../../types';
 
@@ -93,6 +94,7 @@ export function BranchForm({
       <Form {...form}>
         <form
           id={BRANCH_FORM_ID}
+          onKeyDown={handleDialogFormEnterSubmit}
           onSubmit={form.handleSubmit((v) => onSubmit({ ...v, address: v.address || null }))}
           className="space-y-3"
         >

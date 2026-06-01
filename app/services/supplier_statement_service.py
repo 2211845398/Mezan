@@ -275,6 +275,7 @@ async def get_supplier_evaluation(
 
     pay_count_stmt = (
         select(func.count(ApPaymentApplication.id))
+        .select_from(ApPaymentApplication)
         .join(ApOpenItem, ApOpenItem.id == ApPaymentApplication.ap_open_item_id)
         .where(
             ApOpenItem.supplier_id == supplier_id,
@@ -301,6 +302,7 @@ async def get_supplier_evaluation(
                 func.date(ApPaymentApplication.applied_at) - ApOpenItem.due_date
             )
         )
+        .select_from(ApPaymentApplication)
         .join(ApOpenItem, ApOpenItem.id == ApPaymentApplication.ap_open_item_id)
         .where(
             ApOpenItem.supplier_id == supplier_id,

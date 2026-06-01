@@ -10,7 +10,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.errors import conflict_error, not_found_error, validation_error
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.purchase_order import PurchaseOrder
@@ -75,9 +75,10 @@ async def receive_goods_for_purchase_order(
     notes: str | None = None,
 ) -> tuple[GoodsReceipt, bool]:
     if len(idempotency_key) < 8:
-        raise ValidationError(
+        validation_error(
+            "idempotency_key_too_short",
             "idempotency_key must be at least 8 characters",
-            details={"field": "idempotency_key"},
+            field="idempotency_key",
         )
 
     existing = await db.execute(
@@ -86,9 +87,10 @@ async def receive_goods_for_purchase_order(
     prior = existing.scalar_one_or_none()
     if prior:
         if prior.purchase_order_id != purchase_order_id:
-            raise ConflictError(
+            conflict_error(
+                "idempotency_key_po_mismatch",
                 "Idempotency key already used for a different receipt",
-                details={"goods_receipt_id": prior.id},
+                goods_receipt_id=prior.id,
             )
         po_res = await db.execute(
             select(PurchaseOrder)
@@ -110,18 +112,20 @@ async def receive_goods_for_purchase_order(
     )
     purchase_order = po.scalar_one_or_none()
     if not purchase_order:
-        raise NotFoundError("Purchase order not found", details={"po_id": purchase_order_id})
+        not_found_error("purchase_order_not_found", "Purchase order not found", po_id=purchase_order_id)
 
     if purchase_order.status in {"draft", "cancelled", "closed"}:
-        raise ValidationError(
+        validation_error(
+            "po_status_cannot_receive",
             "Cannot receive goods for this purchase order status",
-            details={"status": purchase_order.status},
+            status=purchase_order.status,
         )
 
     if purchase_order.branch_id is not None and purchase_order.branch_id != branch_id:
-        raise ValidationError(
+        validation_error(
+            "po_branch_mismatch",
             "branch_id must match the purchase order branch",
-            details={"expected_branch_id": purchase_order.branch_id},
+            expected_branch_id=purchase_order.branch_id,
         )
 
     await require_branch_open_for_operations(db, branch_id)
@@ -130,7 +134,7 @@ async def receive_goods_for_purchase_order(
     received_so_far = await _qty_received_by_po_line(db, purchase_order_id=purchase_order_id)
 
     if not lines:
-        raise ValidationError("At least one receipt line is required")
+        validation_error("receipt_no_lines_required", "At least one receipt line is required")
 
     receipt_entries: list[tuple[int, int, int | None, Decimal]] = []
     for raw in lines:
@@ -139,35 +143,42 @@ async def receive_goods_for_purchase_order(
         request_variant_id = raw.get("variant_id")
         unit_cost_raw = raw.get("unit_cost")
         if not isinstance(pol_id, int) or not isinstance(qty, int):
-            raise ValidationError(
+            validation_error(
+                "receipt_line_invalid",
                 "Each line needs purchase_order_line_id (int) and qty (int)",
-                details={"line": raw},
+                line=raw,
             )
         if qty <= 0:
-            raise ValidationError(
-                "qty must be positive", details={"purchase_order_line_id": pol_id}
+            validation_error(
+                "receipt_qty_positive",
+                "qty must be positive",
+                purchase_order_line_id=pol_id,
             )
         if request_variant_id is not None and not isinstance(request_variant_id, int):
-            raise ValidationError(
+            validation_error(
+                "receipt_variant_id_invalid",
                 "variant_id must be an int when provided",
-                details={"line": raw},
+                line=raw,
             )
         if unit_cost_raw is None:
-            raise ValidationError(
+            validation_error(
+                "receipt_unit_cost_required",
                 "unit_cost is required for each receipt line",
-                details={"purchase_order_line_id": pol_id},
+                purchase_order_line_id=pol_id,
             )
         try:
             unit_cost = Decimal(str(unit_cost_raw))
-        except Exception as e:
-            raise ValidationError(
+        except Exception:
+            validation_error(
+                "receipt_unit_cost_invalid",
                 "unit_cost must be a positive number",
-                details={"line": raw},
-            ) from e
+                line=raw,
+            )
         if unit_cost <= 0:
-            raise ValidationError(
+            validation_error(
+                "receipt_unit_cost_positive",
                 "unit_cost must be positive",
-                details={"purchase_order_line_id": pol_id},
+                purchase_order_line_id=pol_id,
             )
         receipt_entries.append((pol_id, qty, request_variant_id, unit_cost))
 
@@ -178,20 +189,20 @@ async def receive_goods_for_purchase_order(
     for pol_id, total_qty in totals_by_pol.items():
         pol = po_line_by_id.get(pol_id)
         if not pol:
-            raise ValidationError(
+            validation_error(
+                "unknown_po_line",
                 "Unknown purchase_order_line_id for this PO",
-                details={"purchase_order_line_id": pol_id},
+                purchase_order_line_id=pol_id,
             )
         already = received_so_far.get(pol_id, 0)
         if already + total_qty > pol.qty:
-            raise ValidationError(
+            validation_error(
+                "receipt_qty_exceeds_ordered",
                 "Received quantity exceeds ordered quantity for line",
-                details={
-                    "purchase_order_line_id": pol_id,
-                    "ordered": pol.qty,
-                    "already_received": already,
-                    "requested": total_qty,
-                },
+                purchase_order_line_id=pol_id,
+                ordered=pol.qty,
+                already_received=already,
+                requested=total_qty,
             )
 
     receipt_lines_payload: list[tuple[int, int, Decimal, PurchaseOrderLine, int]] = []
@@ -200,19 +211,19 @@ async def receive_goods_for_purchase_order(
         if pol.variant_id is not None:
             line_variant_id = int(pol.variant_id)
             if request_variant_id is not None and int(request_variant_id) != line_variant_id:
-                raise ValidationError(
+                validation_error(
+                    "po_variant_mismatch",
                     "variant_id does not match PO line preset variant",
-                    details={
-                        "purchase_order_line_id": pol_id,
-                        "expected_variant_id": line_variant_id,
-                        "request_variant_id": request_variant_id,
-                    },
+                    purchase_order_line_id=pol_id,
+                    expected_variant_id=line_variant_id,
+                    request_variant_id=request_variant_id,
                 )
         else:
             if request_variant_id is None:
-                raise ValidationError(
+                validation_error(
+                    "po_variant_required",
                     "variant_id is required when the PO line has no preset variant",
-                    details={"purchase_order_line_id": pol_id},
+                    purchase_order_line_id=pol_id,
                 )
             line_variant_id = await validate_variant_belongs_to_product(
                 db, product_id=pol.product_id, variant_id=request_variant_id

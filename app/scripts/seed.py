@@ -5,34 +5,15 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from app.core.config import settings
-from app.db.database import AsyncSessionLocal, close_db
-from app.services.seed_service import (
-    seed_accounting_defaults,
-    seed_default_admin,
-    seed_permissions_and_roles,
-)
+from app.db.database import close_db
+from app.scripts.core_seed import run_core_seed
 
 logger = logging.getLogger(__name__)
 
 
 async def run_seed() -> None:
-    """Execute the idempotent seed routines once."""
-    async with AsyncSessionLocal() as db:
-        await seed_permissions_and_roles(db)
-        await seed_accounting_defaults(db)
-        if settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PASSWORD:
-            await seed_default_admin(
-                db,
-                settings.DEFAULT_ADMIN_EMAIL,
-                settings.DEFAULT_ADMIN_PASSWORD,
-            )
-            logger.info("Default admin seed attempted for %s.", settings.DEFAULT_ADMIN_EMAIL)
-        else:
-            logger.info(
-                "Skipping default admin seed because DEFAULT_ADMIN_EMAIL or "
-                "DEFAULT_ADMIN_PASSWORD is not configured."
-            )
+    """Execute the idempotent core seed routines once."""
+    await run_core_seed()
 
 
 async def main() -> None:

@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, ChevronRight, Clock, Filter, LayoutGrid, List, RefreshCw, Truck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
@@ -20,23 +19,17 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DateField } from '@/components/shared/form/DateField';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
+import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 import { useTransfersListQuery } from '../../queries';
 import type { TransferRead } from '../../types';
+import { formatTransferRoute } from '../../utils/movementLabels';
 
 type TransferBoardColumnStatus = 'pending_dispatch' | 'in_transit' | 'received';
 
@@ -67,6 +60,9 @@ type ColumnDef = {
   iconWrapClass: string;
 };
 
+/** Max transfer cards per board column; full list is on the «complete record» tab. */
+const BOARD_COLUMN_PREVIEW = 5;
+
 const COLUMNS: ColumnDef[] = [
   {
     status: 'pending_dispatch',
@@ -91,9 +87,18 @@ const COLUMNS: ColumnDef[] = [
   },
 ];
 
-function TransferBoardCard({ t, row }: { t: TFunction; row: TransferRead }) {
+function TransferBoardCard({
+  t,
+  row,
+  language,
+}: {
+  t: TFunction;
+  row: TransferRead;
+  language: string;
+}) {
   const from = branchLabel(row, 'from');
   const to = branchLabel(row, 'to');
+  const routeLabel = formatTransferRoute(from, to, language);
   const n = lineCount(row);
   const q = totalQty(row);
   return (
@@ -110,9 +115,7 @@ function TransferBoardCard({ t, row }: { t: TFunction; row: TransferRead }) {
           {formatIso(String(row.created_at), 'yyyy-MM-dd HH:mm')}
         </span>
       </div>
-      <p className="mt-2 text-sm font-medium leading-snug">
-        {from} <span className="text-muted-foreground">→</span> {to}
-      </p>
+      <p className="mt-2 text-sm font-medium leading-snug">{routeLabel}</p>
       <p className="mt-1 text-xs text-muted-foreground">
         {t('transfers.board.lines', { count: n })} · {t('transfers.board.qty_total', { qty: q })}
       </p>
@@ -135,16 +138,12 @@ export default function TransfersList() {
   const { t: tc } = useTranslation('common');
   const canUpdate = usePermission('inventory', 'update');
   const { data: rows = [], isLoading, isError, refetch } = useTransfersListQuery({ limit: 200, offset: 0 });
-  const { data: branches = [] } = useQuery({
-    queryKey: adminKeys.branches(false),
-    queryFn: () => listBranches({ include_archived: false }),
-  });
 
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [fromBranchId, setFromBranchId] = useState<string>('all');
-  const [toBranchId, setToBranchId] = useState<string>('all');
+  const [fromBranchId, setFromBranchId] = useState<number | null>(null);
+  const [toBranchId, setToBranchId] = useState<number | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [tab, setTab] = useState<'board' | 'list'>('board');
 
@@ -158,8 +157,8 @@ export default function TransfersList() {
       const d = createdDateKey(r.created_at);
       if (dateFrom && d < dateFrom) return false;
       if (dateTo && d > dateTo) return false;
-      if (fromBranchId !== 'all' && r.from_branch_id !== Number(fromBranchId)) return false;
-      if (toBranchId !== 'all' && r.to_branch_id !== Number(toBranchId)) return false;
+      if (fromBranchId != null && r.from_branch_id !== fromBranchId) return false;
+      if (toBranchId != null && r.to_branch_id !== toBranchId) return false;
       return true;
     });
   }, [rows, search, dateFrom, dateTo, fromBranchId, toBranchId]);
@@ -196,14 +195,14 @@ export default function TransfersList() {
       defineColumns<TransferRead>()([
         { id: 'id', accessorKey: 'id', header: t('transfers.col.transfer_no') },
         {
-          id: 'from',
+          id: 'route',
           header: t('transfers.col.from'),
-          cell: ({ row }) => branchLabel(row.original, 'from'),
-        },
-        {
-          id: 'to',
-          header: t('transfers.col.to'),
-          cell: ({ row }) => branchLabel(row.original, 'to'),
+          cell: ({ row }) =>
+            formatTransferRoute(
+              branchLabel(row.original, 'from'),
+              branchLabel(row.original, 'to'),
+              i18n.language,
+            ),
         },
         {
           id: 'status',
@@ -236,7 +235,7 @@ export default function TransfersList() {
           ),
         },
       ]),
-    [t],
+    [t, i18n.language],
   );
 
   return (
@@ -353,45 +352,33 @@ export default function TransfersList() {
                   <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:max-w-md">
                     <div className="space-y-1">
                       <Label htmlFor="tf-from">{t('transfers.board.date_from')}</Label>
-                      <Input id="tf-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                      <DateField id="tf-from" value={dateFrom} onChange={setDateFrom} />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="tf-to">{t('transfers.board.date_to')}</Label>
-                      <Input id="tf-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                      <DateField id="tf-to" value={dateTo} onChange={setDateTo} />
                     </div>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <div className="min-w-40 space-y-1">
-                      <Label>{t('transfers.board.filter_from')}</Label>
-                      <Select value={fromBranchId} onValueChange={setFromBranchId}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">{t('transfers.board.all_branches')}</SelectItem>
-                          {branches.map((b) => (
-                            <SelectItem key={b.id} value={String(b.id)}>
-                              {b.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="min-w-40 flex-1 space-y-1">
+                      <BranchCombobox
+                        label={t('transfers.board.filter_from')}
+                        value={fromBranchId}
+                        onChange={setFromBranchId}
+                        allowClear
+                        clearLabel={t('transfers.board.all_branches')}
+                        showCode={false}
+                      />
                     </div>
-                    <div className="min-w-40 space-y-1">
-                      <Label>{t('transfers.board.filter_to')}</Label>
-                      <Select value={toBranchId} onValueChange={setToBranchId}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">{t('transfers.board.all_branches')}</SelectItem>
-                          {branches.map((b) => (
-                            <SelectItem key={`to-${b.id}`} value={String(b.id)}>
-                              {b.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="min-w-40 flex-1 space-y-1">
+                      <BranchCombobox
+                        label={t('transfers.board.filter_to')}
+                        value={toBranchId}
+                        onChange={setToBranchId}
+                        allowClear
+                        clearLabel={t('transfers.board.all_branches')}
+                        showCode={false}
+                      />
                     </div>
                   </div>
                 </CollapsibleContent>
@@ -414,6 +401,8 @@ export default function TransfersList() {
               {COLUMNS.map((col) => {
                 const Icon = col.icon;
                 const list = byStatus[col.status];
+                const preview = list.slice(0, BOARD_COLUMN_PREVIEW);
+                const overflow = list.length - preview.length;
                 return (
                   <div
                     key={col.status}
@@ -437,7 +426,27 @@ export default function TransfersList() {
                           <p className="text-sm">{t('transfers.board.empty')}</p>
                         </div>
                       ) : (
-                        list.map((row) => <TransferBoardCard key={row.id} t={t} row={row} />)
+                        <>
+                          {preview.map((row) => (
+                            <TransferBoardCard key={row.id} t={t} row={row} language={i18n.language} />
+                          ))}
+                          {overflow > 0 ? (
+                            <div className="mt-1 space-y-2 rounded-lg border border-dashed bg-background/80 px-3 py-2 text-center">
+                              <p className="text-xs text-muted-foreground">
+                                {t('transfers.board.preview_overflow', { count: overflow })}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs"
+                                onClick={() => setTab('list')}
+                              >
+                                {t('transfers.board.open_full_list')}
+                              </Button>
+                            </div>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </div>
@@ -462,8 +471,6 @@ export default function TransfersList() {
           </div>
         ) : null}
       </div>
-
-      <p className="text-xs text-muted-foreground">{t('transfers.wavg_note')}</p>
     </div>
   );
 }

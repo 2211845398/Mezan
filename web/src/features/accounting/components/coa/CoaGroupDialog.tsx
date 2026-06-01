@@ -50,19 +50,22 @@ export function CoaGroupDialog({
     [accounts, editNode?.id, panel],
   );
 
-  const [name, setName] = useState('');
+  const [nameAr, setNameAr] = useState('');
+  const [nameEn, setNameEn] = useState('');
   const [code, setCode] = useState('');
   const [parentId, setParentId] = useState<number | null>(defaultParentId ?? null);
 
   useEffect(() => {
     if (!open) return;
     if (editNode) {
-      setName(editNode.name);
-      setCode(editNode.code);
       const row = accounts.find((a) => a.id === editNode.id);
+      setNameAr(row?.name_ar ?? editNode.name_ar ?? '');
+      setNameEn(row?.name_en ?? editNode.name_en ?? editNode.name ?? '');
+      setCode(editNode.code);
       setParentId(row?.parent_id ?? null);
     } else {
-      setName('');
+      setNameAr('');
+      setNameEn('');
       setCode('');
       setParentId(defaultParentId ?? null);
     }
@@ -89,32 +92,37 @@ export function CoaGroupDialog({
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      if (!name.trim()) throw new Error(t('coa.validation.name'));
+      const ar = nameAr.trim();
+      const en = nameEn.trim();
+      if (!ar && !en) throw new Error(t('coa.validation.name'));
       if (!code.trim()) throw new Error(t('coa.validation.code'));
       if (parentId == null) throw new Error(t('coa.validation.parent'));
 
       const accountType = inferAccountTypeForParent(parentId, accounts);
       if (!accountType) throw new Error(t('coa.validation.parent'));
 
-      if (isEdit && editNode) {
-        return updateChartAccount(editNode.id, {
-          name: name.trim(),
-          code: code.trim(),
-          parent_id: parentId,
-          is_control: true,
-        });
-      }
-      return createChartAccount({
-        name: name.trim(),
+      const legacyName = en || ar;
+      const payload = {
+        name: legacyName,
+        name_ar: ar || null,
+        name_en: en || null,
         code: code.trim(),
         parent_id: parentId,
+        is_control: true as const,
+      };
+
+      if (isEdit && editNode) {
+        return updateChartAccount(editNode.id, payload);
+      }
+      return createChartAccount({
+        ...payload,
         account_type: accountType,
-        is_control: true,
         subledger_kind: 'none',
       });
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: accountingKeys.chartAccountsTree() });
+      await qc.invalidateQueries({ queryKey: [...accountingKeys.root, 'chart-accounts', 'by-branch'] });
       await qc.invalidateQueries({ queryKey: accountingKeys.chartAccounts() });
       await qc.invalidateQueries({ queryKey: accountingKeys.postableAccounts() });
       toast.success(isEdit ? t('coa.saved') : t('coa.created'));
@@ -155,12 +163,22 @@ export function CoaGroupDialog({
     >
       <div className="grid gap-4">
         <div className="grid gap-1.5">
-          <Label htmlFor="coa-group-name">{t('coa.name')}</Label>
+          <Label htmlFor="coa-group-name-en">{t('coa.name_en')}</Label>
           <Input
-            id="coa-group-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            id="coa-group-name-en"
+            value={nameEn}
+            onChange={(e) => setNameEn(e.target.value)}
             disabled={disabled}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="coa-group-name-ar">{t('coa.name_ar')}</Label>
+          <Input
+            id="coa-group-name-ar"
+            value={nameAr}
+            onChange={(e) => setNameAr(e.target.value)}
+            disabled={disabled}
+            dir="rtl"
           />
         </div>
         <div className="grid gap-1.5">

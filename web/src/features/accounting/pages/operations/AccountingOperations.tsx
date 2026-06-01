@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { notifyApiError } from '@/api/errorMessages';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { listCustomers } from '@/features/crm/api';
 import { listSuppliers } from '@/features/purchasing/api';
@@ -59,6 +60,7 @@ type FxPreviewLine = {
 
 export default function AccountingOperations() {
   const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const [tab, setTab] = useState<OperationsTab>('tree');
   const branchId = useAuthStore((s) => s.activeBranchId) ?? 0;
   const today = useMemo(() => utcCalendarDayKey(now()), []);
@@ -77,11 +79,17 @@ export default function AccountingOperations() {
   });
   const customers = useQuery({
     queryKey: ['crm', 'customers', 'list'],
-    queryFn: () => listCustomers({ limit: 200, offset: 0 }),
+    queryFn: async () => {
+      const res = await listCustomers({ limit: 50, offset: 0 });
+      return res.items;
+    },
   });
   const suppliers = useQuery({
     queryKey: ['purchasing', 'suppliers', 'list'],
-    queryFn: listSuppliers,
+    queryFn: async () => {
+      const res = await listSuppliers({ limit: 50, offset: 0 });
+      return res.items;
+    },
   });
 
   const receipt = useMutation({
@@ -100,7 +108,7 @@ export default function AccountingOperations() {
         newIdempotencyKey(),
       ),
     onSuccess: (result) => toast.success(result.message ?? t('operations.voucher.receipt_ok')),
-    onError: (error) => toast.error(error instanceof Error ? error.message : String(error)),
+    onError: (error) => notifyApiError(error, tc('errors.generic')),
   });
 
   const payment = useMutation({
@@ -119,7 +127,7 @@ export default function AccountingOperations() {
         newIdempotencyKey(),
       ),
     onSuccess: (result) => toast.success(result.message ?? t('operations.voucher.payment_ok')),
-    onError: (error) => toast.error(error instanceof Error ? error.message : String(error)),
+    onError: (error) => notifyApiError(error, tc('errors.generic')),
   });
 
   const opening = useMutation({
@@ -138,19 +146,19 @@ export default function AccountingOperations() {
         newIdempotencyKey(),
       ),
     onSuccess: (result) => toast.success(result.message ?? t('operations.opening.ok')),
-    onError: (error) => toast.error(error instanceof Error ? error.message : String(error)),
+    onError: (error) => notifyApiError(error, tc('errors.generic')),
   });
 
   const fxPreview = useMutation({
     mutationFn: () => previewFxRevaluation({ as_of: fxDate, branch_id: branchId || null }),
     onSuccess: () => toast.success(t('operations.fx.preview_ok')),
-    onError: (error) => toast.error(error instanceof Error ? error.message : String(error)),
+    onError: (error) => notifyApiError(error, tc('errors.generic')),
   });
 
   const fxRun = useMutation({
     mutationFn: () => runFxRevaluation({ as_of: fxDate, branch_id: branchId || null }, newIdempotencyKey()),
     onSuccess: () => toast.success(t('operations.fx.run_ok')),
-    onError: (error) => toast.error(error instanceof Error ? error.message : String(error)),
+    onError: (error) => notifyApiError(error, tc('errors.generic')),
   });
 
   // Parse FX preview result into a renderable array
@@ -224,7 +232,7 @@ export default function AccountingOperations() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none">{t('operations.voucher.no_entity')}</SelectItem>
-                    {(customers.data?.items ?? []).map((c) => (
+                    {(customers.data ?? []).map((c) => (
                       <SelectItem key={c.id} value={String(c.id)}>
                         {[c.first_name, c.father_name, c.family_name].filter(Boolean).join(' ') ||
                           `#${c.id}`}

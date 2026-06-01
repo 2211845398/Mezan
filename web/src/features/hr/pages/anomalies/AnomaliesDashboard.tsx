@@ -46,6 +46,7 @@ export default function AnomaliesDashboard() {
       runKeyRef.current = key;
       return postHrAnomalies(
         {
+          preset: 'custom',
           lookback_days: lookback,
           branch_id: branchId ? Number(branchId) : null,
           max_anomalies: 50,

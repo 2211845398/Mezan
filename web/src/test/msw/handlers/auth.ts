@@ -25,6 +25,7 @@ export const DEFAULT_USER = {
   avatar_url: null,
   last_login_at: '2026-04-22T08:00:00Z',
   employee_profile_id: null as number | null,
+  bootstrap_admin_protected: true,
 };
 
 export const DEFAULT_ADMIN_PERMISSIONS = [

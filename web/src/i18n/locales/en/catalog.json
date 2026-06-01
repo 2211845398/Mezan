@@ -89,6 +89,7 @@
       "PIECE": { "name": "Piece", "symbol": "pcs" },
       "BOX": { "name": "Box", "symbol": "box" },
       "KG": { "name": "Kilogram", "symbol": "kg" },
+      "LITER": { "name": "Liter", "symbol": "L" },
       "METER": { "name": "Meter", "symbol": "m" }
     },
     "category_search_placeholder": "Search categories…",
@@ -193,10 +194,8 @@
     },
     "field": {
       "name": "Name",
-      "code": "Optional unique code",
-      "rate": "Rate (fraction)",
-      "rate_hint": "Example: 0.15 means 15% on the tax-exclusive amount.",
-      "active": "Definition active"
+      "code": "Discount code",
+      "rate": "Rate (%)"
     }
   },
   "barcode": {
@@ -322,6 +321,7 @@
     "title": "Product attributes",
     "lead": "Global dictionary for variant axes (color, size, …). Staff pick values on each product; use this page to clean duplicates.",
     "empty": "No attributes yet. Create one, then add values (Red, S, …).",
+    "empty_short": "No attributes",
     "add_attribute": "New attribute",
     "add_value": "New value",
     "value_label": "Label",

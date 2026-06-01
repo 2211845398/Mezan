@@ -16,7 +16,6 @@ export default function AdhocReceiptPage() {
     <div className="flex flex-col gap-6 p-4">
       <PageHeader
         title={t('movement.receipt.title')}
-        subtitle={t('movement.receipt.subtitle')}
         actions={
           <Button type="button" variant="outline" onClick={() => navigate('/inventory/stock')}>
             {tc('actions.back')}

@@ -9,6 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class CartCreateRequest(BaseModel):
     terminal_id: int
@@ -90,3 +92,7 @@ class CartRead(BaseModel):
     discounts: list[CartDiscountRead] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class CartListResponse(PaginatedListResponse[CartRead]):
+    """Paginated POS cart list."""

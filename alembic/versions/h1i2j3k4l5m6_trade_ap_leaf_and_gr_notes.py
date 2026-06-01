@@ -16,8 +16,30 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _goods_receipts_has_notes(conn) -> bool:
+    row = conn.execute(
+        sa.text(
+            """
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'goods_receipts'
+              AND column_name = 'notes'
+            LIMIT 1
+            """
+        )
+    ).fetchone()
+    return row is not None
+
+
 def upgrade() -> None:
     conn = op.get_bind()
+
+    if not _goods_receipts_has_notes(conn):
+        op.add_column(
+            "goods_receipts",
+            sa.Column("notes", sa.String(length=1024), nullable=True),
+        )
 
     ap_parent = conn.execute(
         sa.text(
@@ -82,15 +104,11 @@ def upgrade() -> None:
             {"leaf_id": leaf_id},
         )
 
-    op.add_column(
-        "goods_receipts",
-        sa.Column("notes", sa.String(length=1024), nullable=True),
-    )
-
 
 def downgrade() -> None:
-    op.drop_column("goods_receipts", "notes")
     conn = op.get_bind()
+    if _goods_receipts_has_notes(conn):
+        op.drop_column("goods_receipts", "notes")
     ap_parent = conn.execute(
         sa.text("SELECT id FROM chart_accounts WHERE code = '2000' LIMIT 1")
     ).fetchone()

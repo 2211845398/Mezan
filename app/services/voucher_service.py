@@ -20,6 +20,11 @@ from app.core.errors import ValidationError
 from app.models.customer_profile import CustomerProfile
 from app.models.suppliers import Supplier
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
+from app.services.branch_accounting_service import (
+    resolve_ap_account_id,
+    resolve_ar_account_id,
+    resolve_settlement_account_id,
+)
 from app.utils.money import q2
 
 
@@ -52,6 +57,9 @@ async def _resolve_account_id(
     db: AsyncSession,
     settings,
     spec: VoucherAccountSpec,
+    *,
+    branch_id: int | None = None,
+    terminal_id: int | None = None,
 ) -> int:
     """Resolve a VoucherAccountSpec to a concrete chart_accounts.id.
 
@@ -68,13 +76,22 @@ async def _resolve_account_id(
         return spec.custom_account_id
 
     if spec.account_type in ("cash", "bank"):
+        if branch_id is not None:
+            tender = "cash" if spec.account_type == "cash" else "transfer"
+            return await resolve_settlement_account_id(
+                db,
+                settings,
+                tender,
+                branch_id=branch_id,
+                terminal_id=terminal_id,
+            )
         return settings.default_cash_account_id
 
     if spec.account_type == "ar":
-        return settings.default_ar_account_id
+        return await resolve_ar_account_id(db, settings, customer_id=None)
 
     if spec.account_type == "ap":
-        return settings.default_ap_account_id
+        return await resolve_ap_account_id(db, settings, supplier_id=None)
 
     if spec.account_type == "customer":
         if not spec.entity_id:
@@ -85,7 +102,7 @@ async def _resolve_account_id(
         customer = cust_res.scalar_one_or_none()
         if not customer:
             raise ValidationError(f"Customer {spec.entity_id} not found")
-        return customer.receivables_account_id or settings.default_ar_account_id
+        return await resolve_ar_account_id(db, settings, customer_id=customer.id)
 
     if spec.account_type == "supplier":
         if not spec.entity_id:
@@ -96,7 +113,7 @@ async def _resolve_account_id(
         supplier = sup_res.scalar_one_or_none()
         if not supplier:
             raise ValidationError(f"Supplier {spec.entity_id} not found")
-        return supplier.payables_account_id or settings.default_ap_account_id
+        return await resolve_ap_account_id(db, settings, supplier_id=supplier.id)
 
     if spec.account_type == "expense":
         if not spec.custom_account_id:
@@ -120,6 +137,7 @@ async def post_voucher_gl(
     idempotency_key: str | None = None,
     currency_code: str | None = None,
     fx_rate: Decimal | None = None,
+    terminal_id: int | None = None,
 ) -> dict:
     """Post a generic double-entry voucher to the GL.
 
@@ -159,8 +177,12 @@ async def post_voucher_gl(
     settings = await get_accounting_settings(db)
 
     # Resolve both accounts
-    debit_account_id = await _resolve_account_id(db, settings, debit.spec)
-    credit_account_id = await _resolve_account_id(db, settings, credit.spec)
+    debit_account_id = await _resolve_account_id(
+        db, settings, debit.spec, branch_id=branch_id, terminal_id=terminal_id
+    )
+    credit_account_id = await _resolve_account_id(
+        db, settings, credit.spec, branch_id=branch_id, terminal_id=terminal_id
+    )
 
     # Build idempotency key if not provided
     if not idempotency_key:
@@ -338,6 +360,7 @@ async def post_expense_voucher(
     memo: str = "",
     idempotency_key: str | None = None,
     user_id: int | None = None,
+    terminal_id: int | None = None,
 ) -> dict:
     """Expense Voucher: Dr Expense, Cr Cash.
 
@@ -371,6 +394,7 @@ async def post_expense_voucher(
         branch_id=branch_id,
         user_id=user_id,
         idempotency_key=idempotency_key,
+        terminal_id=terminal_id,
     )
 
 

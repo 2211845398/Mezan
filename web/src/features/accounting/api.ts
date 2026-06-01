@@ -7,10 +7,12 @@ export type JournalEntryDetailRead = components['schemas']['JournalEntryDetailRe
 
 export type SubledgerKind = 'none' | 'customer' | 'supplier' | 'employee';
 
-export type ChartAccountRead = components['schemas']['ChartAccountRead'] & {
+export type ChartAccountRead = components['schemas']['app__schemas__chart_accounts__ChartAccountRead'] & {
   is_leaf?: boolean;
   subledger_kind?: SubledgerKind;
   depth?: number;
+  name_ar?: string | null;
+  name_en?: string | null;
 };
 export type TrialBalanceRow = components['schemas']['TrialBalanceRow'];
 export type IncomeStatementRead = components['schemas']['IncomeStatementRead'];
@@ -33,6 +35,12 @@ export type ManualJournalCreate = Omit<
     }
   >;
 };
+
+export type ManualJournalUpdate = {
+  entry_date: string;
+  description: string;
+  lines: ManualJournalCreate['lines'];
+};
 export type PaymentApplicationCreate = components['schemas']['PaymentApplicationCreate'];
 export type PaymentApplicationRead = components['schemas']['PaymentApplicationRead'];
 
@@ -46,6 +54,10 @@ export type AccountingPostResult = {
 
 export type ChartAccountTreeNode = ChartAccountRead & {
   children?: ChartAccountTreeNode[];
+  branch_total_debit?: string | number;
+  branch_total_credit?: string | number;
+  branch_net?: string | number;
+  branch_subtree_net?: string | number;
 };
 
 export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
@@ -53,21 +65,29 @@ export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expens
 export type ChartAccountCreateBody = {
   code: string;
   name: string;
+  name_ar?: string | null;
+  name_en?: string | null;
   account_type: AccountType;
   parent_id: number | null;
   is_control: boolean;
   subledger_kind?: SubledgerKind;
   active?: boolean;
+  branch_id?: number | null;
+  pos_terminal_id?: number | null;
 };
 
 export type ChartAccountUpdateBody = {
   code?: string;
   name?: string;
+  name_ar?: string | null;
+  name_en?: string | null;
   account_type?: AccountType;
   parent_id?: number | null;
   is_control?: boolean;
   subledger_kind?: SubledgerKind;
   active?: boolean;
+  branch_id?: number | null;
+  pos_terminal_id?: number | null;
 };
 
 export type ChartAccountDeleteCheck = {
@@ -118,6 +138,17 @@ export async function getJournalEntry(id: number): Promise<JournalEntryDetailRea
   return data;
 }
 
+export async function updateJournalEntry(
+  id: number,
+  body: ManualJournalUpdate,
+): Promise<JournalEntryDetailRead> {
+  const { data } = await apiClient.patch<JournalEntryDetailRead>(
+    `/accounting/journal-entries/${id}`,
+    body,
+  );
+  return data;
+}
+
 export async function listChartAccounts(includeInactive = false): Promise<ChartAccountRead[]> {
   const { data } = await apiClient.get<ChartAccountRead[]>('/accounting/chart-accounts', {
     params: { active_only: !includeInactive },
@@ -129,6 +160,23 @@ export async function listChartAccountsTree(activeOnly = true): Promise<ChartAcc
   const { data } = await apiClient.get<ChartAccountTreeNode[]>('/accounting/chart-accounts/tree', {
     params: { active_only: activeOnly },
   });
+  return data;
+}
+
+export async function listChartAccountsTreeByBranch(params: {
+  branch_id: number;
+  as_of?: string;
+  active_only?: boolean;
+}): Promise<ChartAccountTreeNode[]> {
+  const { data } = await apiClient.get<ChartAccountTreeNode[]>(
+    `/accounting/chart-accounts/by-branch/${params.branch_id}`,
+    {
+      params: {
+        as_of: params.as_of,
+        active_only: params.active_only ?? true,
+      },
+    },
+  );
   return data;
 }
 
@@ -184,6 +232,17 @@ export async function exportTrialBalanceCsvBlob(params: {
   branch_id?: number;
 }): Promise<Blob> {
   const { data } = await apiClient.get<Blob>('/accounting/trial-balance/export', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportTrialBalancePdfBlob(params: {
+  as_of: string;
+  branch_id?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/accounting/trial-balance/export.pdf', {
     params,
     responseType: 'blob',
   });

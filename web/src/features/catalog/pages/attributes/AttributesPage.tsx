@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePermission } from '@/hooks/usePermission';
+import { handleDialogFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { cn } from '@/lib/utils';
 
 import { MergeAttributeValuesDialog } from '../../components/MergeAttributeValuesDialog';
@@ -201,7 +202,6 @@ export default function AttributesPage() {
     <div className="flex flex-col gap-6 p-4 md:p-6">
       <PageHeader
         title={t('globalAttributes.title')}
-        subtitle={t('globalAttributes.lead')}
         actions={
           canCreate ? (
             <Button type="button" size="sm" onClick={() => setCreateAttrOpen(true)}>
@@ -229,7 +229,9 @@ export default function AttributesPage() {
           </div>
         </>
       ) : attributes.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground py-8">{t('globalAttributes.empty')}</p>
+        <div className="rounded-xl border border-dashed bg-muted/20 p-8 text-center">
+          <p className="text-sm text-muted-foreground">{t('globalAttributes.empty_short')}</p>
+        </div>
       ) : (
         <>
           <div className="flex flex-col gap-4 lg:hidden">{attributes.map(renderAttributeRow)}</div>
@@ -246,128 +248,145 @@ export default function AttributesPage() {
 
       <Dialog open={createAttrOpen} onOpenChange={setCreateAttrOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('globalAttributes.add_attribute')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1">
-            <Label>{t('categories.attr_catalog_name')}</Label>
-            <Input value={newAttrName} onChange={(e) => setNewAttrName(e.target.value)} className="h-9" />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateAttrOpen(false)}>
-              {t('actions.cancel')}
-            </Button>
-            <Button
-              type="button"
-              disabled={createAttrM.isPending || !newAttrName.trim()}
-              onClick={() => createAttrM.mutate()}
-            >
-              {t('actions.add')}
-            </Button>
-          </DialogFooter>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (createAttrM.isPending || !newAttrName.trim()) return;
+              createAttrM.mutate();
+            }}
+            onKeyDown={handleDialogFormEnterSubmit}
+          >
+            <DialogHeader>
+              <DialogTitle>{t('globalAttributes.add_attribute')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-1">
+              <Label>{t('categories.attr_catalog_name')}</Label>
+              <Input value={newAttrName} onChange={(e) => setNewAttrName(e.target.value)} className="h-9" />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateAttrOpen(false)}>
+                {t('actions.cancel')}
+              </Button>
+              <Button type="submit" disabled={createAttrM.isPending || !newAttrName.trim()}>
+                {t('actions.add')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       <Dialog open={valueDialogAttrId != null} onOpenChange={(o) => !o && setValueDialogAttrId(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('globalAttributes.add_value')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1">
-            <Label>{t('globalAttributes.value_label')}</Label>
-            <Input
-              value={newValueLabel}
-              onChange={(e) => setNewValueLabel(e.target.value)}
-              className="h-9"
-              placeholder={t('products.variants.new_value_placeholder')}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setValueDialogAttrId(null)}>
-              {t('actions.cancel')}
-            </Button>
-            <Button
-              type="button"
-              disabled={createValueM.isPending || !newValueLabel.trim() || valueDialogAttrId == null}
-              onClick={() => {
-                if (valueDialogAttrId == null) return;
-                createValueM.mutate({
-                  attributeId: valueDialogAttrId,
-                  label: newValueLabel.trim(),
-                });
-              }}
-            >
-              {t('actions.add')}
-            </Button>
-          </DialogFooter>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (createValueM.isPending || !newValueLabel.trim() || valueDialogAttrId == null) return;
+              createValueM.mutate({
+                attributeId: valueDialogAttrId,
+                label: newValueLabel.trim(),
+              });
+            }}
+            onKeyDown={handleDialogFormEnterSubmit}
+          >
+            <DialogHeader>
+              <DialogTitle>{t('globalAttributes.add_value')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-1">
+              <Label>{t('globalAttributes.value_label')}</Label>
+              <Input
+                value={newValueLabel}
+                onChange={(e) => setNewValueLabel(e.target.value)}
+                className="h-9"
+                placeholder={t('products.variants.new_value_placeholder')}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setValueDialogAttrId(null)}>
+                {t('actions.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                disabled={createValueM.isPending || !newValueLabel.trim() || valueDialogAttrId == null}
+              >
+                {t('actions.add')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       <Dialog open={editAttrId != null} onOpenChange={(o) => !o && setEditAttrId(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('globalAttributes.edit_attribute')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1">
-            <Label>{t('categories.attr_catalog_name')}</Label>
-            <Input
-              value={editAttrName}
-              onChange={(e) => setEditAttrName(e.target.value)}
-              className="h-9"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEditAttrId(null)}>
-              {t('actions.cancel')}
-            </Button>
-            <Button
-              type="button"
-              disabled={updateAttrM.isPending || !editAttrName.trim() || editAttrId == null}
-              onClick={() => {
-                if (editAttrId == null) return;
-                updateAttrM.mutate({ id: editAttrId, name: editAttrName.trim() });
-              }}
-            >
-              {t('actions.save')}
-            </Button>
-          </DialogFooter>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (updateAttrM.isPending || !editAttrName.trim() || editAttrId == null) return;
+              updateAttrM.mutate({ id: editAttrId, name: editAttrName.trim() });
+            }}
+            onKeyDown={handleDialogFormEnterSubmit}
+          >
+            <DialogHeader>
+              <DialogTitle>{t('globalAttributes.edit_attribute')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-1">
+              <Label>{t('categories.attr_catalog_name')}</Label>
+              <Input
+                value={editAttrName}
+                onChange={(e) => setEditAttrName(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditAttrId(null)}>
+                {t('actions.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateAttrM.isPending || !editAttrName.trim() || editAttrId == null}
+              >
+                {t('actions.save')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       <Dialog open={editValue != null} onOpenChange={(o) => !o && setEditValue(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('globalAttributes.edit_value')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1">
-            <Label>{t('globalAttributes.value_label')}</Label>
-            <Input
-              value={editValue?.label ?? ''}
-              onChange={(e) =>
-                setEditValue((cur) => (cur ? { ...cur, label: e.target.value } : cur))
-              }
-              className="h-9"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEditValue(null)}>
-              {t('actions.cancel')}
-            </Button>
-            <Button
-              type="button"
-              disabled={updateValueM.isPending || !editValue?.label.trim()}
-              onClick={() => {
-                if (!editValue) return;
-                updateValueM.mutate({
-                  attributeId: editValue.attributeId,
-                  valueId: editValue.valueId,
-                  label: editValue.label.trim(),
-                });
-              }}
-            >
-              {t('actions.save')}
-            </Button>
-          </DialogFooter>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (updateValueM.isPending || !editValue?.label.trim()) return;
+              updateValueM.mutate({
+                attributeId: editValue.attributeId,
+                valueId: editValue.valueId,
+                label: editValue.label.trim(),
+              });
+            }}
+            onKeyDown={handleDialogFormEnterSubmit}
+          >
+            <DialogHeader>
+              <DialogTitle>{t('globalAttributes.edit_value')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-1">
+              <Label>{t('globalAttributes.value_label')}</Label>
+              <Input
+                value={editValue?.label ?? ''}
+                onChange={(e) =>
+                  setEditValue((cur) => (cur ? { ...cur, label: e.target.value } : cur))
+                }
+                className="h-9"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditValue(null)}>
+                {t('actions.cancel')}
+              </Button>
+              <Button type="submit" disabled={updateValueM.isPending || !editValue?.label.trim()}>
+                {t('actions.save')}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

@@ -75,12 +75,32 @@ export const adminKeys = {
   onboardingAssignees: () => [...adminKeys.users(), 'onboardingAssignees'] as const,
 } as const;
 
-export function useUsersList(options?: { enabled?: boolean }) {
+export function usersListQueryOptions(args: { limit: number; offset: number }) {
+  return {
+    queryKey: [...adminKeys.userList(), args.limit, args.offset] as const,
+    queryFn: () => listUsers({ limit: args.limit, offset: args.offset }),
+  };
+}
+
+export function useUsersList(
+  args: { limit: number; offset: number },
+  options?: { enabled?: boolean },
+) {
   return useQuery({
-    queryKey: adminKeys.userList(),
-    queryFn: listUsers,
+    ...usersListQueryOptions(args),
     enabled: options?.enabled ?? true,
   });
+}
+
+export function usersPickerQueryOptions() {
+  return {
+    queryKey: [...adminKeys.userList(), 'picker'] as const,
+    queryFn: async () => {
+      const res = await listUsers({ limit: 200, offset: 0 });
+      return res.items;
+    },
+    staleTime: 60_000,
+  };
 }
 
 export function useOnboardingAssignees(options?: { enabled?: boolean }) {

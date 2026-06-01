@@ -17,19 +17,24 @@ describe('W-5.3 catalog API wiring', () => {
     const mod = await import('../api');
     server.use(
       http.get(`${API}/products`, () =>
-        HttpResponse.json([
-          {
-            id: 1,
-            category_id: 1,
-            name: 'Test',
-            sku: 'T1',
-            status: 'active',
-            output_vat_rate: '0',
-            tax_definition_ids: [],
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z',
-          },
-        ]),
+        HttpResponse.json({
+          items: [
+            {
+              id: 1,
+              category_id: 1,
+              name: 'Test',
+              sku: 'T1',
+              status: 'active',
+              output_vat_rate: '0',
+              tax_definition_ids: [],
+              created_at: '2024-01-01T00:00:00Z',
+              updated_at: '2024-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 10,
+          offset: 0,
+        }),
       ),
     );
     const rows = await mod.listProducts({ limit: 10, offset: 0 });
@@ -43,7 +48,7 @@ describe('W-5.3 catalog API wiring', () => {
     server.use(
       http.get(`${API}/products`, ({ request }) => {
         captured.url = new URL(request.url);
-        return HttpResponse.json([]);
+        return HttpResponse.json({ items: [], total: 0, limit: 10, offset: 0 });
       }),
     );
     await mod.listProducts({
@@ -63,7 +68,7 @@ describe('W-5.3 catalog API wiring', () => {
       [1, 'Primary'],
       [2, 'Tag'],
     ]);
-    const product: ProductRead = {
+    const product = {
       id: 9,
       category_id: 1,
       category_ids: [1, 2],
@@ -74,7 +79,7 @@ describe('W-5.3 catalog API wiring', () => {
       tax_definition_ids: [],
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
-    };
+    } as unknown as ProductRead;
 
     render(<ProductCategoryChips product={product} nameById={nameById} />);
     expect(screen.getByText('Primary')).toBeInTheDocument();
@@ -108,7 +113,7 @@ describe('W-5.3 catalog API wiring', () => {
         ],
       },
     ];
-    const out = filterActiveCategoryTree(tree as CategoryTreeNode[]);
+    const out = filterActiveCategoryTree(tree as unknown as CategoryTreeNode[]);
     expect(out).toHaveLength(1);
     expect(out[0]?.children ?? []).toHaveLength(0);
   });

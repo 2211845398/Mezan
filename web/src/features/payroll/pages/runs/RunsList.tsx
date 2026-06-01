@@ -1,4 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+
+import { paginatedParams } from '@/api/pagination';
+import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { Eye } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -69,8 +72,11 @@ export default function RunsList() {
 
   const period = useMemo(() => calendarMonthToPeriod(monthYm), [monthYm]);
 
+  const [urlQuery] = useTableUrlState({ pageSize: 20 });
+  const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
+
   const listFilters = useMemo((): PayslipListFilters => {
-    const f: PayslipListFilters = {};
+    const f: PayslipListFilters = { limit, offset };
     if (statusParam === 'draft' || statusParam === 'approved') {
       f.status = statusParam;
     }
@@ -79,9 +85,11 @@ export default function RunsList() {
       f.period_end = period.period_end;
     }
     return f;
-  }, [statusParam, period]);
+  }, [statusParam, period, limit, offset]);
 
-  const { data: rows = [], isLoading, isError, refetch } = useQuery(payslipsQueryOptions(listFilters));
+  const { data, isLoading, isError, refetch } = useQuery(payslipsQueryOptions(listFilters));
+  const rows = data?.items ?? [];
+  const totalRows = data?.total ?? 0;
 
   const setMonth = (next: string) => {
     setSearchParams(
@@ -195,9 +203,10 @@ export default function RunsList() {
       <PageHeader title={t('runs.title')} />
       <p className="text-sm text-muted-foreground">{t('runs.history_hint')}</p>
       <DataTable
-        mode="client"
+        mode="server"
         columns={columns}
         data={rows}
+        totalRows={totalRows}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}

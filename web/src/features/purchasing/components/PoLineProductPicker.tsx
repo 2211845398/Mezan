@@ -71,7 +71,7 @@ export default function PoLineProductPicker({ disabled, pickLabel, onPick }: Pro
                     onPick({
                       product_id: p.id,
                       pick_label: `${p.name} — ${p.sku}`,
-                      uom_id: p.uom_id,
+                      ...(p.uom_id != null ? { uom_id: p.uom_id } : {}),
                       uom_symbol: p.uom_symbol ?? 'pcs',
                     });
                     setOpen(false);

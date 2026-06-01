@@ -1,110 +1,143 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ClipboardEdit, FileDown } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { SectionCard } from '@/components/shared/ContentSurface';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
-import { CategoryCombobox, type CategoryOption } from '@/features/catalog/components/CategoryCombobox';
-import { useCategoryTreeQuery } from '@/features/catalog/queries';
-import { ProductSearch } from '@/features/pos/components/ProductSearch';
+import { usePermission } from '@/hooks/usePermission';
+import { formatIso } from '@/lib/date';
 
-import { WarehouseManagerCombobox } from '../../components/WarehouseManagerCombobox';
-import { downloadStockCountPdf } from '../../api';
+import { downloadStockCountSessionPdf, listStockCountSessions, type StockCountSessionRead } from '../../api';
+import { StockCountBranchFilter } from '../../components/StockCountBranchFilter';
+import { StockCountIssueDialog } from '../../components/StockCountIssueDialog';
+import { inventoryKeys } from '../../queries';
 
-function flattenCats(nodes: { id: number; name: string; children?: typeof nodes }[]): CategoryOption[] {
-  const o: CategoryOption[] = [];
-  for (const n of nodes) {
-    o.push({ id: n.id, label: n.name });
-    if (n.children?.length) o.push(...flattenCats(n.children));
-  }
-  return o;
+function statusLabel(status: string, t: (k: string) => string): string {
+  const key = `movement.stock_count.status_${status}`;
+  const label = t(key);
+  return label === key ? status : label;
 }
 
 export default function StockCountPage() {
   const { t } = useTranslation('inventory');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
-  const { data: tree = [] } = useCategoryTreeQuery();
-  const cats = flattenCats(tree);
+  const canIssue = usePermission('inventory', 'update');
 
-  const [branchId, setBranchId] = useState<number | null>(null);
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [responsible, setResponsible] = useState('');
-  const [productId, setProductId] = useState<number | null>(null);
+  const [branchFilter, setBranchFilter] = useState<number | null>(null);
+  const [issueOpen, setIssueOpen] = useState(false);
 
-  const exportM = useMutation({
-    mutationFn: async () => {
-      if (branchId == null) throw new Error('branch');
-      return downloadStockCountPdf({
-        branch_id: branchId,
-        category_id: categoryId,
-        product_ids: productId != null && productId > 0 ? [productId] : null,
-        q: null,
-        responsible_name: responsible.trim(),
-      });
-    },
+  const { data: sessions = [], isLoading, isError, refetch } = useQuery({
+    queryKey: [...inventoryKeys.root, 'stock-count-sessions', branchFilter],
+    queryFn: () => listStockCountSessions({ branch_id: branchFilter ?? undefined, limit: 200 }),
+  });
+
+  const pdfM = useMutation({
+    mutationFn: (sessionId: number) => downloadStockCountSessionPdf(sessionId),
     onSuccess: (filename) => {
       toast.success(t('movement.stock_count.exported', { filename }));
     },
     onError: (e) => notifyApiError(e, t('errors.generic')),
   });
 
+  const columns = defineColumns<StockCountSessionRead>()([
+    {
+      id: 'version',
+      header: t('movement.stock_count.col_version'),
+      cell: ({ row }) => (
+        <span className="tabular-nums num-latin font-medium">v{row.original.version_no}</span>
+      ),
+    },
+    { id: 'branch', header: t('movement.stock_count.col_branch'), accessorKey: 'branch_name' },
+    {
+      id: 'date',
+      header: t('movement.stock_count.col_date'),
+      cell: ({ row }) =>
+        row.original.created_at ? formatIso(String(row.original.created_at), 'yyyy-MM-dd HH:mm') : '—',
+    },
+    { id: 'responsible', header: t('movement.stock_count.col_responsible'), accessorKey: 'responsible_name' },
+    {
+      id: 'status',
+      header: t('movement.stock_count.col_status'),
+      cell: ({ row }) => (
+        <StatusBadge
+          status={row.original.status === 'posted' ? 'closed' : row.original.status}
+          label={statusLabel(row.original.status, t)}
+        />
+      ),
+    },
+    { id: 'lines', header: t('movement.stock_count.col_lines'), accessorKey: 'line_count' },
+    {
+      id: 'pdf',
+      header: '',
+      cell: ({ row }) => (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={pdfM.isPending}
+          onClick={() => void pdfM.mutate(row.original.id)}
+          title={t('movement.stock_count.download_pdf')}
+        >
+          <FileDown className="size-4" />
+        </Button>
+      ),
+    },
+    {
+      id: 'fill',
+      header: '',
+      cell: ({ row }) =>
+        row.original.status !== 'posted' ? (
+          <Button type="button" size="sm" variant="outline" asChild>
+            <Link to={`/inventory/stock-count/${row.original.id}`}>
+              <ClipboardEdit className="me-1 size-4" />
+              {t('movement.stock_count.fill')}
+            </Link>
+          </Button>
+        ) : null,
+    },
+  ]);
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
-        title={t('movement.stock_count.title')}
+        title={t('movement.stock_count.list_title')}
         actions={
-          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/inventory/stock')}>
-            {tc('actions.back')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {canIssue ? (
+              <Button type="button" size="sm" onClick={() => setIssueOpen(true)}>
+                {t('movement.stock_count.issue')}
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" size="sm" onClick={() => navigate('/inventory/stock')}>
+              {tc('actions.back')}
+            </Button>
+          </div>
         }
       />
-      <SectionCard>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <BranchCombobox
-            label={t('adjustments.field.branch')}
-            value={branchId}
-            onChange={setBranchId}
-          />
-          <div>
-            <Label className="text-sm">{t('stock.filter.category')}</Label>
-            <CategoryCombobox
-              value={categoryId}
-              onChange={setCategoryId}
-              options={cats}
-              allowAll
-            />
-          </div>
-          <WarehouseManagerCombobox
-            label={t('movement.stock_count.responsible')}
-            value={responsible}
-            onChange={setResponsible}
-          />
-          <div>
-            <Label>{t('stock.search.label')}</Label>
-            <ProductSearch
-              clearable
-              value={productId != null && productId > 0 ? String(productId) : undefined}
-              onChange={setProductId}
-            />
-          </div>
-        </div>
-        <div className="mt-4">
-          <Button
-            type="button"
-            disabled={exportM.isPending || branchId == null}
-            onClick={() => void exportM.mutate()}
-          >
-            {t('movement.stock_count.export')}
-          </Button>
-        </div>
-      </SectionCard>
+
+      <DataTable
+        mode="client"
+        showSearch={false}
+        toolbarLeading={
+          <StockCountBranchFilter value={branchFilter} onChange={setBranchFilter} />
+        }
+        columns={columns}
+        data={sessions}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        getRowId={(r) => String(r.id)}
+      />
+
+      {canIssue ? <StockCountIssueDialog open={issueOpen} onOpenChange={setIssueOpen} /> : null}
     </div>
   );
 }

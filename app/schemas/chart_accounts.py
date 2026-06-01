@@ -15,6 +15,8 @@ class ChartAccountRead(BaseModel):
     id: int
     code: str
     name: str
+    name_ar: str | None = None
+    name_en: str | None = None
     account_type: AccountType
     parent_id: int | None
     is_control: bool
@@ -22,6 +24,8 @@ class ChartAccountRead(BaseModel):
     subledger_kind: SubledgerKind = SubledgerKind.NONE
     is_system: bool
     active: bool
+    branch_id: int | None = None
+    pos_terminal_id: int | None = None
     depth: int = 0  # Computed field
 
     class Config:
@@ -34,6 +38,8 @@ class PostableChartAccountRead(BaseModel):
     id: int
     code: str
     name: str
+    name_ar: str | None = None
+    name_en: str | None = None
     account_type: AccountType
     parent_id: int | None
     parent_code: str | None = None
@@ -41,6 +47,8 @@ class PostableChartAccountRead(BaseModel):
     subledger_kind: SubledgerKind = SubledgerKind.NONE
     is_leaf: bool = True
     active: bool = True
+    branch_id: int | None = None
+    pos_terminal_id: int | None = None
 
 
 class ChartAccountCreate(BaseModel):
@@ -48,11 +56,19 @@ class ChartAccountCreate(BaseModel):
 
     code: str = Field(..., min_length=1, max_length=32)
     name: str = Field(..., min_length=1, max_length=255)
+    name_ar: str | None = Field(None, max_length=255)
+    name_en: str | None = Field(None, max_length=255)
     account_type: AccountType
     parent_id: int | None = Field(None, description="Parent account ID (null for root)")
     is_control: bool = Field(default=False)
     subledger_kind: SubledgerKind = Field(default=SubledgerKind.NONE)
     active: bool = Field(default=True)
+    branch_id: int | None = Field(
+        None, description="Optional branch scope for cash/POS/inventory sub-ledgers"
+    )
+    pos_terminal_id: int | None = Field(
+        None, description="Optional POS terminal scope (implies branch)"
+    )
 
 
 class ChartAccountUpdate(BaseModel):
@@ -60,11 +76,15 @@ class ChartAccountUpdate(BaseModel):
 
     code: str | None = Field(None, min_length=1, max_length=32)
     name: str | None = Field(None, min_length=1, max_length=255)
+    name_ar: str | None = Field(None, max_length=255)
+    name_en: str | None = Field(None, max_length=255)
     account_type: AccountType | None = None
     parent_id: int | None = Field(None, description="Parent account ID (null for root)")
     is_control: bool | None = None
     subledger_kind: SubledgerKind | None = None
     active: bool | None = None
+    branch_id: int | None = None
+    pos_terminal_id: int | None = None
 
 
 class ChartAccountSuggestCodeRead(BaseModel):
@@ -79,12 +99,16 @@ class ChartAccountTreeNode(BaseModel):
     id: int
     code: str
     name: str
+    name_ar: str | None = None
+    name_en: str | None = None
     account_type: AccountType
     is_control: bool
     is_leaf: bool = True
     subledger_kind: SubledgerKind = SubledgerKind.NONE
     is_system: bool
     active: bool
+    branch_id: int | None = None
+    pos_terminal_id: int | None = None
     depth: int
     children: list["ChartAccountTreeNode"] = []
 
@@ -98,6 +122,8 @@ class ChartAccountTreeBranchNode(BaseModel):
     id: int
     code: str
     name: str
+    name_ar: str | None = None
+    name_en: str | None = None
     account_type: AccountType
     is_control: bool
     is_leaf: bool = True
@@ -109,6 +135,8 @@ class ChartAccountTreeBranchNode(BaseModel):
     branch_total_credit: Decimal = Decimal("0")
     branch_net: Decimal = Decimal("0")
     branch_subtree_net: Decimal = Decimal("0")
+    branch_id: int | None = None
+    pos_terminal_id: int | None = None
     children: list["ChartAccountTreeBranchNode"] = []
 
     class Config:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -243,6 +243,13 @@ async def create_po(
     return await _get_po(db, po.id)
 
 
+async def count_pos(db: AsyncSession, *, status: str | None = None) -> int:
+    q = select(func.count()).select_from(PurchaseOrder)
+    if status is not None:
+        q = q.where(PurchaseOrder.status == status)
+    return int(await db.scalar(q) or 0)
+
+
 async def list_pos(
     db: AsyncSession,
     *,
@@ -250,6 +257,9 @@ async def list_pos(
     offset: int = 0,
     status: str | None = None,
 ) -> list[PurchaseOrder]:
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
     q = (
         select(PurchaseOrder)
         .options(selectinload(PurchaseOrder.lines))

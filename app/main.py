@@ -147,13 +147,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
-    from app.db.database import AsyncSessionLocal
-    from app.services.seed_service import (
-        seed_accounting_defaults,
-        seed_default_admin,
-        seed_notification_templates,
-        seed_permissions_and_roles,
-    )
+    from app.scripts.core_seed import run_core_seed
 
     # Startup (schema: use Alembic only; do not create_all on boot)
     backup_stop_event = asyncio.Event()
@@ -165,14 +159,7 @@ async def lifespan(app: FastAPI):
     _audit_route_permissions(app)
     if settings.SEED_ON_STARTUP:
         try:
-            async with AsyncSessionLocal() as db:
-                await seed_permissions_and_roles(db)
-                await seed_accounting_defaults(db)
-                await seed_notification_templates(db)
-                if settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PASSWORD:
-                    await seed_default_admin(
-                        db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD
-                    )
+            await run_core_seed()
         except (OperationalError, ProgrammingError):
             logger.warning(
                 "Skipping startup seed because the database is not ready or migrations are pending.",

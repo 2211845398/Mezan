@@ -55,18 +55,33 @@ async def _schedule_for_branch_weekday(
     return res.scalar_one_or_none()
 
 
+def _sanitize_for_jsonb(value: object) -> object:
+    """Make values JSON-serializable for PostgreSQL JSONB (no raw Decimal/datetime)."""
+    if isinstance(value, dict):
+        return {k: _sanitize_for_jsonb(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_for_jsonb(v) for v in value]
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return value
+
+
 def _policy_snapshot(policy: AttendancePayrollPolicy | dict) -> dict:
     if isinstance(policy, AttendancePayrollPolicy):
-        return {
+        raw = {
             "role_code": policy.role_code,
             "attendance_category": policy.attendance_category,
             "grace_minutes": policy.grace_minutes,
-            "absence_deduction_amount": str(policy.absence_deduction_amount),
-            "late_deduction_amount": str(policy.late_deduction_amount),
-            "early_close_deduction_amount": str(policy.early_close_deduction_amount),
-            "overtime_multiplier": str(policy.overtime_multiplier),
+            "absence_deduction_amount": policy.absence_deduction_amount,
+            "late_deduction_amount": policy.late_deduction_amount,
+            "early_close_deduction_amount": policy.early_close_deduction_amount,
+            "overtime_multiplier": policy.overtime_multiplier,
         }
-    return dict(policy)
+    else:
+        raw = dict(policy)
+    return _sanitize_for_jsonb(raw)
 
 
 async def _is_first_clock_in_of_calendar_day(

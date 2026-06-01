@@ -18,6 +18,7 @@ export type PoReceiptsSectionProps = {
   receipts: GoodsReceiptRead[];
   productLabels: Record<number, string>;
   variantLabels: Record<number, string>;
+  variantReferenceCodes: Record<number, string>;
   branchesById: Record<number, string>;
 };
 
@@ -37,9 +38,11 @@ export default function PoReceiptsSection({
   receipts,
   productLabels,
   variantLabels,
+  variantReferenceCodes,
   branchesById,
 }: PoReceiptsSectionProps) {
   const { t } = useTranslation('purchasing');
+  const { t: tInv } = useTranslation('inventory');
 
   if (receipts.length === 0) {
     return <p className="text-sm text-muted-foreground">—</p>;
@@ -80,7 +83,8 @@ export default function PoReceiptsSection({
                 <TableRow>
                   <TableHead className="w-14">{t('orders.detail_page.line_no')}</TableHead>
                   <TableHead>{t('orders.form.product')}</TableHead>
-                  <TableHead>{t('orders.detail_page.receipt_sku')}</TableHead>
+                  <TableHead>{t('orders.detail_page.variant_col')}</TableHead>
+                  <TableHead className="text-center">{tInv('stock.col.reference_code')}</TableHead>
                   <TableHead className="text-end">{t('orders.form.qty')}</TableHead>
                   <TableHead className="text-end">{t('orders.receive.unit_cost')}</TableHead>
                   <TableHead className="text-end">{t('orders.detail_page.receipt_line_total')}</TableHead>
@@ -95,8 +99,17 @@ export default function PoReceiptsSection({
                         {ln.purchase_order_line_id ?? '—'}
                       </TableCell>
                       <TableCell>{productLabels[ln.product_id] ?? `#${ln.product_id}`}</TableCell>
-                      <TableCell className="font-mono text-xs num-latin">
-                        {variantLabels[ln.variant_id] ?? `#${ln.variant_id}`}
+                      <TableCell>
+                        {variantLabels[ln.variant_id]?.trim() || '—'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span
+                          className="mx-auto block max-w-full truncate num-latin tabular-nums"
+                          dir="ltr"
+                          title={variantReferenceCodes[ln.variant_id] || undefined}
+                        >
+                          {variantReferenceCodes[ln.variant_id]?.trim() || '—'}
+                        </span>
                       </TableCell>
                       <TableCell className="text-end tabular-nums num-latin">{ln.qty}</TableCell>
                       <TableCell className="text-end tabular-nums num-latin">

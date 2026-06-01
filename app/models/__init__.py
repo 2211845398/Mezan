@@ -69,6 +69,7 @@ from app.models.role import Role
 from app.models.role_permission import RolePermission
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import CreditNote, ExchangeLink, SalesReturn, SalesReturnLine
+from app.models.stock_count_session import StockCountLine, StockCountSession
 from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
 from app.models.suppliers import Supplier

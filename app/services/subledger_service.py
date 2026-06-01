@@ -186,6 +186,7 @@ async def apply_ar_payment(
         amount=amt,
         application_id=application.id,
         entry_date=application.applied_at.date(),
+        customer_id=item.customer_id,
     )
     await db.refresh(application)
     return application
@@ -229,6 +230,7 @@ async def apply_ap_payment(
         amount=amt,
         application_id=application.id,
         entry_date=application.applied_at.date(),
+        supplier_id=item.supplier_id,
     )
 
     await db.refresh(application)

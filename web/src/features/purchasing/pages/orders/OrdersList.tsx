@@ -1,13 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import Decimal from 'decimal.js';
 import { ClipboardList, Eye, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { paginatedParams } from '@/api/pagination';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -24,7 +26,10 @@ import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import type { PurchaseOrderRead } from '../../api';
-import { purchaseOrdersQueryOptions } from '../../queries';
+import {
+  purchaseOrdersQueryOptions,
+  purchaseOrderStatusTotalQueryOptions,
+} from '../../queries';
 
 function poTotalDisplay(po: PurchaseOrderRead): string | null {
   const lines = po.lines ?? [];
@@ -40,6 +45,7 @@ function poTotalDisplay(po: PurchaseOrderRead): string | null {
 }
 
 const STATUSES = ['draft', 'sent', 'tracked', 'closed', 'cancelled'] as const;
+const KPI_STATUSES = ['draft', 'sent', 'tracked', 'closed'] as const;
 
 export default function OrdersList() {
   const { t } = useTranslation('purchasing');
@@ -47,21 +53,22 @@ export default function OrdersList() {
   const canUpdate = usePermission('purchase_orders', 'update');
   const [status, setStatus] = useState<string>('');
 
-  const { data: rows = [], isLoading, isError, refetch } = useQuery(
-    purchaseOrdersQueryOptions(status || undefined),
-  );
+  const [urlQuery] = useTableUrlState({ pageSize: 20 });
+  const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
 
-  // KPI counts computed client-side from the full (unfiltered) dataset
-  const allRows = useQuery(purchaseOrdersQueryOptions(undefined));
-  const kpiCounts = useMemo(() => {
-    const data = allRows.data ?? [];
-    return {
-      draft: data.filter((r) => r.status === 'draft').length,
-      sent: data.filter((r) => r.status === 'sent').length,
-      tracked: data.filter((r) => r.status === 'tracked').length,
-      closed: data.filter((r) => r.status === 'closed').length,
-    };
-  }, [allRows.data]);
+  const { data, isLoading, isError, refetch } = useQuery(
+    purchaseOrdersQueryOptions({
+      ...(status ? { status } : {}),
+      limit,
+      offset,
+    }),
+  );
+  const rows = data?.items ?? [];
+  const totalRows = data?.total ?? 0;
+
+  const kpiQueries = useQueries({
+    queries: KPI_STATUSES.map((s) => purchaseOrderStatusTotalQueryOptions(s)),
+  });
 
   const columns = useMemo(
     () =>
@@ -94,7 +101,9 @@ export default function OrdersList() {
           header: t('orders.col.status'),
           cell: ({ row }) => {
             const s = row.original.status;
-            const key = (['draft', 'sent', 'tracked', 'closed', 'cancelled'] as const).find((x) => x === s) ?? 'draft';
+            const key =
+              (['draft', 'sent', 'tracked', 'closed', 'cancelled'] as const).find((x) => x === s) ??
+              'draft';
             return <StatusBadge status={s} label={t(`orders.status.${key}`)} />;
           },
         },
@@ -102,7 +111,8 @@ export default function OrdersList() {
           id: 'created',
           header: t('orders.col.created_at'),
           cell: ({ row }) =>
-            (row.original as PurchaseOrderRead & { created_at?: string }).created_at?.slice(0, 10) ?? '—',
+            (row.original as PurchaseOrderRead & { created_at?: string }).created_at?.slice(0, 10) ??
+            '—',
         },
         {
           id: 'expected',
@@ -164,12 +174,12 @@ export default function OrdersList() {
   );
 
   type KpiItem = { key: string; label: string; count: number; statusVal: string };
-  const kpiItems: KpiItem[] = [
-    { key: 'draft', label: t('orders.status.draft'), count: kpiCounts.draft, statusVal: 'draft' },
-    { key: 'sent', label: t('orders.status.sent'), count: kpiCounts.sent, statusVal: 'sent' },
-    { key: 'tracked', label: t('orders.status.tracked'), count: kpiCounts.tracked, statusVal: 'tracked' },
-    { key: 'closed', label: t('orders.status.closed'), count: kpiCounts.closed, statusVal: 'closed' },
-  ];
+  const kpiItems: KpiItem[] = KPI_STATUSES.map((s, i) => ({
+    key: s,
+    label: t(`orders.status.${s}`),
+    count: kpiQueries[i]?.data ?? 0,
+    statusVal: s,
+  }));
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -187,7 +197,6 @@ export default function OrdersList() {
         }
       />
 
-      {/* KPI strip */}
       <div className="grid gap-3 sm:grid-cols-4">
         {kpiItems.map((item) => (
           <button
@@ -195,8 +204,8 @@ export default function OrdersList() {
             type="button"
             onClick={() => setStatus((prev) => (prev === item.statusVal ? '' : item.statusVal))}
             className={cn(
-              'rounded-lg border bg-card p-3 text-start transition-all cursor-pointer hover:shadow-sm hover:ring-2 hover:ring-primary/40',
-              status === item.statusVal && 'ring-2 ring-primary shadow-sm',
+              'cursor-pointer rounded-lg border border-border bg-card p-3 text-start transition-all hover:shadow-sm hover:ring-2 hover:ring-border',
+              status === item.statusVal && 'ring-2 ring-border shadow-sm',
             )}
           >
             <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -206,32 +215,34 @@ export default function OrdersList() {
       </div>
 
       <div className="mt-[75px]">
-      <DataTable
-        mode="client"
-        columns={columns}
-        data={rows}
-        isLoading={isLoading}
-        isError={isError}
-        onRetry={() => void refetch()}
-        toolbarExtras={
-          <div className="flex flex-wrap items-center gap-2">
-            <Label className="shrink-0 text-sm leading-none">{t('orders.filter_status')}</Label>
-            <Select value={status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
-              <SelectTrigger className="h-9 w-[200px]">
-                <SelectValue placeholder={t('orders.all_statuses')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('orders.all_statuses')}</SelectItem>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {t(`orders.status.${s}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        }
-      />
+        <DataTable
+          mode="server"
+          columns={columns}
+          data={rows}
+          totalRows={totalRows}
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={() => void refetch()}
+          showSearch={false}
+          toolbarExtras={
+            <div className="flex flex-wrap items-center gap-2">
+              <Label className="shrink-0 text-sm leading-none">{t('orders.filter_status')}</Label>
+              <Select value={status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
+                <SelectTrigger className="h-9 w-[200px]">
+                  <SelectValue placeholder={t('orders.all_statuses')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('orders.all_statuses')}</SelectItem>
+                  {STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {t(`orders.status.${s}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          }
+        />
       </div>
     </div>
   );

@@ -100,6 +100,17 @@ class SalesInvoiceListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
 
+class SalesInvoiceListResponse(BaseModel):
+    """Paginated POS terminal day window invoice list."""
+
+    items: list[SalesInvoiceListItem]
+    total: int
+    limit: int
+    offset: int
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
 class SalesInvoiceRegisterPageRead(BaseModel):
     """Paginated branch-period sales invoice register (executive / marketing UI)."""
 

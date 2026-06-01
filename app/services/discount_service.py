@@ -44,13 +44,22 @@ async def list_discount_rules(
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> list[DiscountRule]:
+) -> tuple[list[DiscountRule], int]:
+    from sqlalchemy import func
+
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
+    count_stmt = select(func.count()).select_from(DiscountRule)
+    if status is not None:
+        count_stmt = count_stmt.where(DiscountRule.status == status)
+    total = int(await db.scalar(count_stmt) or 0)
     stmt = select(DiscountRule)
     if status is not None:
         stmt = stmt.where(DiscountRule.status == status)
     stmt = stmt.order_by(DiscountRule.id.desc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total
 
 
 async def create_discount_rule(

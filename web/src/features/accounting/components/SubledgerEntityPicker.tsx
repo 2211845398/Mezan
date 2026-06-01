@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { listCustomers } from '@/features/crm/api';
 import { listEmployees } from '@/features/hr/api';
 import { listSuppliers } from '@/features/purchasing/api';
+import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
 
 import type { SubledgerKind } from '../api';
@@ -33,29 +34,44 @@ export default function SubledgerEntityPicker({ kind, value, onChange, className
 
   const customersQ = useQuery({
     queryKey: ['subledger', 'customers'],
-    queryFn: () => listCustomers({ limit: 500, offset: 0 }),
+    queryFn: async () => {
+      const res = await listCustomers({ limit: 100, offset: 0 });
+      return res.items;
+    },
     enabled: kind === 'customer',
   });
   const suppliersQ = useQuery({
     queryKey: ['subledger', 'suppliers'],
-    queryFn: listSuppliers,
+    queryFn: async () => {
+      const res = await listSuppliers({ limit: 100, offset: 0 });
+      return res.items;
+    },
     enabled: kind === 'supplier',
   });
   const employeesQ = useQuery({
     queryKey: ['subledger', 'employees'],
-    queryFn: listEmployees,
+    queryFn: async () => {
+      const res = await listEmployees({ limit: 100, offset: 0 });
+      return res.items;
+    },
     enabled: kind === 'employee',
   });
 
   const options = useMemo(() => {
     if (kind === 'customer') {
-      return (customersQ.data?.items ?? []).map((c) => ({
+      return (customersQ.data ?? []).map((c) => ({
         id: c.id,
-        label: c.full_name?.trim() || c.phone || `#${c.id}`,
+        label:
+          formatPersonName(c.first_name, c.father_name, c.family_name).trim() ||
+          c.phone ||
+          `#${c.id}`,
       }));
     }
     if (kind === 'supplier') {
-      return (suppliersQ.data ?? []).map((s) => ({ id: s.id, label: s.name }));
+      return (suppliersQ.data ?? []).map((s) => ({
+        id: s.id,
+        label: formatPersonName(s.first_name, s.father_name, s.family_name).trim() || s.code,
+      }));
     }
     if (kind === 'employee') {
       return (employeesQ.data ?? []).map((e) => ({

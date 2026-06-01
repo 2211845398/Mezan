@@ -11,6 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ValidationError
 from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
+from app.models.pos_terminal import POSTerminal
+from app.utils.chart_account_display import normalize_coa_name_fields, resolve_account_display_name
 from app.utils.money import q2
 
 
@@ -44,31 +46,49 @@ async def _get_account_with_parents(
     return result.scalar_one_or_none()
 
 
+async def build_parent_depth_cache(db: AsyncSession) -> dict[int | None, int]:
+    """Depth keyed by ``parent_id`` (same semantics as :func:`_calculate_depth`)."""
+    res = await db.execute(select(ChartAccount.id, ChartAccount.parent_id))
+    parent_by_id: dict[int, int | None] = {int(r.id): r.parent_id for r in res.all()}
+    cache: dict[int | None, int] = {}
+
+    def _depth(pid: int | None) -> int:
+        if pid in cache:
+            return cache[pid]
+        if pid is None:
+            cache[None] = 1
+            return 1
+        depth = 1
+        current_id = pid
+        visited: set[int] = set()
+        while current_id is not None:
+            if current_id in visited:
+                raise ValidationError("Circular reference detected in account hierarchy")
+            visited.add(current_id)
+            depth += 1
+            current_id = parent_by_id.get(current_id)
+        cache[pid] = depth
+        return depth
+
+    _depth(None)
+    for account_id in parent_by_id:
+        _depth(account_id)
+    return cache
+
+
 async def _calculate_depth(db: AsyncSession, parent_id: int | None) -> int:
     """Calculate the depth level for a new account under the given parent.
 
     Root level (no parent) = 1
     Each parent adds 1 to the depth.
     """
-    if parent_id is None:
-        return 1
-
-    depth = 1
-    current_id = parent_id
-    visited = set()
-
-    while current_id is not None:
-        if current_id in visited:
-            raise ValidationError("Circular reference detected in account hierarchy")
-        visited.add(current_id)
-
-        account = await _get_account_with_parents(db, current_id)
-        if account is None:
-            break
-        depth += 1
-        current_id = account.parent_id
-
-    return depth
+    cache = await build_parent_depth_cache(db)
+    if parent_id not in cache:
+        raise ValidationError(
+            "Parent chart account not found",
+            details={"parent_id": parent_id},
+        )
+    return cache[parent_id]
 
 
 async def _get_root_type(db: AsyncSession, account_id: int | None) -> AccountType | None:
@@ -92,6 +112,46 @@ async def _get_root_type(db: AsyncSession, account_id: int | None) -> AccountTyp
         current_id = account.parent_id
 
     return current_type
+
+
+async def _validate_location_scope(
+    db: AsyncSession,
+    *,
+    branch_id: int | None,
+    pos_terminal_id: int | None,
+    is_system: bool,
+) -> tuple[int | None, int | None]:
+    """Validate optional branch/POS scope; system accounts must stay global."""
+    if is_system and (branch_id is not None or pos_terminal_id is not None):
+        raise ValidationError(
+            "System chart accounts cannot be scoped to a branch or POS terminal"
+        )
+    eff_branch = branch_id
+    eff_terminal = pos_terminal_id
+    if pos_terminal_id is not None:
+        term = await db.get(POSTerminal, pos_terminal_id)
+        if term is None:
+            raise ValidationError(
+                "Unknown POS terminal",
+                details={"pos_terminal_id": pos_terminal_id},
+            )
+        if eff_branch is not None and eff_branch != term.branch_id:
+            raise ValidationError(
+                "branch_id does not match the POS terminal's branch",
+                details={
+                    "branch_id": eff_branch,
+                    "pos_terminal_id": pos_terminal_id,
+                    "terminal_branch_id": term.branch_id,
+                },
+            )
+        eff_branch = term.branch_id
+    if eff_branch is not None:
+        from app.models.branch import Branch
+
+        br = await db.get(Branch, eff_branch)
+        if br is None:
+            raise ValidationError("Unknown branch", details={"branch_id": eff_branch})
+    return eff_branch, eff_terminal
 
 
 async def validate_account_hierarchy(
@@ -144,10 +204,27 @@ async def create_chart_account(
     is_control: bool = False,
     active: bool = True,
     subledger_kind: SubledgerKind | None = None,
+    name_ar: str | None = None,
+    name_en: str | None = None,
+    branch_id: int | None = None,
+    pos_terminal_id: int | None = None,
 ) -> ChartAccount:
     """Create a new Chart of Accounts entry with validation."""
     await validate_account_hierarchy(
         db, parent_id=parent_id, account_type=account_type
+    )
+
+    legacy_name, ar, en = normalize_coa_name_fields(
+        name=name, name_ar=name_ar, name_en=name_en
+    )
+    if not legacy_name:
+        raise ValidationError("Account name is required")
+
+    eff_branch, eff_terminal = await _validate_location_scope(
+        db,
+        branch_id=branch_id,
+        pos_terminal_id=pos_terminal_id,
+        is_system=False,
     )
 
     kind = subledger_kind if subledger_kind is not None else SubledgerKind.NONE
@@ -159,7 +236,9 @@ async def create_chart_account(
 
     account = ChartAccount(
         code=code,
-        name=name,
+        name=legacy_name,
+        name_ar=ar,
+        name_en=en,
         account_type=account_type,
         parent_id=parent_id,
         is_control=is_control,
@@ -167,6 +246,8 @@ async def create_chart_account(
         subledger_kind=kind,
         is_system=False,
         active=active,
+        branch_id=eff_branch,
+        pos_terminal_id=eff_terminal,
     )
     db.add(account)
     await db.flush()
@@ -221,6 +302,29 @@ async def update_chart_account(
             current_id = parent.parent_id if parent else None
 
     old_parent_id = account.parent_id
+
+    if any(k in data for k in ("name", "name_ar", "name_en")):
+        legacy_name, ar, en = normalize_coa_name_fields(
+            name=data.get("name", account.name),
+            name_ar=data.get("name_ar", account.name_ar),
+            name_en=data.get("name_en", account.name_en),
+        )
+        if not legacy_name:
+            raise ValidationError("Account name is required")
+        data = {**data, "name": legacy_name, "name_ar": ar, "name_en": en}
+
+    eff_branch = data.get("branch_id", account.branch_id)
+    eff_terminal = data.get("pos_terminal_id", account.pos_terminal_id)
+    if "branch_id" in data or "pos_terminal_id" in data:
+        eff_branch, eff_terminal = await _validate_location_scope(
+            db,
+            branch_id=eff_branch,
+            pos_terminal_id=eff_terminal,
+            is_system=account.is_system,
+        )
+        data["branch_id"] = eff_branch
+        data["pos_terminal_id"] = eff_terminal
+
     for key, value in data.items():
         setattr(account, key, value)
 
@@ -414,12 +518,16 @@ async def get_chart_account_tree(
             "id": account.id,
             "code": account.code,
             "name": account.name,
+            "name_ar": account.name_ar,
+            "name_en": account.name_en,
             "account_type": account.account_type,
             "is_control": account.is_control,
             "is_leaf": account.is_leaf,
             "subledger_kind": _subledger_kind_value(account.subledger_kind),
             "is_system": account.is_system,
             "active": account.active,
+            "branch_id": account.branch_id,
+            "pos_terminal_id": account.pos_terminal_id,
             "depth": depths.get(account.id, 1),
             "children": [
                 build_node(child)
@@ -479,12 +587,16 @@ async def get_chart_account_tree_for_branch(
             "id": node["id"],
             "code": node["code"],
             "name": node["name"],
+            "name_ar": node.get("name_ar"),
+            "name_en": node.get("name_en"),
             "account_type": node["account_type"],
             "is_control": node["is_control"],
             "is_leaf": node.get("is_leaf", True),
             "subledger_kind": node.get("subledger_kind", SubledgerKind.NONE),
             "is_system": node["is_system"],
             "active": node["active"],
+            "branch_id": node.get("branch_id"),
+            "pos_terminal_id": node.get("pos_terminal_id"),
             "depth": node["depth"],
             "branch_total_debit": odr,
             "branch_total_credit": ocr,
@@ -728,6 +840,8 @@ async def list_postable_chart_accounts(
                 "id": a.id,
                 "code": a.code,
                 "name": a.name,
+                "name_ar": a.name_ar,
+                "name_en": a.name_en,
                 "account_type": a.account_type.value if hasattr(a.account_type, "value") else str(a.account_type),
                 "parent_id": a.parent_id,
                 "parent_code": parent.code if parent else None,
@@ -735,6 +849,8 @@ async def list_postable_chart_accounts(
                 "subledger_kind": kind,
                 "is_leaf": a.is_leaf,
                 "active": a.active,
+                "branch_id": a.branch_id,
+                "pos_terminal_id": a.pos_terminal_id,
             }
         )
     return rows

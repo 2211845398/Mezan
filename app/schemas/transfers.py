@@ -21,6 +21,8 @@ class TransferLineRead(BaseModel):
     qty_base: int = 0
     uom_id: int
     uom_name: str = ""
+    uom_code: str = ""
+    uom_symbol: str = ""
     variant_id: int | None = None
     product_name: str = ""
     variant_sku: str = ""
@@ -32,6 +34,12 @@ class TransferLineRead(BaseModel):
 
 
 class TransferBatchCreate(BaseModel):
+    from_branch_id: int
+    to_branch_id: int
+    lines: list[TransferLineCreate] = Field(default_factory=list)
+
+
+class TransferBatchUpdate(BaseModel):
     from_branch_id: int
     to_branch_id: int
     lines: list[TransferLineCreate] = Field(default_factory=list)

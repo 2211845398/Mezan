@@ -4,17 +4,18 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { startOfDay } from 'date-fns';
 
 import { format, fromISO } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 /*
- * Locale-aware date picker. Consumes shadcn `Calendar` (react-day-picker)
- * inside a `Popover`, formats via `@/lib/date` (the only file allowed to
- * use `new Date(`). The control is fully controlled; feature code wires
- * it to RHF with a <Controller />.
+ * Locale-aware date field: manual YYYY-MM-DD entry + calendar picker.
+ * Formats via `@/lib/date` (the only file allowed to use `new Date(`).
  */
 
 export type DateFieldProps = {
@@ -30,13 +31,29 @@ export type DateFieldProps = {
   'aria-label'?: string | undefined;
 };
 
-export const DateField = React.forwardRef<HTMLButtonElement, DateFieldProps>(
+export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
   (
-    { value, onChange, placeholder, id, className, disabled, minSelectableDate, 'aria-label': ariaLabel },
+    {
+      value,
+      onChange,
+      placeholder,
+      id,
+      className,
+      disabled,
+      minSelectableDate,
+      'aria-label': ariaLabel,
+    },
     ref,
   ) => {
     const { t } = useTranslation();
     const [open, setOpen] = React.useState(false);
+    const [draft, setDraft] = React.useState(value ?? '');
+    const [invalid, setInvalid] = React.useState(false);
+
+    React.useEffect(() => {
+      setDraft(value ?? '');
+      setInvalid(false);
+    }, [value]);
 
     const parsed = value ? safeParseIso(value) : undefined;
     const minDay =
@@ -44,35 +61,86 @@ export const DateField = React.forwardRef<HTMLButtonElement, DateFieldProps>(
         ? startOfDay(safeParseIso(minSelectableDate)!)
         : undefined;
 
+    const commitDraft = () => {
+      const raw = draft.trim();
+      if (raw === '') {
+        setInvalid(false);
+        onChange('');
+        return;
+      }
+      if (!ISO_DATE_RE.test(raw) || !safeParseIso(raw)) {
+        setInvalid(true);
+        setDraft(value ?? '');
+        return;
+      }
+      if (minDay) {
+        const d = safeParseIso(raw)!;
+        if (startOfDay(d) < minDay) {
+          setInvalid(true);
+          setDraft(value ?? '');
+          return;
+        }
+      }
+      setInvalid(false);
+      onChange(raw);
+    };
+
     return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            ref={ref}
-            type="button"
-            variant="outline"
-            disabled={disabled}
-            id={id}
-            aria-label={ariaLabel ?? t('form.pick_date')}
-            className={cn('w-full justify-start text-start font-normal', className)}
-          >
-            <CalendarDays className="me-2 size-4 text-muted-foreground" aria-hidden="true" />
-            {parsed ? format(parsed, 'yyyy-MM-dd') : (placeholder ?? t('form.pick_date'))}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={parsed}
-            disabled={minDay ? { before: minDay } : undefined}
-            onSelect={(d) => {
-              if (!d) return;
-              onChange(format(d, 'yyyy-MM-dd'));
-              setOpen(false);
-            }}
-          />
-        </PopoverContent>
-      </Popover>
+      <div className={cn('flex gap-1', className)}>
+        <Input
+          ref={ref}
+          id={id}
+          type="text"
+          inputMode="numeric"
+          dir="ltr"
+          disabled={disabled}
+          aria-label={ariaLabel ?? t('form.pick_date')}
+          aria-invalid={invalid}
+          placeholder={placeholder ?? 'YYYY-MM-DD'}
+          className={cn('num-latin flex-1 font-normal', invalid && 'border-destructive')}
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setInvalid(false);
+          }}
+          onBlur={commitDraft}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitDraft();
+            }
+          }}
+        />
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={disabled}
+              aria-label={t('form.pick_date')}
+              className="shrink-0"
+            >
+              <CalendarDays className="size-4 text-muted-foreground" aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={parsed}
+              disabled={minDay ? { before: minDay } : undefined}
+              onSelect={(d) => {
+                if (!d) return;
+                const next = format(d, 'yyyy-MM-dd');
+                setDraft(next);
+                setInvalid(false);
+                onChange(next);
+                setOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
     );
   },
 );

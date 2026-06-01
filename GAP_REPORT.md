@@ -135,7 +135,7 @@ These build on the existing `D-1`..`D-6` divergences in [PROJECT_STATE.md](PROJE
 | **GAP-ACC-001** | No depth limit on CoA | [`chart_accounts.py`](app/models/chart_accounts.py) L13–L35 | Arbitrary `parent_id` depth. | Spec: 5 levels. | High | 2 | Service-layer validation; reject create/update past depth 5. |
 | **GAP-ACC-002** | No parent/child account-type consistency | [`chart_accounts.py`](app/models/chart_accounts.py) L27–L32 | Sub-account `account_type` not validated against ancestor. | Spec: e.g. Suppliers must be under Liabilities. | Medium | 2 | Validate `account_type` against root ancestor on create/update. |
 | **GAP-ACC-003** | No Chart-of-Accounts admin UI | [`api.ts`](web/src/features/accounting/api.ts) L40–L44 | Only `AccountPicker` + read API. | Spec: business admin must manage CoA. | Medium | 3 | New tree editor under `/accounting/coa`. |
-| **GAP-ACC-004** | Seeded chart is flat | [`seed_service.py`](app/services/seed_service.py) L347–L358 | Flat with `parent_id=None`. | Spec: five-level skeleton under each top-level branch. | Low | 2 | Update seed data with hierarchical skeleton. |
+| **GAP-ACC-004** | Seeded chart is flat | [`coa_seed_data.py`](app/services/coa_seed_data.py), [`coa_seed_service.py`](app/services/coa_seed_service.py) | **Fixed:** hierarchical `COA_SEED_FOREST` + `plant_coa_tree` / `upgrade_coa_skeleton`; legacy system codes (`1000`, `1110`, `2010`, …) nested under groups; idempotent upgrade on re-seed. | Spec: five-level skeleton under each top-level branch. | Low | 2 | — |
 
 ### Journal entries
 

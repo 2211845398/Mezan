@@ -9,7 +9,7 @@ type TransferLineAttributesCellProps = {
 export function TransferLineAttributesCell({ line }: TransferLineAttributesCellProps) {
   return (
     <span className="text-sm text-muted-foreground">
-      {line.variant_attributes?.trim() ? line.variant_attributes : '—'}
+      {line.variant_name?.trim() ? line.variant_name : '—'}
     </span>
   );
 }

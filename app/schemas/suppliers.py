@@ -7,6 +7,7 @@ from typing import Any, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.pagination import PaginatedListResponse
 from app.utils.contact_validation import validate_supplier_contact_dict
 
 
@@ -69,3 +70,7 @@ class SupplierRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class SupplierListResponse(PaginatedListResponse[SupplierRead]):
+    """Paginated supplier list."""

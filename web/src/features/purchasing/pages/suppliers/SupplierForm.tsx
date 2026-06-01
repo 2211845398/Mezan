@@ -9,6 +9,8 @@ import type { TFunction } from 'i18next';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { SectionCard } from '@/components/shared/ContentSurface';
+import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +22,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import CurrencySelect from '@/features/accounting/components/CurrencySelect';
-import { filterPayableSupplierAccounts } from '@/features/accounting/lib/payableAccountOptions';
+import {
+  filterPayableSupplierAccounts,
+  formatPayableAccountOptionLabel,
+} from '@/features/accounting/lib/payableAccountOptions';
 import {
   accountingSettingsQueryOptions,
   chartAccountsQueryOptions,
@@ -50,6 +55,8 @@ export type SupplierFormValues = z.infer<ReturnType<typeof supplierFormSchema>>;
 
 export type SupplierFormProps = {
   variant?: 'page' | 'dialog';
+  /** Hide page header when rendered inside SupplierDetailLayout tabs. */
+  embedded?: boolean;
   onDismiss?: () => void;
   /** When passed in dialog mode, this ID is used instead of URL param for editing. */
   editId?: number;
@@ -60,7 +67,12 @@ function FieldError({ message }: { message?: string | undefined }) {
   return <p className="text-sm text-destructive">{message}</p>;
 }
 
-export default function SupplierForm({ variant = 'page', onDismiss, editId }: SupplierFormProps = {}) {
+export default function SupplierForm({
+  variant = 'page',
+  embedded = false,
+  onDismiss,
+  editId,
+}: SupplierFormProps = {}) {
   const { id } = useParams<{ id: string }>();
   const { t, i18n } = useTranslation('purchasing');
   const { t: tc } = useTranslation('common');
@@ -169,7 +181,7 @@ export default function SupplierForm({ variant = 'page', onDismiss, editId }: Su
         return;
       }
       if (isNew) {
-        navigate(`/purchasing/suppliers/${row.id}/edit`, { replace: true });
+        navigate(`/purchasing/suppliers/${row.id}/data`, { replace: true });
       }
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
@@ -179,9 +191,154 @@ export default function SupplierForm({ variant = 'page', onDismiss, editId }: Su
     toast.error(t('suppliers.form.validation_summary'));
   };
 
+  const useSectionLayout = embedded;
+
+  const nameFields = (
+    <>
+      <div className="grid gap-2">
+        <Label htmlFor="sup-fn">{t('suppliers.form.first_name')}</Label>
+        <Input
+          id="sup-fn"
+          aria-invalid={errors.first_name ? true : undefined}
+          {...form.register('first_name')}
+        />
+        <FieldError message={errors.first_name?.message} />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="sup-father">{t('suppliers.form.father_name')}</Label>
+        <Input id="sup-father" {...form.register('father_name')} />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="sup-family">{t('suppliers.form.family_name')}</Label>
+        <Input id="sup-family" {...form.register('family_name')} />
+      </div>
+    </>
+  );
+
+  const financialFields = (
+    <>
+      <div className="grid gap-2">
+        <Label htmlFor="currency_code">{t('suppliers.form.currency_code')}</Label>
+        <CurrencySelect
+          value={form.watch('currency_code')}
+          onValueChange={(v) =>
+            form.setValue('currency_code', v, { shouldDirty: true, shouldValidate: true })
+          }
+        />
+        <FieldError message={errors.currency_code?.message} />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="tax_id">{t('suppliers.form.tax_id')}</Label>
+        <Input id="tax_id" {...form.register('tax_id')} />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="payment_terms_id">{t('suppliers.form.payment_terms')}</Label>
+        <Select
+          value={form.watch('payment_terms_id') || '__none'}
+          onValueChange={(v) =>
+            form.setValue('payment_terms_id', v === '__none' ? '' : v, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="—" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none">—</SelectItem>
+            {paymentTerms.map((pt) => (
+              <SelectItem key={pt.id} value={String(pt.id)}>
+                {isAr ? pt.name_ar : pt.name_en} ({pt.days})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
+
+  const contactFields = (
+    <>
+      <div className="grid gap-2">
+        <Label htmlFor="contact_phone">{t('suppliers.form.contact_phone')}</Label>
+        <Input
+          id="contact_phone"
+          aria-invalid={errors.contact_phone ? true : undefined}
+          {...form.register('contact_phone')}
+        />
+        <FieldError message={errors.contact_phone?.message} />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="contact_email">{t('suppliers.form.contact_email')}</Label>
+        <Input
+          id="contact_email"
+          type="email"
+          aria-invalid={errors.contact_email ? true : undefined}
+          {...form.register('contact_email')}
+        />
+        <FieldError message={errors.contact_email?.message} />
+      </div>
+      <div className="grid gap-2 sm:col-span-2" dir={i18n.dir()}>
+        <Label htmlFor="payables_account_id">{t('suppliers.form.payables_account_id')}</Label>
+        <Select
+          value={form.watch('payables_account_id') || '__none'}
+          onValueChange={(v) =>
+            form.setValue('payables_account_id', v === '__none' ? '' : v, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        >
+          <SelectTrigger
+            id="payables_account_id"
+            className={cn(
+              isAr && 'flex-row-reverse text-end [&>span]:w-full [&>span]:text-end',
+            )}
+          >
+            <SelectValue placeholder="—" />
+          </SelectTrigger>
+          <SelectContent dir={i18n.dir()} align={isAr ? 'end' : 'start'}>
+            <SelectItem value="__none" className={cn(isAr && 'text-end')}>
+              —
+            </SelectItem>
+            {payableAccounts.map((a) => (
+              <SelectItem
+                key={a.id}
+                value={String(a.id)}
+                className={cn(isAr && 'text-end')}
+              >
+                {formatPayableAccountOptionLabel(a, i18n.language)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
+
+  const saveActions = (
+    <div className="flex flex-wrap gap-2">
+      <Button type="submit" disabled={save.isPending}>
+        {t('suppliers.form.save')}
+      </Button>
+      {variant === 'dialog' && onDismiss ? (
+        <Button type="button" variant="ghost" onClick={onDismiss} disabled={save.isPending}>
+          {t('actions.cancel', { ns: 'common' })}
+        </Button>
+      ) : null}
+    </div>
+  );
+
   return (
-    <div className={cn('mx-auto flex w-full max-w-lg flex-col gap-4', variant === 'page' ? 'p-4' : '')}>
-      {variant === 'page' ? (
+    <div
+      className={cn(
+        'flex w-full flex-col gap-4',
+        embedded ? 'max-w-none' : 'mx-auto max-w-lg',
+        variant === 'page' && !embedded ? 'p-4' : '',
+      )}
+    >
+      {variant === 'page' && !embedded ? (
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-semibold">{isNew ? t('suppliers.new') : t('suppliers.edit')}</h1>
           {!isNew && existing?.code ? (
@@ -194,120 +351,38 @@ export default function SupplierForm({ variant = 'page', onDismiss, editId }: Su
           </Button>
         </div>
       ) : null}
+      {embedded && !isNew && existing?.code ? (
+        <p className="text-sm text-muted-foreground">
+          {t('suppliers.form.code_display')}: {existing.code}
+        </p>
+      ) : null}
       <form
-        className="flex flex-col gap-3"
+        className={cn('flex flex-col', useSectionLayout ? 'gap-6' : 'gap-3')}
+        onKeyDown={handleFormEnterSubmit}
         onSubmit={form.handleSubmit((v) => save.mutate(v), onInvalid)}
         noValidate
       >
-        <div className="grid gap-2">
-          <Label htmlFor="sup-fn">{t('suppliers.form.first_name')}</Label>
-          <Input
-            id="sup-fn"
-            aria-invalid={errors.first_name ? true : undefined}
-            {...form.register('first_name')}
-          />
-          <FieldError message={errors.first_name?.message} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="sup-father">{t('suppliers.form.father_name')}</Label>
-          <Input id="sup-father" {...form.register('father_name')} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="sup-family">{t('suppliers.form.family_name')}</Label>
-          <Input id="sup-family" {...form.register('family_name')} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="currency_code">{t('suppliers.form.currency_code')}</Label>
-          <CurrencySelect
-            value={form.watch('currency_code')}
-            onValueChange={(v) =>
-              form.setValue('currency_code', v, { shouldDirty: true, shouldValidate: true })
-            }
-          />
-          <FieldError message={errors.currency_code?.message} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="tax_id">{t('suppliers.form.tax_id')}</Label>
-          <Input id="tax_id" {...form.register('tax_id')} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="payment_terms_id">{t('suppliers.form.payment_terms')}</Label>
-          <Select
-            value={form.watch('payment_terms_id') || '__none'}
-            onValueChange={(v) =>
-              form.setValue('payment_terms_id', v === '__none' ? '' : v, {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="—" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none">—</SelectItem>
-              {paymentTerms.map((pt) => (
-                <SelectItem key={pt.id} value={String(pt.id)}>
-                  {isAr ? pt.name_ar : pt.name_en} ({pt.days})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="contact_phone">{t('suppliers.form.contact_phone')}</Label>
-          <Input
-            id="contact_phone"
-            aria-invalid={errors.contact_phone ? true : undefined}
-            {...form.register('contact_phone')}
-          />
-          <FieldError message={errors.contact_phone?.message} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="contact_email">{t('suppliers.form.contact_email')}</Label>
-          <Input
-            id="contact_email"
-            type="email"
-            aria-invalid={errors.contact_email ? true : undefined}
-            {...form.register('contact_email')}
-          />
-          <FieldError message={errors.contact_email?.message} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="payables_account_id">{t('suppliers.form.payables_account_id')}</Label>
-          <Select
-            value={form.watch('payables_account_id') || '__none'}
-            onValueChange={(v) =>
-              form.setValue('payables_account_id', v === '__none' ? '' : v, {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="—" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none">—</SelectItem>
-              {payableAccounts.map((a) => (
-                <SelectItem key={a.id} value={String(a.id)}>
-                  {a.code} - {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">{t('suppliers.form.payables_hint')}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={save.isPending}>
-            {t('suppliers.form.save')}
-          </Button>
-          {variant === 'dialog' && onDismiss ? (
-            <Button type="button" variant="ghost" onClick={onDismiss} disabled={save.isPending}>
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-          ) : null}
-        </div>
+        {useSectionLayout ? (
+          <>
+            <SectionCard title={embedded ? t('suppliers.tabs.data') : undefined}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {nameFields}
+                {financialFields}
+              </div>
+            </SectionCard>
+            <SectionCard title={t('suppliers.form.contact_section')}>
+              <div className="grid gap-4 sm:grid-cols-2">{contactFields}</div>
+            </SectionCard>
+            {saveActions}
+          </>
+        ) : (
+          <>
+            {nameFields}
+            {financialFields}
+            {contactFields}
+            {saveActions}
+          </>
+        )}
       </form>
     </div>
   );

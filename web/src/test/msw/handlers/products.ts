@@ -6,8 +6,11 @@ const BASE = '/api/v1';
 
 export const productHandlers = [
   http.get(`${BASE}/products`, () =>
-    HttpResponse.json([] satisfies ProductRead[], {
-      headers: { 'x-total-count': '0' },
+    HttpResponse.json({
+      items: [] satisfies ProductRead[],
+      total: 0,
+      limit: 20,
+      offset: 0,
     }),
   ),
 ];

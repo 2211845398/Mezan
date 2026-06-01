@@ -121,9 +121,10 @@ export function PurchasingPendingInvoiceScansSection() {
   const { t: tInv } = useTranslation('invoiceScans');
   const [dismissed, setDismissed] = useState<Set<number>>(readDismissedIds);
 
-  const { data: rows = [], isLoading, isError, refetch } = useQuery(
+  const { data, isLoading, isError, refetch } = useQuery(
     invoiceScansListQueryOptions({ status: 'needs_review', limit: 50, offset: 0 }),
   );
+  const rows = data?.items ?? [];
 
   const visible = useMemo(
     () => rows.filter((r) => !dismissed.has(r.id)).sort((a, b) => b.id - a.id),

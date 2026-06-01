@@ -1,4 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { paginatedParams } from '@/api/pagination';
+import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -53,7 +56,11 @@ export default function UsersList() {
   const { t, i18n } = useTranslation('admin');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
-  const { data: users = [], isLoading, isError, refetch } = useUsersList();
+  const [urlQuery] = useTableUrlState({ pageSize: 20 });
+  const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
+  const { data, isLoading, isError, refetch } = useUsersList({ limit, offset });
+  const users = data?.items ?? [];
+  const totalRows = data?.total ?? 0;
   const { data: branches = [] } = useBranches(false);
   const { data: roleMap } = useQuery({
     queryKey: adminKeys.userRoleSummary(
@@ -363,9 +370,10 @@ export default function UsersList() {
       </Dialog>
 
       <DataTable
-        mode="client"
+        mode="server"
         columns={columns}
         data={users}
+        totalRows={totalRows}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}

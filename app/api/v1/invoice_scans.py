@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query, Request, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
@@ -12,6 +12,7 @@ from app.models.invoice_scan import InvoiceScan
 from app.models.users import User
 from app.schemas.invoice_scans import (
     InvoiceScanApplyCatalogMatchesRequest,
+    InvoiceScanListResponse,
     InvoiceScanCreate,
     InvoiceScanOverride,
     InvoiceScanRead,
@@ -57,23 +58,31 @@ async def create_invoice_scan_endpoint(
     return InvoiceScanRead.model_validate(scan)
 
 
-@router.get("/invoice-scans", response_model=list[InvoiceScanRead])
+@router.get("/invoice-scans", response_model=InvoiceScanListResponse)
 async def list_invoice_scans_endpoint(
     status: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("invoice_scans", "read"),
-) -> list[InvoiceScanRead]:
+) -> InvoiceScanListResponse:
     """Paginated list of invoice scans (OCR runs), optional status filter."""
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
+    count_stmt = select(func.count()).select_from(InvoiceScan)
+    if status is not None:
+        count_stmt = count_stmt.where(InvoiceScan.status == status)
+    total = int(await db.scalar(count_stmt) or 0)
     q = select(InvoiceScan).order_by(InvoiceScan.id.desc())
     if status is not None:
         q = q.where(InvoiceScan.status == status)
-    q = q.limit(min(max(limit, 1), 200)).offset(max(offset, 0))
+    q = q.limit(limit).offset(offset)
     res = await db.execute(q)
     rows = res.scalars().all()
-    return [InvoiceScanRead.model_validate(r) for r in rows]
+    items = [InvoiceScanRead.model_validate(r) for r in rows]
+    return InvoiceScanListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/invoice-scans/{scan_id}", response_model=InvoiceScanRead)

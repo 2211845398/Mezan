@@ -18,5 +18,9 @@ echo "Database is ready!"
 echo "Running database migrations..."
 alembic upgrade head
 
+# Production-safe core seed (idempotent; permissions, CoA, templates, optional admin)
+echo "Running core seed..."
+uv run python -m app.scripts.core_seed
+
 # Execute the main command
 exec "$@"

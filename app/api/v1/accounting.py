@@ -29,6 +29,7 @@ from app.schemas.accounting import (
     JournalReversalRequest,
     JournalReversalResponse,
     ManualJournalCreate,
+    ManualJournalUpdate,
     OpenItemRead,
     PaymentApplicationCreate,
     PaymentApplicationRead,
@@ -47,7 +48,11 @@ from app.services.accounting_governance_service import (
     reverse_journal_entry,
     set_period_status,
 )
-from app.services.accounting_service import get_journal_by_idempotency, post_journal_entry
+from app.services.accounting_service import (
+    get_journal_by_idempotency,
+    post_journal_entry,
+    update_journal_entry,
+)
 from app.services.branch_reporting_service import branch_financial_snapshot
 from app.services.financial_reports_service import (
     balance_sheet,
@@ -608,6 +613,53 @@ async def get_journal_entry_endpoint(
     return _journal_detail_to_read(d)
 
 
+@router.patch(
+    "/accounting/journal-entries/{journal_entry_id}",
+    response_model=JournalEntryDetailRead,
+)
+async def update_journal_entry_endpoint(
+    journal_entry_id: int,
+    body: ManualJournalUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("accounting", "update"),
+) -> JournalEntryDetailRead:
+    line_dicts: list[dict] = []
+    for ln in body.lines:
+        line_dicts.append(
+            {
+                "account_id": ln.account_id,
+                "branch_id": ln.branch_id,
+                "debit": ln.debit,
+                "credit": ln.credit,
+                "memo": ln.memo,
+                "customer_id": ln.customer_id,
+                "supplier_id": ln.supplier_id,
+                "employee_id": ln.employee_id,
+            }
+        )
+    je = await update_journal_entry(
+        db,
+        journal_entry_id=journal_entry_id,
+        entry_date=body.entry_date,
+        description=body.description,
+        lines=line_dicts,
+    )
+    await audit_service.log(
+        session=db,
+        action="journal_entry.updated",
+        resource_type="journal_entry",
+        resource_id=str(je.id),
+        new_value={"id": je.id},
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    d = await get_journal_entry_detail(db, journal_entry_id=je.id)
+    return _journal_detail_to_read(d)
+
+
 @router.get("/accounting/chart-accounts", response_model=list[ChartAccountRead])
 async def list_chart_accounts_endpoint(
     include_inactive: bool = Query(default=False),
@@ -658,6 +710,38 @@ async def export_trial_balance_csv(
         iter([data]),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="trial_balance.csv"'},
+    )
+
+
+@router.get("/accounting/trial-balance/export.pdf")
+async def export_trial_balance_pdf(
+    as_of: date = Query(...),
+    branch_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> StreamingResponse:
+    from app.models.branch import Branch
+    from app.services.trial_balance_pdf_service import build_trial_balance_pdf
+
+    rows = await trial_balance(db, as_of=as_of, branch_id=branch_id)
+    branch_name: str | None = None
+    if branch_id is not None:
+        br = await db.get(Branch, branch_id)
+        branch_name = br.name if br else None
+    dr = sum(r["total_debit"] for r in rows)
+    cr = sum(r["total_credit"] for r in rows)
+    pdf_bytes = build_trial_balance_pdf(
+        as_of=as_of,
+        branch_name=branch_name,
+        rows=rows,
+        totals={"debit": dr, "credit": cr, "net": abs(dr - cr)},
+    )
+    filename = f"trial_balance_{as_of.isoformat()}.pdf"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

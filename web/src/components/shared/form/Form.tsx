@@ -10,6 +10,8 @@ import {
 } from 'react-hook-form';
 import type { ZodType } from 'zod';
 
+import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
+
 /*
  * Thin wrapper around react-hook-form + Zod. Every non-trivial form in the
  * app flows through this component (Plan §7.4) so we get a single place to
@@ -56,6 +58,7 @@ export function Form<TValues extends FieldValues>({
         {...(id !== undefined ? { id } : {})}
         {...(className !== undefined ? { className } : {})}
         noValidate
+        onKeyDown={handleFormEnterSubmit}
         onSubmit={(e) => {
           void form.handleSubmit(onSubmit)(e);
         }}

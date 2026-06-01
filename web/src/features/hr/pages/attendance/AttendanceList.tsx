@@ -28,7 +28,7 @@ import { attendanceLogRowSearchValue } from '../../lib/hrTableSearch';
 import {
   attendanceListQueryOptions,
   attendanceSummaryQueryOptions,
-  employeesQueryOptions,
+  employeesPickerQueryOptions,
 } from '../../queries';
 
 const CATEGORY_FILTERS = ['__all', 'exempt', 'office', 'operational'] as const;
@@ -60,7 +60,7 @@ export default function AttendanceList() {
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
   });
-  const { data: emps = [] } = useQuery(employeesQueryOptions());
+  const { data: emps = [] } = useQuery(employeesPickerQueryOptions());
 
   const employeeById = useMemo(() => new Map(emps.map((e) => [e.id, e])), [emps]);
 

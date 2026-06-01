@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import type { PaginatedList } from '@/api/pagination';
 import type { components } from '@/api/generated/schema';
 
 export type CustomerListResponse = components['schemas']['CustomerListResponse'];
@@ -144,8 +145,8 @@ export async function listDiscountRules(params?: {
   status_filter?: string;
   limit?: number;
   offset?: number;
-}): Promise<DiscountRuleRead[]> {
-  const { data } = await apiClient.get<DiscountRuleRead[]>('/discounts', { params });
+}): Promise<PaginatedList<DiscountRuleRead>> {
+  const { data } = await apiClient.get<PaginatedList<DiscountRuleRead>>('/discounts', { params });
   return data;
 }
 

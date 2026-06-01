@@ -58,7 +58,6 @@ export default function DamageMovementPage() {
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
         title={t('movement.damage.title')}
-        subtitle={t('movement.damage.subtitle')}
         actions={
           <Button type="button" variant="outline" size="sm" onClick={() => navigate('/inventory/damage')}>
             {tc('actions.back')}
@@ -73,7 +72,6 @@ export default function DamageMovementPage() {
             onChange={setBranchId}
           />
         </div>
-        <p className="mb-4 text-sm text-muted-foreground">{t('movement.damage.mark_only_hint')}</p>
         <InventoryProductLineFields
           productId={productId}
           variantId={variantId}

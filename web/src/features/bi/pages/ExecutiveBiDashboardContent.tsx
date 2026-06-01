@@ -41,7 +41,6 @@ import {
   formatCompactCurrency,
   formatCompactNumber,
   formatCurrency,
-  formatNumber,
   formatPercent,
 } from '@/lib/format';
 
@@ -65,8 +64,8 @@ export default function ExecutiveBiDashboardContent() {
   const activeBranchId = useAuthStore((s) => s.activeBranchId);
   const canViewAccounting = usePermission('accounting', 'read');
   const canViewInvoices = usePermission('sales_invoices', 'read');
-  const canViewCustomers = usePermission('customers', 'read');
   const canViewCatalog = usePermission('catalog', 'read');
+  const canViewPurchasing = usePermission('purchase_orders', 'read');
   const [periodEnd, setPeriodEnd] = useState(() => format(now(), 'yyyy-MM-dd'));
   const [periodStart, setPeriodStart] = useState(() =>
     format(subDays(now(), 30), 'yyyy-MM-dd'),
@@ -162,12 +161,11 @@ export default function ExecutiveBiDashboardContent() {
   const grossSales = data ? num(data.gross_sales) : 0;
   const avgTicket = data ? num(data.avg_ticket) : 0;
   const invoiceCount = data?.invoice_count ?? 0;
-  const loyaltyPts = data?.loyalty_points_accrued ?? 0;
+  const recentPoCount = data?.recent_purchase_orders?.length ?? 0;
+  const purchasingLink = canViewPurchasing ? '/purchasing/orders' : undefined;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
-
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">{t('filters.title')}</CardTitle>
@@ -218,10 +216,6 @@ export default function ExecutiveBiDashboardContent() {
             <KpiCard
               title={t('kpi.revenue')}
               value={formatCompactCurrency(grossSales, DISPLAY_CURRENCY)}
-              footnote={t('kpi.value_exact_currency', {
-                value: formatCurrency(grossSales, DISPLAY_CURRENCY),
-              })}
-              description={t('kpi.revenue_hint')}
               {...(revenueLink ? { to: revenueLink } : {})}
               sparkline={
                 trendData.length > 1 ? (
@@ -234,31 +228,22 @@ export default function ExecutiveBiDashboardContent() {
             <KpiCard
               title={t('kpi.margin')}
               value={marginLabel}
-              description={t('kpi.margin_hint')}
               {...(accountingLink ? { to: accountingLink } : {})}
             />
             <KpiCard
               title={t('kpi.orders')}
               value={formatCompactNumber(invoiceCount)}
-              footnote={t('kpi.value_exact_count', { value: formatNumber(invoiceCount) })}
-              description={t('kpi.orders_hint')}
               {...(invoiceRegisterLink ? { to: invoiceRegisterLink } : {})}
             />
             <KpiCard
               title={t('kpi.avg_ticket')}
               value={formatCompactCurrency(avgTicket, DISPLAY_CURRENCY)}
-              footnote={t('kpi.value_exact_currency', {
-                value: formatCurrency(avgTicket, DISPLAY_CURRENCY),
-              })}
-              description={t('kpi.avg_ticket_hint')}
               {...(invoiceRegisterLink ? { to: invoiceRegisterLink } : {})}
             />
             <KpiCard
-              title={t('kpi.loyalty')}
-              value={formatCompactNumber(loyaltyPts)}
-              footnote={t('kpi.value_exact_points', { value: formatNumber(loyaltyPts) })}
-              description={t('kpi.loyalty_hint')}
-              {...(canViewCustomers ? { to: '/crm/customers' } : {})}
+              title={t('kpi.recent_po')}
+              value={formatCompactNumber(recentPoCount)}
+              {...(purchasingLink ? { to: purchasingLink } : {})}
             />
           </section>
 

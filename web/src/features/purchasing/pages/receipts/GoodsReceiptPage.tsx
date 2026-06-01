@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { getProductWithVariants } from '@/features/catalog/api';
-import { formatPurchasingVariantReceiveLabel } from '@/features/catalog/lib/purchasingVariantLabel';
+import { formatPurchasingVariantNameLabel } from '@/features/catalog/lib/purchasingVariantLabel';
 import { usePermission } from '@/hooks/usePermission';
 
 import GoodsReceiptFields from '../../components/GoodsReceiptFields';
@@ -44,25 +44,28 @@ export default function GoodsReceiptPage() {
     [po?.lines],
   );
 
-  const { data: productMeta = { labels: {}, variantLabels: {} } } = useQuery({
+  const { data: productMeta = { labels: {}, variantLabels: {}, variantReferenceCodes: {} } } = useQuery({
     queryKey: ['purchasing', 'receive-labels', poId, productIds.join(',')],
     queryFn: async () => {
       const labels: Record<number, string> = {};
       const variantLabels: Record<number, string> = {};
+      const variantReferenceCodes: Record<number, string> = {};
       for (const pid of productIds) {
         const pw = await getProductWithVariants(pid);
         labels[pid] = pw.product.name;
         for (const v of pw.variants) {
-          variantLabels[v.id] = formatPurchasingVariantReceiveLabel({
-            display_name: pw.product.name,
-            sku: v.sku,
-            attribute_values: v.attribute_values,
-            reference_code: v.reference_code,
-            display_label: v.display_label,
-          });
+          const fromLabel = (v.display_label ?? '').trim();
+          variantLabels[v.id] =
+            fromLabel ||
+            formatPurchasingVariantNameLabel({
+              display_name: '',
+              sku: v.sku,
+              attribute_values: v.attribute_values,
+            });
+          variantReferenceCodes[v.id] = (v.reference_code ?? '').trim();
         }
       }
-      return { labels, variantLabels };
+      return { labels, variantLabels, variantReferenceCodes };
     },
     enabled: !Number.isNaN(poId) && productIds.length > 0,
   });

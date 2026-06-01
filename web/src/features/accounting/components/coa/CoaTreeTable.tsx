@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronLeft } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { now, utcCalendarDayKey } from '@/lib/date';
 
 import type { ChartAccountTreeNode } from '../../api';
+import { accountingMoneyCell, accountingMoneyHead } from '../../lib/accountingTableClasses';
+import { resolveCoaDisplayName } from '../../lib/coaDisplayName';
 import { buildLedgerDrillDownUrl } from '../../lib/ledgerDrillDownUrl';
-import { now, utcCalendarDayKey } from '@/lib/date';
 
 type FlatRow = {
   node: ChartAccountTreeNode;
@@ -38,7 +41,7 @@ function flattenVisible(
   return rows;
 }
 
-function collectExpandableIds(nodes: ChartAccountTreeNode[]): number[] {
+export function collectExpandableIds(nodes: ChartAccountTreeNode[]): number[] {
   const ids: number[] = [];
   const walk = (list: ChartAccountTreeNode[]) => {
     for (const n of list) {
@@ -55,24 +58,42 @@ function collectExpandableIds(nodes: ChartAccountTreeNode[]): number[] {
 type Props = {
   forest: ChartAccountTreeNode[];
   onEdit: (node: ChartAccountTreeNode) => void;
+  onDelete?: (node: ChartAccountTreeNode) => void;
   canEdit: boolean;
+  canDelete?: boolean;
+  showBalances?: boolean;
+  branchId?: number | null;
+  expandedIds: Set<number>;
+  onExpandedIdsChange: (next: Set<number>) => void;
 };
 
-export function CoaTreeTable({ forest, onEdit, canEdit }: Props) {
-  const { t } = useTranslation('accounting');
+export function CoaTreeTable({
+  forest,
+  onEdit,
+  onDelete,
+  canEdit,
+  canDelete = false,
+  showBalances = false,
+  branchId = null,
+  expandedIds,
+  onExpandedIdsChange,
+}: Props) {
+  const { t, i18n } = useTranslation('accounting');
   const asOf = useMemo(() => utcCalendarDayKey(now()), []);
 
-  const defaultExpanded = useMemo(() => new Set(collectExpandableIds(forest)), [forest]);
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(defaultExpanded);
+  useEffect(() => {
+    onExpandedIdsChange(new Set(collectExpandableIds(forest)));
+  }, [forest]);
 
-  const toggle = useCallback((id: number) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
+  const toggle = useCallback(
+    (id: number) => {
+      const next = new Set(expandedIds);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return next;
-    });
-  }, []);
+      onExpandedIdsChange(next);
+    },
+    [expandedIds, onExpandedIdsChange],
+  );
 
   const rows = useMemo(
     () => flattenVisible(forest, expandedIds),
@@ -89,23 +110,33 @@ export function CoaTreeTable({ forest, onEdit, canEdit }: Props) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[45%]">{t('coa.col.name')}</TableHead>
-          <TableHead className="w-[25%]">{t('coa.col.code')}</TableHead>
-          <TableHead className="w-[30%] text-end">{t('coa.col.actions')}</TableHead>
+          <TableHead className={showBalances ? 'w-[40%]' : 'w-[45%]'}>{t('coa.col.name')}</TableHead>
+          <TableHead className="w-[20%]">{t('coa.col.code')}</TableHead>
+          {showBalances ? (
+            <TableHead className={cn('w-[20%]', accountingMoneyHead)}>
+              {t('coa.col.balance')}
+            </TableHead>
+          ) : null}
+          <TableHead className={cn(showBalances ? 'w-[20%]' : 'w-[30%]', 'text-end')}>
+            {t('coa.col.actions')}
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {rows.map(({ node, depth }) => {
           const hasChildren = (node.children?.length ?? 0) > 0;
           const isGroup = node.is_control || !node.is_leaf;
+          const displayName = resolveCoaDisplayName(node, i18n.language);
           const glHref =
             node.is_leaf && !node.is_control
               ? buildLedgerDrillDownUrl({
                   account_id: node.id,
                   date_from: `${asOf.slice(0, 4)}-01-01`,
                   date_to: asOf,
+                  branch_id: branchId ?? undefined,
                 })
               : null;
+          const balanceNet = Number(node.branch_subtree_net ?? node.branch_net ?? 0);
 
           return (
             <TableRow key={node.id}>
@@ -142,7 +173,7 @@ export function CoaTreeTable({ forest, onEdit, canEdit }: Props) {
                         isGroup ? 'font-semibold text-foreground' : 'text-primary',
                       )}
                     >
-                      {node.name}
+                      {displayName}
                     </a>
                   ) : (
                     <span
@@ -151,7 +182,7 @@ export function CoaTreeTable({ forest, onEdit, canEdit }: Props) {
                         isGroup ? 'font-semibold' : 'font-normal text-foreground',
                       )}
                     >
-                      {node.name}
+                      {displayName}
                     </span>
                   )}
                   {node.is_system ? (
@@ -162,16 +193,37 @@ export function CoaTreeTable({ forest, onEdit, canEdit }: Props) {
                 </div>
               </TableCell>
               <TableCell className="font-mono text-xs text-muted-foreground">{node.code}</TableCell>
+              {showBalances ? (
+                <TableCell>
+                  <span className={accountingMoneyCell}>
+                    {Math.abs(balanceNet) >= 0.005 ? formatMoney(balanceNet) : '—'}
+                  </span>
+                </TableCell>
+              ) : null}
               <TableCell className="text-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canEdit || node.is_system}
-                  onClick={() => onEdit(node)}
-                >
-                  {t('coa.edit')}
-                </Button>
+                <div className="flex flex-wrap justify-end gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!canEdit || node.is_system}
+                    onClick={() => onEdit(node)}
+                  >
+                    {t('coa.edit')}
+                  </Button>
+                  {canDelete && onDelete ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      disabled={node.is_system}
+                      onClick={() => onDelete(node)}
+                    >
+                      {t('coa.delete')}
+                    </Button>
+                  ) : null}
+                </div>
               </TableCell>
             </TableRow>
           );

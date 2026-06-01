@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import type { PaginatedList } from '@/api/pagination';
 import type { components } from '@/api/generated/schema';
 
 export type EmployeeProfileRead = components['schemas']['EmployeeProfileRead'];
@@ -16,8 +17,13 @@ export type HrAnomalyRequest = components['schemas']['HrAnomalyRequest'];
 export type HrAnomalyResponse = components['schemas']['HrAnomalyResponse'];
 export type HrAnomaly = components['schemas']['HrAnomaly'];
 
-export async function listEmployees(): Promise<EmployeeProfileRead[]> {
-  const { data } = await apiClient.get<EmployeeProfileRead[]>('/employees');
+export async function listEmployees(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<PaginatedList<EmployeeProfileRead>> {
+  const { data } = await apiClient.get<PaginatedList<EmployeeProfileRead>>('/employees', {
+    params,
+  });
   return data;
 }
 

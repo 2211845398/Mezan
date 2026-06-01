@@ -12,6 +12,7 @@ from app.schemas.sales_invoice import (
     FinalizeInvoiceRequest,
     SalesInvoiceDetailRead,
     SalesInvoiceListItem,
+    SalesInvoiceListResponse,
     SalesInvoiceRead,
     SalesInvoiceRegisterPageRead,
     VoidInvoiceRequest,
@@ -74,25 +75,32 @@ async def get_sales_invoice_endpoint(
     return await read_sales_invoice_detail(db, invoice_id=invoice_id)
 
 
-@router.get("/sales-invoices", response_model=list[SalesInvoiceListItem])
+@router.get("/sales-invoices", response_model=SalesInvoiceListResponse)
 async def list_sales_invoices_endpoint(
     terminal_id: int = Query(..., description="POS terminal id"),
     business_date: date | None = Query(
         default=None,
         description="Calendar day in UTC for filtering (default: today UTC)",
     ),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("sales_invoices", "read"),
-) -> list[SalesInvoiceListItem]:
+) -> SalesInvoiceListResponse:
     day = business_date or datetime.now(UTC).date()
     start_inclusive = datetime.combine(day, datetime.min.time()).replace(tzinfo=UTC)
     end_exclusive = start_inclusive + timedelta(days=1)
-    return await list_sales_invoices_for_terminal_window(
+    items, total = await list_sales_invoices_for_terminal_window(
         db,
         terminal_id=terminal_id,
         start_inclusive=start_inclusive,
         end_exclusive=end_exclusive,
+        limit=limit,
+        offset=offset,
+    )
+    return SalesInvoiceListResponse(
+        items=items, total=total, limit=limit, offset=offset
     )
 
 

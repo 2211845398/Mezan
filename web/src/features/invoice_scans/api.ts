@@ -1,7 +1,9 @@
 import { apiClient } from '@/api/client';
+import type { PaginatedItem } from '@/api/listTypes';
+import type { PaginatedList } from '@/api/pagination';
 import type { components, paths } from '@/api/generated/schema';
 
-export type InvoiceScanRead = paths['/api/v1/invoice-scans']['get']['responses']['200']['content']['application/json'][number];
+export type InvoiceScanRead = PaginatedItem<'/api/v1/invoice-scans'>;
 export type InvoiceScanOverride = components['schemas']['InvoiceScanOverride'];
 export type ValidateBody = paths['/api/v1/invoice-scans/{scan_id}/validate']['post']['requestBody']['content']['application/json'];
 export type ValidateResponse =
@@ -16,8 +18,8 @@ export async function listInvoiceScans(params?: {
   status?: string;
   limit?: number;
   offset?: number;
-}): Promise<InvoiceScanRead[]> {
-  const { data } = await apiClient.get<InvoiceScanRead[]>('/invoice-scans', { params });
+}): Promise<PaginatedList<InvoiceScanRead>> {
+  const { data } = await apiClient.get<PaginatedList<InvoiceScanRead>>('/invoice-scans', { params });
   return data;
 }
 

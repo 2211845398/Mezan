@@ -50,6 +50,7 @@ export function BranchStockFilterBar({
           onChange={onBranchId}
           allowClear
           clearLabel={t('stock.filter.all_branches')}
+          showCode={false}
         />
       </div>
       <div className="min-w-[12rem] flex-1 space-y-1">

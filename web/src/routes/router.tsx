@@ -101,6 +101,9 @@ const InventoryDamageMovementPage = lazy(
 const InventoryStockCountPage = lazy(
   () => import('@/features/inventory/pages/stock-count/StockCountPage'),
 );
+const InventoryStockCountFillPage = lazy(
+  () => import('@/features/inventory/pages/stock-count/StockCountFillPage'),
+);
 const InventoryScansIndexRedirect = lazy(
   () => import('@/features/invoice_scans/pages/InventoryScansIndexRedirect'),
 );
@@ -116,7 +119,13 @@ const PurchasingGoodsReceiptPage = lazy(
 );
 const PurchasingSuppliersList = lazy(() => import('@/features/purchasing/pages/suppliers/SuppliersList'));
 const PurchasingSupplierForm = lazy(() => import('@/features/purchasing/pages/suppliers/SupplierForm'));
-const PurchasingSupplierDetail = lazy(() => import('@/features/purchasing/pages/suppliers/SupplierDetail'));
+const PurchasingSupplierDetailLayout = lazy(
+  () => import('@/features/purchasing/pages/suppliers/SupplierDetailLayout'),
+);
+const PurchasingSupplierData = lazy(() => import('@/features/purchasing/pages/suppliers/SupplierData'));
+const PurchasingSupplierStatement = lazy(
+  () => import('@/features/purchasing/pages/suppliers/SupplierStatement'),
+);
 const InvoiceScanQueue = lazy(() => import('@/features/invoice_scans/pages/InvoiceScanQueue'));
 const InvoiceScanDetail = lazy(() => import('@/features/invoice_scans/pages/InvoiceScanDetail'));
 
@@ -443,6 +452,14 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
+                    path: ':id/edit',
+                    element: (
+                      <RequirePermission resource="inventory" action="update">
+                        {withSuspense(InventoryTransferForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
                     path: ':id',
                     element: (
                       <RequirePermission resource="inventory" action="read">
@@ -509,11 +526,24 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'stock-count',
-                element: (
-                  <RequirePermission resource="inventory" action="read">
-                    {withSuspense(InventoryStockCountPage)}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="inventory" action="read">
+                        {withSuspense(InventoryStockCountPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':sessionId',
+                    element: (
+                      <RequirePermission resource="inventory" action="read">
+                        {withSuspense(InventoryStockCountFillPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'scans',
@@ -609,20 +639,38 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
+                    path: ':id/edit',
+                    element: <Navigate to="../data" replace relative="path" />,
+                  },
+                  {
                     path: ':id',
                     element: (
                       <RequirePermission resource="suppliers" action="read">
-                        {withSuspense(PurchasingSupplierDetail)}
+                        {withSuspense(PurchasingSupplierDetailLayout)}
                       </RequirePermission>
                     ),
-                  },
-                  {
-                    path: ':id/edit',
-                    element: (
-                      <RequirePermission resource="suppliers" action="update">
-                        {withSuspense(PurchasingSupplierForm)}
-                      </RequirePermission>
-                    ),
+                    children: [
+                      {
+                        index: true,
+                        element: <Navigate to="data" replace />,
+                      },
+                      {
+                        path: 'data',
+                        element: (
+                          <RequirePermission resource="suppliers" action="read">
+                            {withSuspense(PurchasingSupplierData)}
+                          </RequirePermission>
+                        ),
+                      },
+                      {
+                        path: 'statement',
+                        element: (
+                          <RequirePermission resource="suppliers" action="read">
+                            {withSuspense(PurchasingSupplierStatement)}
+                          </RequirePermission>
+                        ),
+                      },
+                    ],
                   },
                 ],
               },

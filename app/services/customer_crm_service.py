@@ -8,7 +8,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
+from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
 from app.models.customer_profile import CustomerAccountStatus, CustomerProfile
+from app.services.branch_accounting_service import default_receivables_account_id
 from app.models.loyalty import LoyaltyLedger
 from app.models.sales_invoice import SalesInvoice
 from app.utils.money import q2
@@ -146,6 +148,8 @@ async def update_customer_profile(
         "receivables_account_id",
     }
     c = await get_customer_or_404(db, customer_id)
+    if "receivables_account_id" in data:
+        await _validate_receivables_account_id(db, data.get("receivables_account_id"))
     account_explicit = "account_status" in data
     legacy_active = "is_active" in data and data["is_active"] is not None
 
@@ -177,6 +181,45 @@ async def update_customer_profile(
     return c
 
 
+_EXCLUDED_RECEIVABLES_CODES = frozenset({"1100", "11200", "1000", "1010", "1015"})
+
+
+async def _validate_receivables_account_id(
+    db: AsyncSession, receivables_account_id: int | None
+) -> None:
+    if receivables_account_id is None:
+        return
+    res = await db.execute(
+        select(ChartAccount).where(ChartAccount.id == receivables_account_id)
+    )
+    account = res.scalar_one_or_none()
+    if not account or not account.active:
+        raise ValidationError(
+            "Receivables account not found or inactive",
+            details={"receivables_account_id": receivables_account_id},
+        )
+    if account.account_type != AccountType.ASSET:
+        raise ValidationError(
+            "Receivables account must be an asset account",
+            details={"receivables_account_id": receivables_account_id},
+        )
+    if account.is_control or not account.is_leaf:
+        raise ValidationError(
+            "Receivables account must be a leaf posting account",
+            details={"receivables_account_id": receivables_account_id},
+        )
+    if account.subledger_kind != SubledgerKind.CUSTOMER:
+        raise ValidationError(
+            "Receivables account must use customer sub-ledger",
+            details={"receivables_account_id": receivables_account_id},
+        )
+    if account.code in _EXCLUDED_RECEIVABLES_CODES:
+        raise ValidationError(
+            "This account cannot be used for customer receivables",
+            details={"receivables_account_id": receivables_account_id, "code": account.code},
+        )
+
+
 async def create_staff_customer(
     db: AsyncSession,
     *,
@@ -192,6 +235,9 @@ async def create_staff_customer(
 ) -> CustomerProfile:
     if not phone or not phone.strip():
         raise ValidationError("Phone is required")
+    if receivables_account_id is None:
+        receivables_account_id = await default_receivables_account_id(db)
+    await _validate_receivables_account_id(db, receivables_account_id)
     c = CustomerProfile(
         phone=phone.strip(),
         first_name=first_name,

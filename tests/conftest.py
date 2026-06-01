@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -5,8 +6,9 @@ from pathlib import Path
 import pytest
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from alembic import command
 from app.main import app
 from app.models.branch import Branch
@@ -46,6 +48,24 @@ def _alembic_config(database_url: str) -> Config:
     return config
 
 
+async def _reset_test_database_schema(database_url: str) -> None:
+    """Drop and recreate ``public`` instead of Alembic downgrade (broken on old revisions)."""
+    engine = create_async_engine(database_url, poolclass=NullPool)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+            await conn.execute(text("CREATE SCHEMA public"))
+            await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+            await conn.execute(text("GRANT ALL ON SCHEMA public TO CURRENT_USER"))
+    finally:
+        await engine.dispose()
+
+
+def _prepare_test_database(database_url: str) -> None:
+    asyncio.run(_reset_test_database_schema(database_url))
+    command.upgrade(_alembic_config(database_url), "head")
+
+
 @pytest.fixture(scope="session")
 def test_db_url() -> str:
     url = _test_db_url()
@@ -56,9 +76,7 @@ def test_db_url() -> str:
 
 @pytest.fixture(scope="session")
 def migrated_test_db(test_db_url: str) -> str:
-    alembic_config = _alembic_config(test_db_url)
-    command.downgrade(alembic_config, "base")
-    command.upgrade(alembic_config, "head")
+    _prepare_test_database(test_db_url)
     return test_db_url
 
 

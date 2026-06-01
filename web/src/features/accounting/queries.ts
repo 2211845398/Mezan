@@ -36,6 +36,8 @@ export const accountingKeys = {
     [...accountingKeys.root, 'ap', p] as const,
   fiscal: () => [...accountingKeys.root, 'fiscal'] as const,
   chartAccountsTree: () => [...accountingKeys.root, 'chart-accounts', 'tree'] as const,
+  chartAccountsTreeByBranch: (p: { branch_id: number; as_of: string; active_only?: boolean }) =>
+    [...accountingKeys.root, 'chart-accounts', 'by-branch', p] as const,
   boms: () => [...accountingKeys.root, 'boms'] as const,
   currencies: (includeInactive?: boolean) =>
     [...accountingKeys.root, 'currencies', includeInactive ?? false] as const,
@@ -111,6 +113,18 @@ export function chartAccountsTreeQueryOptions(activeOnly = false) {
   return queryOptions({
     queryKey: [...accountingKeys.chartAccountsTree(), activeOnly] as const,
     queryFn: () => api.listChartAccountsTree(activeOnly),
+  });
+}
+
+export function chartAccountsTreeByBranchQueryOptions(p: {
+  branch_id: number;
+  as_of: string;
+  active_only?: boolean;
+}) {
+  return queryOptions({
+    queryKey: accountingKeys.chartAccountsTreeByBranch(p),
+    queryFn: () => api.listChartAccountsTreeByBranch(p),
+    enabled: p.branch_id > 0,
   });
 }
 

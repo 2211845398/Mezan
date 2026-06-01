@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -10,28 +9,21 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Table,
   TableBody,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
 import { now, utcCalendarDayKey } from '@/lib/date';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
+import { AccountingBranchFilter } from '../../components/AccountingBranchFilter';
 import type { TrialBalanceRow } from '../../api';
-import { exportTrialBalanceCsvBlob } from '../../api';
+import { exportTrialBalanceCsvBlob, exportTrialBalancePdfBlob } from '../../api';
+import { accountingMoneyCell, accountingMoneyHead } from '../../lib/accountingTableClasses';
 import { buildLedgerDrillDownUrl } from '../../lib/ledgerDrillDownUrl';
 import { trialBalanceQueryOptions } from '../../queries';
 
@@ -39,13 +31,9 @@ export default function TrialBalance() {
   const { t } = useTranslation('accounting');
   const t0 = utcCalendarDayKey(now());
   const [asOf, setAsOf] = useState(t0);
-  const [branch, setBranch] = useState('__all');
+  const [branchId, setBranchId] = useState<number | null>(null);
   const [applied, setApplied] = useState<{ as_of: string; branch_id?: number }>({ as_of: t0 });
   const canExport = usePermission('accounting', 'read');
-  const { data: branches = [] } = useQuery({
-    queryKey: adminKeys.branches(false),
-    queryFn: () => listBranches({ include_archived: false }),
-  });
   const { data: rows = [], isLoading, isError, refetch } = useQuery(
     trialBalanceQueryOptions(applied),
   );
@@ -63,23 +51,35 @@ export default function TrialBalance() {
   }, [rows]);
 
   const apply = () => {
-    const b = branch === '__all' ? undefined : Number(branch);
     setApplied(
-      b === undefined ? { as_of: asOf } : { as_of: asOf, branch_id: b },
+      branchId == null ? { as_of: asOf } : { as_of: asOf, branch_id: branchId },
     );
   };
 
-  const exportCsv = async () => {
-    const b = branch === '__all' ? undefined : Number(branch);
-    const blob = await exportTrialBalanceCsvBlob(
-      b === undefined
+  const exportParams = useMemo(
+    () =>
+      applied.branch_id == null
         ? { as_of: applied.as_of }
-        : { as_of: applied.as_of, branch_id: b },
-    );
+        : { as_of: applied.as_of, branch_id: applied.branch_id },
+    [applied],
+  );
+
+  const exportCsv = async () => {
+    const blob = await exportTrialBalanceCsvBlob(exportParams);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'trial_balance.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPdf = async () => {
+    const blob = await exportTrialBalancePdfBlob(exportParams);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trial_balance_${applied.as_of}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -113,29 +113,27 @@ export default function TrialBalance() {
         { id: 'type', accessorKey: 'account_type', header: t('tb.col.type') },
         {
           id: 'dr',
-          header: t('tb.col.debit'),
+          header: () => <span className={accountingMoneyHead}>{t('tb.col.debit')}</span>,
           cell: ({ row }) => (
-            <span className="block text-end tabular-nums num-latin">
+            <span className={accountingMoneyCell}>
               {Number(row.original.total_debit) !== 0 ? formatMoney(row.original.total_debit) : ''}
             </span>
           ),
         },
         {
           id: 'cr',
-          header: t('tb.col.credit'),
+          header: () => <span className={accountingMoneyHead}>{t('tb.col.credit')}</span>,
           cell: ({ row }) => (
-            <span className="block text-end tabular-nums num-latin">
+            <span className={accountingMoneyCell}>
               {Number(row.original.total_credit) !== 0 ? formatMoney(row.original.total_credit) : ''}
             </span>
           ),
         },
         {
           id: 'net',
-          header: t('tb.col.net'),
+          header: () => <span className={accountingMoneyHead}>{t('tb.col.net')}</span>,
           cell: ({ row }) => (
-            <span className={cn('block text-end tabular-nums num-latin',
-              Number(row.original.net) !== 0 && 'font-medium',
-            )}>
+            <span className={cn(accountingMoneyCell, Number(row.original.net) !== 0 && 'font-medium')}>
               {formatMoney(row.original.net)}
             </span>
           ),
@@ -169,31 +167,29 @@ export default function TrialBalance() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('tb.as_of')}</Label>
-          <DateField value={asOf} onChange={setAsOf} />
+          <DateField value={asOf} onChange={setAsOf} className="w-[200px]" />
         </div>
         <div className="grid gap-1">
           <Label>{t('toolbar.branch')}</Label>
-          <Select value={branch} onValueChange={setBranch}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">{t('toolbar.all_branches')}</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={String(b.id)}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AccountingBranchFilter
+            value={branchId}
+            onChange={setBranchId}
+            clearLabel={t('toolbar.all_branches')}
+            className="w-[200px]"
+          />
         </div>
         <Button type="button" onClick={apply}>
           {t('toolbar.apply')}
         </Button>
         {canExport ? (
-          <Button type="button" variant="outline" onClick={() => void exportCsv()}>
-            {t('tb.export')}
-          </Button>
+          <>
+            <Button type="button" variant="outline" onClick={() => void exportCsv()}>
+              {t('tb.export')}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void exportPdf()}>
+              {t('tb.export_pdf')}
+            </Button>
+          </>
         ) : null}
       </div>
 
@@ -214,9 +210,9 @@ export default function TrialBalance() {
             <TableHeader>
               <TableRow>
                 <TableHead colSpan={3}>{t('tb.totals_row')}</TableHead>
-                <TableHead className="text-end">{formatMoney(totals.dr)}</TableHead>
-                <TableHead className="text-end">{formatMoney(totals.cr)}</TableHead>
-                <TableHead className={cn('text-end', !totals.balanced && 'text-destructive font-semibold')}>
+                <TableHead className={accountingMoneyHead}>{formatMoney(totals.dr)}</TableHead>
+                <TableHead className={accountingMoneyHead}>{formatMoney(totals.cr)}</TableHead>
+                <TableHead className={cn(accountingMoneyHead, !totals.balanced && 'text-destructive font-semibold')}>
                   {formatMoney(Math.abs(totals.dr - totals.cr))}
                 </TableHead>
               </TableRow>

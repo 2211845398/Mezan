@@ -26,7 +26,7 @@ export default function ItAdminDashboard() {
 
   const health = useQuery(healthDashboardQueryOptions());
 
-  const users = useUsersList({ enabled: canUsers });
+  const users = useUsersList({ limit: 200, offset: 0 }, { enabled: canUsers });
   const roles = useRoles({ enabled: canRoles });
   const terminals = useTerminals(undefined, { enabled: canTerminals });
   const backups = useBackupStatus({ enabled: canBackups });
@@ -34,7 +34,7 @@ export default function ItAdminDashboard() {
   const runs = useNotificationRuns({ enabled: canNotif });
 
   const activeUsers = useMemo(() => {
-    const list = users.data ?? [];
+    const list = users.data?.items ?? [];
     return list.filter((u) => u.status === 'active').length;
   }, [users.data]);
 
@@ -86,7 +86,7 @@ export default function ItAdminDashboard() {
               <p>…</p>
             ) : (
               <p className="text-2xl font-semibold tabular-nums num-latin">
-                {activeUsers}/{users.data?.length ?? 0}
+                {activeUsers}/{users.data?.total ?? 0}
               </p>
             )}
             <CardDescription className="pt-1">{t('role.it.users_hint')}</CardDescription>

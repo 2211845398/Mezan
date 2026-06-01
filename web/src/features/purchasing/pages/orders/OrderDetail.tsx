@@ -131,6 +131,7 @@ export default function OrderDetail() {
       const productLabels: Record<number, string> = {};
       const productUom: Record<number, string> = {};
       const variantLabels: Record<number, string> = {};
+      const variantReferenceCodes: Record<number, string> = {};
       for (const pid of productIds) {
         const pw = await getProductWithVariants(pid);
         productLabels[pid] = pw.product.name;
@@ -144,9 +145,10 @@ export default function OrderDetail() {
               sku: v.sku,
               attribute_values: v.attribute_values,
             });
+          variantReferenceCodes[v.id] = (v.reference_code ?? '').trim();
         }
       }
-      return { productLabels, productUom, variantLabels };
+      return { productLabels, productUom, variantLabels, variantReferenceCodes };
     },
     enabled: !Number.isNaN(poId) && productIds.length > 0,
   });
@@ -154,6 +156,7 @@ export default function OrderDetail() {
   const productLabels = lineMeta?.productLabels ?? {};
   const productUom = lineMeta?.productUom ?? {};
   const variantLabels = lineMeta?.variantLabels ?? {};
+  const variantReferenceCodes = lineMeta?.variantReferenceCodes ?? {};
 
   if (Number.isNaN(poId)) {
     return null;
@@ -305,6 +308,7 @@ export default function OrderDetail() {
           receipts={receipts}
           productLabels={productLabels}
           variantLabels={variantLabels}
+          variantReferenceCodes={variantReferenceCodes}
           branchesById={branchesById}
         />
       </SectionCard>

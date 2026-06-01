@@ -1,6 +1,6 @@
 """User CRUD API router (RBAC-protected)."""
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,9 +20,11 @@ from app.schemas.users import (
     UserOnboardingSubjectUpdate,
     UserPermissionOverrideRead,
     UserPermissionOverrideWrite,
+    UserListResponse,
     UserRead,
     UserUpdate,
 )
+from app.services.user_admin_service import list_users_page
 from app.services import audit_service, auth_service, bootstrap_admin_protection
 from app.services.effective_permissions import (
     list_onboarding_assignee_users,
@@ -104,16 +106,18 @@ async def create_user(
     return bootstrap_admin_protection.user_read_with_protection_flag(user)
 
 
-@router.get("/users", response_model=list[UserRead])
+@router.get("/users", response_model=UserListResponse)
 async def list_users(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("users", "read"),
-) -> list[UserRead]:
-    """List all users. Requires users:read permission."""
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-    return [bootstrap_admin_protection.user_read_with_protection_flag(u) for u in users]
+) -> UserListResponse:
+    """Paginated user list. Requires users:read permission."""
+    users, total = await list_users_page(db, limit=limit, offset=offset)
+    items = [bootstrap_admin_protection.user_read_with_protection_flag(u) for u in users]
+    return UserListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/users/onboarding-assignees", response_model=list[UserRead])

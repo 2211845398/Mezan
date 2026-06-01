@@ -5,15 +5,24 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from decimal import ROUND_FLOOR, Decimal
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError, StateTransitionError, ValidationError
+from app.core.errors import (
+    NotFoundError,
+    StateTransitionError,
+    ValidationError,
+    not_found_error,
+    state_transition_error,
+    validation_error,
+)
 from app.models.discount import DiscountRule, DiscountType, DiscountUsageLog
 from app.models.pos_cart import CartDaySequence, PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_shift import PosShift
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
+from app.models.unit_of_measure import UnitOfMeasure
 from app.schemas.pos_cart import CartDiscountRead, CartLineRead, CartRead
 from app.services.accounting_service import get_accounting_settings
 from app.services.branch_scope import require_branch_open_for_operations
@@ -337,9 +346,10 @@ async def apply_discount(
 
     trimmed = code.strip()
     if trimmed == LOYALTY_CART_DISCOUNT_CODE:
-        raise ValidationError(
+        validation_error(
+            "pos_discount_reserved",
             "This discount code is reserved for loyalty redemption",
-            details={"code": trimmed},
+            code=trimmed,
         )
     dup = await db.execute(
         select(PosCartDiscount.id)
@@ -347,9 +357,10 @@ async def apply_discount(
         .limit(1)
     )
     if dup.scalar_one_or_none() is not None:
-        raise ValidationError(
+        validation_error(
+            "pos_discount_already_applied",
             "This discount code is already applied to the cart",
-            details={"code": trimmed},
+            code=trimmed,
         )
 
     rule = await get_discount_rule_by_code(db, code=trimmed)
@@ -544,7 +555,12 @@ async def change_state(db: AsyncSession, *, cart_id: int, action: str, user_id: 
                 if action == "lock"
                 else "Cannot park an empty cart"
             )
-            raise ValidationError(msg, details={"cart_id": cart.id, "action": action})
+            validation_error(
+                "checkout_empty_cart" if action == "lock" else "park_empty_cart",
+                msg,
+                cart_id=cart.id,
+                action=action,
+            )
     prev_status = cart.status
     new_status = _assert_transition(cart.status, action)
     cart.status = new_status
@@ -565,40 +581,15 @@ async def change_state(db: AsyncSession, *, cart_id: int, action: str, user_id: 
     return cart
 
 
-async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
-    """Load cart with lines/discounts and product labels for POS UI."""
-    c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
-    cart = c_res.scalar_one_or_none()
-    if not cart:
-        raise NotFoundError("Cart not found")
-
-    lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart_id))
-    lines = list(lines_res.scalars().all())
-    disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart_id))
-    discounts = list(disc_res.scalars().all())
-
-    product_ids = {ln.product_id for ln in lines}
-    variant_ids = {ln.variant_id for ln in lines if ln.variant_id is not None}
-    from app.models.product_variant import ProductVariant
-    from app.models.unit_of_measure import UnitOfMeasure
-
-    prods: dict[int, Product] = {}
-    uom_by_id: dict[int, UnitOfMeasure] = {}
-    if product_ids:
-        pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
-        prods = {p.id: p for p in pres.scalars().all()}
-        uom_ids = {p.uom_id for p in prods.values()}
-        if uom_ids:
-            ures = await db.execute(select(UnitOfMeasure).where(UnitOfMeasure.id.in_(uom_ids)))
-            uom_by_id = {int(u.id): u for u in ures.scalars().all()}
-
-    variants: dict[int, ProductVariant] = {}
-    if variant_ids:
-        vres = await db.execute(
-            select(ProductVariant).where(ProductVariant.id.in_(variant_ids))
-        )
-        variants = {v.id: v for v in vres.scalars().all()}
-
+def _cart_to_read(
+    cart: PosCart,
+    *,
+    lines: list[PosCartLine],
+    discounts: list[PosCartDiscount],
+    prods: dict[int, Product],
+    variants: dict[int, ProductVariant],
+    uom_by_id: dict[int, UnitOfMeasure],
+) -> CartRead:
     line_reads: list[CartLineRead] = []
     for ln in lines:
         p = prods.get(ln.product_id)
@@ -621,7 +612,6 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
                 line_tax_amount=ln.line_tax_amount,
             )
         )
-
     disc_reads = [
         CartDiscountRead(
             id=d.id,
@@ -632,11 +622,11 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
         )
         for d in discounts
     ]
-
     return CartRead(
         id=cart.id,
         terminal_id=cart.terminal_id,
         branch_id=cart.branch_id,
+        daily_cart_number=cart.daily_cart_number,
         shift_id=cart.shift_id,
         customer_id=cart.customer_id,
         status=cart.status,
@@ -647,6 +637,125 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
         lines=line_reads,
         discounts=disc_reads,
     )
+
+
+async def _load_cart_catalog_maps(
+    db: AsyncSession,
+    *,
+    product_ids: set[int],
+    variant_ids: set[int],
+) -> tuple[dict[int, Product], dict[int, ProductVariant], dict[int, UnitOfMeasure]]:
+    prods: dict[int, Product] = {}
+    uom_by_id: dict[int, UnitOfMeasure] = {}
+    if product_ids:
+        pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
+        prods = {p.id: p for p in pres.scalars().all()}
+        uom_ids = {p.uom_id for p in prods.values()}
+        if uom_ids:
+            ures = await db.execute(select(UnitOfMeasure).where(UnitOfMeasure.id.in_(uom_ids)))
+            uom_by_id = {int(u.id): u for u in ures.scalars().all()}
+    variants: dict[int, ProductVariant] = {}
+    if variant_ids:
+        vres = await db.execute(
+            select(ProductVariant).where(ProductVariant.id.in_(variant_ids))
+        )
+        variants = {v.id: v for v in vres.scalars().all()}
+    return prods, variants, uom_by_id
+
+
+async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
+    """Load cart with lines/discounts and product labels for POS UI."""
+    c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
+    cart = c_res.scalar_one_or_none()
+    if not cart:
+        raise NotFoundError("Cart not found")
+
+    lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart_id))
+    lines = list(lines_res.scalars().all())
+    disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart_id))
+    discounts = list(disc_res.scalars().all())
+
+    product_ids = {ln.product_id for ln in lines}
+    variant_ids = {ln.variant_id for ln in lines if ln.variant_id is not None}
+    prods, variants, uom_by_id = await _load_cart_catalog_maps(
+        db, product_ids=product_ids, variant_ids=variant_ids
+    )
+    return _cart_to_read(
+        cart,
+        lines=lines,
+        discounts=discounts,
+        prods=prods,
+        variants=variants,
+        uom_by_id=uom_by_id,
+    )
+
+
+async def list_carts_read(
+    db: AsyncSession,
+    *,
+    status: str | None = None,
+    terminal_id: int | None = None,
+    branch_id: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[CartRead], int]:
+    """Paginated cart list with batched line/product loads (avoids N+1)."""
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
+    filters = []
+    if status is not None:
+        filters.append(PosCart.status == status)
+    if terminal_id is not None:
+        filters.append(PosCart.terminal_id == terminal_id)
+    if branch_id is not None:
+        filters.append(PosCart.branch_id == branch_id)
+
+    count_stmt = select(func.count()).select_from(PosCart)
+    if filters:
+        count_stmt = count_stmt.where(*filters)
+    total = int(await db.scalar(count_stmt) or 0)
+
+    q = select(PosCart).order_by(PosCart.updated_at.desc()).limit(limit).offset(offset)
+    if filters:
+        q = q.where(*filters)
+    carts = list((await db.execute(q)).scalars().all())
+    if not carts:
+        return [], total
+
+    cart_ids = [c.id for c in carts]
+    lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id.in_(cart_ids)))
+    all_lines = list(lines_res.scalars().all())
+    disc_res = await db.execute(
+        select(PosCartDiscount).where(PosCartDiscount.cart_id.in_(cart_ids))
+    )
+    all_discounts = list(disc_res.scalars().all())
+
+    lines_by_cart: dict[int, list[PosCartLine]] = {cid: [] for cid in cart_ids}
+    for ln in all_lines:
+        lines_by_cart.setdefault(ln.cart_id, []).append(ln)
+    discs_by_cart: dict[int, list[PosCartDiscount]] = {cid: [] for cid in cart_ids}
+    for d in all_discounts:
+        discs_by_cart.setdefault(d.cart_id, []).append(d)
+
+    product_ids = {ln.product_id for ln in all_lines}
+    variant_ids = {ln.variant_id for ln in all_lines if ln.variant_id is not None}
+    prods, variants, uom_by_id = await _load_cart_catalog_maps(
+        db, product_ids=product_ids, variant_ids=variant_ids
+    )
+
+    items = [
+        _cart_to_read(
+            cart,
+            lines=lines_by_cart.get(cart.id, []),
+            discounts=discs_by_cart.get(cart.id, []),
+            prods=prods,
+            variants=variants,
+            uom_by_id=uom_by_id,
+        )
+        for cart in carts
+    ]
+    return items, total
 
 
 async def patch_cart_customer(

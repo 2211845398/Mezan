@@ -69,9 +69,8 @@ async def list_employee_profiles(db: AsyncSession) -> list[EmployeeProfile]:
     return list(result.scalars().all())
 
 
-async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
-    """Return employee profiles with enriched user, branch, and role details."""
-    stmt = (
+def _employee_enriched_select():
+    return (
         select(
             EmployeeProfile,
             User.email.label("user_email"),
@@ -94,30 +93,64 @@ async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
             (UserRole.user_id == User.id) & (UserRole.branch_id.is_(None)),
         )
         .outerjoin(Role, UserRole.role_id == Role.id)
+    )
+
+
+def _row_to_enriched(row) -> dict:
+    employee = row[0]
+    return {
+        "employee": employee,
+        "user_email": row.user_email,
+        "user_first_name": row.user_first_name,
+        "user_father_name": row.user_father_name,
+        "user_family_name": row.user_family_name,
+        "user_full_name": row.user_full_name,
+        "user_status": row.user_status,
+        "user_branch_id": row.user_branch_id,
+        "user_branch_name": row.user_branch_name,
+        "user_role_code": row.user_role_code,
+        "user_role_name": row.user_role_name,
+    }
+
+
+async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
+    """Return all employee profiles with enriched user, branch, and role details."""
+    stmt = _employee_enriched_select().order_by(EmployeeProfile.id.asc())
+    result = await db.execute(stmt)
+    return [_row_to_enriched(row) for row in result.all()]
+
+
+async def list_employee_profiles_enriched_page(
+    db: AsyncSession,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict], int]:
+    """Paginated enriched employee list."""
+    from sqlalchemy import func
+
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
+    total = int(
+        await db.scalar(select(func.count()).select_from(EmployeeProfile)) or 0
+    )
+    id_res = await db.execute(
+        select(EmployeeProfile.id)
+        .order_by(EmployeeProfile.id.asc())
+        .limit(limit)
+        .offset(offset)
+    )
+    ids = list(id_res.scalars().all())
+    if not ids:
+        return [], total
+    stmt = (
+        _employee_enriched_select()
+        .where(EmployeeProfile.id.in_(ids))
         .order_by(EmployeeProfile.id.asc())
     )
     result = await db.execute(stmt)
-
-    enriched = []
-    for row in result.all():
-        employee = row[0]
-        enriched.append(
-            {
-                "employee": employee,
-                "user_email": row.user_email,
-                "user_first_name": row.user_first_name,
-                "user_father_name": row.user_father_name,
-                "user_family_name": row.user_family_name,
-                "user_full_name": row.user_full_name,
-                "user_status": row.user_status,
-                "user_branch_id": row.user_branch_id,
-                "user_branch_name": row.user_branch_name,
-                "user_role_code": row.user_role_code,
-                "user_role_name": row.user_role_name,
-            }
-        )
-
-    return enriched
+    return [_row_to_enriched(row) for row in result.all()], total
 
 
 async def get_employee_profile_enriched(db: AsyncSession, employee_profile_id: int) -> dict:
