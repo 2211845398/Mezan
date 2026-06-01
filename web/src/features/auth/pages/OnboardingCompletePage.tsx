@@ -1,13 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { completeCustomerOnboarding } from '@/features/auth/api';
+import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
+import { notify } from '@/lib/toast';
 import { zodOptionalNonEmptyEmail } from '@/lib/validation/contact';
 
 /**
@@ -54,6 +56,15 @@ export default function OnboardingCompletePage() {
     }
   }
 
+  const onInvalid = (errs: FieldErrors<Values>) => {
+    if (errs.email) {
+      notify.error(tc('errors.validation_email'));
+      void form.setFocus('email');
+      return;
+    }
+    notify.error(tc('errors.validation_required'));
+  };
+
   if (!token) {
     return (
       <div className="space-y-6 text-center" dir="auto">
@@ -91,7 +102,7 @@ export default function OnboardingCompletePage() {
       <form
         className="space-y-4"
         onSubmit={(e) => {
-          void form.handleSubmit(onSubmit)(e);
+          void form.handleSubmit(onSubmit, onInvalid)(e);
         }}
         noValidate
       >
@@ -102,7 +113,7 @@ export default function OnboardingCompletePage() {
           <input
             id="onboarding-fn"
             type="text"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             {...form.register('first_name')}
           />
         </div>
@@ -113,7 +124,7 @@ export default function OnboardingCompletePage() {
           <input
             id="onboarding-father"
             type="text"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             {...form.register('father_name')}
           />
         </div>
@@ -124,7 +135,7 @@ export default function OnboardingCompletePage() {
           <input
             id="onboarding-family"
             type="text"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             {...form.register('family_name')}
           />
         </div>
@@ -137,15 +148,10 @@ export default function OnboardingCompletePage() {
             id="onboarding-email"
             type="email"
             dir="ltr"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.email ? true : undefined}
             {...form.register('email')}
           />
-          {form.formState.errors.email ? (
-            <p className="text-xs text-destructive" role="alert">
-              {t('auth:login.email_invalid')}
-            </p>
-          ) : null}
         </div>
 
         <button

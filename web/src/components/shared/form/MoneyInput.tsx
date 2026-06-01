@@ -25,6 +25,8 @@ export type MoneyInputProps = Omit<
   onValueChange?: (value: string) => void;
   currency?: string;
   fractionDigits?: number;
+  /** External validation error (e.g. react-hook-form). */
+  invalid?: boolean | undefined;
 };
 
 function sanitiseInput(raw: string): string {
@@ -48,7 +50,17 @@ function formatDisplay(
 
 export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
   (
-    { value = '', onChange, onValueChange, currency, fractionDigits = 2, className, disabled, ...rest },
+    {
+      value = '',
+      onChange,
+      onValueChange,
+      currency,
+      fractionDigits = 2,
+      className,
+      disabled,
+      invalid,
+      ...rest
+    },
     ref,
   ) => {
     const emit = onChange ?? onValueChange;
@@ -81,6 +93,7 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
           dir="ltr"
           value={display}
           disabled={disabled}
+          aria-invalid={invalid || rest['aria-invalid'] || undefined}
           className={cn(currency ? 'pe-12 text-end' : 'text-end', className)}
           onFocus={() => {
             setFocused(true);

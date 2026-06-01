@@ -12,6 +12,7 @@
       "hire_date": "Hire date",
       "hourly_rate": "Hourly rate",
       "compensation": "Compensation",
+      "monthly_salary": "Monthly salary",
       "identity_document": "ID document"
     },
     "form": {
@@ -47,13 +48,14 @@
       "identity_doc_national_id": "National ID",
       "identity_doc_residency": "Residency / Iqama",
       "identity_doc_other": "Other",
+      "national_id_invalid": "Invalid national ID. Example: 220030369666",
+      "iban_invalid": "Invalid Libyan IBAN (starts with LY followed by 23 digits).",
       "identity_section_title": "Identity document",
       "identity_scan_uploaded": "Document scan uploaded"
     }
   },
   "pending": {
     "title": "Pending employee requests",
-    "subtitle": "Review and approve new user onboarding to create employee records",
     "empty": "No pending requests",
     "not_found": "Onboarding request not found",
     "review": "Review",
@@ -90,6 +92,11 @@
     "timesheet_link": "Timesheet",
     "filter_category": "Category",
     "filter_status": "Status",
+    "employee_search_placeholder": "Search employees…",
+    "employee_search_empty": "No employees found",
+    "validation": {
+      "wide_range": "Please select a specific employee/branch or shorten the date range to display records."
+    },
     "col": {
       "id": "ID",
       "employee": "Employee",
@@ -237,13 +244,25 @@
       "excessive_overtime": "Excessive overtime",
       "missing_clock_out": "Missing clock-out",
       "outside_schedule": "Outside schedule",
-      "unusual_pattern": "Unusual pattern"
+      "unusual_pattern": "Unusual pattern",
+      "scheduled_absence": "Absence on scheduled work day",
+      "continuous_shift": "Multi-day continuous shift"
     },
     "suggestion": {
       "excessive_overtime": "Review shifts over policy, confirm approvals, and discuss workload with the employee.",
       "missing_clock_out": "Ask the employee to complete clock-out or correct the attendance record.",
       "outside_schedule": "Verify schedule vs. actual punches and adjust schedule or attendance as needed.",
-      "unusual_pattern": "Spot-check attendance with the employee and branch supervisor."
+      "unusual_pattern": "Spot-check attendance with the employee and branch supervisor.",
+      "scheduled_absence": "Confirm the reason (unrecorded leave, illness, schedule error) and follow HR policy.",
+      "continuous_shift": "Review rest compliance; correct punches if the shift span is a data error."
+    },
+    "explanation": {
+      "excessive_overtime": "Shift lasted {{hours}} hours, exceeding the 10-hour daily threshold.",
+      "missing_clock_out": "Clock-in without clock-out for more than 16 hours; punch may have been forgotten.",
+      "outside_schedule": "Clock-in is more than 60 minutes off the employee's usual time.",
+      "unusual_pattern": "Unusual attendance pattern worth reviewing.",
+      "scheduled_absence": "No clock-in on scheduled work day {{date}} (not covered by approved leave).",
+      "continuous_shift": "Shift spanned {{hours}} hours across calendar day(s); review rest compliance and punches."
     },
     "col": {
       "employee": "Employee",

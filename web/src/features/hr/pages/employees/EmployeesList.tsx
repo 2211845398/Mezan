@@ -17,18 +17,22 @@ import { getBranchLabel } from '@/features/admin/lib/branchLabels';
 import { roleCodeLabel } from '@/features/admin/lib/roleLabels';
 import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
+import { formatCurrency } from '@/lib/format';
 
 import { type EmployeeProfileRead } from '../../api';
 import { employeeProfileRowSearchValue } from '../../lib/hrTableSearch';
 import { employeesQueryOptions } from '../../queries';
+
+const DISPLAY_CURRENCY = 'USD';
 
 export default function EmployeesList() {
   const { t, i18n } = useTranslation('hr');
   const canOnboardingRead = usePermission('onboarding', 'read');
   const [urlQuery] = useTableUrlState({ pageSize: 20 });
   const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
+  const q = urlQuery.q.trim();
   const { data, isLoading, isError, refetch } = useQuery(
-    employeesQueryOptions({ limit, offset }),
+    employeesQueryOptions({ limit, offset, ...(q ? { q } : {}) }),
   );
   const rows = data?.items ?? [];
   const totalRows = data?.total ?? 0;
@@ -54,16 +58,16 @@ export default function EmployeesList() {
     const searchOpts = { branches, tStatusAr, tStatusEn, tRoleAr, tRoleEn };
     return defineColumns<EmployeeProfileRead>()([
       {
-        id: 'email',
-        header: tAdmin('users.col.email'),
-        accessorFn: (row) => employeeProfileRowSearchValue(row, searchOpts),
-        cell: ({ row }) => row.original.user_email ?? '—',
-      },
-      {
         id: 'full_name',
         header: tAdmin('users.col.full_name'),
         accessorFn: (row) => employeeProfileRowSearchValue(row, searchOpts),
         cell: ({ row }) => row.original.user_full_name ?? row.original.user_email ?? `User #${row.original.user_id}`,
+      },
+      {
+        id: 'email',
+        header: tAdmin('users.col.email'),
+        accessorFn: (row) => employeeProfileRowSearchValue(row, searchOpts),
+        cell: ({ row }) => row.original.user_email ?? '—',
       },
       {
         id: 'status',
@@ -103,19 +107,14 @@ export default function EmployeesList() {
         accessorFn: (row) => employeeProfileRowSearchValue(row, searchOpts),
         cell: ({ row }) => {
           const typ = row.original.identity_document_type?.trim();
-          const num = row.original.identity_document_number?.trim();
           const hasImg = Boolean(row.original.identity_document_image_url);
-          if (!typ && !num && !hasImg) return '—';
+          if (!typ && !hasImg) return '—';
           const label = typ
             ? t(`employees.form.identity_doc_${typ}`, { defaultValue: typ })
-            : '';
-          const numDisp = num ? (label ? ` · ${num}` : num) : '';
+            : '—';
           return (
-            <span className="inline-flex max-w-[14rem] flex-wrap items-center gap-1 truncate">
-              <span className="truncate">
-                {label}
-                {numDisp}
-              </span>
+            <span className="inline-flex max-w-[14rem] items-center gap-1 truncate">
+              <span className="truncate">{label}</span>
               {hasImg ? (
                 <span className="shrink-0 text-muted-foreground" title={t('employees.form.identity_document_preview')}>
                   ✓
@@ -127,17 +126,16 @@ export default function EmployeesList() {
       },
       {
         id: 'compensation',
-        header: t('employees.col.compensation'),
+        header: t('employees.col.monthly_salary'),
         accessorFn: (row) => employeeProfileRowSearchValue(row, searchOpts),
         cell: ({ row }) => {
-          const parts: string[] = [];
-          if (row.original.base_salary != null && row.original.base_salary !== '') {
-            parts.push(String(row.original.base_salary));
-          }
-          if (row.original.hourly_rate != null && row.original.hourly_rate !== '') {
-            parts.push(String(row.original.hourly_rate));
-          }
-          return parts.length ? parts.join(' · ') : '—';
+          const salary = row.original.base_salary;
+          if (salary == null || salary === '') return '—';
+          return (
+            <span dir="ltr" className="tabular-nums num-latin">
+              {formatCurrency(salary, DISPLAY_CURRENCY)}
+            </span>
+          );
         },
       },
       {
@@ -182,6 +180,7 @@ export default function EmployeesList() {
       />
       <DataTable
         mode="server"
+        defaultUrlQuery={{ pageSize: 20 }}
         columns={columns}
         data={rows}
         totalRows={totalRows}

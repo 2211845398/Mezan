@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { Activity } from 'lucide-react';
+import { Activity, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -27,7 +29,9 @@ import LeaveApproveDrawer from './LeaveApproveDrawer';
 
 export default function LeaveList() {
   const { t, i18n } = useTranslation('hr');
+  const { t: tc } = useTranslation('common');
   const canApprove = usePermission('employees', 'approve');
+  const [urlQuery, urlActions] = useTableUrlState();
   const [status, setStatus] = useState<string>('pending');
   const st = status === 'all' ? undefined : status;
   const { data: rows = [], isLoading, isError, refetch } = useQuery(
@@ -100,6 +104,17 @@ export default function LeaveList() {
         cell: ({ row }) => row.original.reason ?? '—',
       },
       {
+        id: 'status',
+        header: t('leave.filter_status'),
+        accessorFn: (row) => {
+          const ep = employeeById.get(row.employee_profile_id);
+          const employeeText = [ep?.user_full_name, ep?.user_email].filter(Boolean).join(' ');
+          return leaveRequestRowSearchValue(row, { employeeText, tHrAr, tHrEn });
+        },
+        cell: ({ row }) =>
+          t(`leave.st.${row.original.status}`, { defaultValue: row.original.status }),
+      },
+      {
         id: 'act',
         header: t('leave.col.actions'),
         enableGlobalFilter: false,
@@ -132,16 +147,50 @@ export default function LeaveList() {
     ]);
   }, [canApprove, employeeById, i18n, t]);
 
-  return (
-    <div className="flex flex-col gap-6 p-6">
-      <PageHeader title={t('leave.title')} />
-      <div className="grid max-w-md gap-2">
-        <Label>{t('leave.filter_status')}</Label>
+  const toolbarFilters = (
+    <div
+      dir={i18n.dir()}
+      className="flex w-full min-w-0 flex-1 flex-wrap items-end gap-2 sm:max-w-2xl"
+    >
+      <div className="grid min-w-0 flex-1 gap-1">
+        <div className="relative min-w-0">
+          <Search
+            className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            id="leave-table-search"
+            type="search"
+            value={urlQuery.q}
+            onChange={(e) => urlActions.setQ(e.target.value)}
+            aria-label={tc('table.search_placeholder')}
+            className="h-9 ps-9"
+            dir={i18n.dir()}
+          />
+          {urlQuery.q ? (
+            <button
+              type="button"
+              onClick={() => urlActions.setQ('')}
+              className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+              aria-label={tc('actions.clear')}
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid shrink-0 gap-1">
+        <Label htmlFor="leave-status-filter" className="text-sm">
+          {t('leave.filter_status')}
+        </Label>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger
+            id="leave-status-filter"
+            className="h-9 w-[9.5rem] justify-between font-normal rtl:flex-row-reverse"
+          >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent dir={i18n.dir()}>
             <SelectItem value="pending">{t('leave.st.pending')}</SelectItem>
             <SelectItem value="approved">{t('leave.st.approved')}</SelectItem>
             <SelectItem value="rejected">{t('leave.st.rejected')}</SelectItem>
@@ -149,6 +198,12 @@ export default function LeaveList() {
           </SelectContent>
         </Select>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader title={t('leave.title')} />
       <DataTable
         mode="client"
         columns={columns}
@@ -156,6 +211,8 @@ export default function LeaveList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        showSearch={false}
+        toolbarLeading={toolbarFilters}
       />
       <LeaveApproveDrawer open={open} onOpenChange={setOpen} leave={sel} />
     </div>

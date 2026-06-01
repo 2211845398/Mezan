@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import and_, delete, select
+from sqlalchemy import String, and_, cast, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
@@ -21,6 +21,10 @@ from app.models.weekly_schedule import WeeklySchedule
 from app.schemas.employees import LeaveRequestRead, VacationLeaveBalanceRead, WeeklyScheduleRead
 from app.services.attendance_classification_service import refresh_attendance_log_classification
 from app.services.identity_document_files import persist_raster_identity_scan
+from app.utils.libyan_validators import (
+    validate_annual_leave_entitlement_days,
+    validate_employee_identity_and_bank,
+)
 from app.utils.person_name import person_name_sql_expr
 
 
@@ -56,6 +60,13 @@ async def create_employee_profile(db: AsyncSession, *, data: dict) -> EmployeePr
 
     if data.get("base_salary") is None and data.get("hourly_rate") is None:
         raise ValidationError("Either base_salary or hourly_rate must be provided")
+
+    validate_annual_leave_entitlement_days(data.get("annual_leave_entitlement_days"))
+    validate_employee_identity_and_bank(
+        identity_document_type=data.get("identity_document_type"),
+        identity_document_number=data.get("identity_document_number"),
+        bank_account=data.get("bank_account"),
+    )
 
     employee = EmployeeProfile(**data)
     db.add(employee)
@@ -120,26 +131,59 @@ async def list_employee_profiles_enriched(db: AsyncSession) -> list[dict]:
     return [_row_to_enriched(row) for row in result.all()]
 
 
+def _employee_id_select():
+    """Employee profile ids with the same joins used for list enrichment."""
+    return (
+        select(EmployeeProfile.id)
+        .join(User, EmployeeProfile.user_id == User.id)
+        .outerjoin(Branch, User.branch_id == Branch.id)
+        .outerjoin(
+            UserRole,
+            (UserRole.user_id == User.id) & (UserRole.branch_id.is_(None)),
+        )
+        .outerjoin(Role, UserRole.role_id == Role.id)
+    )
+
+
+def _employee_search_filter(q: str):
+    """Case-insensitive match across visible list fields."""
+    like = f"%{q.strip()}%"
+    full_name = person_name_sql_expr(User.first_name, User.father_name, User.family_name)
+    return or_(
+        User.email.ilike(like),
+        User.first_name.ilike(like),
+        User.father_name.ilike(like),
+        User.family_name.ilike(like),
+        full_name.ilike(like),
+        EmployeeProfile.identity_document_number.ilike(like),
+        EmployeeProfile.identity_document_type.ilike(like),
+        Branch.name.ilike(like),
+        Role.code.ilike(like),
+        Role.name.ilike(like),
+        cast(EmployeeProfile.hire_date, String).ilike(like),
+        cast(EmployeeProfile.base_salary, String).ilike(like),
+    )
+
+
 async def list_employee_profiles_enriched_page(
     db: AsyncSession,
     *,
     limit: int = 50,
     offset: int = 0,
+    q: str | None = None,
 ) -> tuple[list[dict], int]:
     """Paginated enriched employee list."""
-    from sqlalchemy import func
-
     from app.schemas.pagination import clamp_pagination
 
     limit, offset = clamp_pagination(limit, offset)
-    total = int(
-        await db.scalar(select(func.count()).select_from(EmployeeProfile)) or 0
-    )
+    id_stmt = _employee_id_select()
+    qs = (q or "").strip()
+    if qs:
+        id_stmt = id_stmt.where(_employee_search_filter(qs))
+    id_stmt = id_stmt.distinct()
+    total = int(await db.scalar(select(func.count()).select_from(id_stmt.subquery())) or 0)
     id_res = await db.execute(
-        select(EmployeeProfile.id)
-        .order_by(EmployeeProfile.id.asc())
-        .limit(limit)
-        .offset(offset)
+        id_stmt.order_by(EmployeeProfile.id.asc()).limit(limit).offset(offset)
     )
     ids = list(id_res.scalars().all())
     if not ids:
@@ -264,6 +308,15 @@ async def update_employee_profile(
 ) -> EmployeeProfile:
     employee = await _get_employee_profile(db, employee_profile_id)
     patch = dict(data)
+    validate_annual_leave_entitlement_days(patch.get("annual_leave_entitlement_days"))
+    doc_type = patch.get("identity_document_type", employee.identity_document_type)
+    doc_number = patch.get("identity_document_number", employee.identity_document_number)
+    bank = patch.get("bank_account", employee.bank_account)
+    validate_employee_identity_and_bank(
+        identity_document_type=doc_type,
+        identity_document_number=doc_number,
+        bank_account=bank,
+    )
     subject_keys = (
         "subject_first_name",
         "subject_father_name",
@@ -608,6 +661,33 @@ async def list_leave_requests_filtered(
     return list(result.scalars().all())
 
 
+def _attendance_log_filter_clauses(
+    *,
+    branch_id: int | None = None,
+    employee_profile_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    classification_status: str | None = None,
+    attendance_category: str | None = None,
+) -> list:
+    clauses = []
+    if employee_profile_id is not None:
+        clauses.append(AttendanceLog.employee_profile_id == employee_profile_id)
+    if branch_id is not None:
+        clauses.append(AttendanceLog.branch_id == branch_id)
+    if date_from is not None:
+        start_dt = datetime.combine(date_from, time.min).replace(tzinfo=UTC)
+        clauses.append(AttendanceLog.clock_in_at >= start_dt)
+    if date_to is not None:
+        end_dt = datetime.combine(date_to + timedelta(days=1), time.min).replace(tzinfo=UTC)
+        clauses.append(AttendanceLog.clock_in_at < end_dt)
+    if classification_status:
+        clauses.append(AttendanceLog.classification_status == classification_status)
+    if attendance_category:
+        clauses.append(AttendanceLog.attendance_category == attendance_category)
+    return clauses
+
+
 async def list_attendance_logs_filtered(
     db: AsyncSession,
     *,
@@ -619,29 +699,87 @@ async def list_attendance_logs_filtered(
     attendance_category: str | None = None,
     limit: int = 200,
     offset: int = 0,
-) -> list[AttendanceLog]:
+) -> tuple[list[AttendanceLog], int]:
+    """List attendance logs (ORM rows) with total count; used by summaries and legacy callers."""
+    clauses = _attendance_log_filter_clauses(
+        branch_id=branch_id,
+        employee_profile_id=employee_profile_id,
+        date_from=date_from,
+        date_to=date_to,
+        classification_status=classification_status,
+        attendance_category=attendance_category,
+    )
+    count_stmt = select(func.count()).select_from(AttendanceLog)
+    if clauses:
+        count_stmt = count_stmt.where(*clauses)
+    total = int((await db.scalar(count_stmt)) or 0)
+
     q = select(AttendanceLog)
-    if employee_profile_id is not None:
-        q = q.where(AttendanceLog.employee_profile_id == employee_profile_id)
-    if branch_id is not None:
-        q = q.where(AttendanceLog.branch_id == branch_id)
-    if date_from is not None:
-        start_dt = datetime.combine(date_from, time.min).replace(tzinfo=UTC)
-        q = q.where(AttendanceLog.clock_in_at >= start_dt)
-    if date_to is not None:
-        end_dt = datetime.combine(date_to + timedelta(days=1), time.min).replace(tzinfo=UTC)
-        q = q.where(AttendanceLog.clock_in_at < end_dt)
-    if classification_status:
-        q = q.where(AttendanceLog.classification_status == classification_status)
-    if attendance_category:
-        q = q.where(AttendanceLog.attendance_category == attendance_category)
+    if clauses:
+        q = q.where(*clauses)
     q = (
         q.order_by(AttendanceLog.clock_in_at.desc())
         .limit(min(max(limit, 1), 500))
         .offset(max(offset, 0))
     )
     result = await db.execute(q)
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total
+
+
+async def list_attendance_logs_enriched_page(
+    db: AsyncSession,
+    *,
+    branch_id: int | None = None,
+    employee_profile_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    classification_status: str | None = None,
+    attendance_category: str | None = None,
+    limit: int = 10,
+    offset: int = 0,
+) -> tuple[list[dict], int]:
+    """Paginated attendance logs with employee display fields for list APIs."""
+    from app.schemas.employees import AttendanceLogRead
+
+    clauses = _attendance_log_filter_clauses(
+        branch_id=branch_id,
+        employee_profile_id=employee_profile_id,
+        date_from=date_from,
+        date_to=date_to,
+        classification_status=classification_status,
+        attendance_category=attendance_category,
+    )
+    count_stmt = select(func.count()).select_from(AttendanceLog)
+    if clauses:
+        count_stmt = count_stmt.where(*clauses)
+    total = int((await db.scalar(count_stmt)) or 0)
+
+    employee_name = person_name_sql_expr(User.first_name, User.father_name, User.family_name)
+    q = (
+        select(
+            AttendanceLog,
+            employee_name.label("employee_user_full_name"),
+            User.email.label("employee_user_email"),
+        )
+        .join(EmployeeProfile, AttendanceLog.employee_profile_id == EmployeeProfile.id)
+        .join(User, EmployeeProfile.user_id == User.id)
+    )
+    if clauses:
+        q = q.where(*clauses)
+    q = (
+        q.order_by(AttendanceLog.clock_in_at.desc())
+        .limit(min(max(limit, 1), 50))
+        .offset(max(offset, 0))
+    )
+    result = await db.execute(q)
+    items: list[dict] = []
+    for row in result.all():
+        log: AttendanceLog = row[0]
+        payload = AttendanceLogRead.model_validate(log).model_dump()
+        payload["employee_user_full_name"] = row.employee_user_full_name
+        payload["employee_user_email"] = row.employee_user_email
+        items.append(payload)
+    return items, total
 
 
 async def review_leave_request(
@@ -726,7 +864,7 @@ async def attendance_period_summary(
         summarize_attendance_log_rows,
     )
 
-    logs = await list_attendance_logs_filtered(
+    logs, _total = await list_attendance_logs_filtered(
         db,
         branch_id=branch_id,
         employee_profile_id=employee_profile_id,

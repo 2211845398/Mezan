@@ -6,7 +6,12 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.utils.libyan_validators import (
+    validate_annual_leave_entitlement_days,
+    validate_employee_identity_and_bank,
+)
 
 from app.schemas.pagination import PaginatedListResponse
 
@@ -18,6 +23,21 @@ class EmployeeProfileCreate(BaseModel):
     hourly_rate: Decimal | None = None
     bank_account: str | None = None
     annual_leave_entitlement_days: Decimal | None = None
+    identity_document_type: str | None = Field(default=None, max_length=32)
+    identity_document_number: str | None = Field(default=None, max_length=128)
+
+    @field_validator("annual_leave_entitlement_days")
+    @classmethod
+    def _annual_leave_whole(cls, v: Decimal | None) -> Decimal | None:
+        validate_annual_leave_entitlement_days(v)
+        return v
+
+    def model_post_init(self, __context: object) -> None:
+        validate_employee_identity_and_bank(
+            identity_document_type=self.identity_document_type,
+            identity_document_number=self.identity_document_number,
+            bank_account=self.bank_account,
+        )
 
 
 class EmployeeProfileUpdate(BaseModel):
@@ -28,6 +48,19 @@ class EmployeeProfileUpdate(BaseModel):
     annual_leave_entitlement_days: Decimal | None = None
     identity_document_type: str | None = Field(default=None, max_length=32)
     identity_document_number: str | None = Field(default=None, max_length=128)
+
+    @field_validator("annual_leave_entitlement_days")
+    @classmethod
+    def _annual_leave_whole(cls, v: Decimal | None) -> Decimal | None:
+        validate_annual_leave_entitlement_days(v)
+        return v
+
+    def model_post_init(self, __context: object) -> None:
+        validate_employee_identity_and_bank(
+            identity_document_type=self.identity_document_type,
+            identity_document_number=self.identity_document_number,
+            bank_account=self.bank_account,
+        )
     # Linked user (via employees:update); email and status are not editable here.
     subject_first_name: str | None = None
     subject_father_name: str | None = None
@@ -131,6 +164,12 @@ class AttendanceLogRead(BaseModel):
     early_close_minutes: int | None = None
     overtime_minutes: int | None = None
     policy_snapshot: dict | None = None
+    employee_user_full_name: str | None = None
+    employee_user_email: str | None = None
+
+
+class AttendanceLogListResponse(PaginatedListResponse[AttendanceLogRead]):
+    """Paginated attendance log list for HR dashboards."""
 
 
 class AttendanceSummaryRead(BaseModel):

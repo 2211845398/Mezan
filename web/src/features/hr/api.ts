@@ -20,6 +20,7 @@ export type HrAnomaly = components['schemas']['HrAnomaly'];
 export async function listEmployees(params?: {
   limit?: number;
   offset?: number;
+  q?: string;
 }): Promise<PaginatedList<EmployeeProfileRead>> {
   const { data } = await apiClient.get<PaginatedList<EmployeeProfileRead>>('/employees', {
     params,
@@ -107,8 +108,10 @@ export async function listAttendanceLogsGlobal(params: {
   attendance_category?: string;
   limit?: number;
   offset?: number;
-}): Promise<AttendanceLogRead[]> {
-  const { data } = await apiClient.get<AttendanceLogRead[]>('/attendance/logs', { params });
+}): Promise<PaginatedList<AttendanceLogRead>> {
+  const { data } = await apiClient.get<PaginatedList<AttendanceLogRead>>('/attendance/logs', {
+    params,
+  });
   return data;
 }
 

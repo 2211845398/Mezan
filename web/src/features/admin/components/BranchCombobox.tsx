@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/command';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { MEZ_COMBOBOX_BORDER_CLASS } from '@/lib/fieldFocus';
 import { cn } from '@/lib/utils';
 
 import { getBranchLabel } from '../lib/branchLabels';
@@ -35,6 +36,8 @@ export type BranchComboboxProps = {
   includeArchived?: boolean;
   /** Show branch code under name in the dropdown (default true). */
   showCode?: boolean;
+  /** Highlight trigger when validation failed. */
+  invalid?: boolean;
 };
 
 export function BranchCombobox({
@@ -48,6 +51,7 @@ export function BranchCombobox({
   clearLabel,
   includeArchived = false,
   showCode = true,
+  invalid = false,
 }: BranchComboboxProps) {
   const { t } = useTranslation('admin');
   const { t: tc } = useTranslation('common');
@@ -61,8 +65,10 @@ export function BranchCombobox({
         ? (clearLabel ?? t('branches.picker_clear'))
         : t('branches.picker_placeholder');
     }
-    return getBranchLabel(branches, value) || `#${value}`;
-  }, [allowClear, branches, clearLabel, t, value]);
+    const branch = branches.find((b) => b.id === value);
+    if (!branch) return `#${value}`;
+    return showCode ? getBranchLabel(branches, value) : branch.name;
+  }, [allowClear, branches, clearLabel, showCode, t, value]);
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -80,7 +86,11 @@ export function BranchCombobox({
             role="combobox"
             aria-expanded={open}
             disabled={disabled || isLoading}
-            className="h-auto min-h-10 w-full justify-between py-2 font-normal rtl:flex-row-reverse"
+            aria-invalid={invalid || undefined}
+            className={cn(
+              'h-auto min-h-10 w-full justify-between py-2 font-normal rtl:flex-row-reverse',
+              MEZ_COMBOBOX_BORDER_CLASS,
+            )}
           >
             <span className="min-w-0 flex-1 text-start">{isLoading ? '…' : labelText}</span>
             <ChevronsUpDown className="ms-2 size-4 shrink-0 self-start opacity-50 rtl:ms-0 rtl:me-2" />
@@ -100,6 +110,7 @@ export function BranchCombobox({
                 {allowClear ? (
                   <CommandItem
                     value={NO_BRANCH}
+                    className="gap-2 rtl:flex-row-reverse"
                     onSelect={() => {
                       onChange(null);
                       setOpen(false);
@@ -107,11 +118,11 @@ export function BranchCombobox({
                   >
                     <Check
                       className={cn(
-                        'me-2 size-4 shrink-0',
+                        'size-4 shrink-0',
                         value == null || value === 0 ? 'opacity-100' : 'opacity-0',
                       )}
                     />
-                    {clearLabel ?? t('branches.picker_clear')}
+                    <span className="flex-1 text-start">{clearLabel ?? t('branches.picker_clear')}</span>
                   </CommandItem>
                 ) : null}
                 {branches.map((b: BranchRead) => {
@@ -120,6 +131,7 @@ export function BranchCombobox({
                     <CommandItem
                       key={b.id}
                       value={blob}
+                      className="gap-2 rtl:flex-row-reverse"
                       onSelect={() => {
                         onChange(b.id);
                         setOpen(false);
@@ -127,16 +139,14 @@ export function BranchCombobox({
                     >
                       <Check
                         className={cn(
-                          'me-2 size-4 shrink-0',
+                          'size-4 shrink-0',
                           value === b.id ? 'opacity-100' : 'opacity-0',
                         )}
                       />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-start">
                         <span className="leading-tight">{b.name}</span>
                         {showCode && b.code ? (
-                          <span dir="ltr" className="font-mono text-xs text-muted-foreground">
-                            {b.code}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{b.code}</span>
                         ) : null}
                       </div>
                     </CommandItem>

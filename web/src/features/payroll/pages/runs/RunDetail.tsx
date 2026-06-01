@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,10 +18,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePermission } from '@/hooks/usePermission';
+import { formatMoney } from '@/lib/format';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { cn } from '@/lib/utils';
 
 import { approvePayslip, exportPayrollCsvBlob, patchPayslipAdjustments, recalculatePayslip } from '../../api';
+import { payslipEmployeeDisplay, payslipStatusLabel } from '../../lib/payslipLabels';
 import { payrollKeys, payslipQueryOptions } from '../../queries';
+
+function formatAmount(value: string | null | undefined): string {
+  if (value == null || value === '') return '—';
+  return formatMoney(value);
+}
 
 export default function RunDetail() {
   const { id } = useParams<{ id: string }>();
@@ -102,6 +111,8 @@ export default function RunDetail() {
   if (Number.isNaN(pid)) return null;
   if (isLoading || !ps) return <div className="p-4">…</div>;
 
+  const showAdjustments = canCreate && ps.status === 'draft';
+
   return (
     <div className="flex flex-col gap-6 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -118,7 +129,9 @@ export default function RunDetail() {
             type="button"
             variant="outline"
             disabled={recalc.isPending}
-            className="border-2 border-secondary bg-background text-secondary hover:bg-muted hover:text-secondary"
+            className={cn(
+              'border-secondary bg-background text-secondary hover:border-secondary hover:bg-secondary/10 hover:text-secondary',
+            )}
             onClick={() => void recalc.mutate()}
           >
             {t('actions.recalculate')}
@@ -135,35 +148,35 @@ export default function RunDetail() {
           </Button>
         ) : null}
       </div>
-      <div className="grid max-w-5xl gap-4 lg:grid-cols-2 lg:items-start">
-        <div className="grid max-w-xl gap-2 rounded-md border p-4 text-sm">
+      <div className="grid max-w-5xl gap-4 lg:grid-cols-2 lg:items-stretch">
+        <div className="flex h-full min-h-0 flex-col gap-2 rounded-md border p-4 text-sm">
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">{t('run.col.base_salary')}</span>
-            <span className="font-medium tabular-nums">{ps.base_salary_amount ?? '—'}</span>
+            <span className="font-medium tabular-nums">{formatAmount(ps.base_salary_amount)}</span>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">{t('run.col.bonus')}</span>
-            <span className="font-medium tabular-nums">{ps.bonus_amount ?? '—'}</span>
+            <span className="font-medium tabular-nums">{formatAmount(ps.bonus_amount)}</span>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">{t('run.col.overtime')}</span>
-            <span className="font-medium tabular-nums">{ps.overtime_amount ?? '—'}</span>
+            <span className="font-medium tabular-nums">{formatAmount(ps.overtime_amount)}</span>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">{t('run.col.auto_deductions')}</span>
-            <span className="font-medium tabular-nums">{ps.automatic_deductions_amount ?? '—'}</span>
+            <span className="font-medium tabular-nums">{formatAmount(ps.automatic_deductions_amount)}</span>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">{t('run.col.manual_deductions')}</span>
-            <span className="font-medium tabular-nums">{ps.manual_deductions_amount ?? '—'}</span>
+            <span className="font-medium tabular-nums">{formatAmount(ps.manual_deductions_amount)}</span>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">{t('run.col.paid_at')}</span>
             <span className="font-medium">{ps.paid_at ?? '—'}</span>
           </div>
         </div>
-        {canCreate && ps.status === 'draft' ? (
-          <div className="grid max-w-xl gap-3 rounded-md border p-4">
+        {showAdjustments ? (
+          <div className="flex h-full min-h-0 flex-col gap-3 rounded-md border p-4">
             <div className="font-medium">{t('run.adjustments_title')}</div>
             <div className="grid gap-1">
               <Label>{t('run.col.bonus')}</Label>
@@ -173,11 +186,18 @@ export default function RunDetail() {
               <Label>{t('run.col.manual_deductions')}</Label>
               <MoneyInput value={manualAdj} onChange={setManualAdj} />
             </div>
-            <Button type="button" disabled={patchAdj.isPending} onClick={() => void patchAdj.mutate()}>
+            <Button
+              type="button"
+              className="mt-auto"
+              disabled={patchAdj.isPending}
+              onClick={() => void patchAdj.mutate()}
+            >
               {t('run.save_adjustments')}
             </Button>
           </div>
-        ) : null}
+        ) : (
+          <div className="hidden lg:block" aria-hidden />
+        )}
       </div>
       <Table>
         <TableHeader>
@@ -195,15 +215,17 @@ export default function RunDetail() {
         </TableHeader>
         <TableBody>
           <TableRow>
-            <TableCell>{ps.employee_profile_id}</TableCell>
+            <TableCell>{payslipEmployeeDisplay(ps)}</TableCell>
             <TableCell>{ps.period_start}</TableCell>
             <TableCell>{ps.period_end}</TableCell>
             <TableCell>{String(ps.hours_worked)}</TableCell>
-            <TableCell>{String(ps.hourly_rate)}</TableCell>
-            <TableCell>{String(ps.gross_amount)}</TableCell>
-            <TableCell>{String(ps.deductions)}</TableCell>
-            <TableCell>{String(ps.net_amount)}</TableCell>
-            <TableCell>{ps.status}</TableCell>
+            <TableCell>{formatAmount(ps.hourly_rate != null ? String(ps.hourly_rate) : null)}</TableCell>
+            <TableCell>{formatAmount(String(ps.gross_amount))}</TableCell>
+            <TableCell>{formatAmount(String(ps.deductions))}</TableCell>
+            <TableCell>{formatAmount(String(ps.net_amount))}</TableCell>
+            <TableCell>
+              <StatusBadge status={ps.status} label={payslipStatusLabel(ps.status, t)} />
+            </TableCell>
           </TableRow>
         </TableBody>
       </Table>

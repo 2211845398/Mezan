@@ -7,7 +7,7 @@ import { useParams } from 'react-router-dom';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { SectionCard } from '@/components/shared/ContentSurface';
-import { KpiCard } from '@/components/shared/charts/KpiCard';
+import { KpiCard, kpiCardGridClassName } from '@/components/shared/charts/KpiCard';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -165,7 +165,7 @@ export default function SupplierStatement() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" dir={textDir}>
+      <div className={cn(kpiCardGridClassName)} dir={textDir}>
         {metricCards.map((card) => (
           <KpiCard
             key={card.key}

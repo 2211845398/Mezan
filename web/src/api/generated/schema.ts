@@ -4790,6 +4790,24 @@ export interface components {
             policy_snapshot?: {
                 [key: string]: unknown;
             } | null;
+            /** Employee User Full Name */
+            employee_user_full_name?: string | null;
+            /** Employee User Email */
+            employee_user_email?: string | null;
+        };
+        /**
+         * AttendanceLogListResponse
+         * @description Paginated attendance log list for HR dashboards.
+         */
+        AttendanceLogListResponse: {
+            /** Items */
+            items: components["schemas"]["AttendanceLogRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /** AttendancePayrollPolicyRead */
         AttendancePayrollPolicyRead: {
@@ -6928,7 +6946,7 @@ export interface components {
              * Anomaly Type
              * @enum {string}
              */
-            anomaly_type: "excessive_overtime" | "missing_clock_out" | "outside_schedule" | "unusual_pattern";
+            anomaly_type: "excessive_overtime" | "missing_clock_out" | "outside_schedule" | "unusual_pattern" | "scheduled_absence" | "continuous_shift";
             /**
              * Period Start
              * Format: date-time
@@ -16278,7 +16296,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AttendanceLogRead"][];
+                    "application/json": components["schemas"]["AttendanceLogListResponse"];
                 };
             };
             /** @description Validation Error */

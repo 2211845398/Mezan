@@ -2,7 +2,6 @@
   "runs": {
     "title": "سجل القسائم",
     "generate_section": "إصدار قسيمة",
-    "history_hint": "جميع القسائم عبر الفترات. استخدم «الرواتب الشهرية» لتحضير واعتماد الشهر الحالي.",
     "filters": {
       "month": "شهر الراتب",
       "clear_month": "إزالة الشهر",
@@ -46,7 +45,7 @@
     "net": "الصافي"
   },
   "status": {
-    "calculated": "محسوبة (مسودة)",
+    "draft": "مسودة",
     "approved": "معتمدة"
   },
   "actions": {
@@ -55,7 +54,7 @@
     "detail": "عرض التفاصيل",
     "recalculate": "إعادة احتساب",
     "approve": "اعتماد",
-    "export_csv": "تصدير CSV (المعتمدة)",
+    "export_csv": "تصدير CSV",
     "approved_ok": "تم اعتماد القسيمة",
     "recalc_ok": "تمت إعادة الاحتساب"
   },
@@ -70,10 +69,11 @@
     "month_picker_this_month": "الشهر الحالي",
     "month_picker_prev_year": "السنة السابقة",
     "month_picker_next_year": "السنة التالية",
-    "month_help": "راجع واعتماد رواتب الشهر التقويمي المحدد. استخدم «تحضير الرواتب» لإنشاء مسودات القسائم لجميع الموظفين النشطين.",
     "prepare": "تحضير الرواتب",
-    "prepare_ok": "تم إنشاء {{created}} مسودة؛ {{skipped}} موجودة مسبقاً أو تم تخطيها.",
-    "prepare_partial": "تعذر تحضير {{count}} موظف(ين) — تحقق من معدلات الأجر في الملفات.",
+    "prepare_ok": "تم إنشاء {{created}} مسودة؛ إعادة احتساب {{recalculated}}؛ {{skipped}} معتمدة أو تم تخطيها.",
+    "prepare_partial": "تعذر تحضير {{count}} موظف(ين):\n{{detail}}",
+    "export_excel": "تصدير Excel",
+    "export_excel_ok": "تم تنزيل ملف Excel",
     "export_pdf": "تصدير PDF",
     "export_pdf_ok": "تم تنزيل ملف PDF",
     "approve_pay": "اعتماد وتسجيل الإيداع",
@@ -138,6 +138,12 @@
     }
   },
   "errors": {
-    "generic": "حدث خطأ. حاول مرة أخرى."
+    "generic": "حدث خطأ. حاول مرة أخرى.",
+    "prepare": {
+      "payroll_no_branch": "الموظف غير مربوط بفرع — عيّن الفرع في ملف المستخدم.",
+      "payroll_no_schedule": "لا يوجد جدول عمل أسبوعي — أضفه من صفحة جدول الموظف.",
+      "payroll_no_pay_rate": "يجب تعيين راتب أساسي أو أجر بالساعة في ملف الموظف.",
+      "payroll_negative_net": "الصافي سالب لهذه الفترة — راجع الحضور والغياب والخصومات."
+    }
   }
 }

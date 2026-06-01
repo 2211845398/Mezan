@@ -135,15 +135,15 @@ export default function EmployeeLeave() {
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">{t('leave.st.pending')}</p>
-          <p className="text-2xl font-semibold text-yellow-600">{stats.pending}</p>
+          <p className="text-2xl font-semibold">{stats.pending}</p>
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">{t('leave.st.approved')}</p>
-          <p className="text-2xl font-semibold text-green-600">{stats.approved}</p>
+          <p className="text-2xl font-semibold">{stats.approved}</p>
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">{t('leave.st.rejected')}</p>
-          <p className="text-2xl font-semibold text-red-600">{stats.rejected}</p>
+          <p className="text-2xl font-semibold">{stats.rejected}</p>
         </div>
       </div>
 

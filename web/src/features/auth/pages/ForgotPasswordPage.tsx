@@ -1,13 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, MailCheck } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
 
 import { isAxiosError } from '@/api/client';
 import { requestPasswordReset } from '@/features/auth/api';
+import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
 import { notify } from '@/lib/toast';
 
 const schema = z.object({
@@ -35,6 +36,15 @@ export default function ForgotPasswordPage() {
       }
     }
   }
+
+  const onInvalid = (errs: FieldErrors<Values>) => {
+    if (errs.email) {
+      notify.error(t('auth:login.email_invalid'));
+      void form.setFocus('email');
+      return;
+    }
+    notify.error(t('common:errors.validation_required'));
+  };
 
   if (submitted) {
     return (
@@ -68,7 +78,7 @@ export default function ForgotPasswordPage() {
       <form
         className="space-y-4"
         onSubmit={(e) => {
-          void form.handleSubmit(onSubmit)(e);
+          void form.handleSubmit(onSubmit, onInvalid)(e);
         }}
         noValidate
       >
@@ -81,15 +91,10 @@ export default function ForgotPasswordPage() {
             type="email"
             dir="ltr"
             autoComplete="username"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.email ? true : undefined}
             {...form.register('email')}
           />
-          {form.formState.errors.email ? (
-            <p className="text-xs text-destructive" role="alert">
-              {t('auth:login.email_invalid')}
-            </p>
-          ) : null}
         </div>
 
         <button

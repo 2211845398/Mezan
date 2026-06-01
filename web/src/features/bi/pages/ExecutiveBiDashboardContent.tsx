@@ -9,6 +9,7 @@ import {
   ChartError,
   ChartSkeleton,
   KpiCard,
+  kpiCardGridClassName,
   LineChart,
   PieChart,
 } from '@/components/shared/charts';
@@ -37,6 +38,7 @@ import { useAuthStore } from '@/features/auth/stores/authStore';
 import { MARKETING_SALES_INVOICES_PATH } from '@/features/marketing/paths';
 import { usePermission } from '@/hooks/usePermission';
 import { format, now } from '@/lib/date';
+import { cn } from '@/lib/utils';
 import {
   formatCompactCurrency,
   formatCompactNumber,
@@ -203,16 +205,16 @@ export default function ExecutiveBiDashboardContent() {
       </Card>
 
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className={cn(kpiCardGridClassName, 'lg:grid-cols-5')}>
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-28 animate-pulse rounded-lg border bg-muted/40" />
+            <div key={i} className="h-24 animate-pulse rounded-lg border border-border/80 bg-muted/40 shadow-sm" />
           ))}
         </div>
       ) : isError || !data ? (
         <ChartError message={t('error.load')} onRetry={() => void refetch()} />
       ) : (
         <>
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <section className={cn(kpiCardGridClassName, 'lg:grid-cols-5')}>
             <KpiCard
               title={t('kpi.revenue')}
               value={formatCompactCurrency(grossSales, DISPLAY_CURRENCY)}

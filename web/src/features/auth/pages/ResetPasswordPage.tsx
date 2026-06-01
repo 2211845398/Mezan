@@ -1,13 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { confirmPasswordReset } from '@/features/auth/api';
+import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
 import { notify } from '@/lib/toast';
 
 const schema = z
@@ -49,6 +50,20 @@ export default function ResetPasswordPage() {
     }
   }
 
+  const onInvalid = (errs: FieldErrors<Values>) => {
+    if (errs.password) {
+      notify.error(t('auth:reset.too_short'));
+      void form.setFocus('password');
+      return;
+    }
+    if (errs.confirm?.message === 'mismatch') {
+      notify.error(t('auth:reset.mismatch'));
+      void form.setFocus('confirm');
+      return;
+    }
+    notify.error(t('common:errors.validation_required'));
+  };
+
   if (!token) {
     return (
       <div className="space-y-6 text-center" dir="auto">
@@ -84,7 +99,7 @@ export default function ResetPasswordPage() {
       <form
         className="space-y-4"
         onSubmit={(e) => {
-          void form.handleSubmit(onSubmit)(e);
+          void form.handleSubmit(onSubmit, onInvalid)(e);
         }}
         noValidate
       >
@@ -96,15 +111,10 @@ export default function ResetPasswordPage() {
             id="reset-password"
             type="password"
             autoComplete="new-password"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.password ? true : undefined}
             {...form.register('password')}
           />
-          {form.formState.errors.password ? (
-            <p className="text-xs text-destructive" role="alert">
-              {t('auth:reset.too_short')}
-            </p>
-          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -115,15 +125,10 @@ export default function ResetPasswordPage() {
             id="reset-confirm"
             type="password"
             autoComplete="new-password"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.confirm ? true : undefined}
             {...form.register('confirm')}
           />
-          {form.formState.errors.confirm ? (
-            <p className="text-xs text-destructive" role="alert">
-              {t('auth:reset.mismatch')}
-            </p>
-          ) : null}
         </div>
 
         <button

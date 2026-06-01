@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -11,6 +11,10 @@ import { z } from 'zod';
 import { notifyApiError } from '@/api/errorMessages';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
+import {
+  focusFirstFormError,
+  useFormValidationDisplay,
+} from '@/lib/formValidation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,6 +57,18 @@ function supplierFormSchema(tc: TFunction<'common'>) {
 
 export type SupplierFormValues = z.infer<ReturnType<typeof supplierFormSchema>>;
 
+const SUPPLIER_FORM_FIELD_ORDER = [
+  'first_name',
+  'father_name',
+  'family_name',
+  'currency_code',
+  'tax_id',
+  'payment_terms_id',
+  'contact_phone',
+  'contact_email',
+  'payables_account_id',
+] as const;
+
 export type SupplierFormProps = {
   variant?: 'page' | 'dialog';
   /** Hide page header when rendered inside SupplierDetailLayout tabs. */
@@ -61,11 +77,6 @@ export type SupplierFormProps = {
   /** When passed in dialog mode, this ID is used instead of URL param for editing. */
   editId?: number;
 };
-
-function FieldError({ message }: { message?: string | undefined }) {
-  if (!message) return null;
-  return <p className="text-sm text-destructive">{message}</p>;
-}
 
 export default function SupplierForm({
   variant = 'page',
@@ -115,7 +126,7 @@ export default function SupplierForm({
     },
   });
 
-  const errors = form.formState.errors;
+  const vd = useFormValidationDisplay(form.control);
 
   useEffect(() => {
     if (settings?.base_currency_code && isNew && !form.formState.isDirty) {
@@ -187,8 +198,9 @@ export default function SupplierForm({
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
-  const onInvalid = () => {
+  const onInvalid = (errs: FieldErrors<SupplierFormValues>) => {
     toast.error(t('suppliers.form.validation_summary'));
+    focusFirstFormError(form, errs, SUPPLIER_FORM_FIELD_ORDER);
   };
 
   const useSectionLayout = embedded;
@@ -199,10 +211,10 @@ export default function SupplierForm({
         <Label htmlFor="sup-fn">{t('suppliers.form.first_name')}</Label>
         <Input
           id="sup-fn"
-          aria-invalid={errors.first_name ? true : undefined}
+          className={vd.invalidClass('first_name')}
+          aria-invalid={vd.ariaInvalid('first_name')}
           {...form.register('first_name')}
         />
-        <FieldError message={errors.first_name?.message} />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="sup-father">{t('suppliers.form.father_name')}</Label>
@@ -225,7 +237,6 @@ export default function SupplierForm({
             form.setValue('currency_code', v, { shouldDirty: true, shouldValidate: true })
           }
         />
-        <FieldError message={errors.currency_code?.message} />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="tax_id">{t('suppliers.form.tax_id')}</Label>
@@ -264,20 +275,20 @@ export default function SupplierForm({
         <Label htmlFor="contact_phone">{t('suppliers.form.contact_phone')}</Label>
         <Input
           id="contact_phone"
-          aria-invalid={errors.contact_phone ? true : undefined}
+          className={vd.invalidClass('contact_phone')}
+          aria-invalid={vd.ariaInvalid('contact_phone')}
           {...form.register('contact_phone')}
         />
-        <FieldError message={errors.contact_phone?.message} />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="contact_email">{t('suppliers.form.contact_email')}</Label>
         <Input
           id="contact_email"
           type="email"
-          aria-invalid={errors.contact_email ? true : undefined}
+          className={vd.invalidClass('contact_email')}
+          aria-invalid={vd.ariaInvalid('contact_email')}
           {...form.register('contact_email')}
         />
-        <FieldError message={errors.contact_email?.message} />
       </div>
       <div className="grid gap-2 sm:col-span-2" dir={i18n.dir()}>
         <Label htmlFor="payables_account_id">{t('suppliers.form.payables_account_id')}</Label>

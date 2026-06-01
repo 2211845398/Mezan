@@ -12,6 +12,7 @@
       "hire_date": "تاريخ التعيين",
       "hourly_rate": "سعر الساعة",
       "compensation": "الأجر",
+      "monthly_salary": "الراتب الشهري",
       "identity_document": "وثيقة الهوية"
     },
     "form": {
@@ -47,13 +48,14 @@
       "identity_doc_national_id": "بطاقة هوية وطنية",
       "identity_doc_residency": "إقامة",
       "identity_doc_other": "أخرى",
+      "national_id_invalid": "رقم وطني غير صالح. مثال: 220030369666",
+      "iban_invalid": "رقم IBAN ليبي غير صالح (يبدأ بـ LY ويليه 23 رقمًا).",
       "identity_section_title": "وثيقة الهوية",
       "identity_scan_uploaded": "تم رفع صورة الوثيقة"
     }
   },
   "pending": {
     "title": "طلبات الموظفين المعلقة",
-    "subtitle": "راجع واعتمد إعداد المستخدمين الجدد لإنشاء سجلات موظفين",
     "empty": "لا توجد طلبات معلقة",
     "not_found": "طلب الضبط غير موجود",
     "review": "مراجعة",
@@ -90,6 +92,11 @@
     "timesheet_link": "السجل الزمني",
     "filter_category": "الفئة",
     "filter_status": "الحالة",
+    "employee_search_placeholder": "بحث عن موظف…",
+    "employee_search_empty": "لا يوجد موظفون",
+    "validation": {
+      "wide_range": "يرجى اختيار موظف أو فرع محدد، أو تقصير نطاق التاريخ لعرض السجلات."
+    },
     "col": {
       "id": "المعرّف",
       "employee": "الموظف",
@@ -237,13 +244,25 @@
       "excessive_overtime": "عمل إضافي مفرط",
       "missing_clock_out": "تسجيل خروج مفقود",
       "outside_schedule": "خارج الجدول",
-      "unusual_pattern": "نمط غير معتاد"
+      "unusual_pattern": "نمط غير معتاد",
+      "scheduled_absence": "غياب عن يوم مجدول",
+      "continuous_shift": "وردية متصلة لأكثر من يوم"
     },
     "suggestion": {
       "excessive_overtime": "راجع الورديات فوق السياسة وتأكد من الموافقات وناقش عبء العمل مع الموظف.",
       "missing_clock_out": "اطلب من الموظف إكمال تسجيل الخروج أو تصحيح سجل الحضور.",
       "outside_schedule": "تحقق من الجدول مقابل التسجيلات واضبط الجدول أو الحضور عند الحاجة.",
-      "unusual_pattern": "راجع الحضور مع الموظف ومشرف الفرع."
+      "unusual_pattern": "راجع الحضور مع الموظف ومشرف الفرع.",
+      "scheduled_absence": "تحقق من سبب الغياب (إجازة غير مسجلة، مرض، أو خطأ في الجدول) واتخذ إجراءً حسب السياسة.",
+      "continuous_shift": "راجع ساعات الراحة والامتثال؛ صحّح تسجيلات الدخول/الخروج إن كانت خاطئة."
+    },
+    "explanation": {
+      "excessive_overtime": "استمرت الوردية {{hours}} ساعة، أي أكثر من حد 10 ساعات يومياً.",
+      "missing_clock_out": "تسجيل دخول دون خروج لأكثر من 16 ساعة؛ يُحتمل نسيان تسجيل الخروج.",
+      "outside_schedule": "وقت تسجيل الدخول يبتعد أكثر من ساعة عن الوقت المعتاد للموظف.",
+      "unusual_pattern": "نمط حضور غير معتاد يستحق المراجعة.",
+      "scheduled_absence": "لا يوجد تسجيل حضور في يوم عمل مجدول بتاريخ {{date}} وليس ضمن إجازة معتمدة.",
+      "continuous_shift": "وردية بلغت {{hours}} ساعة عبر أكثر من يوم تقويمي؛ راجع الامتثال وصحة التسجيلات."
     },
     "col": {
       "employee": "الموظف",

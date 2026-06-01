@@ -16,9 +16,9 @@ export type PayrollOverviewRow = {
   payslip_id?: number | null;
   payslip_status: string;
   paid_at?: string | null;
-  gross_amount: string;
-  net_amount: string;
-  deductions_total: string;
+  gross_amount?: string | null;
+  net_amount?: string | null;
+  deductions_total?: string | null;
   automatic_deductions_amount?: string | null;
   manual_deductions_amount?: string | null;
   bonus_amount?: string | null;
@@ -56,9 +56,10 @@ export type PayrollPeriodPrepareResult = {
   period_start: string;
   period_end: string;
   created_count: number;
+  recalculated_count: number;
   skipped_existing_count: number;
   skipped_inactive_count: number;
-  failures: { employee_profile_id: number; message: string }[];
+  failures: { employee_profile_id: number; message: string; code?: string | null }[];
 };
 
 export type AttendancePayrollPolicyRead = {
@@ -87,6 +88,7 @@ export async function listPayslips(params?: {
   status?: string;
   period_start?: string;
   period_end?: string;
+  q?: string;
   limit?: number;
   offset?: number;
 }): Promise<PaginatedList<PayslipRead>> {
@@ -208,6 +210,13 @@ export async function approvePayrollPeriod(
 
 export async function exportPayrollPeriodPdfBlob(year: number, month: number): Promise<Blob> {
   const { data } = await apiClient.get<Blob>(`/payroll/periods/${year}/${month}/export.pdf`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportPayrollPeriodExcelBlob(year: number, month: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/payroll/periods/${year}/${month}/export.csv`, {
     responseType: 'blob',
   });
   return data;

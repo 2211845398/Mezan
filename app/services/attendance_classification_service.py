@@ -115,10 +115,29 @@ def _combine_utc(day: date, t: time) -> datetime:
     return datetime.combine(day, t, tzinfo=UTC)
 
 
+async def _employee_hourly_rate(db: AsyncSession, employee_profile_id: int) -> Decimal:
+    res = await db.execute(
+        select(EmployeeProfile.hourly_rate).where(EmployeeProfile.id == employee_profile_id)
+    )
+    rate = res.scalar_one_or_none()
+    return rate if rate is not None else Decimal("0")
+
+
+def _set_payroll_impact(
+    log: AttendanceLog,
+    policy: AttendancePayrollPolicy | dict,
+    hourly_rate: Decimal,
+) -> None:
+    from app.services.attendance_payroll_engine import compute_log_payroll_impact_amount
+
+    log.payroll_impact_amount = compute_log_payroll_impact_amount(log, policy, hourly_rate)
+
+
 async def refresh_attendance_log_classification(db: AsyncSession, log: AttendanceLog) -> None:
     """Persist classification fields on a single attendance log."""
     role_code = await get_employee_org_role_code(db, log.employee_profile_id)
     policy = await resolve_effective_policy(db, role_code=role_code)
+    hourly_rate = await _employee_hourly_rate(db, log.employee_profile_id)
     snap = _policy_snapshot(policy)
     cat = (
         policy.attendance_category
@@ -141,7 +160,7 @@ async def refresh_attendance_log_classification(db: AsyncSession, log: Attendanc
         log.late_minutes = None
         log.early_close_minutes = None
         log.overtime_minutes = None
-        log.payroll_impact_amount = Decimal("0")
+        _set_payroll_impact(log, policy, hourly_rate)
         await db.flush()
         return
 
@@ -160,7 +179,7 @@ async def refresh_attendance_log_classification(db: AsyncSession, log: Attendanc
         log.late_minutes = None
         log.early_close_minutes = None
         log.overtime_minutes = None
-        log.payroll_impact_amount = Decimal("0")
+        _set_payroll_impact(log, policy, hourly_rate)
         await db.flush()
         return
 
@@ -181,7 +200,7 @@ async def refresh_attendance_log_classification(db: AsyncSession, log: Attendanc
             log.late_minutes = None
             log.early_close_minutes = None
             log.overtime_minutes = None
-            log.payroll_impact_amount = Decimal("0")
+            _set_payroll_impact(log, policy, hourly_rate)
             await db.flush()
             return
 
@@ -204,7 +223,7 @@ async def refresh_attendance_log_classification(db: AsyncSession, log: Attendanc
                 # office: early leave is informational unless we add policy; no auto amount on log
             else:
                 log.early_close_minutes = 0
-        log.payroll_impact_amount = Decimal("0")
+        _set_payroll_impact(log, policy, hourly_rate)
         await db.flush()
         return
 
@@ -230,5 +249,5 @@ async def refresh_attendance_log_classification(db: AsyncSession, log: Attendanc
         else:
             log.classification_status = "operational_complete"
             log.early_close_minutes = 0
-    log.payroll_impact_amount = Decimal("0")
+    _set_payroll_impact(log, policy, hourly_rate)
     await db.flush()

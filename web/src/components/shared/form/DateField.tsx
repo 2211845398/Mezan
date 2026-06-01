@@ -24,11 +24,14 @@ export type DateFieldProps = {
   onChange: (next: string) => void;
   placeholder?: string | undefined;
   id?: string | undefined;
+  name?: string | undefined;
   className?: string | undefined;
   disabled?: boolean | undefined;
   /** ISO `YYYY-MM-DD`. When set, calendar days strictly before this day are not selectable. */
   minSelectableDate?: string | undefined;
   'aria-label'?: string | undefined;
+  /** External validation error (e.g. react-hook-form). */
+  invalid?: boolean | undefined;
 };
 
 export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
@@ -38,21 +41,24 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
       onChange,
       placeholder,
       id,
+      name,
       className,
       disabled,
       minSelectableDate,
       'aria-label': ariaLabel,
+      invalid: externalInvalid,
     },
     ref,
   ) => {
     const { t } = useTranslation();
     const [open, setOpen] = React.useState(false);
     const [draft, setDraft] = React.useState(value ?? '');
-    const [invalid, setInvalid] = React.useState(false);
+    const [localInvalid, setLocalInvalid] = React.useState(false);
+    const showInvalid = externalInvalid || localInvalid;
 
     React.useEffect(() => {
       setDraft(value ?? '');
-      setInvalid(false);
+      setLocalInvalid(false);
     }, [value]);
 
     const parsed = value ? safeParseIso(value) : undefined;
@@ -64,24 +70,24 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
     const commitDraft = () => {
       const raw = draft.trim();
       if (raw === '') {
-        setInvalid(false);
+        setLocalInvalid(false);
         onChange('');
         return;
       }
       if (!ISO_DATE_RE.test(raw) || !safeParseIso(raw)) {
-        setInvalid(true);
+        setLocalInvalid(true);
         setDraft(value ?? '');
         return;
       }
       if (minDay) {
         const d = safeParseIso(raw)!;
         if (startOfDay(d) < minDay) {
-          setInvalid(true);
+          setLocalInvalid(true);
           setDraft(value ?? '');
           return;
         }
       }
-      setInvalid(false);
+      setLocalInvalid(false);
       onChange(raw);
     };
 
@@ -90,18 +96,19 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
         <Input
           ref={ref}
           id={id}
+          name={name}
           type="text"
           inputMode="numeric"
           dir="ltr"
           disabled={disabled}
           aria-label={ariaLabel ?? t('form.pick_date')}
-          aria-invalid={invalid}
+          aria-invalid={showInvalid || undefined}
           placeholder={placeholder ?? 'YYYY-MM-DD'}
-          className={cn('num-latin flex-1 font-normal', invalid && 'border-destructive')}
+          className="num-latin flex-1 font-normal"
           value={draft}
           onChange={(e) => {
             setDraft(e.target.value);
-            setInvalid(false);
+            setLocalInvalid(false);
           }}
           onBlur={commitDraft}
           onKeyDown={(e) => {
@@ -133,7 +140,7 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
                 if (!d) return;
                 const next = format(d, 'yyyy-MM-dd');
                 setDraft(next);
-                setInvalid(false);
+                setLocalInvalid(false);
                 onChange(next);
                 setOpen(false);
               }}

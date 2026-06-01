@@ -14,7 +14,7 @@ import { formatIso, hoursBetween, now, utcCalendarDayKey } from '@/lib/date';
 
 import type { AttendanceLogRead, LeaveRequestRead } from '../../api';
 import { attendanceLogRowSearchValue } from '../../lib/hrTableSearch';
-import { attendanceListQueryOptions, employeeQueryOptions, leaveListQueryOptions } from '../../queries';
+import { attendanceListAllQueryOptions, employeeQueryOptions, leaveListQueryOptions } from '../../queries';
 
 interface StatCardProps {
   label: string;
@@ -52,7 +52,7 @@ export default function EmployeePerformance() {
   const dateTo = utcCalendarDayKey(now());
 
   const { data: attendance = [] } = useQuery({
-    ...attendanceListQueryOptions({
+    ...attendanceListAllQueryOptions({
       date_from: dateFrom,
       date_to: dateTo,
       employee_profile_id: employeeId,

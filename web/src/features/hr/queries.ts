@@ -7,14 +7,8 @@ export const hrKeys = {
   employees: () => [...hrKeys.root, 'employees'] as const,
   employee: (id: number) => [...hrKeys.root, 'employee', id] as const,
   schedules: (employeeId: number) => [...hrKeys.root, 'schedules', employeeId] as const,
-  attendance: (q: {
-    date_from?: string;
-    date_to?: string;
-    branch_id?: number;
-    employee_profile_id?: number;
-    classification_status?: string;
-    attendance_category?: string;
-  }) => [...hrKeys.root, 'attendance', q] as const,
+  attendance: (q: Record<string, unknown>) => [...hrKeys.root, 'attendance', q] as const,
+  employeesSearch: (q: string) => [...hrKeys.root, 'employeesSearch', q] as const,
   attendanceSummary: (q: {
     date_from?: string;
     date_to?: string;
@@ -29,10 +23,15 @@ export const hrKeys = {
   anomalies: (payload: string) => [...hrKeys.root, 'anomalies', payload] as const,
 };
 
-export function employeesQueryOptions(args: { limit: number; offset: number }) {
+export function employeesQueryOptions(args: { limit: number; offset: number; q?: string }) {
   return queryOptions({
-    queryKey: [...hrKeys.employees(), args.limit, args.offset] as const,
-    queryFn: () => api.listEmployees({ limit: args.limit, offset: args.offset }),
+    queryKey: [...hrKeys.employees(), args.limit, args.offset, args.q ?? ''] as const,
+    queryFn: () =>
+      api.listEmployees({
+        limit: args.limit,
+        offset: args.offset,
+        ...(args.q ? { q: args.q } : {}),
+      }),
   });
 }
 
@@ -78,10 +77,49 @@ export function attendanceListQueryOptions(params: {
   employee_profile_id?: number;
   classification_status?: string;
   attendance_category?: string;
+  limit: number;
+  offset: number;
 }) {
   return queryOptions({
     queryKey: hrKeys.attendance(params),
-    queryFn: () => api.listAttendanceLogsGlobal({ ...params, limit: 500, offset: 0 }),
+    queryFn: () => api.listAttendanceLogsGlobal(params),
+  });
+}
+
+/** Employee-scoped pages that need all rows in a date window (capped server-side). */
+export function attendanceListAllQueryOptions(
+  params: {
+    date_from?: string;
+    date_to?: string;
+    branch_id?: number;
+    employee_profile_id?: number;
+    classification_status?: string;
+    attendance_category?: string;
+    limit?: number;
+  },
+) {
+  const limit = params.limit ?? 200;
+  const key = { ...params, limit, offset: 0, scope: 'all' as const };
+  return queryOptions({
+    queryKey: hrKeys.attendance(key),
+    queryFn: async () => {
+      const res = await api.listAttendanceLogsGlobal({ ...params, limit, offset: 0 });
+      return res.items;
+    },
+  });
+}
+
+export function employeesSearchQueryOptions(args: { q: string; enabled?: boolean }) {
+  return queryOptions({
+    queryKey: hrKeys.employeesSearch(args.q),
+    queryFn: () =>
+      api.listEmployees({
+        limit: 25,
+        offset: 0,
+        ...(args.q.trim() ? { q: args.q.trim() } : {}),
+      }),
+    enabled: args.enabled ?? true,
+    staleTime: 30_000,
   });
 }
 

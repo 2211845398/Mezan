@@ -2,7 +2,6 @@
   "runs": {
     "title": "Payslip history",
     "generate_section": "Generate payslip",
-    "history_hint": "All payslips across periods. Use Monthly payroll to prepare and approve the current month.",
     "filters": {
       "month": "Payroll month",
       "clear_month": "Clear month",
@@ -46,7 +45,7 @@
     "net": "Net"
   },
   "status": {
-    "calculated": "Calculated (draft)",
+    "draft": "Draft",
     "approved": "Approved"
   },
   "actions": {
@@ -55,7 +54,7 @@
     "detail": "View detail",
     "recalculate": "Recalculate",
     "approve": "Approve",
-    "export_csv": "Export CSV (approved)",
+    "export_csv": "Export CSV",
     "approved_ok": "Payslip approved",
     "recalc_ok": "Payslip recalculated"
   },
@@ -70,10 +69,11 @@
     "month_picker_this_month": "This month",
     "month_picker_prev_year": "Previous year",
     "month_picker_next_year": "Next year",
-    "month_help": "Review and approve salaries for the selected calendar month. Use Prepare to create draft payslips for all active employees.",
     "prepare": "Prepare payroll",
-    "prepare_ok": "Created {{created}} draft payslip(s); {{skipped}} already existed or skipped.",
-    "prepare_partial": "{{count}} employee(s) could not be prepared — check pay rates in their profile.",
+    "prepare_ok": "Created {{created}} draft(s); recalculated {{recalculated}}; {{skipped}} approved or skipped.",
+    "prepare_partial": "{{count}} employee(s) could not be prepared:\n{{detail}}",
+    "export_excel": "Export Excel",
+    "export_excel_ok": "Excel file downloaded",
     "export_pdf": "Export PDF",
     "export_pdf_ok": "PDF downloaded",
     "approve_pay": "Approve & mark deposited",
@@ -138,6 +138,12 @@
     }
   },
   "errors": {
-    "generic": "Something went wrong. Try again."
+    "generic": "Something went wrong. Try again.",
+    "prepare": {
+      "payroll_no_branch": "Employee has no branch — assign a branch on the user profile.",
+      "payroll_no_schedule": "No weekly work schedule — add one on the employee schedule page.",
+      "payroll_no_pay_rate": "Set a base salary or hourly rate on the employee profile.",
+      "payroll_negative_net": "Net pay is negative for this period — review attendance, absences, and deductions."
+    }
   }
 }

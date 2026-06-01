@@ -17,6 +17,7 @@ from app.models.users import User
 from app.schemas.employees import (
     AttendanceClockInRequest,
     AttendanceClockOutRequest,
+    AttendanceLogListResponse,
     AttendanceLogRead,
     AttendanceSummaryRead,
     EmployeeListResponse,
@@ -32,6 +33,7 @@ from app.schemas.employees import (
     WeeklyScheduleRead,
     WeeklyScheduleUpdate,
 )
+from app.schemas.pagination import clamp_pagination
 from app.services import audit_service
 from app.services.employee_service import (
     attendance_period_summary,
@@ -45,7 +47,7 @@ from app.services.employee_service import (
     get_employee_profile_enriched,
     get_vacation_leave_balance,
     list_attendance_logs,
-    list_attendance_logs_filtered,
+    list_attendance_logs_enriched_page,
     list_employee_profiles_enriched_page,
     list_leave_requests,
     list_leave_requests_filtered,
@@ -137,11 +139,14 @@ def _employee_row_to_read(row: dict) -> EmployeeProfileRead:
 async def list_employee_profiles_endpoint(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    q: str | None = Query(None, max_length=200),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("employees", "read"),
 ) -> EmployeeListResponse:
-    rows, total = await list_employee_profiles_enriched_page(db, limit=limit, offset=offset)
+    rows, total = await list_employee_profiles_enriched_page(
+        db, limit=limit, offset=offset, q=q
+    )
     items = [_employee_row_to_read(row) for row in rows]
     return EmployeeListResponse(items=items, total=total, limit=limit, offset=offset)
 
@@ -442,7 +447,7 @@ async def list_attendance_endpoint(
     return [AttendanceLogRead.model_validate(r) for r in rows]
 
 
-@router.get("/attendance/logs", response_model=list[AttendanceLogRead])
+@router.get("/attendance/logs", response_model=AttendanceLogListResponse)
 async def list_attendance_logs_global(
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
@@ -453,10 +458,11 @@ async def list_attendance_logs_global(
     date_to: date | None = None,
     classification_status: str | None = None,
     attendance_category: str | None = None,
-    limit: int = 200,
+    limit: int = 10,
     offset: int = 0,
-) -> list[AttendanceLogRead]:
-    rows = await list_attendance_logs_filtered(
+) -> AttendanceLogListResponse:
+    lim, off = clamp_pagination(limit, offset, max_limit=50)
+    rows, total = await list_attendance_logs_enriched_page(
         db,
         branch_id=branch_id,
         employee_profile_id=employee_profile_id,
@@ -464,10 +470,11 @@ async def list_attendance_logs_global(
         date_to=date_to,
         classification_status=classification_status,
         attendance_category=attendance_category,
-        limit=limit,
-        offset=offset,
+        limit=lim,
+        offset=off,
     )
-    return [AttendanceLogRead.model_validate(r) for r in rows]
+    items = [AttendanceLogRead.model_validate(r) for r in rows]
+    return AttendanceLogListResponse(items=items, total=total, limit=lim, offset=off)
 
 
 @router.get("/attendance/summary", response_model=AttendanceSummaryRead)

@@ -92,9 +92,9 @@ class PayrollOverviewRow(BaseModel):
     payslip_id: int | None = None
     payslip_status: str
     paid_at: datetime | None = None
-    gross_amount: Decimal
-    net_amount: Decimal
-    deductions_total: Decimal
+    gross_amount: Decimal | None = None
+    net_amount: Decimal | None = None
+    deductions_total: Decimal | None = None
     automatic_deductions_amount: Decimal | None = None
     manual_deductions_amount: Decimal | None = None
     bonus_amount: Decimal | None = None
@@ -129,6 +129,7 @@ class PayrollPeriodRead(BaseModel):
 class PayrollPeriodPrepareFailure(BaseModel):
     employee_profile_id: int
     message: str
+    code: str | None = None
 
 
 class PayrollPeriodPrepareResult(BaseModel):
@@ -137,6 +138,7 @@ class PayrollPeriodPrepareResult(BaseModel):
     period_start: date
     period_end: date
     created_count: int
+    recalculated_count: int = 0
     skipped_existing_count: int
     skipped_inactive_count: int
     failures: list[PayrollPeriodPrepareFailure]

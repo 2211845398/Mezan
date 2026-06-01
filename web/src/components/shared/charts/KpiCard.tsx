@@ -2,8 +2,11 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+
+/** Grid row matching `/marketing/analytics` KPI cards. */
+export const kpiCardGridClassName = 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4';
 
 export function KpiCard({
   title,
@@ -33,26 +36,26 @@ export function KpiCard({
     <Card
       dir={dir}
       className={cn(
-        'h-full transition-colors',
+        'h-full border-border/80 shadow-sm transition-colors',
         to && 'hover:border-muted-foreground/30 hover:bg-muted/40',
         className,
       )}
     >
-      <CardHeader className="space-y-1.5 pb-2">
-        <p className="text-start text-sm font-medium leading-snug text-muted-foreground">{title}</p>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1">
         <div className="text-start text-2xl font-semibold tabular-nums leading-none tracking-tight text-card-foreground num-latin">
           {value}
         </div>
         {footnote ? (
-          <p className="text-start text-[11px] leading-snug text-muted-foreground num-latin">
-            {footnote}
-          </p>
+          <p className="text-start text-xs leading-snug text-muted-foreground num-latin">{footnote}</p>
         ) : null}
         {description ? (
           <p className="text-start text-xs leading-relaxed text-muted-foreground">{description}</p>
         ) : null}
-      </CardHeader>
-      {sparkline ? <CardContent className="pt-0">{sparkline}</CardContent> : null}
+        {sparkline ? <div className="pt-2">{sparkline}</div> : null}
+      </CardContent>
     </Card>
   );
 

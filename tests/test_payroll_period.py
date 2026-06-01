@@ -15,7 +15,7 @@ from app.models.branch import Branch
 from app.models.employee_profile import EmployeeProfile
 from app.models.payslip import Payslip, PayslipStatus
 from app.models.users import User
-from app.services.payroll_pdf_service import build_payroll_period_pdf
+from app.services.payroll_pdf_service import build_payroll_period_csv, build_payroll_period_pdf
 from app.services.payroll_service import (
     assert_calendar_month_payroll_actions_allowed,
     calendar_month_period_bounds,
@@ -116,14 +116,54 @@ async def test_list_payslips_read_includes_user_and_period_filter(db_session: As
     db_session.add(slip(date(2026, 5, 1), date(2026, 5, 31), token_hex(16)))
     await db_session.commit()
 
-    apr = await list_payslips_read(
+    apr, apr_total = await list_payslips_read(
         db_session,
         period_start=date(2026, 4, 1),
         period_end=date(2026, 4, 30),
     )
     assert len(apr) == 1
+    assert apr_total == 1
     assert apr[0].user_full_name == "Listed Employee"
     assert apr[0].user_email == "payslip_list_u@test.example"
 
-    all_rows = await list_payslips_read(db_session)
+    all_rows, total_all = await list_payslips_read(db_session)
     assert len(all_rows) == 2
+    assert total_all == 2
+
+    by_name, total_name = await list_payslips_read(db_session, q="Listed Employee")
+    assert len(by_name) == 1
+    assert total_name == 1
+
+    by_email, _ = await list_payslips_read(db_session, q="payslip_list_u@test")
+    assert len(by_email) == 1
+
+    none_match, total_none = await list_payslips_read(db_session, q="zzzz-no-match-xyz")
+    assert len(none_match) == 0
+    assert total_none == 0
+
+
+def test_payroll_period_csv_has_utf8_bom() -> None:
+    csv_text = build_payroll_period_csv(
+        period_start=date(2026, 4, 1),
+        period_end=date(2026, 4, 30),
+        rows=[
+            {
+                "employee_profile_id": 1,
+                "user_full_name": "Test User",
+                "user_email": "t@example.com",
+                "user_role_code": "CASHIER",
+                "base_salary": Decimal("1000"),
+                "hourly_rate": Decimal("10"),
+                "gross_amount": Decimal("1000"),
+                "net_amount": Decimal("900"),
+                "automatic_deductions_amount": Decimal("100"),
+                "manual_deductions_amount": Decimal("0"),
+                "bonus_amount": Decimal("0"),
+                "overtime_amount": Decimal("0"),
+                "payslip_status": "draft",
+                "paid_at": None,
+            }
+        ],
+    )
+    assert csv_text.startswith("\ufeff")
+    assert "Test User" in csv_text

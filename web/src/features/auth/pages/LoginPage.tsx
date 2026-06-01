@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -10,12 +10,13 @@ import {
   type AuthUser,
   useAuthStore,
 } from '@/features/auth/stores/authStore';
+import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { sanitizeNextPath } from '@/lib/nextPath';
 import { notify } from '@/lib/toast';
 
 import { classifyLoginError } from './loginErrors';
-import { type LoginFormValues,loginSchema } from './loginSchema';
+import { type LoginFormValues, loginSchema } from './loginSchema';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -65,6 +66,20 @@ export default function LoginPage() {
 
   const submitting = form.formState.isSubmitting;
 
+  const onInvalid = (errs: FieldErrors<LoginFormValues>) => {
+    if (errs.email) {
+      notify.error(t('auth:login.email_invalid'));
+      void form.setFocus('email');
+      return;
+    }
+    if (errs.password) {
+      notify.error(t('auth:login.password_required'));
+      void form.setFocus('password');
+      return;
+    }
+    notify.error(t('common:errors.validation_required'));
+  };
+
   return (
     <div className="space-y-6" dir="auto">
       <div className="space-y-1 text-center">
@@ -76,7 +91,7 @@ export default function LoginPage() {
         className="space-y-4"
         onKeyDown={handleFormEnterSubmit}
         onSubmit={(e) => {
-          void form.handleSubmit(onSubmit)(e);
+          void form.handleSubmit(onSubmit, onInvalid)(e);
         }}
         noValidate
       >
@@ -89,15 +104,10 @@ export default function LoginPage() {
             type="email"
             autoComplete="username"
             dir="ltr"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.email ? true : undefined}
             {...form.register('email')}
           />
-          {form.formState.errors.email ? (
-            <p className="text-xs text-destructive" role="alert">
-              {t('auth:login.email_invalid')}
-            </p>
-          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -108,15 +118,10 @@ export default function LoginPage() {
             id="login-password"
             type="password"
             autoComplete="current-password"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.password ? true : undefined}
             {...form.register('password')}
           />
-          {form.formState.errors.password ? (
-            <p className="text-xs text-destructive" role="alert">
-              {t('auth:login.password_required')}
-            </p>
-          ) : null}
         </div>
 
         <button

@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { MEZ_FIELD_BORDER_CLASS } from '@/lib/fieldFocus';
 
 export {
   SelectContent,
@@ -170,7 +171,8 @@ export function AsyncSelect({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-10 w-full items-center gap-1 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+            'flex h-10 w-full items-center gap-1 rounded-md bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50',
+            MEZ_FIELD_BORDER_CLASS,
             className,
           )}
           aria-haspopup="listbox"

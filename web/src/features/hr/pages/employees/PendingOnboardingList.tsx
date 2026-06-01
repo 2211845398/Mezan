@@ -115,7 +115,6 @@ export default function PendingOnboardingList() {
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
         title={t('pending.title')}
-        subtitle={t('pending.subtitle')}
         actions={
           <Button variant="outline" asChild>
             <Link to="/hr/employees">

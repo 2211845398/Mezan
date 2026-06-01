@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -10,6 +10,8 @@ import { z } from 'zod';
 
 import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
+import { cn } from '@/lib/utils';
+import { focusFirstFormError, useFormValidationDisplay } from '@/lib/formValidation';
 import { FormContainer, SectionCard } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
@@ -34,6 +36,8 @@ import {
   createSchedule,
   updateEmployee,
 } from '../../api';
+import { isValidLibyanIban, normalizeLibyanIban } from '../../lib/libyanIban';
+import { collectHrValidationToasts, EMPLOYEE_FORM_FIELD_ORDER } from '../../lib/hrFormValidationUi';
 import { employeeQueryOptions, hrKeys, schedulesQueryOptions } from '../../queries';
 
 const schema = z
@@ -47,6 +51,12 @@ const schema = z
   .refine((d) => (d.base_salary && d.base_salary !== '') || (d.hourly_rate && d.hourly_rate !== ''), {
     message: 'base_or_hourly',
     path: ['hourly_rate'],
+  })
+  .superRefine((data, ctx) => {
+    const bank = data.bank_account?.trim() ?? '';
+    if (bank && !isValidLibyanIban(bank)) {
+      ctx.addIssue({ code: 'custom', message: 'iban_invalid', path: ['bank_account'] });
+    }
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -81,6 +91,8 @@ export default function EmployeeForm() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
     defaultValues: {
       user_id: 0,
       hire_date: '',
@@ -89,6 +101,15 @@ export default function EmployeeForm() {
       bank_account: '',
     },
   });
+
+  const vd = useFormValidationDisplay(form.control);
+
+  const onInvalid = (errs: FieldErrors<FormValues>) => {
+    for (const msg of collectHrValidationToasts(errs, t, tc, EMPLOYEE_FORM_FIELD_ORDER)) {
+      toast.error(msg);
+    }
+    focusFirstFormError(form, errs, EMPLOYEE_FORM_FIELD_ORDER);
+  };
 
   useEffect(() => {
     if (!existing) return;
@@ -111,14 +132,14 @@ export default function EmployeeForm() {
           hire_date: v.hire_date,
           base_salary: base,
           hourly_rate: hr,
-          bank_account: v.bank_account?.trim() || null,
+          bank_account: v.bank_account?.trim() ? normalizeLibyanIban(v.bank_account.trim()) : null,
         });
       }
       return updateEmployee(eid, {
         hire_date: v.hire_date,
         base_salary: base,
         hourly_rate: hr,
-        bank_account: v.bank_account?.trim() || null,
+        bank_account: v.bank_account?.trim() ? normalizeLibyanIban(v.bank_account.trim()) : null,
       });
     },
     onSuccess: async (row) => {
@@ -170,53 +191,96 @@ export default function EmployeeForm() {
                   setFormError(getApiErrorMessage(error, t('hr_errors.generic')));
                 }
               },
-              () => toast.error(t('employees.form.base_or_hourly')),
+              onInvalid,
             )}
           >
             <div className="grid gap-2">
               <Label>{t('employees.form.user')}</Label>
-              <Select
-                value={form.watch('user_id') ? String(form.watch('user_id')) : ''}
-                onValueChange={(v) => form.setValue('user_id', Number(v))}
-                disabled={!isNew}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={String(u.id)}>
-                      {u.email} (#{u.id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>{t('employees.form.hire_date')}</Label>
-              <DateField
-                value={form.watch('hire_date')}
-                onChange={(d) => form.setValue('hire_date', d)}
+              <Controller
+                control={form.control}
+                name="user_id"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : ''}
+                    onValueChange={(v) => field.onChange(Number(v))}
+                    disabled={!isNew}
+                  >
+                    <SelectTrigger
+                      name="user_id"
+                      className={vd.invalidClass('user_id')}
+                      aria-invalid={vd.ariaInvalid('user_id')}
+                    >
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((u) => (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.email} (#{u.id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               />
             </div>
             <div className="grid gap-2">
-              <Label>{t('employees.form.base_salary')}</Label>
-              <MoneyInput
-                value={form.watch('base_salary') ?? ''}
-                onChange={(s) => form.setValue('base_salary', s)}
+              <Label htmlFor="hire_date">{t('employees.form.hire_date')}</Label>
+              <Controller
+                control={form.control}
+                name="hire_date"
+                render={({ field }) => (
+                  <DateField
+                    id="hire_date"
+                    name="hire_date"
+                    value={field.value}
+                    onChange={field.onChange}
+                    invalid={vd.showError('hire_date')}
+                  />
+                )}
               />
             </div>
             <div className="grid gap-2">
-              <Label>{t('employees.form.hourly_rate')}</Label>
-              <MoneyInput
-                value={form.watch('hourly_rate') ?? ''}
-                onChange={(s) => form.setValue('hourly_rate', s)}
+              <Label htmlFor="base_salary">{t('employees.form.base_salary')}</Label>
+              <Controller
+                control={form.control}
+                name="base_salary"
+                render={({ field }) => (
+                  <MoneyInput
+                    name="base_salary"
+                    id="base_salary"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    invalid={vd.showError('base_salary')}
+                  />
+                )}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="hourly_rate">{t('employees.form.hourly_rate')}</Label>
+              <Controller
+                control={form.control}
+                name="hourly_rate"
+                render={({ field }) => (
+                  <MoneyInput
+                    name="hourly_rate"
+                    id="hourly_rate"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    invalid={vd.showError('hourly_rate')}
+                  />
+                )}
               />
             </div>
             <p className="text-xs text-muted-foreground">{t('employees.form.compensation_hint')}</p>
             <div className="grid gap-2">
               <Label htmlFor="bank">{t('employees.form.bank')}</Label>
-              <Input id="bank" {...form.register('bank_account')} />
+              <Input
+                id="bank"
+                dir="ltr"
+                className={cn('font-mono text-start', vd.invalidClass('bank_account'))}
+                aria-invalid={vd.ariaInvalid('bank_account')}
+                {...form.register('bank_account')}
+              />
             </div>
             {formError ? (
               <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

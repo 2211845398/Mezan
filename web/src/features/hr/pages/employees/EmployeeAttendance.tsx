@@ -10,10 +10,13 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { listBranches } from '@/features/admin/api';
+import { getBranchLabel } from '@/features/admin/lib/branchLabels';
+import { adminKeys } from '@/features/admin/queries';
 import { format, formatIso, hoursBetween, now } from '@/lib/date';
 
 import type { AttendanceLogRead } from '../../api';
-import { attendanceListQueryOptions } from '../../queries';
+import { attendanceListAllQueryOptions } from '../../queries';
 
 export default function EmployeeAttendance() {
   const { id } = useParams<{ id: string }>();
@@ -24,12 +27,17 @@ export default function EmployeeAttendance() {
   const [dateTo, setDateTo] = useState(() => format(now(), 'yyyy-MM-dd'));
 
   const { data: attendance = [], isLoading } = useQuery({
-    ...attendanceListQueryOptions({
+    ...attendanceListAllQueryOptions({
       date_from: dateFrom,
       date_to: dateTo,
       employee_profile_id: employeeId,
     }),
     enabled: !Number.isNaN(employeeId),
+  });
+
+  const { data: branches = [] } = useQuery({
+    queryKey: adminKeys.branches(false),
+    queryFn: () => listBranches({ include_archived: false }),
   });
 
   const columns = useMemo(
@@ -44,7 +52,7 @@ export default function EmployeeAttendance() {
         {
           id: 'branch',
           header: t('attendance.col.branch'),
-          cell: ({ row }) => `Branch #${row.original.branch_id}`,
+          cell: ({ row }) => getBranchLabel(branches, row.original.branch_id),
         },
         {
           id: 'in',
@@ -70,7 +78,7 @@ export default function EmployeeAttendance() {
           },
         },
       ]),
-    [t],
+    [branches, t],
   );
 
   // Calculate summary stats
@@ -129,11 +137,11 @@ export default function EmployeeAttendance() {
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">{t('attendance.completed')}</p>
-          <p className="text-2xl font-semibold text-green-600">{stats.completed}</p>
+          <p className="text-2xl font-semibold">{stats.completed}</p>
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">{t('attendance.open')}</p>
-          <p className="text-2xl font-semibold text-yellow-600">{stats.open}</p>
+          <p className="text-2xl font-semibold">{stats.open}</p>
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">{t('attendance.total_hours')}</p>

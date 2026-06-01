@@ -12,6 +12,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { MEZ_COMBOBOX_BORDER_CLASS } from '@/lib/fieldFocus';
 import { cn } from '@/lib/utils';
 
 import { roleCodeLabel } from '../lib/roleLabels';
@@ -23,6 +24,7 @@ type RoleRow = RoleWithPermissions & { code: string };
 type RoleComboboxBase = {
   disabled?: boolean;
   className?: string;
+  invalid?: boolean;
 };
 
 type RoleComboboxByCode = RoleComboboxBase & {
@@ -103,8 +105,10 @@ export function RoleCombobox(props: RoleComboboxProps) {
           role="combobox"
           aria-expanded={open}
           disabled={props.disabled ?? false}
+          aria-invalid={props.invalid || undefined}
           className={cn(
             'h-auto min-h-10 w-full justify-between py-2 font-normal rtl:flex-row-reverse',
+            MEZ_COMBOBOX_BORDER_CLASS,
             props.className,
           )}
         >
@@ -183,11 +187,26 @@ export function RoleCombobox(props: RoleComboboxProps) {
   );
 }
 
-export type RoleCodeComboboxProps = Omit<RoleComboboxByCode, 'kind'>;
+export type RoleCodeComboboxProps = Omit<RoleComboboxByCode, 'kind'> & {
+  invalid?: boolean;
+};
 
-export function RoleCodeCombobox({ value, onChange, disabled, className }: RoleCodeComboboxProps) {
+export function RoleCodeCombobox({
+  value,
+  onChange,
+  disabled,
+  className,
+  invalid = false,
+}: RoleCodeComboboxProps) {
   return (
-    <RoleCombobox kind="code" value={value} onChange={onChange} disabled={disabled ?? false} className={className ?? ''} />
+    <RoleCombobox
+      kind="code"
+      value={value}
+      onChange={onChange}
+      disabled={disabled ?? false}
+      className={className}
+      invalid={invalid}
+    />
   );
 }
 

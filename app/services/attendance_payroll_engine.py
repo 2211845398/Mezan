@@ -9,6 +9,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance_log import AttendanceLog
+from app.models.attendance_payroll_policy import AttendancePayrollPolicy
 from app.models.employee_profile import EmployeeProfile
 from app.models.leave_request import LeaveRequest, LeaveStatus
 from app.models.users import User
@@ -21,6 +22,51 @@ MONEY_Q = Decimal("0.01")
 
 def _q(value: Decimal) -> Decimal:
     return value.quantize(MONEY_Q, rounding=ROUND_HALF_UP)
+
+
+def _policy_rates(
+    policy: AttendancePayrollPolicy | dict,
+) -> tuple[str, Decimal, Decimal, Decimal]:
+    if isinstance(policy, AttendancePayrollPolicy):
+        return (
+            policy.attendance_category,
+            policy.late_deduction_amount,
+            policy.early_close_deduction_amount,
+            policy.overtime_multiplier,
+        )
+    return (
+        str(policy["attendance_category"]),
+        Decimal(str(policy["late_deduction_amount"])),
+        Decimal(str(policy["early_close_deduction_amount"])),
+        Decimal(str(policy["overtime_multiplier"])),
+    )
+
+
+def compute_log_payroll_impact_amount(
+    log: AttendanceLog,
+    policy: AttendancePayrollPolicy | dict,
+    hourly_rate: Decimal,
+) -> Decimal:
+    """Signed net payroll effect for one log (+ overtime pay, − per-event deductions)."""
+    category, late_rate, early_rate, ot_mult = _policy_rates(policy)
+    rate = hourly_rate if hourly_rate is not None else Decimal("0")
+    impact = Decimal("0")
+    st = log.classification_status or ""
+
+    if category == "office" and st == "late":
+        impact -= late_rate
+    elif category == "operational":
+        if (log.late_minutes or 0) > 0:
+            impact -= late_rate
+        if (log.early_close_minutes or 0) > 0:
+            impact -= early_rate
+
+    ot_min = log.overtime_minutes or 0
+    if ot_min > 0 and rate > 0:
+        ot_hours = _q(Decimal(str(ot_min)) / Decimal("60"))
+        impact += _q(ot_hours * rate * ot_mult)
+
+    return _q(impact)
 
 
 def _period_window(period_start: date, period_end: date) -> tuple[datetime, datetime]:

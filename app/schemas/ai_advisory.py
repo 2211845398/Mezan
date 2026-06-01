@@ -81,6 +81,8 @@ class HrAnomaly(BaseModel):
         "missing_clock_out",
         "outside_schedule",
         "unusual_pattern",
+        "scheduled_absence",
+        "continuous_shift",
     ]
     period_start: datetime
     period_end: datetime

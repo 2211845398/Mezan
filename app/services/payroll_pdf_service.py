@@ -1,7 +1,9 @@
-"""PDF export for payroll period tables (Unicode / Arabic-safe)."""
+"""PDF and CSV export for payroll period tables (Unicode / Arabic-safe)."""
 
 from __future__ import annotations
 
+import csv
+import io
 import os
 import re
 from datetime import date, datetime
@@ -179,3 +181,60 @@ def build_payroll_period_pdf(
         return raw.encode("latin-1")
     # fpdf2 may return bytearray; Starlette Response expects str or bytes, not bytearray.
     return bytes(raw)
+
+
+def _csv_cell(val: object) -> str:
+    if val is None:
+        return ""
+    return str(val)
+
+
+def build_payroll_period_csv(
+    *,
+    period_start: date,
+    period_end: date,
+    rows: list[dict],
+) -> str:
+    """UTF-8 BOM CSV for one payroll period (opens in Excel)."""
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    writer = csv.writer(buf)
+    writer.writerow(
+        [
+            "Employee",
+            "Role",
+            "Base salary",
+            "Hourly rate",
+            "Gross",
+            "Auto deductions",
+            "Manual deductions",
+            "Bonus",
+            "Overtime",
+            "Net",
+            "Status",
+            "Paid at",
+            "Period start",
+            "Period end",
+        ]
+    )
+    for r in rows:
+        name = r.get("user_full_name") or r.get("user_email") or str(r.get("employee_profile_id", ""))
+        writer.writerow(
+            [
+                name,
+                _csv_cell(r.get("user_role_code")),
+                _csv_cell(r.get("base_salary")),
+                _csv_cell(r.get("hourly_rate")),
+                _csv_cell(r.get("gross_amount")),
+                _csv_cell(r.get("automatic_deductions_amount")),
+                _csv_cell(r.get("manual_deductions_amount")),
+                _csv_cell(r.get("bonus_amount")),
+                _csv_cell(r.get("overtime_amount")),
+                _csv_cell(r.get("net_amount")),
+                _csv_cell(r.get("payslip_status")),
+                _csv_cell(r.get("paid_at")),
+                period_start.isoformat(),
+                period_end.isoformat(),
+            ]
+        )
+    return buf.getvalue()

@@ -43,7 +43,7 @@ export function Toolbar<TData>({
       )}
     >
       {toolbarLeading ? (
-        <div className="w-full min-w-0 max-w-sm flex-1">{toolbarLeading}</div>
+        <div className="w-full min-w-0 max-w-2xl flex-1">{toolbarLeading}</div>
       ) : null}
       {showSearch !== false ? (
         <div className="relative w-full max-w-xs">

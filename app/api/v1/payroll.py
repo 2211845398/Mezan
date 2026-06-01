@@ -36,7 +36,7 @@ from app.services.notifications.service import (
     dispatch_delivery_after_commit,
     enqueue_direct_notification,
 )
-from app.services.payroll_pdf_service import build_payroll_period_pdf
+from app.services.payroll_pdf_service import build_payroll_period_csv, build_payroll_period_pdf
 from app.services.payroll_service import (
     approve_and_pay_period,
     approve_payslip,
@@ -45,6 +45,7 @@ from app.services.payroll_service import (
     generate_payslip,
     get_payroll_period_snapshot,
     get_payslip,
+    get_payslip_read,
     list_payroll_overview,
     list_payslips_read,
     mark_payslips_paid_for_period,
@@ -152,6 +153,7 @@ async def list_payslips_endpoint(
     status: str | None = None,
     period_start: date | None = Query(None),
     period_end: date | None = Query(None),
+    q: str | None = Query(None, max_length=200),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -168,6 +170,7 @@ async def list_payslips_endpoint(
         status=status,
         period_start=period_start,
         period_end=period_end,
+        q=q,
         limit=limit,
         offset=offset,
     )
@@ -181,8 +184,7 @@ async def get_payslip_endpoint(
     _: None = Depends(get_current_user),
     __: None = require_permission("payroll", "read"),
 ) -> PayslipRead:
-    row = await get_payslip(db, payslip_id)
-    return PayslipRead.model_validate(row)
+    return await get_payslip_read(db, payslip_id)
 
 
 @router.patch("/payroll/payslips/{payslip_id}/adjustments", response_model=PayslipRead)
@@ -324,6 +326,7 @@ async def payroll_period_prepare_endpoint(
         period_start=result["period_start"],
         period_end=result["period_end"],
         created_count=result["created_count"],
+        recalculated_count=result.get("recalculated_count", 0),
         skipped_existing_count=result["skipped_existing_count"],
         skipped_inactive_count=result["skipped_inactive_count"],
         failures=[PayrollPeriodPrepareFailure.model_validate(f) for f in result["failures"]],
@@ -408,6 +411,31 @@ async def payroll_period_export_pdf_endpoint(
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="payroll-{year}-{month:02d}.pdf"',
+        },
+    )
+
+
+@router.get("/payroll/periods/{year}/{month}/export.csv")
+async def payroll_period_export_csv_endpoint(
+    year: int,
+    month: int,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("payroll", "export"),
+) -> Response:
+    _validate_payroll_year_month(year, month)
+    period_start, period_end = calendar_month_period_bounds(year, month)
+    rows = await list_payroll_overview(db, period_start=period_start, period_end=period_end)
+    csv_text = build_payroll_period_csv(
+        period_start=period_start,
+        period_end=period_end,
+        rows=rows,
+    )
+    return Response(
+        content=csv_text.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="payroll-{year}-{month:02d}.csv"',
         },
     )
 

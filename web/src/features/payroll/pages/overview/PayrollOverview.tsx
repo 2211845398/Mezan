@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { TFunction } from 'i18next';
-import { Download, Eye, Play, RefreshCw } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, Play, RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -17,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { roleCodeLabel } from '@/features/admin/lib/roleLabels';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso, now } from '@/lib/date';
+import { formatMoney } from '@/lib/format';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { previewQuietPanelClassName } from '@/lib/uiSurface';
 import { cn } from '@/lib/utils';
@@ -24,9 +24,12 @@ import { cn } from '@/lib/utils';
 import type { PayrollOverviewRow } from '../../api';
 import {
   approvePayrollPeriod,
+  exportPayrollPeriodExcelBlob,
   exportPayrollPeriodPdfBlob,
   preparePayrollPeriod,
 } from '../../api';
+import { localizePrepareFailures } from '../../lib/prepareFailureMessages';
+import { payslipStatusLabel } from '../../lib/payslipLabels';
 import { payrollKeys, payrollPeriodQueryOptions } from '../../queries';
 
 interface StatCardProps {
@@ -50,11 +53,12 @@ function defaultYearMonth(): { year: number; month: number } {
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
-function payslipStatusLabel(status: string, t: TFunction<'payroll'>): string {
-  if (status === 'no_payslip') return t('overview.payslip_status.no_payslip');
-  if (status === 'draft') return t('overview.payslip_status.draft');
-  if (status === 'approved') return t('overview.payslip_status.approved');
-  return t(`overview.payslip_status.${status}`, { defaultValue: status });
+function formatOverviewMoney(
+  value: string | null | undefined,
+  payslipStatus: string,
+): string {
+  if (payslipStatus === 'no_payslip' || value == null || value === '') return '—';
+  return formatMoney(value);
 }
 
 export default function PayrollOverview() {
@@ -78,11 +82,19 @@ export default function PayrollOverview() {
       toast.success(
         t('overview.prepare_ok', {
           created: res.created_count,
+          recalculated: res.recalculated_count,
           skipped: res.skipped_existing_count,
         }),
       );
       if (res.failures.length > 0) {
-        toast.warning(t('overview.prepare_partial', { count: res.failures.length }));
+        const detail = localizePrepareFailures(res.failures, t);
+        toast.warning(
+          t('overview.prepare_partial', {
+            count: res.failures.length,
+            detail,
+          }),
+          { duration: 10_000 },
+        );
       }
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
@@ -118,13 +130,26 @@ export default function PayrollOverview() {
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
+  const exportExcel = useMutation({
+    mutationFn: () => exportPayrollPeriodExcelBlob(year, month),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payroll-${year}-${String(month).padStart(2, '0')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(t('overview.export_excel_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('errors.generic')),
+  });
+
   const rows = period?.rows ?? [];
   const summary = period?.summary;
 
   const columns = useMemo(
     () =>
       defineColumns<PayrollOverviewRow>()([
-        { id: 'emp', header: t('col.employee'), cell: ({ row }) => row.original.employee_profile_id },
         {
           id: 'name',
           header: t('overview.col.name'),
@@ -146,39 +171,61 @@ export default function PayrollOverview() {
         {
           id: 'base',
           header: t('overview.col.base_salary'),
-          cell: ({ row }) => row.original.base_salary ?? '—',
+          cell: ({ row }) =>
+            row.original.base_salary != null
+              ? formatMoney(row.original.base_salary)
+              : '—',
         },
         {
           id: 'hourly',
           header: t('overview.col.hourly'),
-          cell: ({ row }) => row.original.hourly_rate ?? '—',
+          cell: ({ row }) =>
+            row.original.hourly_rate != null
+              ? formatMoney(row.original.hourly_rate)
+              : '—',
         },
         {
           id: 'gross',
           header: t('col.gross'),
-          cell: ({ row }) => row.original.gross_amount,
+          cell: ({ row }) =>
+            formatOverviewMoney(row.original.gross_amount, row.original.payslip_status),
         },
         {
           id: 'auto',
           header: t('overview.col.auto_ded'),
-          cell: ({ row }) => row.original.automatic_deductions_amount ?? '—',
+          cell: ({ row }) =>
+            formatOverviewMoney(
+              row.original.automatic_deductions_amount,
+              row.original.payslip_status,
+            ),
         },
         {
           id: 'manual',
           header: t('overview.col.manual_ded'),
-          cell: ({ row }) => row.original.manual_deductions_amount ?? '—',
+          cell: ({ row }) =>
+            formatOverviewMoney(
+              row.original.manual_deductions_amount,
+              row.original.payslip_status,
+            ),
         },
         {
           id: 'bonus',
           header: t('overview.col.bonus'),
-          cell: ({ row }) => row.original.bonus_amount ?? '—',
+          cell: ({ row }) =>
+            formatOverviewMoney(row.original.bonus_amount, row.original.payslip_status),
         },
         {
           id: 'ot',
           header: t('overview.col.ot'),
-          cell: ({ row }) => row.original.overtime_amount ?? '—',
+          cell: ({ row }) =>
+            formatOverviewMoney(row.original.overtime_amount, row.original.payslip_status),
         },
-        { id: 'net', header: t('col.net'), cell: ({ row }) => row.original.net_amount },
+        {
+          id: 'net',
+          header: t('col.net'),
+          cell: ({ row }) =>
+            formatOverviewMoney(row.original.net_amount, row.original.payslip_status),
+        },
         {
           id: 'st',
           accessorFn: (row) => payslipStatusLabel(row.payslip_status, t),
@@ -233,15 +280,26 @@ export default function PayrollOverview() {
         actions={
           <div className="flex flex-wrap gap-2">
             {canExport ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={exportPdf.isPending}
-                onClick={() => void exportPdf.mutate()}
-              >
-                <Download className="me-2 size-4" />
-                {t('overview.export_pdf')}
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={exportExcel.isPending}
+                  onClick={() => void exportExcel.mutate()}
+                >
+                  <FileSpreadsheet className="me-2 size-4" />
+                  {t('overview.export_excel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={exportPdf.isPending}
+                  onClick={() => void exportPdf.mutate()}
+                >
+                  <Download className="me-2 size-4" />
+                  {t('overview.export_pdf')}
+                </Button>
+              </>
             ) : null}
             {canCreate ? (
               <Button
@@ -249,7 +307,7 @@ export default function PayrollOverview() {
                 variant="outline"
                 disabled={prepare.isPending}
                 className={cn(
-                  'border-secondary bg-background text-secondary hover:bg-secondary/10',
+                  'border-secondary bg-background text-secondary hover:border-secondary hover:bg-secondary/10 hover:text-secondary',
                 )}
                 onClick={() => void prepare.mutate()}
               >
@@ -280,8 +338,6 @@ export default function PayrollOverview() {
         }
       />
 
-      <p className="max-w-2xl text-xs text-muted-foreground">{t('overview.month_help')}</p>
-
       {period && approvalLocked ? (
         <Alert className={previewQuietPanelClassName}>
           <AlertTitle>{t('overview.gate_title')}</AlertTitle>
@@ -308,9 +364,15 @@ export default function PayrollOverview() {
             value={String(summary.payslips_approved_unpaid)}
           />
           <StatCard label={t('overview.kpi.paid')} value={String(summary.payslips_paid)} />
-          <StatCard label={t('overview.kpi.gross')} value={String(summary.gross_total)} />
-          <StatCard label={t('overview.kpi.net')} value={String(summary.net_total)} />
-          <StatCard label={t('overview.kpi.bonus')} value={String(summary.bonus_total)} />
+          <StatCard
+            label={t('overview.kpi.gross')}
+            value={formatMoney(summary.gross_total)}
+          />
+          <StatCard label={t('overview.kpi.net')} value={formatMoney(summary.net_total)} />
+          <StatCard
+            label={t('overview.kpi.bonus')}
+            value={formatMoney(summary.bonus_total)}
+          />
         </div>
       ) : null}
 

@@ -6,6 +6,7 @@ export type PayslipListFilters = {
   status?: string;
   period_start?: string;
   period_end?: string;
+  q?: string;
   limit?: number;
   offset?: number;
 };
@@ -19,6 +20,7 @@ export const payrollKeys = {
       filters.status ?? 'all',
       filters.period_start ?? '',
       filters.period_end ?? '',
+      filters.q ?? '',
       filters.limit ?? 20,
       filters.offset ?? 0,
     ] as const,
@@ -40,6 +42,7 @@ export function payslipsQueryOptions(filters: PayslipListFilters = {}) {
         ...(filters.period_start && filters.period_end
           ? { period_start: filters.period_start, period_end: filters.period_end }
           : {}),
+        ...(filters.q?.trim() ? { q: filters.q.trim() } : {}),
       }),
   });
 }

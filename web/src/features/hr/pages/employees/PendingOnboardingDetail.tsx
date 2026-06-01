@@ -34,8 +34,31 @@ import { RoleCodeCombobox } from '@/features/admin/components/RoleCodeCombobox';
 import { roleCodeLabel } from '@/features/admin/lib/roleLabels';
 import { adminKeys } from '@/features/admin/queries';
 import type { UserOnboardingRead } from '@/features/admin/types';
+import { digitsOnlyNationalId, isValidLibyanNationalId } from '@/features/hr/lib/libyanNationalId';
+import { isValidLibyanIban, normalizeLibyanIban } from '@/features/hr/lib/libyanIban';
+import { focusElementById, invalidFieldClass } from '@/lib/formValidation';
+import { cn } from '@/lib/utils';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { formatPersonName } from '@/lib/personName';
+
+type PendingFieldKey =
+  | 'role_code'
+  | 'contract_start'
+  | 'contract_end'
+  | 'hourly_rate'
+  | 'salary_amount'
+  | 'bank_account'
+  | 'identity_document_number';
+
+const PENDING_VALIDATION_ORDER: { field: PendingFieldKey; focusId: string }[] = [
+  { field: 'role_code', focusId: 'pending-role' },
+  { field: 'contract_start', focusId: 'pending-contract-start' },
+  { field: 'contract_end', focusId: 'pending-contract-end' },
+  { field: 'hourly_rate', focusId: 'pending-hourly-rate' },
+  { field: 'salary_amount', focusId: 'pending-salary' },
+  { field: 'bank_account', focusId: 'pending-bank' },
+  { field: 'identity_document_number', focusId: 'pending-id-doc-number' },
+];
 
 export default function PendingOnboardingDetail() {
   const { onboardingId } = useParams<{ onboardingId: string }>();
@@ -67,7 +90,28 @@ export default function PendingOnboardingDetail() {
   const [idDocType, setIdDocType] = useState('');
   const [idDocNumber, setIdDocNumber] = useState('');
   const [idImageUrl, setIdImageUrl] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<PendingFieldKey, string>>>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const idFileInputRef = useRef<HTMLInputElement>(null);
+
+  function pendingErrorsForClass(): Record<string, { message: string }> {
+    const out: Record<string, { message: string }> = {};
+    for (const [k, v] of Object.entries(fieldErrors)) {
+      if (v) out[k] = { message: v };
+    }
+    return out;
+  }
+
+  const pendingFieldErrors = pendingErrorsForClass();
+
+  const clearFieldError = (key: PendingFieldKey) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!onboarding) return;
@@ -102,25 +146,46 @@ export default function PendingOnboardingDetail() {
     }
   }, [contractStart, contractEnd]);
 
+  function validatePendingForm(): Partial<Record<PendingFieldKey, string>> {
+    const next: Partial<Record<PendingFieldKey, string>> = {};
+    const hasSalary = salaryAmount.trim();
+    const hasHourly = hourlyRate.trim();
+    if (!hasSalary && !hasHourly) {
+      next.hourly_rate = t('pending.error_salary_or_hourly');
+    }
+    if (!contractStart.trim()) {
+      next.contract_start = t('pending.error_contract_start');
+    }
+    if (contractEnd.trim() && contractEnd.trim() < contractStart.trim()) {
+      next.contract_end = t('pending.error_contract_end_before_start');
+    }
+    if (!roleCode.trim()) {
+      next.role_code = t('pending.error_role_required');
+    }
+    const docType = idDocType.trim();
+    const docDigits =
+      docType === 'national_id' ? digitsOnlyNationalId(idDocNumber) : idDocNumber.trim();
+    if (docType === 'national_id' && docDigits && !isValidLibyanNationalId(docDigits)) {
+      next.identity_document_number = t('employees.form.national_id_invalid');
+    }
+    const bank = bankAccount.trim();
+    if (bank && !isValidLibyanIban(bank)) {
+      next.bank_account = t('employees.form.iban_invalid');
+    }
+    return next;
+  }
+
   const complete = useMutation({
     mutationFn: async () => {
       if (!onboarding) throw new Error('Onboarding not found');
 
       const hasSalary = salaryAmount.trim();
       const hasHourly = hourlyRate.trim();
-      if (!hasSalary && !hasHourly) {
-        throw new Error(t('pending.error_salary_or_hourly'));
-      }
-      if (!contractStart.trim()) {
-        throw new Error(t('pending.error_contract_start'));
-      }
-      if (contractEnd.trim() && contractEnd.trim() < contractStart.trim()) {
-        throw new Error(t('pending.error_contract_end_before_start'));
-      }
       const rc = roleCode.trim();
-      if (!rc) {
-        throw new Error(t('pending.error_role_required'));
-      }
+      const docType = idDocType.trim();
+      const docDigits =
+        docType === 'national_id' ? digitsOnlyNationalId(idDocNumber) : idDocNumber.trim();
+      const bank = bankAccount.trim();
 
       await patchPendingOnboardingSubject(id, {
         first_name: firstName.trim() || null,
@@ -138,10 +203,10 @@ export default function PendingOnboardingDetail() {
         contract_end: contractEnd.trim() || null,
         salary_amount: hasSalary ? salaryAmount : null,
         hourly_rate: hasHourly ? hourlyRate : null,
-        bank_account: bankAccount.trim() || null,
+        bank_account: bank ? normalizeLibyanIban(bank) : null,
         notes: notes.trim() || null,
-        identity_document_type: idDocType.trim() || null,
-        identity_document_number: idDocNumber.trim() || null,
+        identity_document_type: docType || null,
+        identity_document_number: docDigits || null,
       });
     },
     onSuccess: () => {
@@ -192,6 +257,18 @@ export default function PendingOnboardingDetail() {
           className="flex flex-col gap-6"
           onSubmit={(e) => {
             e.preventDefault();
+            const nextErrors = validatePendingForm();
+            if (Object.keys(nextErrors).length > 0) {
+              setSubmitAttempted(true);
+              setFieldErrors(nextErrors);
+              const first = PENDING_VALIDATION_ORDER.find((o) => nextErrors[o.field]);
+              const firstMsg = first ? nextErrors[first.field] : Object.values(nextErrors)[0];
+              if (firstMsg) toast.error(firstMsg);
+              if (first) focusElementById(first.focusId);
+              return;
+            }
+            setFieldErrors({});
+            setSubmitAttempted(false);
             complete.mutate();
           }}
         >
@@ -226,9 +303,16 @@ export default function PendingOnboardingDetail() {
                 allowClear
               />
             </div>
-            <div className="grid gap-2 sm:col-span-2">
+            <div id="pending-role" className="grid gap-2 sm:col-span-2">
               <Label>{tAdmin('users.col.role')}</Label>
-              <RoleCodeCombobox value={roleCode} onChange={setRoleCode} />
+              <RoleCodeCombobox
+                value={roleCode}
+                onChange={(v) => {
+                  setRoleCode(v);
+                  clearFieldError('role_code');
+                }}
+                invalid={!!fieldErrors.role_code}
+              />
             </div>
           </div>
 
@@ -256,10 +340,21 @@ export default function PendingOnboardingDetail() {
               <Label htmlFor="pending-id-doc-number">{t('employees.form.identity_document_number')}</Label>
               <Input
                 id="pending-id-doc-number"
+                inputMode={idDocType === 'national_id' ? 'numeric' : 'text'}
+                maxLength={idDocType === 'national_id' ? 12 : 128}
                 value={idDocNumber}
-                onChange={(e) => setIdDocNumber(e.target.value)}
+                onChange={(e) => {
+                  clearFieldError('identity_document_number');
+                  setIdDocNumber(
+                    idDocType === 'national_id'
+                      ? digitsOnlyNationalId(e.target.value)
+                      : e.target.value,
+                  );
+                }}
                 autoComplete="off"
                 disabled={uploadIdScan.isPending}
+                className={invalidFieldClass(pendingFieldErrors, 'identity_document_number', submitAttempted)}
+                aria-invalid={fieldErrors.identity_document_number ? true : undefined}
               />
             </div>
             <div className="grid gap-2 sm:col-span-2">
@@ -305,14 +400,29 @@ export default function PendingOnboardingDetail() {
 
           <div className="grid gap-4 border-t pt-6 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label>{t('employees.form.contract_start')}</Label>
-              <DateField value={contractStart} onChange={setContractStart} />
+              <Label htmlFor="pending-contract-start">{t('employees.form.contract_start')}</Label>
+              <DateField
+                id="pending-contract-start"
+                name="contract_start"
+                value={contractStart}
+                onChange={(v) => {
+                  setContractStart(v);
+                  clearFieldError('contract_start');
+                }}
+                invalid={!!fieldErrors.contract_start}
+              />
             </div>
             <div className="grid gap-2">
-              <Label>{t('employees.form.contract_end')}</Label>
+              <Label htmlFor="pending-contract-end">{t('employees.form.contract_end')}</Label>
               <DateField
+                id="pending-contract-end"
+                name="contract_end"
                 value={contractEnd}
-                onChange={setContractEnd}
+                onChange={(v) => {
+                  setContractEnd(v);
+                  clearFieldError('contract_end');
+                }}
+                invalid={!!fieldErrors.contract_end}
                 {...(contractStart.trim()
                   ? { minSelectableDate: contractStart.trim() }
                   : {})}
@@ -321,19 +431,49 @@ export default function PendingOnboardingDetail() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label>{t('employees.form.base_salary')}</Label>
-              <MoneyInput value={salaryAmount} onChange={setSalaryAmount} />
+            <div id="pending-salary" className="grid gap-2">
+              <Label htmlFor="pending-salary-input">{t('employees.form.base_salary')}</Label>
+              <MoneyInput
+                id="pending-salary-input"
+                name="salary_amount"
+                value={salaryAmount}
+                onChange={(v) => {
+                  setSalaryAmount(v);
+                  clearFieldError('salary_amount');
+                  clearFieldError('hourly_rate');
+                }}
+                invalid={!!fieldErrors.salary_amount}
+              />
             </div>
-            <div className="grid gap-2">
-              <Label>{t('employees.form.hourly_rate')}</Label>
-              <MoneyInput value={hourlyRate} onChange={setHourlyRate} />
+            <div id="pending-hourly-rate" className="grid gap-2">
+              <Label htmlFor="pending-hourly-input">{t('employees.form.hourly_rate')}</Label>
+              <MoneyInput
+                id="pending-hourly-input"
+                name="hourly_rate"
+                value={hourlyRate}
+                onChange={(v) => {
+                  setHourlyRate(v);
+                  clearFieldError('hourly_rate');
+                  clearFieldError('salary_amount');
+                }}
+                invalid={!!fieldErrors.hourly_rate}
+              />
             </div>
           </div>
 
           <div className="grid gap-2">
-            <Label>{t('employees.form.bank')}</Label>
-            <Input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} />
+            <Label htmlFor="pending-bank">{t('employees.form.bank')}</Label>
+            <Input
+              id="pending-bank"
+              dir="ltr"
+              className={cn('font-mono text-start', invalidFieldClass(pendingFieldErrors, 'bank_account', submitAttempted))}
+              value={bankAccount}
+              onChange={(e) => {
+                setBankAccount(e.target.value);
+                clearFieldError('bank_account');
+              }}
+              aria-invalid={fieldErrors.bank_account ? true : undefined}
+            />
           </div>
 
           <div className="grid gap-2">
