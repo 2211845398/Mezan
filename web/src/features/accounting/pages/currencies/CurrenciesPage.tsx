@@ -185,7 +185,6 @@ export default function CurrenciesPage() {
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
         title={t('currencies.title')}
-        description={t('currencies.description')}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" asChild>
@@ -215,8 +214,6 @@ export default function CurrenciesPage() {
           </span>
         </div>
       ) : null}
-
-      <p className="text-sm text-muted-foreground">{t('currencies.fx_hint')}</p>
 
       <DataTable
         columns={columns}

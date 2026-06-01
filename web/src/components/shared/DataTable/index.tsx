@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
+import { columnAlignClass } from './columns';
 import { DENSITY_CELL_CLASS, DENSITY_ROW_CLASS } from './densityClasses';
 import { Pagination } from './pagination';
 import { TableEmpty, TableError, TableSkeleton } from './states';
@@ -89,6 +90,8 @@ export type DataTableProps<TData> = {
   getRowId?: (row: TData) => string;
   /** Plain-text empty state when `emptyState` is not provided. */
   emptyMessage?: string | undefined;
+  /** Overrides the default toolbar search placeholder. */
+  searchPlaceholder?: string | undefined;
   /** Extra class names merged onto each body row. */
   getRowClassName?: (row: TData) => string | undefined;
 };
@@ -118,6 +121,7 @@ export function DataTable<TData>({
   tableDir,
   getRowId,
   emptyMessage,
+  searchPlaceholder,
   getRowClassName,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
@@ -224,11 +228,12 @@ export function DataTable<TData>({
               {group.headers.map((header) => {
                 const canSort = header.column.getCanSort();
                 const sorted = header.column.getIsSorted();
+                const headAlign = columnAlignClass(header.column.columnDef.meta?.align);
                 return (
                   <TableHead
                     key={header.id}
                     scope="col"
-                    className={cn('text-start align-middle', cellClass)}
+                    className={cn('align-middle', headAlign, cellClass)}
                     style={
                       header.column.columnDef.size != null
                         ? { width: header.column.getSize(), minWidth: header.column.getSize() }
@@ -275,19 +280,22 @@ export function DataTable<TData>({
                     data-state={row.getIsSelected() ? 'selected' : undefined}
                     className={cn(rowClass, getRowClassName?.(row.original))}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cn('align-middle', cellClass)}
-                        style={
-                          cell.column.columnDef.size != null
-                            ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
-                            : undefined
-                        }
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
+                    {row.getVisibleCells().map((cell) => {
+                      const cellAlign = columnAlignClass(cell.column.columnDef.meta?.align);
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={cn('align-middle', cellAlign, cellClass)}
+                          style={
+                            cell.column.columnDef.size != null
+                              ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
+                              : undefined
+                          }
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 );
               })}
@@ -308,19 +316,22 @@ export function DataTable<TData>({
                 data-state={row.getIsSelected() ? 'selected' : undefined}
                 className={cn(rowClass, getRowClassName?.(row.original))}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn('align-middle', cellClass)}
-                    style={
-                      cell.column.columnDef.size != null
-                        ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
-                        : undefined
-                    }
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const cellAlign = columnAlignClass(cell.column.columnDef.meta?.align);
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      className={cn('align-middle', cellAlign, cellClass)}
+                      style={
+                        cell.column.columnDef.size != null
+                          ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
+                          : undefined
+                      }
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))
           )}
@@ -341,6 +352,7 @@ export function DataTable<TData>({
         toolbarExtras={toolbarExtras}
         toolbarLeading={toolbarLeading}
         showSearch={showSearch}
+        searchPlaceholder={searchPlaceholder}
       />
 
       <div className="rounded-md border" dir={tableDir}>

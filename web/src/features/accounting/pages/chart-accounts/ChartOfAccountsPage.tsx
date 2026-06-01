@@ -97,8 +97,8 @@ export default function ChartOfAccountsPage() {
   return (
     <div className="space-y-4">
       <PageHeader title={t('coa.title')} />
-      <ContentSurface className="space-y-4 p-4">
-        <div className="flex flex-wrap items-end gap-4">
+      <ContentSurface className="space-y-6 p-4">
+        <div className="mb-6 flex flex-wrap items-end gap-4">
           <div className="grid gap-1.5">
             <span className="text-sm font-medium">{t('coa.as_of')}</span>
             <DateField value={asOf} onChange={setAsOf} />
@@ -116,10 +116,6 @@ export default function ChartOfAccountsPage() {
             {t('coa.apply_filters')}
           </Button>
         </div>
-        {!showBalances ? (
-          <p className="text-sm text-muted-foreground">{t('coa.branch_hint')}</p>
-        ) : null}
-
         {treeQuery.isLoading ? (
           <p className="text-sm text-muted-foreground">{t('coa.loading')}</p>
         ) : treeQuery.isError ? (

@@ -159,9 +159,18 @@ async def general_ledger_lines(
     sup_names: dict[int, str] = {}
     if sup_ids:
         s_res = await db.execute(
-            select(Supplier.id, Supplier.name).where(Supplier.id.in_(sup_ids))
+            select(
+                Supplier.id,
+                Supplier.code,
+                Supplier.first_name,
+                Supplier.father_name,
+                Supplier.family_name,
+            ).where(Supplier.id.in_(sup_ids))
         )
-        sup_names = {int(r.id): str(r.name) for r in s_res.all()}
+        for r in s_res.all():
+            sup_names[int(r.id)] = (
+                display_person_name(r.first_name, r.father_name, r.family_name) or r.code or f"#{r.id}"
+            )
 
     emp_names: dict[int, str] = {}
     if emp_ids:

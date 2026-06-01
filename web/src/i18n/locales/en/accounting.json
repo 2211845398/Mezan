@@ -82,6 +82,27 @@
       "account": "Account",
       "branch": "Branch",
       "memo": "Line memo"
+    },
+    "desc": {
+      "goods_receipt": "Goods receipt {{id}}",
+      "transfer_batch_received": "Transfer batch {{id}} received",
+      "reversal": "Reversal of JE #{{id}}",
+      "sales_invoice_settlement": "Sales invoice {{ref}} (settlement)",
+      "sales_invoice_accrual": "Sales invoice {{ref}} accrual",
+      "cogs": "COGS {{ref}}",
+      "cogs_restore": "COGS restore {{ref}}",
+      "sales_return": "Sales return {{id}}",
+      "ar_payment_application": "AR cash receipt (application {{id}})",
+      "ap_payment_application": "AP supplier payment (application {{id}})",
+      "payslip_approved": "Payslip {{id}} approved",
+      "pos_shift_variance": "POS shift {{id}} cash variance",
+      "loyalty_ledger": "Loyalty ledger {{id}}",
+      "fx_revaluation_ar": "FX revaluation {{currency}} AR — {{sourceType}} {{sourceId}}",
+      "fx_revaluation_ap": "FX revaluation {{currency}} AP — {{sourceType}} {{sourceId}}",
+      "inventory_adjustment": "Inventory adjustment — {{reason}} (mv {{movementId}})",
+      "inventory_adjustment_excess": "Inventory adjustment — excess found (mv {{movementId}})",
+      "production_material": "Production order {{order}} — material issue",
+      "production_finished": "Production order {{order}} — finished goods"
     }
   },
   "manual": {
@@ -159,7 +180,7 @@
     "account": "Account",
     "subledger_filter": "Entity filter",
     "all_entities": "All entities",
-    "open_in_new_tab": "Open in new tab",
+    "search_placeholder": "Search description or entity…",
     "col": {
       "date": "Date",
       "je": "JE #",
@@ -224,10 +245,8 @@
   },
   "operations": {
     "title": "Accounting operations",
-    "subtitle": "Chart of accounts, vouchers, opening balances, FX revaluation, and production orders.",
     "loading": "Loading…",
     "tab": {
-      "tree": "Chart of accounts",
       "vouchers": "Vouchers",
       "opening": "Opening balances",
       "fx": "FX revaluation",
@@ -290,7 +309,7 @@
   },
   "fiscal": {
     "title": "Fiscal periods",
-    "hint": "Periods are global (calendar month). Branch filters apply to reports and postings, not to period rows here.",
+    "search_placeholder": "Search by date…",
     "col": {
       "key": "Period",
       "start": "Start",
@@ -311,18 +330,17 @@
     "reopen_confirm_title": "Reopen fiscal period?",
     "reopen_confirm_body": "Reopening allows posting again in this period.",
     "closed_ok": "Period closed",
-    "reopened_ok": "Period reopened"
+    "reopened_ok": "Period reopened",
+    "transition_error": "This period status change is not allowed"
   },
   "currencies": {
     "title": "Currencies",
-    "description": "Manage currencies, exchange rates to base, and company base currency.",
     "add": "Add currency",
     "empty": "No currencies yet.",
     "select_placeholder": "Select currency",
     "base_badge": "Base",
     "current_base": "Company base currency",
     "link_fx": "FX revaluation",
-    "fx_hint": "Update exchange rates here for day-to-day valuation. Run FX revaluation at period close from Accounting operations.",
     "col": {
       "code": "Code",
       "name": "Name",
@@ -350,6 +368,13 @@
     }
   },
   "coa": {
+    "account_type": {
+      "asset": "Asset",
+      "liability": "Liability",
+      "equity": "Equity",
+      "revenue": "Revenue",
+      "expense": "Expense"
+    },
     "title": "Chart of accounts",
     "open_page": "Open chart of accounts",
     "balance_sheet": "Balance sheet",

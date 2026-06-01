@@ -10,28 +10,25 @@ import { DateField } from '@/components/shared/form/DateField';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
 import { now, utcCalendarDayKey } from '@/lib/date';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import type { GeneralLedgerLineRead, SubledgerKind } from '../../api';
+import { AccountingBranchFilter } from '../../components/AccountingBranchFilter';
 import PostableAccountPicker from '../../components/PostableAccountPicker';
 import SubledgerEntityPicker from '../../components/SubledgerEntityPicker';
-import { buildLedgerDrillDownUrl } from '../../lib/ledgerDrillDownUrl';
+import {
+  accountingMoneyCell,
+  journalListCellWrap,
+} from '../../lib/accountingTableClasses';
+import { formatJournalEntryDescription } from '../../lib/journalEntryDescription';
+import { journalPageShellClass } from '../../lib/journalPageLayout';
 import { generalLedgerQueryOptions, postableAccountsQueryOptions } from '../../queries';
 
 type GlLineRow = GeneralLedgerLineRead & {
-  running_balance?: string;
-  partner_display_name?: string | null;
+  description_label: string;
+  partner_label: string;
 };
 
 function drCrLabel(balance: string): { label: string; cls: string } {
@@ -48,7 +45,8 @@ function parseIntParam(v: string | null): number | null {
 }
 
 export default function GeneralLedger() {
-  const { t } = useTranslation('accounting');
+  const { t, i18n } = useTranslation('accounting');
+  const isRtl = i18n.dir() === 'rtl';
   const [searchParams, setSearchParams] = useSearchParams();
 
   const defaultFrom = utcCalendarDayKey(startOfMonth(now()));
@@ -69,13 +67,11 @@ export default function GeneralLedger() {
   );
   const [df, setDf] = useState(() => searchParams.get('date_from') ?? defaultFrom);
   const [dt, setDt] = useState(() => searchParams.get('date_to') ?? defaultTo);
-  const [branch, setBranch] = useState(() => searchParams.get('branch_id') ?? '__all');
+  const [branchId, setBranchId] = useState<number | null>(() =>
+    parseIntParam(searchParams.get('branch_id')),
+  );
 
   const { data: postable = [] } = useQuery(postableAccountsQueryOptions());
-  const { data: branches = [] } = useQuery({
-    queryKey: adminKeys.branches(false),
-    queryFn: () => listBranches({ include_archived: false }),
-  });
 
   useEffect(() => {
     if (accountId == null) return;
@@ -88,7 +84,7 @@ export default function GeneralLedger() {
       account_id: number | null;
       date_from: string;
       date_to: string;
-      branch: string;
+      branch_id: number | null;
       customer_id: number | null;
       supplier_id: number | null;
       employee_id: number | null;
@@ -97,7 +93,7 @@ export default function GeneralLedger() {
       if (next.account_id) q.set('account_id', String(next.account_id));
       q.set('date_from', next.date_from);
       q.set('date_to', next.date_to);
-      if (next.branch !== '__all') q.set('branch_id', next.branch);
+      if (next.branch_id) q.set('branch_id', String(next.branch_id));
       if (next.customer_id) q.set('customer_id', String(next.customer_id));
       if (next.supplier_id) q.set('supplier_id', String(next.supplier_id));
       if (next.employee_id) q.set('employee_id', String(next.employee_id));
@@ -119,24 +115,40 @@ export default function GeneralLedger() {
       supplier_id?: number;
       employee_id?: number;
     } = { account_id: accountId, date_from: df, date_to: dt };
-    if (branch !== '__all') p.branch_id = Number(branch);
+    if (branchId != null) p.branch_id = branchId;
     if (customerId) p.customer_id = customerId;
     if (supplierId) p.supplier_id = supplierId;
     if (employeeId) p.employee_id = employeeId;
     return p;
-  }, [accountId, df, dt, branch, customerId, supplierId, employeeId]);
+  }, [accountId, df, dt, branchId, customerId, supplierId, employeeId]);
 
   const { data: lines = [], isLoading, isError, refetch } = useQuery({
     ...generalLedgerQueryOptions(glQueryParams),
     enabled: accountId != null && accountId > 0,
   });
 
+  const tableRows = useMemo((): GlLineRow[] => {
+    return lines.map((ln) => {
+      const description_label = formatJournalEntryDescription(
+        {
+          description: ln.description,
+          source_type: ln.source_type,
+          source_id: ln.source_id,
+        },
+        t,
+        i18n.language,
+      );
+      const partner_label = ln.partner_display_name?.trim() ?? '';
+      return { ...ln, description_label, partner_label };
+    });
+  }, [lines, t, i18n.language]);
+
   const applyFilters = () => {
     syncUrl({
       account_id: accountId,
       date_from: df,
       date_to: dt,
-      branch,
+      branch_id: branchId,
       customer_id: customerId,
       supplier_id: supplierId,
       employee_id: employeeId,
@@ -153,35 +165,61 @@ export default function GeneralLedger() {
       defineColumns<GlLineRow>()([
         {
           id: 'd',
+          size: 116,
+          meta: { align: 'center' },
           header: t('gl.col.date'),
-          cell: ({ row }) => row.original.entry_date?.slice(0, 10),
+          cell: ({ row }) => (
+            <span className={cn(journalListCellWrap, 'text-center num-latin')}>
+              {row.original.entry_date?.slice(0, 10)}
+            </span>
+          ),
         },
         {
           id: 'j',
+          size: 96,
+          meta: { align: 'center' },
           header: t('gl.col.je'),
           cell: ({ row }) => (
-            <Button variant="link" className="h-auto p-0 num-latin" asChild>
-              <Link to={`/accounting/journal/${row.original.journal_entry_id}`}>
-                #{row.original.journal_entry_id}
-              </Link>
-            </Button>
+            <span className={cn(journalListCellWrap, 'text-center')}>
+              <Button variant="link" className="h-auto p-0 num-latin" asChild>
+                <Link to={`/accounting/journal/${row.original.journal_entry_id}`}>
+                  #{row.original.journal_entry_id}
+                </Link>
+              </Button>
+            </span>
           ),
         },
         {
           id: 'desc',
+          size: 320,
+          meta: { align: 'start' },
           header: t('gl.col.desc'),
-          cell: ({ row }) => row.original.description,
+          accessorFn: (row) => row.description_label,
+          cell: ({ row }) => (
+            <span className={cn(journalListCellWrap, 'truncate')} dir="auto" title={row.original.description_label}>
+              {row.original.description_label}
+            </span>
+          ),
         },
         {
           id: 'partner',
+          size: 200,
+          meta: { align: 'start' },
           header: t('gl.col.partner'),
-          cell: ({ row }) => row.original.partner_display_name ?? '—',
+          accessorFn: (row) => row.partner_label,
+          cell: ({ row }) => (
+            <span className={journalListCellWrap} dir="auto">
+              {row.original.partner_label || '—'}
+            </span>
+          ),
         },
         {
           id: 'dr',
+          size: 132,
+          meta: { align: 'center' },
           header: t('journal.col.debit'),
           cell: ({ row }) => (
-            <span className="block text-end tabular-nums num-latin">
+            <span className={cn(journalListCellWrap, accountingMoneyCell)}>
               {row.original.debit !== '0' && row.original.debit !== '0.0000'
                 ? formatMoney(row.original.debit)
                 : ''}
@@ -190,9 +228,11 @@ export default function GeneralLedger() {
         },
         {
           id: 'cr',
+          size: 132,
+          meta: { align: 'center' },
           header: t('journal.col.credit'),
           cell: ({ row }) => (
-            <span className="block text-end tabular-nums num-latin">
+            <span className={cn(journalListCellWrap, accountingMoneyCell)}>
               {row.original.credit !== '0' && row.original.credit !== '0.0000'
                 ? formatMoney(row.original.credit)
                 : ''}
@@ -201,12 +241,14 @@ export default function GeneralLedger() {
         },
         {
           id: 'run',
+          size: 148,
+          meta: { align: 'center' },
           header: t('gl.col.balance'),
           cell: ({ row }) => {
-            const run = row.original.running_balance ?? '0';
+            const run = row.original.running_balance;
             const { label, cls } = drCrLabel(run);
             return (
-              <span className={cn('block text-end tabular-nums num-latin', cls)}>
+              <span className={cn(journalListCellWrap, accountingMoneyCell, cls)}>
                 {formatMoney(Math.abs(Number(run)))} {label}
               </span>
             );
@@ -216,121 +258,92 @@ export default function GeneralLedger() {
     [t],
   );
 
-  const shareUrl =
-    accountId != null
-      ? buildLedgerDrillDownUrl({
-          account_id: accountId,
-          date_from: df,
-          date_to: dt,
-          branch_id: branch !== '__all' ? Number(branch) : undefined,
-          customer_id: customerId ?? undefined,
-          supplier_id: supplierId ?? undefined,
-          employee_id: employeeId ?? undefined,
-        })
-      : null;
-
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div className={journalPageShellClass(isRtl)} dir={isRtl ? 'rtl' : 'ltr'}>
       <PageHeader title={t('gl.title')} />
-      <div className="grid max-w-md gap-1">
-        <Label>{t('gl.account')}</Label>
-        <PostableAccountPicker
-          value={accountId}
-          onChange={(a) => {
-            setAccountId(a?.id ?? null);
-            setSubledgerKind(a?.subledger_kind ?? 'none');
-            setCustomerId(null);
-            setSupplierId(null);
-            setEmployeeId(null);
-          }}
-        />
-      </div>
-      {subledgerKind !== 'none' ? (
-        <div className="grid max-w-md gap-1">
-          <Label>{t('gl.subledger_filter')}</Label>
-          <SubledgerEntityPicker
-            kind={subledgerKind}
-            value={
-              subledgerKind === 'customer'
-                ? customerId
-                : subledgerKind === 'supplier'
-                  ? supplierId
-                  : employeeId
-            }
-            onChange={(id) => {
-              if (subledgerKind === 'customer') {
-                setCustomerId(id);
-                setSupplierId(null);
-                setEmployeeId(null);
-              } else if (subledgerKind === 'supplier') {
-                setSupplierId(id);
-                setCustomerId(null);
-                setEmployeeId(null);
-              } else {
-                setEmployeeId(id);
-                setCustomerId(null);
-                setSupplierId(null);
-              }
-            }}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="justify-start px-0"
-            onClick={() => {
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="grid min-w-[min(100%,280px)] flex-1 gap-1 sm:max-w-md">
+          <Label>{t('gl.account')}</Label>
+          <PostableAccountPicker
+            className="w-full"
+            value={accountId}
+            onChange={(a) => {
+              setAccountId(a?.id ?? null);
+              setSubledgerKind(a?.subledger_kind ?? 'none');
               setCustomerId(null);
               setSupplierId(null);
               setEmployeeId(null);
             }}
-          >
-            {t('gl.all_entities')}
-          </Button>
+          />
         </div>
-      ) : null}
+        {subledgerKind !== 'none' ? (
+          <div className="grid min-w-[min(100%,280px)] flex-1 gap-1 sm:max-w-md">
+            <Label>{t('gl.subledger_filter')}</Label>
+            <SubledgerEntityPicker
+              className="w-full"
+              kind={subledgerKind}
+              allowClear
+              clearLabel={t('gl.all_entities')}
+              value={
+                subledgerKind === 'customer'
+                  ? customerId
+                  : subledgerKind === 'supplier'
+                    ? supplierId
+                    : employeeId
+              }
+              onChange={(id) => {
+                if (subledgerKind === 'customer') {
+                  setCustomerId(id);
+                  setSupplierId(null);
+                  setEmployeeId(null);
+                } else if (subledgerKind === 'supplier') {
+                  setSupplierId(id);
+                  setCustomerId(null);
+                  setEmployeeId(null);
+                } else {
+                  setEmployeeId(id);
+                  setCustomerId(null);
+                  setSupplierId(null);
+                }
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('period.from')}</Label>
-          <DateField value={df} onChange={setDf} />
+          <DateField value={df} onChange={setDf} className="w-[180px]" />
         </div>
         <div className="grid gap-1">
           <Label>{t('period.to')}</Label>
-          <DateField value={dt} onChange={setDt} />
+          <DateField value={dt} onChange={setDt} className="w-[180px]" />
         </div>
         <div className="grid gap-1">
           <Label>{t('toolbar.branch')}</Label>
-          <Select value={branch} onValueChange={setBranch}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">{t('toolbar.all_branches')}</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={String(b.id)}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AccountingBranchFilter
+            value={branchId}
+            onChange={setBranchId}
+            clearLabel={t('toolbar.all_branches')}
+            className="w-[200px]"
+            showCode={false}
+          />
         </div>
         <Button type="button" onClick={applyFilters} disabled={!accountId}>
           {t('toolbar.apply')}
         </Button>
-        {shareUrl ? (
-          <Button type="button" variant="outline" asChild>
-            <a href={shareUrl} target="_blank" rel="noreferrer">
-              {t('gl.open_in_new_tab')}
-            </a>
-          </Button>
-        ) : null}
       </div>
       <DataTable
         mode="client"
         columns={columns}
-        data={accountId ? (lines as GlLineRow[]) : []}
+        data={accountId ? tableRows : []}
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        tableDir={isRtl ? 'rtl' : 'ltr'}
+        tableClassName="w-full table-fixed"
+        getRowId={(row) => `${row.journal_entry_id}-${row.line_no}`}
+        searchPlaceholder={t('gl.search_placeholder')}
       />
     </div>
   );

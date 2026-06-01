@@ -239,6 +239,7 @@ class JournalEntryLineRead(BaseModel):
     supplier_id: int | None = None
     employee_id: int | None = None
     subledger_kind: str | None = None
+    subledger_entity_name: str | None = None
 
     model_config = ConfigDict(json_encoders={Decimal: str})
 
@@ -249,6 +250,7 @@ class JournalEntryDetailRead(BaseModel):
     description: str
     source_type: str
     source_id: str
+    source_reference: str | None = None
     reverses_entry_id: int | None = None
     reversed_by_entry_id: int | None = None
     lines: list[JournalEntryLineRead]

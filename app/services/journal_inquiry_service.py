@@ -12,8 +12,14 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import NotFoundError
 from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
+from app.models.customer_profile import CustomerProfile
+from app.models.employee_profile import EmployeeProfile
 from app.models.journal_entries import JournalEntry, JournalEntryLine
+from app.models.suppliers import Supplier
+from app.models.users import User
 from app.utils.money import q2
+from app.services.journal_source_reference import resolve_journal_source_reference
+from app.utils.person_name import display_person_name
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +141,49 @@ class JournalLineDetail:
     supplier_id: int | None = None
     employee_id: int | None = None
     subledger_kind: str | None = None
+    subledger_entity_name: str | None = None
+
+
+async def _resolve_subledger_entity_names(
+    db: AsyncSession, lines: list[JournalEntryLine]
+) -> dict[tuple[str, int], str]:
+    """Map (kind, id) -> display label for journal line subledgers."""
+    cust_ids = {int(ln.customer_id) for ln in lines if ln.customer_id is not None}
+    sup_ids = {int(ln.supplier_id) for ln in lines if ln.supplier_id is not None}
+    emp_ids = {int(ln.employee_id) for ln in lines if ln.employee_id is not None}
+    out: dict[tuple[str, int], str] = {}
+
+    if cust_ids:
+        c_res = await db.execute(select(CustomerProfile).where(CustomerProfile.id.in_(cust_ids)))
+        for c in c_res.scalars().all():
+            label = display_person_name(c.first_name, c.father_name, c.family_name) or c.phone or f"#{c.id}"
+            out[("customer", int(c.id))] = label
+
+    if sup_ids:
+        s_res = await db.execute(
+            select(
+                Supplier.id,
+                Supplier.code,
+                Supplier.first_name,
+                Supplier.father_name,
+                Supplier.family_name,
+            ).where(Supplier.id.in_(sup_ids))
+        )
+        for r in s_res.all():
+            label = display_person_name(r.first_name, r.father_name, r.family_name) or r.code or f"#{r.id}"
+            out[("supplier", int(r.id))] = label
+
+    if emp_ids:
+        e_res = await db.execute(
+            select(EmployeeProfile.id, User.first_name, User.father_name, User.family_name)
+            .join(User, User.id == EmployeeProfile.user_id)
+            .where(EmployeeProfile.id.in_(emp_ids))
+        )
+        for r in e_res.all():
+            label = display_person_name(r.first_name, r.father_name, r.family_name) or f"#{r.id}"
+            out[("employee", int(r.id))] = label
+
+    return out
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +193,7 @@ class JournalEntryDetail:
     description: str
     source_type: str
     source_id: str
+    source_reference: str | None
     reverses_entry_id: int | None
     reversed_by_entry_id: int | None
     lines: list[JournalLineDetail]
@@ -172,6 +222,8 @@ async def get_journal_entry_detail(
     )
     rev_id = r2.scalar_one_or_none()
 
+    entity_names = await _resolve_subledger_entity_names(db, list(je.lines))
+
     lines: list[JournalLineDetail] = []
     for ln in sorted(je.lines, key=lambda x: x.line_no):
         acc = acc_by_id.get(ln.account_id)
@@ -181,6 +233,13 @@ async def get_journal_entry_detail(
         at_s = at.value if isinstance(at, AccountType) else str(at)
         sk = acc.subledger_kind
         sk_s = sk.value if isinstance(sk, SubledgerKind) else str(sk)
+        entity_name: str | None = None
+        if ln.customer_id is not None:
+            entity_name = entity_names.get(("customer", int(ln.customer_id)))
+        elif ln.supplier_id is not None:
+            entity_name = entity_names.get(("supplier", int(ln.supplier_id)))
+        elif ln.employee_id is not None:
+            entity_name = entity_names.get(("employee", int(ln.employee_id)))
         lines.append(
             JournalLineDetail(
                 line_no=ln.line_no,
@@ -196,14 +255,20 @@ async def get_journal_entry_detail(
                 supplier_id=ln.supplier_id,
                 employee_id=ln.employee_id,
                 subledger_kind=sk_s,
+                subledger_entity_name=entity_name,
             )
         )
+    source_reference = await resolve_journal_source_reference(
+        db, source_type=je.source_type, source_id=je.source_id
+    )
+
     return JournalEntryDetail(
         id=je.id,
         entry_date=je.entry_date,
         description=je.description,
         source_type=je.source_type,
         source_id=je.source_id,
+        source_reference=source_reference,
         reverses_entry_id=je.reverses_entry_id,
         reversed_by_entry_id=int(rev_id) if rev_id is not None else None,
         lines=lines,

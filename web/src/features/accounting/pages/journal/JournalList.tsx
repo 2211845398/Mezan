@@ -16,12 +16,15 @@ import { Label } from '@/components/ui/label';
 import { usePermission } from '@/hooks/usePermission';
 import { now, utcCalendarDayKey } from '@/lib/date';
 import { formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 import { AccountingBranchFilter } from '../../components/AccountingBranchFilter';
 import { JournalSourceTypeCombobox } from '../../components/JournalSourceTypeCombobox';
 import type { JournalEntryListItemRead } from '../../api';
-import { accountingMoneyCell, accountingMoneyHead } from '../../lib/accountingTableClasses';
+import { accountingMoneyCell, journalListCellWrap } from '../../lib/accountingTableClasses';
+import { formatJournalEntryDescription } from '../../lib/journalEntryDescription';
 import { journalSourceLabel } from '../../lib/journalSourceLabel';
+import { journalPageShellClass } from '../../lib/journalPageLayout';
 import { journalListQueryOptions } from '../../queries';
 
 function defaultDateRange() {
@@ -31,12 +34,12 @@ function defaultDateRange() {
 }
 
 export default function JournalList() {
-  const { t } = useTranslation('accounting');
+  const { t, i18n } = useTranslation('accounting');
   const { from: df0, to: dt0 } = defaultDateRange();
   const [dateFrom, setDateFrom] = useState(df0);
   const [dateTo, setDateTo] = useState(dt0);
   const [branchId, setBranchId] = useState<number | null>(null);
-  const [source, setSource] = useState('__all');
+  const [source, setSource] = useState('__all__');
   const [urlQuery] = useTableUrlState({ pageSize: 30 });
   const page = urlQuery.page - 1;
   const pageSize = urlQuery.pageSize;
@@ -52,7 +55,7 @@ export default function JournalList() {
       source_type?: string;
     } = { date_from: dateFrom, date_to: dateTo, page, pageSize };
     if (branchId != null) p.branch_id = branchId;
-    if (source !== '__all') p.source_type = source;
+    if (source !== '__all__') p.source_type = source;
     return p;
   }, [dateFrom, dateTo, branchId, source, page, pageSize]);
 
@@ -67,49 +70,96 @@ export default function JournalList() {
       defineColumns<JournalEntryListItemRead>()([
         {
           id: 'id',
+          size: 96,
+          meta: { align: 'center' },
           header: t('journal.col.id'),
           cell: ({ row }) => (
-            <Button variant="link" className="h-auto p-0 num-latin" asChild>
-              <Link to={`/accounting/journal/${row.original.id}`}>
-                #{row.original.id}
-              </Link>
-            </Button>
+            <span className={cn(journalListCellWrap, 'text-center')}>
+              <Button variant="link" className="h-auto p-0 num-latin" asChild>
+                <Link to={`/accounting/journal/${row.original.id}`}>
+                  #{row.original.id}
+                </Link>
+              </Button>
+            </span>
           ),
         },
         {
           id: 'date',
+          size: 116,
+          meta: { align: 'center' },
           header: t('journal.col.date'),
-          cell: ({ row }) => String(row.original.entry_date).slice(0, 10),
+          cell: ({ row }) => (
+            <span className={cn(journalListCellWrap, 'text-center num-latin')}>
+              {String(row.original.entry_date).slice(0, 10)}
+            </span>
+          ),
         },
         {
           id: 'source',
+          size: 148,
+          meta: { align: 'start' },
           header: t('journal.col.source'),
-          cell: ({ row }) => journalSourceLabel(t, row.original.source_type),
+          cell: ({ row }) => (
+            <span className={journalListCellWrap}>
+              {journalSourceLabel(t, row.original.source_type)}
+            </span>
+          ),
         },
-        { id: 'memo', header: t('journal.col.memo'), cell: ({ row }) => row.original.description },
+        {
+          id: 'memo',
+          size: 360,
+          meta: { align: 'start' },
+          header: t('journal.col.memo'),
+          cell: ({ row }) => {
+            const label = formatJournalEntryDescription(
+              {
+                description: row.original.description,
+                source_type: row.original.source_type,
+                source_id: row.original.source_id,
+              },
+              t,
+              i18n.language,
+            );
+            return (
+              <span className={cn(journalListCellWrap, 'truncate')} dir="auto" title={label}>
+                {label}
+              </span>
+            );
+          },
+        },
         {
           id: 'dr',
-          header: () => <span className={accountingMoneyHead}>{t('journal.col.debit')}</span>,
+          size: 132,
+          meta: { align: 'center' },
+          header: t('journal.col.debit'),
           cell: ({ row }) => (
-            <span className={accountingMoneyCell}>{formatMoney(row.original.total_debit)}</span>
+            <span className={cn(journalListCellWrap, accountingMoneyCell)}>
+              {formatMoney(row.original.total_debit)}
+            </span>
           ),
         },
         {
           id: 'cr',
-          header: () => <span className={accountingMoneyHead}>{t('journal.col.credit')}</span>,
+          size: 132,
+          meta: { align: 'center' },
+          header: t('journal.col.credit'),
           cell: ({ row }) => (
-            <span className={accountingMoneyCell}>{formatMoney(row.original.total_credit)}</span>
+            <span className={cn(journalListCellWrap, accountingMoneyCell)}>
+              {formatMoney(row.original.total_credit)}
+            </span>
           ),
         },
         {
           id: 'bal',
-          header: () => <span className={accountingMoneyHead}>{t('journal.col.balanced')}</span>,
+          size: 88,
+          meta: { align: 'center' },
+          header: t('journal.col.balanced'),
           cell: ({ row }) => {
             const dr = Number(row.original.total_debit);
             const cr = Number(row.original.total_credit);
             const ok = Math.abs(dr - cr) < 0.01;
             return (
-              <span className="flex justify-center">
+              <span className={cn(journalListCellWrap, 'flex justify-center')}>
                 {ok ? (
                   <CheckCircle2 className="size-4 text-emerald-600" aria-label="balanced" />
                 ) : (
@@ -121,21 +171,28 @@ export default function JournalList() {
         },
         {
           id: 'a',
+          size: 64,
+          meta: { align: 'center' },
           header: '',
+          enableHiding: false,
           cell: ({ row }) => (
-            <Button type="button" size="icon" variant="ghost" asChild>
-              <Link to={`/accounting/journal/${row.original.id}`} aria-label={t('journal.view')}>
-                <Eye className="size-4" />
-              </Link>
-            </Button>
+            <span className={cn(journalListCellWrap, 'flex justify-center')}>
+              <Button type="button" size="icon" variant="ghost" asChild>
+                <Link to={`/accounting/journal/${row.original.id}`} aria-label={t('journal.view')}>
+                  <Eye className="size-4" />
+                </Link>
+              </Button>
+            </span>
           ),
         },
       ]),
-    [t],
+    [t, i18n.language],
   );
 
+  const isRtl = i18n.dir() === 'rtl';
+
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className={journalPageShellClass(isRtl)} dir={isRtl ? 'rtl' : 'ltr'}>
       <PageHeader
         title={t('journal.list_title')}
         actions={
@@ -170,6 +227,7 @@ export default function JournalList() {
             onChange={setBranchId}
             clearLabel={t('toolbar.all_branches')}
             className="w-[200px]"
+            showCode={false}
           />
         </div>
       </div>
@@ -184,6 +242,9 @@ export default function JournalList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        tableDir={isRtl ? 'rtl' : 'ltr'}
+        tableClassName="w-full table-fixed"
+        initialDensity="normal"
       />
     </div>
   );

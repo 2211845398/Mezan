@@ -536,6 +536,7 @@ def _journal_detail_to_read(d: JournalEntryDetail) -> JournalEntryDetailRead:
         description=d.description,
         source_type=d.source_type,
         source_id=d.source_id,
+        source_reference=d.source_reference,
         reverses_entry_id=d.reverses_entry_id,
         reversed_by_entry_id=d.reversed_by_entry_id,
         lines=[
@@ -553,6 +554,7 @@ def _journal_detail_to_read(d: JournalEntryDetail) -> JournalEntryDetailRead:
                 supplier_id=ln.supplier_id,
                 employee_id=ln.employee_id,
                 subledger_kind=ln.subledger_kind,
+                subledger_entity_name=ln.subledger_entity_name,
             )
             for ln in d.lines
         ],

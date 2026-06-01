@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateField } from '@/components/shared/form/DateField';
@@ -20,11 +20,20 @@ import { now, utcCalendarDayKey } from '@/lib/date';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-import { balanceSheetQueryOptions } from '../../queries';
+import { resolveCoaDisplayName } from '../../lib/coaDisplayName';
+import { balanceSheetQueryOptions, chartAccountsQueryOptions } from '../../queries';
 
 type LineRow = { account_id: number; code: string; name: string; amount: string; depth?: number };
 
-function IndentedLinesTable({ title, rows }: { title: string; rows: LineRow[] }) {
+function IndentedLinesTable({
+  title,
+  rows,
+  accountNameById,
+}: {
+  title: string;
+  rows: LineRow[];
+  accountNameById: Map<number, string>;
+}) {
   const { t } = useTranslation('accounting');
   return (
     <div>
@@ -53,7 +62,7 @@ function IndentedLinesTable({ title, rows }: { title: string; rows: LineRow[] })
                     className={cn('text-sm', depth === 0 && 'font-medium', depth >= 2 && 'text-muted-foreground')}
                     style={{ paddingInlineStart: `${12 + depth * 16}px` }}
                   >
-                    {r.name}
+                    {accountNameById.get(r.account_id) ?? r.name}
                   </TableCell>
                   <TableCell className="text-end tabular-nums num-latin text-sm">
                     {formatMoney(r.amount)}
@@ -69,7 +78,7 @@ function IndentedLinesTable({ title, rows }: { title: string; rows: LineRow[] })
 }
 
 export default function BalanceSheet() {
-  const { t } = useTranslation('accounting');
+  const { t, i18n } = useTranslation('accounting');
   const d0 = utcCalendarDayKey(now());
   const [asOf, setAsOf] = useState(d0);
   const [branch, setBranch] = useState('__all');
@@ -78,6 +87,15 @@ export default function BalanceSheet() {
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
   });
+  const { data: chartAccounts = [] } = useQuery(chartAccountsQueryOptions(false));
+  const accountNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const a of chartAccounts) {
+      m.set(a.id, resolveCoaDisplayName(a, i18n.language));
+    }
+    return m;
+  }, [chartAccounts, i18n.language]);
+
   const { data, isLoading } = useQuery(balanceSheetQueryOptions(applied));
 
   const apply = () => {
@@ -166,9 +184,21 @@ export default function BalanceSheet() {
             </div>
           </div>
 
-          <IndentedLinesTable title={t('bs.section.assets')} rows={data.asset_lines ?? []} />
-          <IndentedLinesTable title={t('bs.section.liabilities')} rows={data.liability_lines ?? []} />
-          <IndentedLinesTable title={t('bs.section.equity')} rows={data.equity_lines ?? []} />
+          <IndentedLinesTable
+            title={t('bs.section.assets')}
+            rows={data.asset_lines ?? []}
+            accountNameById={accountNameById}
+          />
+          <IndentedLinesTable
+            title={t('bs.section.liabilities')}
+            rows={data.liability_lines ?? []}
+            accountNameById={accountNameById}
+          />
+          <IndentedLinesTable
+            title={t('bs.section.equity')}
+            rows={data.equity_lines ?? []}
+            accountNameById={accountNameById}
+          />
         </div>
       ) : null}
     </div>

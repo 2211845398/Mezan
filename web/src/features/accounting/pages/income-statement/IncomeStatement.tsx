@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { startOfMonth } from 'date-fns';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateField } from '@/components/shared/form/DateField';
@@ -13,11 +13,20 @@ import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import { AccountingBranchFilter } from '../../components/AccountingBranchFilter';
-import { incomeStatementQueryOptions } from '../../queries';
+import { resolveCoaDisplayName } from '../../lib/coaDisplayName';
+import { chartAccountsQueryOptions, incomeStatementQueryOptions } from '../../queries';
 
 type LineRow = { account_id: number; code: string; name: string; amount: string; depth?: number };
 
-function IndentedLinesTable({ title, rows }: { title: string; rows: LineRow[] }) {
+function IndentedLinesTable({
+  title,
+  rows,
+  accountNameById,
+}: {
+  title: string;
+  rows: LineRow[];
+  accountNameById: Map<number, string>;
+}) {
   const { t } = useTranslation('accounting');
   return (
     <div>
@@ -46,7 +55,7 @@ function IndentedLinesTable({ title, rows }: { title: string; rows: LineRow[] })
                     className={cn('text-sm', depth === 0 && 'font-medium', depth >= 2 && 'text-muted-foreground')}
                     style={{ paddingInlineStart: `${12 + depth * 16}px` }}
                   >
-                    {r.name}
+                    {accountNameById.get(r.account_id) ?? r.name}
                   </TableCell>
                   <TableCell className="text-end tabular-nums num-latin text-sm">
                     {formatMoney(r.amount)}
@@ -69,7 +78,7 @@ function defaultIsPeriod() {
 }
 
 export default function IncomeStatement() {
-  const { t } = useTranslation('accounting');
+  const { t, i18n } = useTranslation('accounting');
   const d0 = defaultIsPeriod();
   const [ps, setPs] = useState(d0.ps);
   const [pe, setPe] = useState(d0.pe);
@@ -79,6 +88,15 @@ export default function IncomeStatement() {
     period_end: string;
     branch_id?: number;
   }>({ period_start: d0.ps, period_end: d0.pe });
+  const { data: chartAccounts = [] } = useQuery(chartAccountsQueryOptions(false));
+  const accountNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const a of chartAccounts) {
+      m.set(a.id, resolveCoaDisplayName(a, i18n.language));
+    }
+    return m;
+  }, [chartAccounts, i18n.language]);
+
   const { data, isLoading } = useQuery(incomeStatementQueryOptions(applied));
 
   const apply = () => {
@@ -113,6 +131,7 @@ export default function IncomeStatement() {
             onChange={setBranchId}
             clearLabel={t('toolbar.all_branches')}
             className="w-[200px]"
+            showCode={false}
           />
         </div>
         <Button type="button" onClick={apply}>
@@ -146,8 +165,16 @@ export default function IncomeStatement() {
             </div>
           </div>
 
-          <IndentedLinesTable title={t('is.revenue_lines')} rows={data.revenue_lines ?? []} />
-          <IndentedLinesTable title={t('is.expense_lines')} rows={data.expense_lines ?? []} />
+          <IndentedLinesTable
+            title={t('is.revenue_lines')}
+            rows={data.revenue_lines ?? []}
+            accountNameById={accountNameById}
+          />
+          <IndentedLinesTable
+            title={t('is.expense_lines')}
+            rows={data.expense_lines ?? []}
+            accountNameById={accountNameById}
+          />
         </div>
       ) : null}
     </div>

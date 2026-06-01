@@ -82,6 +82,27 @@
       "account": "الحساب",
       "branch": "الفرع",
       "memo": "بيان السطر"
+    },
+    "desc": {
+      "goods_receipt": "استلام بضاعة {{id}}",
+      "transfer_batch_received": "استلام دفعة تحويل {{id}}",
+      "reversal": "عكس قيد #{{id}}",
+      "sales_invoice_settlement": "تسوية فاتورة مبيعات {{ref}}",
+      "sales_invoice_accrual": "استحقاق فاتورة مبيعات {{ref}}",
+      "cogs": "تكلفة مبيعات {{ref}}",
+      "cogs_restore": "استعادة تكلفة مبيعات {{ref}}",
+      "sales_return": "مرتجع مبيعات {{id}}",
+      "ar_payment_application": "تحصيل نقدي (تطبيق {{id}})",
+      "ap_payment_application": "دفعة مورد (تطبيق {{id}})",
+      "payslip_approved": "اعتماد قسيمة راتب {{id}}",
+      "pos_shift_variance": "فرق نقد وردية {{id}}",
+      "loyalty_ledger": "قيد ولاء {{id}}",
+      "fx_revaluation_ar": "إعادة تقييم {{currency}} — ذمم مدينة {{sourceType}} {{sourceId}}",
+      "fx_revaluation_ap": "إعادة تقييم {{currency}} — ذمم دائنة {{sourceType}} {{sourceId}}",
+      "inventory_adjustment": "تسوية مخزون — {{reason}} (حركة {{movementId}})",
+      "inventory_adjustment_excess": "تسوية مخزون — فائض (حركة {{movementId}})",
+      "production_material": "أمر إنتاج {{order}} — صرف مواد",
+      "production_finished": "أمر إنتاج {{order}} — منتج تام"
     }
   },
   "manual": {
@@ -159,7 +180,7 @@
     "account": "الحساب",
     "subledger_filter": "تصفية الجهة",
     "all_entities": "كل الجهات",
-    "open_in_new_tab": "فتح في تبويب جديد",
+    "search_placeholder": "بحث بالوصف أو الجهة…",
     "col": {
       "date": "التاريخ",
       "je": "قيد",
@@ -224,10 +245,8 @@
   },
   "operations": {
     "title": "عمليات المحاسبة",
-    "subtitle": "دليل الحسابات، القسائم، الأرصدة الافتتاحية، إعادة تقييم العملات، وأوامر الإنتاج.",
     "loading": "جارٍ التحميل…",
     "tab": {
-      "tree": "دليل الحسابات",
       "vouchers": "القسائم",
       "opening": "الأرصدة الافتتاحية",
       "fx": "إعادة تقييم العملات",
@@ -290,7 +309,7 @@
   },
   "fiscal": {
     "title": "الفترات المالية",
-    "hint": "الفترات عالمية (شهر تقويمي). فلترة الفروع تنطبق على التقارير والقيود لا على صف الفترة.",
+    "search_placeholder": "بحث بالتاريخ…",
     "col": {
       "key": "الفترة",
       "start": "البداية",
@@ -311,18 +330,17 @@
     "reopen_confirm_title": "إعادة فتح الفترة المالية؟",
     "reopen_confirm_body": "يسمح بإعادة الترحيل في هذه الفترة.",
     "closed_ok": "تم الإقفال",
-    "reopened_ok": "تم إعادة الفتح"
+    "reopened_ok": "تم إعادة الفتح",
+    "transition_error": "لا يمكن تغيير حالة هذه الفترة بهذه الطريقة"
   },
   "currencies": {
     "title": "العملات",
-    "description": "إدارة العملات وأسعار الصرف مقابل العملة الأساسية للشركة.",
     "add": "إضافة عملة",
     "empty": "لا توجد عملات.",
     "select_placeholder": "اختر العملة",
     "base_badge": "أساسية",
     "current_base": "العملة الأساسية للشركة",
     "link_fx": "إعادة تقييم العملة",
-    "fx_hint": "حدّث أسعار الصرف هنا للتقييم اليومي. نفّذ إعادة التقييم عند إقفال الفترة من عمليات المحاسبة.",
     "col": {
       "code": "الرمز",
       "name": "الاسم",
@@ -350,6 +368,13 @@
     }
   },
   "coa": {
+    "account_type": {
+      "asset": "أصل",
+      "liability": "التزام",
+      "equity": "حقوق ملكية",
+      "revenue": "إيراد",
+      "expense": "مصروف"
+    },
     "title": "دليل الحسابات",
     "open_page": "فتح دليل الحسابات",
     "balance_sheet": "قائمة المركز المالي",

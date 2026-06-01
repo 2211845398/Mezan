@@ -7,6 +7,12 @@ import { notifyApiError } from '@/api/errorMessages';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import {
+  outlineCancelMatchDestructiveClassName,
+  outlineCancelMatchDestructiveSmClassName,
+  outlineCancelMatchPrimaryClassName,
+  outlineCancelMatchPrimarySmClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
   AlertDialog,
@@ -19,10 +25,19 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
-
 import type { FiscalPeriodRead } from '../../api';
 import { updateFiscalPeriod } from '../../api';
 import { accountingKeys, fiscalPeriodsQueryOptions } from '../../queries';
+
+type FiscalPeriodRow = FiscalPeriodRead & {
+  period_start?: string;
+  period_end?: string;
+  closed_at?: string;
+};
+
+function periodDateSlice(value: string | undefined): string {
+  return value?.slice(0, 10) ?? '';
+}
 
 export default function FiscalPeriodsList() {
   const { t } = useTranslation('accounting');
@@ -39,7 +54,7 @@ export default function FiscalPeriodsList() {
       toast.success(t('fiscal.closed_ok'));
       setClosePk(null);
     },
-    onError: (error) => notifyApiError(error, t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('fiscal.transition_error')),
   });
   const mOpen = useMutation({
     mutationFn: (pk: string) => updateFiscalPeriod(pk, { status: 'open' }),
@@ -48,7 +63,7 @@ export default function FiscalPeriodsList() {
       toast.success(t('fiscal.reopened_ok'));
       setOpenPk(null);
     },
-    onError: (error) => notifyApiError(error, t('errors.generic')),
+    onError: (error) => notifyApiError(error, t('fiscal.transition_error')),
   });
 
   const columns = useMemo(
@@ -58,14 +73,14 @@ export default function FiscalPeriodsList() {
         {
           id: 'start',
           header: t('fiscal.col.start'),
-          cell: ({ row }) =>
-            (row.original as FiscalPeriodRead & { period_start?: string }).period_start?.slice(0, 10) ?? '—',
+          accessorFn: (row) => periodDateSlice((row as FiscalPeriodRow).period_start),
+          cell: ({ row }) => periodDateSlice((row.original as FiscalPeriodRow).period_start) || '—',
         },
         {
           id: 'end',
           header: t('fiscal.col.end'),
-          cell: ({ row }) =>
-            (row.original as FiscalPeriodRead & { period_end?: string }).period_end?.slice(0, 10) ?? '—',
+          accessorFn: (row) => periodDateSlice((row as FiscalPeriodRow).period_end),
+          cell: ({ row }) => periodDateSlice((row.original as FiscalPeriodRow).period_end) || '—',
         },
         {
           id: 's',
@@ -81,8 +96,8 @@ export default function FiscalPeriodsList() {
         {
           id: 'closed_at',
           header: t('fiscal.col.closed_at'),
-          cell: ({ row }) =>
-            (row.original as FiscalPeriodRead & { closed_at?: string }).closed_at?.slice(0, 10) ?? '—',
+          accessorFn: (row) => periodDateSlice((row as FiscalPeriodRow).closed_at),
+          cell: ({ row }) => periodDateSlice((row.original as FiscalPeriodRow).closed_at) || '—',
         },
         {
           id: 'a',
@@ -92,13 +107,23 @@ export default function FiscalPeriodsList() {
             if (!can) return null;
             if (r.status === 'open') {
               return (
-                <Button type="button" size="sm" variant="destructive" onClick={() => setClosePk(r.period_key)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  className={outlineCancelMatchDestructiveSmClassName}
+                  onClick={() => setClosePk(r.period_key)}
+                >
                   {t('fiscal.close')}
                 </Button>
               );
             }
             return (
-              <Button type="button" size="sm" variant="secondary" onClick={() => setOpenPk(r.period_key)}>
+              <Button
+                type="button"
+                size="sm"
+                className={outlineCancelMatchPrimarySmClassName}
+                onClick={() => setOpenPk(r.period_key)}
+              >
                 {t('fiscal.reopen')}
               </Button>
             );
@@ -110,10 +135,7 @@ export default function FiscalPeriodsList() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageHeader
-        title={t('fiscal.title')}
-        subtitle={t('fiscal.hint')}
-      />
+      <PageHeader title={t('fiscal.title')} />
       <DataTable
         mode="client"
         columns={columns}
@@ -121,6 +143,7 @@ export default function FiscalPeriodsList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        searchPlaceholder={t('fiscal.search_placeholder')}
       />
 
       {/* Close confirmation — simple yes/no, no typed keyword */}
@@ -134,7 +157,7 @@ export default function FiscalPeriodsList() {
             <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
             <Button
               type="button"
-              variant="destructive"
+              className={outlineCancelMatchDestructiveClassName}
               disabled={mClose.isPending}
               onClick={() => closePk && mClose.mutate(closePk)}
             >
@@ -155,6 +178,7 @@ export default function FiscalPeriodsList() {
             <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
             <Button
               type="button"
+              className={outlineCancelMatchPrimaryClassName}
               disabled={mOpen.isPending}
               onClick={() => openPk && mOpen.mutate(openPk)}
             >

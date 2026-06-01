@@ -21,6 +21,7 @@ export function Toolbar<TData>({
   toolbarExtras,
   toolbarLeading,
   showSearch = true,
+  searchPlaceholder,
 }: {
   table: Table<TData>;
   searchValue: string;
@@ -32,6 +33,7 @@ export function Toolbar<TData>({
   /** Replaces the built-in search slot (e.g. page-specific filter on the start side). */
   toolbarLeading?: ReactNode;
   showSearch?: boolean;
+  searchPlaceholder?: string | undefined;
 }) {
   const { t } = useTranslation();
 
@@ -55,8 +57,8 @@ export function Toolbar<TData>({
             type="search"
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t('table.search_placeholder')}
-            aria-label={t('table.search_placeholder')}
+            placeholder={searchPlaceholder ?? t('table.search_placeholder')}
+            aria-label={searchPlaceholder ?? t('table.search_placeholder')}
             className="ps-9"
           />
           {searchValue ? (

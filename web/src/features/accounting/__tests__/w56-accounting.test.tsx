@@ -10,8 +10,8 @@ import { renderWithProviders, screen, userEvent, waitFor } from '@/test/utils';
 
 import type { OpenItemRead } from '../api';
 import ArApplyPaymentDrawer from '../pages/ar/ArApplyPaymentDrawer';
+import JournalDetail from '../pages/journal/JournalDetail';
 import JournalList from '../pages/journal/JournalList';
-import ReversalForm from '../pages/journal/ReversalForm';
 import TrialBalance from '../pages/trial-balance/TrialBalance';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string) || '/api/v1';
@@ -22,6 +22,7 @@ const journalDetail = {
   description: 'Test entry',
   source_type: 'sales',
   source_id: '99',
+  source_reference: null,
   reverses_entry_id: null,
   reversed_by_entry_id: null,
   lines: [
@@ -35,6 +36,11 @@ const journalDetail = {
       debit: '50.00',
       credit: '0',
       memo: null,
+      customer_id: 1,
+      supplier_id: null,
+      employee_id: null,
+      subledger_kind: 'customer',
+      subledger_entity_name: 'Test Customer',
     },
     {
       line_no: 2,
@@ -46,6 +52,11 @@ const journalDetail = {
       debit: '0',
       credit: '50.00',
       memo: null,
+      customer_id: null,
+      supplier_id: null,
+      employee_id: null,
+      subledger_kind: 'none',
+      subledger_entity_name: null,
     },
   ],
 };
@@ -78,11 +89,16 @@ describe('W-5.6 accounting', () => {
 
   it('reversal: POST 422 on closed period shows error toast', async () => {
     useAuthStore.setState({ status: 'authenticated' });
-    useAuthStore.getState().setPermissions([{ resource: 'accounting', action: 'create' }]);
+    useAuthStore.getState().setPermissions([
+      { resource: 'accounting', action: 'read' },
+      { resource: 'accounting', action: 'create' },
+    ]);
     const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => 'x');
 
     server.use(
       http.get(`${API}/accounting/journal-entries/1`, () => HttpResponse.json(journalDetail)),
+      http.get(`${API}/accounting/chart-accounts/postable`, () => HttpResponse.json([])),
+      http.get(`${API}/branches`, () => HttpResponse.json([])),
       http.post(`${API}/accounting/journal-entries/1/reverse`, () =>
         HttpResponse.json({ detail: 'Fiscal period is closed' }, { status: 422 }),
       ),
@@ -91,13 +107,18 @@ describe('W-5.6 accounting', () => {
     const u = userEvent.setup();
     const { unmount } = renderWithProviders(
       <Routes>
-        <Route path="/accounting/journal/:id/reverse" element={<ReversalForm />} />
+        <Route path="/accounting/journal/:id" element={<JournalDetail />} />
       </Routes>,
-      { initialEntries: ['/accounting/journal/1/reverse'] },
+      { initialEntries: ['/accounting/journal/1'], initialIndex: 0 },
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /reverse journal #1/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reverse/i })).toBeInTheDocument();
+    });
+
+    await u.click(screen.getByRole('button', { name: /^reverse$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
     await u.click(screen.getByRole('button', { name: /create reversal/i }));

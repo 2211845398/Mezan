@@ -21,14 +21,26 @@ import { cn } from '@/lib/utils';
 
 import type { SubledgerKind } from '../api';
 
+const NO_ENTITY = '__all_entities__';
+
 type Props = {
   kind: SubledgerKind;
   value: number | null;
   onChange: (id: number | null) => void;
   className?: string;
+  /** First list item clears the filter (all entities). */
+  allowClear?: boolean;
+  clearLabel?: string;
 };
 
-export default function SubledgerEntityPicker({ kind, value, onChange, className }: Props) {
+export default function SubledgerEntityPicker({
+  kind,
+  value,
+  onChange,
+  className,
+  allowClear,
+  clearLabel,
+}: Props) {
   const { t } = useTranslation('accounting');
   const [open, setOpen] = useState(false);
 
@@ -95,6 +107,12 @@ export default function SubledgerEntityPicker({ kind, value, onChange, className
         ? t('manual.subledger.supplier')
         : t('manual.subledger.employee');
 
+  const triggerLabel =
+    isLoading
+      ? '…'
+      : selected?.label ??
+        (allowClear && value == null ? (clearLabel ?? t('gl.all_entities')) : placeholder);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -105,7 +123,7 @@ export default function SubledgerEntityPicker({ kind, value, onChange, className
           aria-expanded={open}
           className={cn('h-9 w-full justify-between font-normal', className)}
         >
-          <span className="truncate">{isLoading ? '…' : selected?.label ?? placeholder}</span>
+          <span className="truncate">{triggerLabel}</span>
           <ChevronsUpDown className="ms-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -115,6 +133,20 @@ export default function SubledgerEntityPicker({ kind, value, onChange, className
           <CommandList>
             <CommandEmpty>{isLoading ? '…' : t('account_picker.empty')}</CommandEmpty>
             <CommandGroup>
+              {allowClear ? (
+                <CommandItem
+                  value={NO_ENTITY}
+                  onSelect={() => {
+                    onChange(null);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn('me-2 size-4', value == null ? 'opacity-100' : 'opacity-0')}
+                  />
+                  {clearLabel ?? t('gl.all_entities')}
+                </CommandItem>
+              ) : null}
               {options.map((o) => (
                 <CommandItem
                   key={o.id}

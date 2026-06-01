@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -20,7 +20,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { listBranches } from '@/features/admin/api';
-import { getBranchLabel } from '@/features/admin/lib/branchLabels';
 import { adminKeys } from '@/features/admin/queries';
 import { usePermission } from '@/hooks/usePermission';
 import { formatMoney } from '@/lib/format';
@@ -29,11 +28,24 @@ import { cn } from '@/lib/utils';
 import type { JournalEntryDetailRead, ManualJournalUpdate } from '../../api';
 import { updateJournalEntry } from '../../api';
 import JournalLinesGrid, { type JournalGridLine } from '../../components/JournalLinesGrid';
+import { JournalReversalDialog } from '../../components/JournalReversalDialog';
 import { buildLedgerDrillDownUrl } from '../../lib/ledgerDrillDownUrl';
-import { accountingMoneyCell, accountingMoneyHead } from '../../lib/accountingTableClasses';
+import {
+  journalLineCell,
+  journalLineHead,
+  journalLineMoneyCell,
+  journalLineMoneyHead,
+} from '../../lib/accountingTableClasses';
+import { resolveCoaDisplayName } from '../../lib/coaDisplayName';
 import { isBalanced } from '../../lib/journalLineBalance';
+import { formatJournalEntryDescription } from '../../lib/journalEntryDescription';
+import { journalPageShellClass } from '../../lib/journalPageLayout';
 import { journalSourceLabel } from '../../lib/journalSourceLabel';
-import { accountingKeys, journalDetailQueryOptions } from '../../queries';
+import {
+  accountingKeys,
+  journalDetailQueryOptions,
+  postableAccountsQueryOptions,
+} from '../../queries';
 
 function linesFromDetail(je: JournalEntryDetailRead): JournalGridLine[] {
   return je.lines.map((ln) => ({
@@ -53,12 +65,16 @@ function linesFromDetail(je: JournalEntryDetailRead): JournalGridLine[] {
 export default function JournalDetail() {
   const { id } = useParams<{ id: string }>();
   const jid = id ? Number(id) : NaN;
-  const { t } = useTranslation('accounting');
+  const { t, i18n } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
+  const nav = useNavigate();
+  const location = useLocation();
+  const isRtl = i18n.dir() === 'rtl';
   const qc = useQueryClient();
   const canReverse = usePermission('accounting', 'create');
   const canUpdate = usePermission('accounting', 'update');
   const [editing, setEditing] = useState(false);
+  const [reverseOpen, setReverseOpen] = useState(false);
   const [entryDate, setEntryDate] = useState('');
   const [description, setDescription] = useState('');
   const [lines, setLines] = useState<JournalGridLine[]>([]);
@@ -71,8 +87,25 @@ export default function JournalDetail() {
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
   });
+  const { data: postableAccounts = [] } = useQuery(postableAccountsQueryOptions());
+
+  const accountDisplayById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const a of postableAccounts) {
+      m.set(a.id, resolveCoaDisplayName(a, i18n.language));
+    }
+    return m;
+  }, [postableAccounts, i18n.language]);
 
   const defaultBranchId = branches[0]?.id ?? 0;
+
+  useEffect(() => {
+    const state = location.state as { openReverse?: boolean } | null;
+    if (state?.openReverse) {
+      setReverseOpen(true);
+      void nav(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, nav]);
 
   const startEdit = () => {
     if (!je) return;
@@ -125,9 +158,14 @@ export default function JournalDetail() {
     canReverse && !je.reversed_by_entry_id && je.source_type !== 'journal_reversal';
   const canEdit = canUpdate && !je.reversed_by_entry_id && je.source_type !== 'journal_reversal';
   const sourceLabel = journalSourceLabel(t, je.source_type);
+  const entryDescription = formatJournalEntryDescription(
+    { description: je.description, source_type: je.source_type, source_id: je.source_id },
+    t,
+    i18n.language,
+  );
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className={journalPageShellClass(isRtl)} dir={isRtl ? 'rtl' : 'ltr'}>
       <PageHeader
         title={t('journal.detail_title', { id: je.id })}
         actions={
@@ -152,8 +190,8 @@ export default function JournalDetail() {
               </Button>
             ) : null}
             {canShowReverse ? (
-              <Button size="sm" asChild>
-                <Link to={`/accounting/journal/${je.id}/reverse`}>{t('journal.reverse')}</Link>
+              <Button type="button" size="sm" onClick={() => setReverseOpen(true)}>
+                {t('journal.reverse')}
               </Button>
             ) : null}
             <Button variant="outline" size="sm" asChild>
@@ -175,7 +213,13 @@ export default function JournalDetail() {
             <dt className="text-xs text-muted-foreground">{t('journal.col.date')}</dt>
             <dd>
               {editing ? (
-                <DateField value={entryDate} onChange={setEntryDate} className="max-w-[200px]" />
+                <DateField
+                  value={entryDate}
+                  onChange={setEntryDate}
+                  className="max-w-[200px]"
+                  inputDir={isRtl ? 'rtl' : 'ltr'}
+                  rtlLayout={isRtl}
+                />
               ) : (
                 <span className="num-latin text-sm">{String(je.entry_date).slice(0, 10)}</span>
               )}
@@ -191,15 +235,17 @@ export default function JournalDetail() {
               {editing ? (
                 <Input value={description} onChange={(e) => setDescription(e.target.value)} />
               ) : (
-                <span className="text-sm">{je.description}</span>
+                <span className="text-sm" dir="auto">
+                  {entryDescription}
+                </span>
               )}
             </dd>
           </div>
-          {!editing ? (
+          {!editing && je.source_reference ? (
             <div className="grid gap-1 sm:col-span-2">
               <dt className="text-xs text-muted-foreground">{t('journal.source_ref')}</dt>
-              <dd className="num-latin text-xs text-muted-foreground break-all">
-                {je.source_id}
+              <dd className="text-sm" dir="auto">
+                {je.source_reference}
               </dd>
             </div>
           ) : null}
@@ -208,12 +254,14 @@ export default function JournalDetail() {
 
       {editing ? (
         <>
-          <JournalLinesGrid
-            lines={lines}
-            branches={branches.map((b) => ({ id: b.id, name: b.name }))}
-            defaultBranchId={defaultBranchId}
-            onChange={setLines}
-          />
+          <SectionCard title={t('journal.lines_title')} contentClassName="p-4 sm:p-6">
+            <JournalLinesGrid
+              lines={lines}
+              branches={branches.map((b) => ({ id: b.id, name: b.name }))}
+              defaultBranchId={defaultBranchId}
+              onChange={setLines}
+            />
+          </SectionCard>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -243,17 +291,17 @@ export default function JournalDetail() {
           </div>
         </>
       ) : (
-        <SectionCard title={t('journal.lines_title')}>
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
+        <SectionCard title={t('journal.lines_title')} contentClassName="p-4 sm:p-6">
+          <div className="w-full min-w-0 overflow-x-auto rounded-lg border" dir={isRtl ? 'rtl' : 'ltr'}>
+            <Table className="w-full table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('journal.line.account')}</TableHead>
-                  <TableHead>{t('manual.subledger.entity')}</TableHead>
-                  <TableHead>{t('journal.line.branch')}</TableHead>
-                  <TableHead className={accountingMoneyHead}>{t('journal.col.debit')}</TableHead>
-                  <TableHead className={accountingMoneyHead}>{t('journal.col.credit')}</TableHead>
-                  <TableHead>{t('journal.line.memo')}</TableHead>
+                  <TableHead className={journalLineHead}>{t('journal.line.account')}</TableHead>
+                  <TableHead className={journalLineHead}>{t('manual.subledger.entity')}</TableHead>
+                  <TableHead className={journalLineHead}>{t('journal.line.branch')}</TableHead>
+                  <TableHead className={journalLineMoneyHead}>{t('journal.col.debit')}</TableHead>
+                  <TableHead className={journalLineMoneyHead}>{t('journal.col.credit')}</TableHead>
+                  <TableHead className={journalLineHead}>{t('journal.line.memo')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -266,35 +314,35 @@ export default function JournalDetail() {
                     supplier_id: ln.supplier_id ?? undefined,
                     employee_id: ln.employee_id ?? undefined,
                   });
-                  const entity =
-                    ln.customer_id != null
-                      ? `#${ln.customer_id}`
-                      : ln.supplier_id != null
-                        ? `#${ln.supplier_id}`
-                        : ln.employee_id != null
-                          ? `#${ln.employee_id}`
-                          : '—';
+                  const accountName =
+                    accountDisplayById.get(ln.account_id) ?? ln.name;
+                  const hasEntity =
+                    ln.customer_id != null ||
+                    ln.supplier_id != null ||
+                    ln.employee_id != null;
+                  const entity = hasEntity ? (ln.subledger_entity_name ?? '—') : '—';
+                  const branch =
+                    branches.find((b) => b.id === ln.branch_id)?.name ??
+                    String(ln.branch_id);
                   return (
                     <TableRow key={ln.line_no}>
-                      <TableCell>
-                        <a
-                          href={glHref}
-                          target="_blank"
-                          rel="noreferrer"
+                      <TableCell className={journalLineCell}>
+                        <Link
+                          to={glHref}
                           className="text-primary underline-offset-4 hover:underline"
                         >
-                          {ln.code} {ln.name}
-                        </a>
+                          {ln.code} {accountName}
+                        </Link>
                       </TableCell>
-                      <TableCell>{entity}</TableCell>
-                      <TableCell>{getBranchLabel(branches, ln.branch_id) || ln.branch_id}</TableCell>
-                      <TableCell className={cn(accountingMoneyCell)}>
+                      <TableCell className={journalLineCell}>{entity}</TableCell>
+                      <TableCell className={journalLineCell}>{branch}</TableCell>
+                      <TableCell className={cn(journalLineMoneyCell)}>
                         {Number(ln.debit) !== 0 ? formatMoney(ln.debit) : ''}
                       </TableCell>
-                      <TableCell className={cn(accountingMoneyCell)}>
+                      <TableCell className={cn(journalLineMoneyCell)}>
                         {Number(ln.credit) !== 0 ? formatMoney(ln.credit) : ''}
                       </TableCell>
-                      <TableCell>{ln.memo ?? '—'}</TableCell>
+                      <TableCell className={journalLineCell}>{ln.memo ?? '—'}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -303,6 +351,17 @@ export default function JournalDetail() {
           </div>
         </SectionCard>
       )}
+
+      {canShowReverse && je ? (
+        <JournalReversalDialog
+          open={reverseOpen}
+          onOpenChange={setReverseOpen}
+          journalEntry={je}
+          onReversed={(reversalId) => {
+            void nav(`/accounting/journal/${reversalId}`);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

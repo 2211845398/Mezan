@@ -5,6 +5,18 @@ import type { ColumnDef, Row } from '@tanstack/react-table';
  * Usage: `const cols = defineColumns<Invoice>()( [...] )`.
  */
 
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData, TValue> {
+    /** Header and body text alignment for DataTable cells. */
+    align?: 'start' | 'center' | 'end';
+  }
+}
+
+export function columnAlignClass(align?: 'start' | 'center' | 'end') {
+  return align === 'center' ? 'text-center' : align === 'end' ? 'text-end' : 'text-start';
+}
+
 export function defineColumns<TData>() {
   return <TValue = unknown>(
     columns: ColumnDef<TData, TValue>[],

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { BookOpen, Coins, Factory, FileText, Network } from 'lucide-react';
+import { BookOpen, Coins, Factory, FileText } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -47,7 +47,7 @@ import {
 } from '../../api';
 import { accountingKeys } from '../../queries';
 
-type OperationsTab = 'tree' | 'vouchers' | 'opening' | 'fx' | 'production';
+type OperationsTab = 'vouchers' | 'opening' | 'fx' | 'production';
 
 type FxPreviewLine = {
   account_id?: number;
@@ -61,7 +61,7 @@ type FxPreviewLine = {
 export default function AccountingOperations() {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
-  const [tab, setTab] = useState<OperationsTab>('tree');
+  const [tab, setTab] = useState<OperationsTab>('vouchers');
   const branchId = useAuthStore((s) => s.activeBranchId) ?? 0;
   const today = useMemo(() => utcCalendarDayKey(now()), []);
   const [entryDate, setEntryDate] = useState(today);
@@ -175,33 +175,18 @@ export default function AccountingOperations() {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <PageHeader
-        title={t('operations.title')}
-        subtitle={t('operations.subtitle')}
-      />
+      <PageHeader title={t('operations.title')} />
       <PageTabNav
         mode="button"
         activeId={tab}
         onSelect={(id) => setTab(id as OperationsTab)}
         items={[
-          { id: 'tree', label: t('operations.tab.tree'), icon: Network },
           { id: 'vouchers', label: t('operations.tab.vouchers'), icon: FileText },
           { id: 'opening', label: t('operations.tab.opening'), icon: BookOpen },
           { id: 'fx', label: t('operations.tab.fx'), icon: Coins },
           { id: 'production', label: t('operations.tab.production'), icon: Factory },
         ]}
       />
-
-      {tab === 'tree' ? (
-        <div className="mt-4">
-          <SectionCard title={t('operations.tree.title')}>
-            <p className="mb-4 text-sm text-muted-foreground">{t('operations.tree.link_hint')}</p>
-            <Button type="button" variant="default" asChild>
-              <Link to="/accounting/chart-accounts">{t('coa.open_page')}</Link>
-            </Button>
-          </SectionCard>
-        </div>
-      ) : null}
 
       {tab === 'vouchers' ? (
         <div className="mt-4 space-y-4">

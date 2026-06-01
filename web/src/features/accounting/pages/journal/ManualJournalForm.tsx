@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { SectionCard } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { newIdempotencyKey } from '@/lib/idempotency';
 import { createManualJournal, type ManualJournalCreate } from '../../api';
 import JournalLinesGrid, { type JournalGridLine } from '../../components/JournalLinesGrid';
 import { isBalanced } from '../../lib/journalLineBalance';
+import { journalPageShellClass } from '../../lib/journalPageLayout';
 import { accountingKeys } from '../../queries';
 
 function newLine(branchId: number): JournalGridLine {
@@ -37,7 +39,8 @@ function newLine(branchId: number): JournalGridLine {
 }
 
 export default function ManualJournalForm() {
-  const { t } = useTranslation('accounting');
+  const { t, i18n } = useTranslation('accounting');
+  const isRtl = i18n.dir() === 'rtl';
   const { t: tc } = useTranslation('common');
   const nav = useNavigate();
   const qc = useQueryClient();
@@ -96,27 +99,37 @@ export default function ManualJournalForm() {
   }
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
+    <div className={journalPageShellClass(isRtl)} dir={isRtl ? 'rtl' : 'ltr'}>
       <PageHeader title={t('manual.title')} />
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="grid gap-1">
-          <Label>{t('manual.entry_date')}</Label>
-          <DateField value={entryDate} onChange={setEntryDate} />
+      <SectionCard contentClassName="p-4 sm:p-6">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:items-end">
+          <div className="grid gap-1">
+            <Label>{t('manual.entry_date')}</Label>
+            <DateField
+              value={entryDate}
+              onChange={setEntryDate}
+              inputDir={isRtl ? 'rtl' : 'ltr'}
+              rtlLayout={isRtl}
+              className="w-full max-w-xs"
+            />
+          </div>
+          <div className="grid min-w-0 gap-1">
+            <Label>{t('manual.description')}</Label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
         </div>
-        <div className="grid gap-1 md:col-span-2">
-          <Label>{t('manual.description')}</Label>
-          <Input value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-      </div>
+      </SectionCard>
 
-      <JournalLinesGrid
-        lines={lines}
-        branches={branches.map((b) => ({ id: b.id, name: b.name }))}
-        defaultBranchId={defaultBranchId}
-        onChange={setLines}
-      />
+      <SectionCard title={t('journal.lines_title')} contentClassName="p-4 sm:p-6">
+        <JournalLinesGrid
+          lines={lines}
+          branches={branches.map((b) => ({ id: b.id, name: b.name }))}
+          defaultBranchId={defaultBranchId}
+          onChange={setLines}
+        />
+      </SectionCard>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           disabled={!canSubmit || m.isPending}

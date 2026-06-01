@@ -6,6 +6,8 @@ export type AccountingBranchFilterProps = {
   disabled?: boolean;
   className?: string;
   clearLabel: string;
+  /** Show branch code in trigger and list (default true). */
+  showCode?: boolean;
 };
 
 /** Searchable branch picker with "all branches" (null). */
@@ -15,6 +17,7 @@ export function AccountingBranchFilter({
   disabled,
   className,
   clearLabel,
+  showCode = true,
 }: AccountingBranchFilterProps) {
   return (
     <BranchCombobox
@@ -25,6 +28,7 @@ export function AccountingBranchFilter({
       allowClear
       clearLabel={clearLabel}
       includeArchived={false}
+      showCode={showCode}
     />
   );
 }

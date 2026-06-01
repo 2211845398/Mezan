@@ -3,7 +3,17 @@ import type { components } from '@/api/generated/schema';
 
 export type JournalEntryListResponse = components['schemas']['JournalEntryListResponse'];
 export type JournalEntryListItemRead = components['schemas']['JournalEntryListItemRead'];
-export type JournalEntryDetailRead = components['schemas']['JournalEntryDetailRead'];
+export type JournalEntryLineRead = components['schemas']['JournalEntryLineRead'] & {
+  subledger_entity_name?: string | null;
+};
+
+export type JournalEntryDetailRead = Omit<
+  components['schemas']['JournalEntryDetailRead'],
+  'lines'
+> & {
+  lines: JournalEntryLineRead[];
+  source_reference?: string | null;
+};
 
 export type SubledgerKind = 'none' | 'customer' | 'supplier' | 'employee';
 
@@ -103,6 +113,8 @@ export type PostableChartAccountRead = {
   id: number;
   code: string;
   name: string;
+  name_ar?: string | null;
+  name_en?: string | null;
   account_type: string;
   parent_id: number | null;
   parent_code: string | null;

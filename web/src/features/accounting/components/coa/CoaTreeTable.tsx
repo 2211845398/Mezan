@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronLeft } from 'lucide-react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -81,10 +82,6 @@ export function CoaTreeTable({
   const { t, i18n } = useTranslation('accounting');
   const asOf = useMemo(() => utcCalendarDayKey(now()), []);
 
-  useEffect(() => {
-    onExpandedIdsChange(new Set(collectExpandableIds(forest)));
-  }, [forest]);
-
   const toggle = useCallback(
     (id: number) => {
       const next = new Set(expandedIds);
@@ -164,17 +161,15 @@ export function CoaTreeTable({
                     <span className="inline-block size-7 shrink-0" />
                   )}
                   {glHref ? (
-                    <a
-                      href={glHref}
-                      target="_blank"
-                      rel="noreferrer"
+                    <Link
+                      to={glHref}
                       className={cn(
-                        'truncate text-sm hover:underline',
+                        'truncate text-sm underline-offset-4 hover:underline',
                         isGroup ? 'font-semibold text-foreground' : 'text-primary',
                       )}
                     >
                       {displayName}
-                    </a>
+                    </Link>
                   ) : (
                     <span
                       className={cn(

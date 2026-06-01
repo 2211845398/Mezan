@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 
 import type { PostableChartAccountRead } from '../api';
+import { resolveCoaDisplayName } from '../lib/coaDisplayName';
 import { postableAccountsQueryOptions } from '../queries';
 
 type Props = {
@@ -24,15 +25,16 @@ type Props = {
   className?: string;
 };
 
-function accountLabel(a: PostableChartAccountRead): string {
+function accountLabel(a: PostableChartAccountRead, locale: string): string {
+  const displayName = resolveCoaDisplayName(a, locale);
   if (a.parent_code) {
-    return `${a.parent_code} › ${a.code} — ${a.name}`;
+    return `${a.parent_code} › ${a.code} — ${displayName}`;
   }
-  return `${a.code} — ${a.name}`;
+  return `${a.code} — ${displayName}`;
 }
 
 export default function PostableAccountPicker({ value, onChange, className }: Props) {
-  const { t } = useTranslation('accounting');
+  const { t, i18n } = useTranslation('accounting');
   const [open, setOpen] = useState(false);
   const { data: accounts = [], isLoading } = useQuery(postableAccountsQueryOptions());
 
@@ -41,7 +43,7 @@ export default function PostableAccountPicker({ value, onChange, className }: Pr
     [accounts, value],
   );
 
-  const label = selected ? accountLabel(selected) : t('account_picker.placeholder');
+  const label = selected ? accountLabel(selected, i18n.language) : t('account_picker.placeholder');
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -63,21 +65,24 @@ export default function PostableAccountPicker({ value, onChange, className }: Pr
           <CommandList>
             <CommandEmpty>{isLoading ? '…' : t('account_picker.empty')}</CommandEmpty>
             <CommandGroup>
-              {accounts.map((a) => (
-                <CommandItem
-                  key={a.id}
-                  value={`${a.code} ${a.name} ${a.parent_name ?? ''}`}
-                  onSelect={() => {
-                    onChange(a);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn('me-2 size-4', value === a.id ? 'opacity-100' : 'opacity-0')}
-                  />
-                  {accountLabel(a)}
-                </CommandItem>
-              ))}
+              {accounts.map((a) => {
+                const displayName = resolveCoaDisplayName(a, i18n.language);
+                return (
+                  <CommandItem
+                    key={a.id}
+                    value={`${a.code} ${a.name} ${displayName} ${a.name_ar ?? ''} ${a.parent_name ?? ''}`}
+                    onSelect={() => {
+                      onChange(a);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn('me-2 size-4', value === a.id ? 'opacity-100' : 'opacity-0')}
+                    />
+                    {accountLabel(a, i18n.language)}
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

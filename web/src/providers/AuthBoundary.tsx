@@ -6,6 +6,7 @@ import { setRefreshFn } from '@/api/interceptors/handle401Refresh';
 import { getMe, getMyPermissions, getMyRoles, refresh as refreshTokenApi } from '@/features/auth/api';
 import {
   type AuthUser,
+  getRefreshStorageKey,
   getRefreshTokenSync,
   setRefreshTokenSync,
   useAuthStore,
@@ -14,7 +15,7 @@ import {
 /*
  * Boot-time auth provider:
  *
- *  1. If `sessionStorage` holds a refresh token, call /auth/refresh to mint
+ *  1. If `localStorage` holds a refresh token, call /auth/refresh to mint
  *     a fresh access token, then prefetch /auth/me + /auth/me/permissions.
  *  2. Install a single-flight refresh callback on the Axios 401 interceptor
  *     so future 401s (access token expiry) can mint a new access token once.
@@ -56,7 +57,20 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
       clear();
     };
     window.addEventListener('mezan:auth-expired', onAuthExpired);
-    return () => window.removeEventListener('mezan:auth-expired', onAuthExpired);
+
+    const refreshKey = getRefreshStorageKey();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== refreshKey) return;
+      if (e.newValue == null && e.oldValue != null) {
+        clear();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener('mezan:auth-expired', onAuthExpired);
+      window.removeEventListener('storage', onStorage);
+    };
   }, [clear]);
 
   useEffect(() => {

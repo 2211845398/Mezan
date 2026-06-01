@@ -5,13 +5,6 @@ import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -25,11 +18,18 @@ import { cn } from '@/lib/utils';
 
 import type { PostableChartAccountRead, SubledgerKind } from '../api';
 import {
+  journalLineCell,
+  journalLineHead,
+  journalLineMoneyCell,
+  journalLineMoneyHead,
+} from '../lib/accountingTableClasses';
+import {
   balanceDiff,
   isBalanced,
   sumCredit,
   sumDebit,
 } from '../lib/journalLineBalance';
+import { JournalLineBranchPicker } from './JournalLineBranchPicker';
 import PostableAccountPicker from './PostableAccountPicker';
 import SubledgerEntityPicker from './SubledgerEntityPicker';
 
@@ -101,30 +101,36 @@ export default function JournalLinesGrid({ lines, branches, defaultBranchId, onC
   const diff = balanceDiff(lines);
 
   return (
-    <div className="space-y-2">
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
+    <div className="w-full min-w-0 space-y-3">
+      <div className="w-full min-w-0 overflow-x-auto rounded-md border">
+        <Table className="w-full min-w-[52rem] table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="min-w-[220px]">{t('manual.account')}</TableHead>
-              <TableHead className="min-w-[180px]">{t('manual.subledger.entity')}</TableHead>
-              <TableHead className="min-w-[160px]">{t('journal.line.memo')}</TableHead>
-              <TableHead className="min-w-[120px]">{t('manual.branch')}</TableHead>
-              <TableHead className="min-w-[110px] text-end">{t('journal.col.debit')}</TableHead>
-              <TableHead className="min-w-[110px] text-end">{t('journal.col.credit')}</TableHead>
-              <TableHead className="w-10" />
+              <TableHead className={cn(journalLineHead, 'w-[22%]')}>{t('manual.account')}</TableHead>
+              <TableHead className={cn(journalLineHead, 'w-[16%]')}>
+                {t('manual.subledger.entity')}
+              </TableHead>
+              <TableHead className={cn(journalLineHead, 'w-[18%]')}>{t('journal.line.memo')}</TableHead>
+              <TableHead className={cn(journalLineHead, 'w-[14%]')}>{t('manual.branch')}</TableHead>
+              <TableHead className={cn(journalLineMoneyHead, 'w-[11%]')}>
+                {t('journal.col.debit')}
+              </TableHead>
+              <TableHead className={cn(journalLineMoneyHead, 'w-[11%]')}>
+                {t('journal.col.credit')}
+              </TableHead>
+              <TableHead className={cn(journalLineHead, 'w-[8%]')} />
             </TableRow>
           </TableHeader>
           <TableBody>
             {lines.map((ln) => (
               <TableRow key={ln.key}>
-                <TableCell className="align-top py-2">
+                <TableCell className={journalLineCell}>
                   <PostableAccountPicker
                     value={ln.account_id || null}
                     onChange={(a) => onAccountPick(ln.key, a)}
                   />
                 </TableCell>
-                <TableCell className="align-top py-2">
+                <TableCell className={journalLineCell}>
                   {ln.subledger_kind !== 'none' ? (
                     <SubledgerEntityPicker
                       kind={ln.subledger_kind}
@@ -149,7 +155,7 @@ export default function JournalLinesGrid({ lines, branches, defaultBranchId, onC
                     <span className="text-sm text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell className="align-top py-2">
+                <TableCell className={journalLineCell}>
                   <Input
                     value={ln.memo}
                     onChange={(e) =>
@@ -158,26 +164,15 @@ export default function JournalLinesGrid({ lines, branches, defaultBranchId, onC
                     className="h-9"
                   />
                 </TableCell>
-                <TableCell className="align-top py-2">
-                  <Select
-                    value={String(ln.branch_id || '')}
-                    onValueChange={(v) =>
-                      onChange(patchLine(lines, ln.key, { branch_id: Number(v) }))
+                <TableCell className={journalLineCell}>
+                  <JournalLineBranchPicker
+                    value={ln.branch_id || null}
+                    onChange={(branchId) =>
+                      onChange(patchLine(lines, ln.key, { branch_id: branchId }))
                     }
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={String(b.id)}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </TableCell>
-                <TableCell className="align-top py-2">
+                <TableCell className={journalLineMoneyCell}>
                   <MoneyInput
                     value={ln.debit}
                     onChange={(x) =>
@@ -191,7 +186,7 @@ export default function JournalLinesGrid({ lines, branches, defaultBranchId, onC
                     className="h-9 text-end"
                   />
                 </TableCell>
-                <TableCell className="align-top py-2">
+                <TableCell className={journalLineMoneyCell}>
                   <MoneyInput
                     value={ln.credit}
                     onChange={(x) =>
@@ -205,7 +200,7 @@ export default function JournalLinesGrid({ lines, branches, defaultBranchId, onC
                     className="h-9 text-end"
                   />
                 </TableCell>
-                <TableCell className="align-top py-2">
+                <TableCell className={journalLineCell}>
                   <Button
                     type="button"
                     variant="ghost"
@@ -223,19 +218,19 @@ export default function JournalLinesGrid({ lines, branches, defaultBranchId, onC
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={4} className="font-medium">
+              <TableCell colSpan={4} className={cn(journalLineCell, 'font-medium')}>
                 {t('manual.totals')}
               </TableCell>
-              <TableCell className="text-end font-medium tabular-nums">
+              <TableCell className={cn(journalLineMoneyCell, 'font-medium')}>
                 {formatMoney(sumDebit(lines))}
               </TableCell>
-              <TableCell className="text-end font-medium tabular-nums">
+              <TableCell className={cn(journalLineMoneyCell, 'font-medium')}>
                 {formatMoney(sumCredit(lines))}
               </TableCell>
-              <TableCell />
+              <TableCell className={journalLineCell} />
             </TableRow>
             <TableRow>
-              <TableCell colSpan={7}>
+              <TableCell colSpan={7} className={journalLineCell}>
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span>
                     {t('manual.difference')}: {formatMoney(diff)}
@@ -256,8 +251,16 @@ export default function JournalLinesGrid({ lines, branches, defaultBranchId, onC
           </TableFooter>
         </Table>
       </div>
-      <Button type="button" variant="secondary" size="sm" onClick={addLine}>
-        <Plus className="me-1 size-4" />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className={cn(
+          'border-secondary bg-background text-secondary hover:border-secondary hover:bg-secondary/10 hover:text-secondary',
+        )}
+        onClick={addLine}
+      >
+        <Plus className="me-2 size-4" />
         {t('manual.add_line')}
       </Button>
     </div>

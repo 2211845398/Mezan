@@ -32,6 +32,10 @@ export type DateFieldProps = {
   'aria-label'?: string | undefined;
   /** External validation error (e.g. react-hook-form). */
   invalid?: boolean | undefined;
+  /** Text direction for the date input (defaults to ltr for ISO dates). */
+  inputDir?: 'ltr' | 'rtl' | 'auto' | undefined;
+  /** Reverse flex order so calendar icon sits on the RTL start side. */
+  rtlLayout?: boolean | undefined;
 };
 
 export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
@@ -47,6 +51,8 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
       minSelectableDate,
       'aria-label': ariaLabel,
       invalid: externalInvalid,
+      inputDir = 'ltr',
+      rtlLayout = false,
     },
     ref,
   ) => {
@@ -92,14 +98,14 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
     };
 
     return (
-      <div className={cn('flex gap-1', className)}>
+      <div className={cn('flex gap-1', rtlLayout && 'flex-row-reverse', className)}>
         <Input
           ref={ref}
           id={id}
           name={name}
           type="text"
           inputMode="numeric"
-          dir="ltr"
+          dir={inputDir}
           disabled={disabled}
           aria-label={ariaLabel ?? t('form.pick_date')}
           aria-invalid={showInvalid || undefined}

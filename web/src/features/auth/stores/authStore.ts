@@ -8,9 +8,9 @@ import { syncUiLanguageFromAccount } from '@/lib/syncUiLanguageFromAccount';
  *
  * - `accessToken` lives in memory only (W-7.1 rule from
  *   `WEB_FRONTEND_PLAN.md` §9.1).
- * - `refreshToken` lives in sessionStorage. This diverges from §9.1's
- *   httpOnly-cookie plan because the backend does not (yet) issue cookies;
- *   `DIVERGENCES.md` tracks the migration debt.
+ * - `refreshToken` lives in `localStorage` (shared across tabs on the same
+ *   origin) until httpOnly cookies land; legacy `sessionStorage` values are
+ *   migrated on read. See `web/SECURITY.md` and `DIVERGENCES.md` D-1.
  * - `permissions` is a `Set<"resource:action">` for O(1) `<Can />` lookups.
  * - `user` and `branch` are pulled from /auth/me after login and refresh.
  * - `status` drives the boot/login UI (boot loader, login page, ready shell).
@@ -71,9 +71,29 @@ function permissionKey(resource: string, action: string): string {
   return `${resource}:${action}`;
 }
 
-function readRefreshFromStorage(): string | null {
+function refreshStorageKey(): string {
+  return env.VITE_SESSION_STORAGE_KEY_REFRESH;
+}
+
+/** Key used for refresh JWT in `localStorage` (exported for cross-tab listeners). */
+export function getRefreshStorageKey(): string {
+  return refreshStorageKey();
+}
+
+/** Reads refresh JWT from storage (migrates legacy `sessionStorage` once). */
+export function readRefreshTokenFromStorage(): string | null {
   try {
-    return sessionStorage.getItem(env.VITE_SESSION_STORAGE_KEY_REFRESH);
+    const key = refreshStorageKey();
+    let token = localStorage.getItem(key);
+    if (!token) {
+      const legacy = sessionStorage.getItem(key);
+      if (legacy) {
+        localStorage.setItem(key, legacy);
+        sessionStorage.removeItem(key);
+        token = legacy;
+      }
+    }
+    return token;
   } catch {
     return null;
   }
@@ -81,20 +101,23 @@ function readRefreshFromStorage(): string | null {
 
 function writeRefreshToStorage(token: string | null): void {
   try {
+    const key = refreshStorageKey();
     if (token === null) {
-      sessionStorage.removeItem(env.VITE_SESSION_STORAGE_KEY_REFRESH);
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
     } else {
-      sessionStorage.setItem(env.VITE_SESSION_STORAGE_KEY_REFRESH, token);
+      localStorage.setItem(key, token);
+      sessionStorage.removeItem(key);
     }
   } catch {
-    // sessionStorage unavailable (private mode, SSR): tolerate silently.
+    // storage unavailable (private mode, SSR): tolerate silently.
   }
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   status: 'idle',
   accessToken: null,
-  refreshToken: readRefreshFromStorage(),
+  refreshToken: readRefreshTokenFromStorage(),
   user: null,
   permissions: new Set<string>(),
   roleCodes: [],

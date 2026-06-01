@@ -194,7 +194,7 @@
     },
     "field": {
       "name": "Name",
-      "code": "Discount code",
+      "code": "Tax code",
       "rate": "Rate (%)"
     }
   },

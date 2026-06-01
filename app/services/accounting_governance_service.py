@@ -136,7 +136,7 @@ async def set_period_status(
     transitions: dict[str, set[str]] = {
         "open": {"soft_closed", "closed"},
         "soft_closed": {"open", "closed"},
-        "closed": set(),
+        "closed": {"open", "soft_closed"},
     }
     if status not in transitions.get(old, set()):
         raise ValidationError(
