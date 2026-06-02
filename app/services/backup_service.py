@@ -4,14 +4,22 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import shutil
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.errors import ExternalServiceError, _details_with_code
+
+logger = logging.getLogger(__name__)
 
 STATUS_FILE = "last_backup_status.json"
+_PGDUMP_MISSING_MESSAGE = (
+    "pg_dump binary not found; install postgresql-client in the API container"
+)
 
 
 @dataclass
@@ -73,6 +81,27 @@ def _prune_local_backups() -> None:
             file_path.unlink(missing_ok=True)
 
 
+def _fail_missing_pg_dump(status: BackupStatus) -> None:
+    logger.warning(
+        "pg_dump not found on PATH; install postgresql-client in the API container image"
+    )
+    status.success = False
+    status.finished_at = datetime.now(UTC).isoformat()
+    status.output_file = None
+    status.message = _PGDUMP_MISSING_MESSAGE
+    _write_status(status)
+    raise ExternalServiceError(
+        _PGDUMP_MISSING_MESSAGE,
+        http_status=503,
+        details=_details_with_code("backup_pg_dump_missing", missing_binary="pg_dump"),
+    )
+
+
+def _require_pg_dump(status: BackupStatus) -> None:
+    if shutil.which("pg_dump") is None:
+        _fail_missing_pg_dump(status)
+
+
 def run_backup_once() -> dict:
     started_at = datetime.now(UTC)
     status = BackupStatus(
@@ -85,6 +114,8 @@ def run_backup_once() -> dict:
     )
     _write_status(status)
 
+    _require_pg_dump(status)
+
     timestamp = started_at.strftime("%Y%m%d_%H%M%S")
     output_file = _backup_dir() / f"mezan_{timestamp}.dump"
     db_url = settings.DATABASE_URL.replace("+asyncpg", "")
@@ -96,7 +127,11 @@ def run_backup_once() -> dict:
         db_url,
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        _fail_missing_pg_dump(status)
+
     if result.returncode != 0:
         status.success = False
         status.finished_at = datetime.now(UTC).isoformat()
@@ -125,7 +160,10 @@ async def backup_scheduler_loop(stop_event: asyncio.Event) -> None:
     interval_seconds = max(settings.BACKUP_INTERVAL_MINUTES, 1) * 60
     while not stop_event.is_set():
         if settings.BACKUP_ENABLED:
-            await run_backup_once_async()
+            try:
+                await run_backup_once_async()
+            except ExternalServiceError:
+                pass
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
         except TimeoutError:

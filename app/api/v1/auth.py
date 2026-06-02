@@ -31,8 +31,8 @@ LOGIN_RATE_LIMIT = "5/minute"
 REFRESH_RATE_LIMIT = "20/minute"
 LOGOUT_RATE_LIMIT = "20/minute"
 SSO_RATE_LIMIT = "10/minute"
-PASSWORD_RESET_REQUEST_RATE_LIMIT = "5/hour"
-PASSWORD_RESET_CONFIRM_RATE_LIMIT = "10/hour"
+PASSWORD_RESET_REQUEST_RATE_LIMIT = "100/hour" if settings.is_development else "5/hour"
+PASSWORD_RESET_CONFIRM_RATE_LIMIT = "30/hour" if settings.is_development else "10/hour"
 AVATAR_UPLOAD_RATE_LIMIT = "20/minute"
 
 
@@ -113,7 +113,7 @@ async def password_reset_request(
     body: PasswordResetRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Request password reset; sends email if user exists (no-op sender in default setup)."""
+    """Request password reset; emails a reset link if the account exists."""
     await auth_service.request_password_reset(db, body.email)
     return {"message": "If the email exists, a reset link has been sent."}
 

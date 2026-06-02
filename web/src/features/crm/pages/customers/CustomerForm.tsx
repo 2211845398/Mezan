@@ -132,8 +132,12 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
   };
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">{isEdit ? t('customers.edit_title') : t('customers.new_title')}</h1>
+    <div className={cn('mx-auto flex max-w-lg flex-col gap-4', variant === 'page' && 'p-4')}>
+      {variant === 'page' ? (
+        <h1 className="text-xl font-semibold">
+          {isEdit ? t('customers.edit_title') : t('customers.new_title')}
+        </h1>
+      ) : null}
       {!isEdit ? (
         <div className="grid gap-1">
           <Label>{t('customers.phone')}</Label>

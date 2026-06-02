@@ -6,7 +6,9 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFilteredNavigation } from '@/config/navigationFilter';
-import { flattenNavLeaves } from '@/config/navigationLeaves';
+import { actionableNavLeaves } from '@/config/navigationLeaves';
+
+import { NoModuleAccessCard } from '../components/NoModuleAccessCard';
 
 /**
  * Non-executive home: shortcuts derived from the same RBAC-trimmed nav tree
@@ -16,7 +18,15 @@ export default function DashboardHomeFallback() {
   const { t } = useTranslation('bi');
   const { t: tCommon } = useTranslation('common');
   const visible = useFilteredNavigation();
-  const leaves = useMemo(() => flattenNavLeaves(visible), [visible]);
+  const leaves = useMemo(() => actionableNavLeaves(visible), [visible]);
+
+  if (leaves.length === 0) {
+    return (
+      <div className="flex min-h-[min(28rem,calc(100dvh-12rem))] flex-col items-center justify-center py-8">
+        <NoModuleAccessCard />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -27,19 +37,15 @@ export default function DashboardHomeFallback() {
           <CardDescription>{t('home.shortcuts_hint')}</CardDescription>
         </CardHeader>
         <CardContent>
-          {leaves.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('home.no_shortcuts')}</p>
-          ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {leaves.map((leaf) => (
-                <li key={leaf.href}>
-                  <Button variant="secondary" className="h-auto w-full justify-start py-3" asChild>
-                    <Link to={leaf.href}>{tCommon(leaf.labelKey)}</Link>
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {leaves.map((leaf) => (
+              <li key={leaf.href}>
+                <Button variant="secondary" className="h-auto w-full justify-start py-3" asChild>
+                  <Link to={leaf.href}>{tCommon(leaf.labelKey)}</Link>
+                </Button>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
     </div>

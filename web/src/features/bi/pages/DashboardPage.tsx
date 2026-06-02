@@ -1,9 +1,9 @@
 import { lazy, Suspense, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 
 import { resolveRoleDashboardKind } from '@/config/resolveRoleDashboardKind';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 
+import { NoModuleAccessCard } from '../components/NoModuleAccessCard';
 import DashboardHomeFallback from './DashboardHomeFallback';
 
 const ExecutiveBiDashboardContent = lazy(() => import('./ExecutiveBiDashboardContent'));
@@ -28,12 +28,11 @@ function DashboardRouteSkeleton() {
 }
 
 function ExecutiveBiGate() {
-  const { t } = useTranslation('bi');
   const hasPermission = useAuthStore((s) => s.hasPermission);
   if (!hasPermission('analytics', 'read')) {
     return (
-      <div className="mx-auto max-w-lg rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        {t('no_widgets')}
+      <div className="flex min-h-[min(28rem,calc(100dvh-12rem))] flex-col items-center justify-center py-8">
+        <NoModuleAccessCard />
       </div>
     );
   }

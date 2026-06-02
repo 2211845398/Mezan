@@ -1,5 +1,7 @@
 import type { NavItem } from './navigation';
 
+export const DASHBOARD_NAV_HREF = '/dashboard';
+
 /** Leaf links (no nested children) for shortcut grids and home fallbacks. */
 export function flattenNavLeaves(items: readonly NavItem[]): { href: string; labelKey: string }[] {
   const out: { href: string; labelKey: string }[] = [];
@@ -15,4 +17,19 @@ export function flattenNavLeaves(items: readonly NavItem[]): { href: string; lab
     }
   }
   return out;
+}
+
+/** Nav destinations other than the dashboard itself (for shortcuts and access checks). */
+export function actionableNavLeaves(items: readonly NavItem[]) {
+  return flattenNavLeaves(items).filter((leaf) => leaf.href !== DASHBOARD_NAV_HREF);
+}
+
+export function hasModuleNavAccess(items: readonly NavItem[]): boolean {
+  return actionableNavLeaves(items).length > 0;
+}
+
+/** Hide the lone dashboard link when the user has no module permissions. */
+export function filterNavForShell(items: readonly NavItem[]): NavItem[] {
+  if (hasModuleNavAccess(items)) return [...items];
+  return items.filter((it) => it.href !== DASHBOARD_NAV_HREF);
 }

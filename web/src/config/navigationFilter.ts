@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useAuthStore } from '@/features/auth/stores/authStore';
 
+import { filterNavForShell } from './navigationLeaves';
 import { navigation, type NavItem } from './navigation';
 
 export function canAccess(
@@ -43,4 +44,10 @@ export function useFilteredNavigation(): NavItem[] {
       permissions.has(`${resource}:${action}`);
     return filterNav(navigation, has);
   }, [permissions]);
+}
+
+/** Sidebar / mobile nav: drops dashboard when it is the only visible item. */
+export function useShellNavigation(): NavItem[] {
+  const visible = useFilteredNavigation();
+  return useMemo(() => filterNavForShell(visible), [visible]);
 }

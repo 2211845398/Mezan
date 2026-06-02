@@ -11,7 +11,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -36,22 +37,47 @@ _DEFAULT_UOMS: tuple[tuple[str, str, str, str], ...] = (
 )
 
 
+async def _sync_units_of_measure_id_sequence(db: AsyncSession) -> None:
+    """Align the id sequence with MAX(id) after migration bulk_insert with explicit ids."""
+    await db.execute(
+        text(
+            """
+            DO $$
+            DECLARE
+                seq_name text;
+            BEGIN
+                seq_name := pg_get_serial_sequence('units_of_measure', 'id');
+                IF seq_name IS NOT NULL THEN
+                    EXECUTE format(
+                        'SELECT setval(%L, GREATEST(COALESCE((SELECT MAX(id) FROM units_of_measure), 1), 1))',
+                        seq_name
+                    );
+                END IF;
+            END $$;
+            """
+        )
+    )
+
+
 async def seed_default_uoms(db: AsyncSession) -> int:
     """Ensure base units of measure exist; return the PIECE uom id (typically 1 after reset)."""
+    await _sync_units_of_measure_id_sequence(db)
+
     for code, name, symbol, category in _DEFAULT_UOMS:
-        res = await db.execute(select(UnitOfMeasure.id).where(UnitOfMeasure.code == code).limit(1))
-        if res.scalar_one_or_none() is not None:
-            continue
-        db.add(
-            UnitOfMeasure(
+        result = await db.execute(
+            insert(UnitOfMeasure)
+            .values(
                 code=code,
                 name=name,
                 symbol=symbol,
                 measurement_category=category,
             )
+            .on_conflict_do_nothing(index_elements=["code"])
         )
-        logger.info("Created unit of measure %s (%s).", code, symbol)
+        if result.rowcount:
+            logger.info("Created unit of measure %s (%s).", code, symbol)
 
+    await _sync_units_of_measure_id_sequence(db)
     await db.flush()
     res = await db.execute(select(UnitOfMeasure.id).where(UnitOfMeasure.code == "PIECE").limit(1))
     piece_id = res.scalar_one_or_none()

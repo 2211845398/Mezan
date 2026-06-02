@@ -151,7 +151,7 @@
 - [x] **7.2** Fixed base role catalog with codes and system-seeded permissions.
 - [x] **7.3** Per-user permission overrides (allow/deny).
 - [x] **7.4** Session idle timeout on refresh token lifecycle.
-- [x] **7.5** Native password reset hardening (single-use token).
+- [x] **7.5** Native password reset: single-use token, outbound email with SPA reset link (`FRONTEND_BASE_URL`).
 
 #### Epic 8 — OCR Provider and Invoice Parsing
 - [x] **8.1** Provider registry with configurable default OCR provider.
@@ -446,7 +446,7 @@ Resolves `GAP-AI-001..009`.
 
 #### Epic W-5.1 — Auth Completion (Completed)
 - [x] **W-5.1.1** Login page with form validation, error classification, token management, permissions fetch, and `next` redirect support.
-- [x] **W-5.1.2** Forgot password flow with email submission, uniform backend response handling, success state with "check your inbox" messaging.
+- [x] **W-5.1.2** Forgot password flow with email submission, SMTP/Mailpit reset link delivery, uniform backend response handling, success state with "check your inbox" messaging.
 - [x] **W-5.1.3** Reset password with token validation, password + confirm fields, mismatch validation, success redirect to login.
 - [x] **W-5.1.4** Customer onboarding completion with token-based profile setup.
 - [x] **W-5.1.5** Visual polish: All auth screens use consistent centered card style matching UI reference, SPA `Link` navigation, RTL support, focus rings.

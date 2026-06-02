@@ -1,16 +1,19 @@
 """Authentication service: email/password, JWT, refresh, password reset, SSO."""
 
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from secrets import token_urlsafe
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.refresh_token import RefreshToken
 from app.models.users import User
+from app.services import bootstrap_admin_protection, email_service
+from app.services.password_reset_email import build_password_reset_email, normalize_reset_locale
 from app.schemas.auth import ProfileUpdate
 from app.utils.image_format import detect_raster_image_extension
 from app.utils.security import (
@@ -23,6 +26,7 @@ from app.utils.security import (
 )
 
 ACTIVE_STATUS = "active"
+logger = logging.getLogger(__name__)
 
 
 def _is_session_idle_expired(last_used_at: datetime | None) -> bool:
@@ -37,6 +41,13 @@ def _is_session_idle_expired(last_used_at: datetime | None) -> bool:
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     """Load user by email."""
     result = await db.execute(select(User).where(User.email == email))
+    return result.scalar_one_or_none()
+
+
+async def get_user_by_email_insensitive(db: AsyncSession, email: str) -> User | None:
+    """Load user by email (case-insensitive, trimmed)."""
+    normalized = bootstrap_admin_protection.normalize_email(email)
+    result = await db.execute(select(User).where(func.lower(User.email) == normalized))
     return result.scalar_one_or_none()
 
 
@@ -144,14 +155,25 @@ async def logout(db: AsyncSession, refresh_token_str: str) -> None:
 
 async def request_password_reset(db: AsyncSession, email: str) -> None:
     """
-    If user exists, create a short-lived reset token and trigger email (no-op sender for now).
+    If user exists, create a short-lived reset token and email a reset link.
     Does not reveal whether email exists.
     """
     from app.models.password_reset_token import PasswordResetToken
 
-    user = await get_user_by_email(db, email)
+    user = await get_user_by_email_insensitive(db, email)
     if not user:
+        if settings.is_development:
+            logger.warning(
+                "Password reset not sent: no user matches email (check spelling / case)."
+            )
         return
+    if bootstrap_admin_protection.is_bootstrap_protected_user(user):
+        if settings.is_production:
+            return
+        logger.warning(
+            "Password reset for bootstrap admin (%s) allowed in development only.",
+            user.email,
+        )
     stale = await db.execute(
         select(PasswordResetToken).where(
             PasswordResetToken.user_id == user.id,
@@ -170,8 +192,27 @@ async def request_password_reset(db: AsyncSession, email: str) -> None:
     )
     db.add(reset)
     await db.commit()
-    # TODO: send email with link containing token_str via pluggable EmailSender
-    # For now no-op (e.g. in dev log the link)
+
+    reset_url = settings.build_password_reset_url(token_str)
+    locale = normalize_reset_locale(user.preferred_language)
+    subject, body_text, body_html = build_password_reset_email(
+        locale=locale,
+        reset_url=reset_url,
+        company_name=settings.COMPANY_DISPLAY_NAME,
+    )
+    try:
+        await email_service.send_email(
+            to=str(user.email),
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+        )
+    except Exception:
+        logger.exception("Password reset email delivery failed for user_id=%s", user.id)
+    else:
+        logger.info("Password reset email queued to=%s subject=%r", user.email, subject)
+    if settings.is_development:
+        logger.warning("Password reset link (dev, also check Mailpit :8025): %s", reset_url)
 
 
 async def reset_password(db: AsyncSession, token_str: str, new_password: str) -> None:

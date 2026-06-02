@@ -2,7 +2,7 @@ import { PanelLeftClose, PanelRightClose } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
-import { useFilteredNavigation } from '@/config/navigationFilter';
+import { useShellNavigation } from '@/config/navigationFilter';
 import { cn } from '@/lib/utils';
 import { useShellStore } from '@/stores/shellStore';
 
@@ -15,7 +15,7 @@ import { SidebarProfile } from './SidebarProfile';
  */
 export function Sidebar() {
   const { t, i18n } = useTranslation();
-  const visible = useFilteredNavigation();
+  const visible = useShellNavigation();
   const collapsed = useShellStore((s) => s.sidebarCollapsed);
   const toggleSidebarCollapsed = useShellStore((s) => s.toggleSidebarCollapsed);
 

@@ -143,6 +143,10 @@ class Settings(BaseSettings):
         default="Mezan",
         description="Company name shown on purchase-order PDFs and supplier emails",
     )
+    FRONTEND_BASE_URL: str = Field(
+        default="http://localhost:5173",
+        description="Base URL of the web SPA (no trailing path); used for password-reset links",
+    )
 
     # Temporary customer GC (CRM): delete abandoned temp profiles after N days when safe.
     CUSTOMER_GC_ENABLED: bool = Field(
@@ -237,11 +241,27 @@ class Settings(BaseSettings):
             return [str(item).strip() for item in value if str(item).strip()]
         return value
 
+    @field_validator("FRONTEND_BASE_URL")
+    @classmethod
+    def normalize_frontend_base_url(cls, value: str) -> str:
+        """Strip whitespace and trailing slashes; require http(s) scheme."""
+        raw = value.strip().rstrip("/")
+        if not raw.startswith(("http://", "https://")):
+            raise ValueError("FRONTEND_BASE_URL must start with http:// or https://")
+        return raw
+
+    def build_password_reset_url(self, token: str) -> str:
+        """Absolute SPA URL for the password-reset screen."""
+        return f"{self.FRONTEND_BASE_URL}/reset-password/{token}"
+
     @model_validator(mode="after")
     def validate_security_settings(self) -> Settings:
         """Reject placeholder or weak production secrets."""
         if not self.is_production:
             return self
+
+        if not self.FRONTEND_BASE_URL.strip():
+            raise ValueError("FRONTEND_BASE_URL must be set in production.")
 
         secret = self.SECRET_KEY.strip()
         normalized = secret.lower()

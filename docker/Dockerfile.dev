@@ -27,7 +27,9 @@ WORKDIR /app
 
 # DejaVu for payroll PDF (fpdf2 does not bundle TTFs; Arabic needs a Unicode font).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-dejavu-core \
+    && apt-get install -y --no-install-recommends \
+        fonts-dejavu-core \
+        postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------

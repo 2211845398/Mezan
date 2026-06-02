@@ -166,6 +166,26 @@ EMAIL_FROM_NAME=Mezan
 
 Suppliers need `contact.email` before `POST /api/v1/purchase-orders/{id}/send` (dev seed suppliers may have an empty contact — set email in the UI first).
 
+### Password reset (self-service)
+
+Users request a reset from the SPA (`/forgot-password`). The API emails a link to `{FRONTEND_BASE_URL}/reset-password/{token}` (token valid 60 minutes, single-use).
+
+| Variable | Description |
+|----------|-------------|
+| `FRONTEND_BASE_URL` | Web SPA origin, no trailing path (default `http://localhost:5173`) |
+| `EMAIL_*`, `SMTP_*` | Same as purchase-order mail above |
+
+**Dev check (Mailpit):**
+
+1. `docker compose up -d db mailpit api` and run the web app on port 5173.
+2. Open `http://localhost:5173/forgot-password`, submit a known user email.
+3. Open [http://localhost:8025](http://localhost:8025) — open the message and follow the reset link.
+4. Set a new password, then sign in at `/login`.
+
+Set `FRONTEND_BASE_URL` to your production SPA URL when deploying (e.g. `https://app.example.com`).
+
+The seeded bootstrap admin (`DEFAULT_ADMIN_EMAIL`) cannot receive password-reset emails in **production** (admin-initiated or self-service). In **development** (`ENVIRONMENT=dev`), self-service reset is allowed so you can test Mailpit. Change production bootstrap passwords via profile or deployment secrets.
+
 ## Core seeding (production-safe)
 
 **`app/scripts/core_seed.py`** seeds permissions, roles, default CoA / accounting settings, notification templates, and optionally the default admin (when `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD` are set). It is idempotent.

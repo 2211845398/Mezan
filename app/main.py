@@ -82,6 +82,22 @@ from app.services.customer_gc_service import customer_gc_scheduler_loop
 from app.services.notifications.service import notification_scheduler_loop
 
 logger = logging.getLogger(__name__)
+
+
+def _configure_logging() -> None:
+    """Ensure app loggers are visible in Docker/uvicorn during development."""
+    if not settings.is_development:
+        return
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s %(name)s: %(message)s",
+        force=True,
+    )
+    logging.getLogger("app").setLevel(logging.INFO)
+
+
+_configure_logging()
+
 PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", "/api/v1/health"),
     ("POST", "/api/v1/auth/login"),

@@ -10,7 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { useFilteredNavigation } from '@/config/navigationFilter';
+import { useShellNavigation } from '@/config/navigationFilter';
 import { getTitleKeyForPath } from '@/config/routeTitle';
 import { useBranch } from '@/features/admin/queries';
 import { logout as logoutApi } from '@/features/auth/api';
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useShellStore } from '@/stores/shellStore';
 
 import { SidebarNav } from './SidebarNav';
+import { SidebarProfile } from './SidebarProfile';
 
 export function Topbar() {
   const { t, i18n } = useTranslation();
@@ -32,7 +33,7 @@ export function Topbar() {
   const { data: branchRow } = useBranch(branchId ?? 0, {
     enabled: branchId != null && branchId > 0,
   });
-  const visible = useFilteredNavigation();
+  const visible = useShellNavigation();
   const mobileNavOpen = useShellStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useShellStore((s) => s.setMobileNavOpen);
 
@@ -154,6 +155,9 @@ export function Topbar() {
               variant="sheet"
               onItemNavigate={() => setMobileNavOpen(false)}
             />
+          </div>
+          <div className="shrink-0 border-t border-border p-3">
+            <SidebarProfile collapsed={false} />
           </div>
         </SheetContent>
       </Sheet>
