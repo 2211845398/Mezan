@@ -674,7 +674,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                   const baseName = pickerProduct?.uom_name?.trim();
                   if (altUom?.isBase && baseSym) {
                     row.uom_symbol = baseSym;
-                    row.uom_name = baseName;
+                    row.uom_name = baseName ?? '';
                   }
                   row.uom_label =
                     localizedPoLineUomDisplay(tCatalog, row.uom_symbol, row.uom_name) ||

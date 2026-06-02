@@ -14,9 +14,10 @@ import {
 import { Label } from '@/components/ui/label';
 import { useOnline } from '@/hooks/useOnline';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { formatCurrency } from '@/lib/format';
 import { notify } from '@/lib/toast';
 
-import type { CartRead, PaymentCaptureBody, SalesInvoiceRead } from '../api';
+import { addShiftCashEvent, type CartRead, type PaymentCaptureBody, type SalesInvoiceRead } from '../api';
 import { getOfflineQueue } from '../offline';
 import type { CaptureFinalizePayload } from '../offline/queue';
 import { thermalModelFromCart, tmpWatermarkFromClientUuid } from '../print/mapModel';
@@ -40,7 +41,8 @@ function offlineCaptureMethodFromUi(m: TenderUiMethod): CaptureFinalizePayload['
 
 export type TenderDone =
   | { kind: 'invoice'; invoice: SalesInvoiceRead; model: ThermalReceiptModel }
-  | { kind: 'queued'; clientUuid: string; model: ThermalReceiptModel };
+  | { kind: 'queued'; clientUuid: string; model: ThermalReceiptModel }
+  | { kind: 'exchange_refund'; refundAmount: string; model: ThermalReceiptModel };
 
 export type TenderDrawerProps = {
   open: boolean;
@@ -49,6 +51,10 @@ export type TenderDrawerProps = {
   currency: string;
   branchLabel: string;
   customerId?: number | null;
+  /** Credit from a return leg already posted; offsets exchange cart total. */
+  exchangeCredit?: Decimal | null;
+  /** Open shift for cash_out refund logging. */
+  shiftId?: number | null;
   /** When the drawer closes without a completed sale, unlock a checkout-locked cart. */
   onAbortCheckout?: () => void | Promise<void>;
   onDone: (result: TenderDone) => void;
@@ -61,6 +67,8 @@ export function TenderDrawer({
   currency,
   branchLabel,
   customerId = null,
+  exchangeCredit = null,
+  shiftId = null,
   onAbortCheckout,
   onDone,
 }: TenderDrawerProps) {
@@ -91,19 +99,28 @@ export function TenderDrawer({
     }
   }, [open]);
 
-  const totalDec = new Decimal(cart.total);
+  const exchangeItemsDec = new Decimal(cart.total);
+  const creditDec = exchangeCredit ?? new Decimal(0);
+  const hasExchangeOffset = exchangeCredit != null && exchangeCredit.greaterThan(0);
+  const netDec = exchangeItemsDec.minus(creditDec);
+  const isRefundDue = hasExchangeOffset && netDec.lessThanOrEqualTo(0);
+  const amountDueDec = isRefundDue ? new Decimal(0) : hasExchangeOffset ? netDec : exchangeItemsDec;
+
   const tenderedDec = tendered ? new Decimal(tendered) : null;
   const shortfall =
-    method === 'cash' && tenderedDec != null && tenderedDec.lessThan(totalDec)
-      ? totalDec.minus(tenderedDec)
+    method === 'cash' && tenderedDec != null && tenderedDec.lessThan(amountDueDec)
+      ? amountDueDec.minus(tenderedDec)
       : null;
   const changeDue =
-    method === 'cash' && tenderedDec != null && tenderedDec.greaterThan(totalDec)
-      ? tenderedDec.minus(totalDec)
+    method === 'cash' && tenderedDec != null && tenderedDec.greaterThan(amountDueDec)
+      ? tenderedDec.minus(amountDueDec)
       : null;
 
+  const refundAmountDec = isRefundDue ? netDec.abs() : new Decimal(0);
+
   const canPay =
-    totalDec.greaterThan(0) &&
+    !isRefundDue &&
+    amountDueDec.greaterThan(0) &&
     !busy &&
     (method === 'transfer' ||
       (method === 'card' && /^\d{4}$/.test(cardLast4.trim())) ||
@@ -111,7 +128,11 @@ export function TenderDrawer({
         !!tendered &&
         tenderedDec != null &&
         tenderedDec.greaterThan(0) &&
-        (tenderedDec.greaterThanOrEqualTo(totalDec) || (customerId != null && customerId > 0))));
+        (tenderedDec.greaterThanOrEqualTo(amountDueDec) ||
+          (customerId != null && customerId > 0))));
+
+  const canCompleteRefund =
+    isRefundDue && !busy && shiftId != null && refundAmountDec.greaterThan(0);
 
   async function pay() {
     if (!idemRef.current) idemRef.current = newIdempotencyKey();
@@ -145,12 +166,12 @@ export function TenderDrawer({
     };
     if (method === 'cash' && tendered) {
       const td = new Decimal(tendered);
-      if (td.lessThan(totalDec) && (!customerId || customerId <= 0)) {
+      if (td.lessThan(amountDueDec) && (!customerId || customerId <= 0)) {
         setBusy(false);
         notify.error(t('tender.partial_cash_needs_customer'));
         return;
       }
-      if (td.lessThanOrEqualTo(totalDec)) {
+      if (td.lessThanOrEqualTo(amountDueDec)) {
         captureBody.cash_tendered = td.toFixed(2);
       }
     }
@@ -165,9 +186,15 @@ export function TenderDrawer({
 
       let changeStr: string | null = null;
       let tenderedStr: string | null = null;
+      let remainingStr: string | null = null;
       if (method === 'cash' && tendered) {
         tenderedStr = tendered;
-        changeStr = changeDue != null && changeDue.greaterThan(0) ? changeDue.toFixed(2) : '0';
+        if (changeDue != null && changeDue.greaterThan(0)) {
+          changeStr = changeDue.toFixed(2);
+        }
+        if (shortfall != null && shortfall.greaterThan(0)) {
+          remainingStr = shortfall.toFixed(2);
+        }
       }
 
       const model = thermalModelFromCart(cart, {
@@ -177,10 +204,11 @@ export function TenderDrawer({
         paymentMethod: method,
         tendered: tenderedStr,
         changeDue: changeStr,
+        remaining: remainingStr,
       });
       skipAbortOnCloseRef.current = true;
       onDone({ kind: 'invoice', invoice: inv, model });
-      onOpenChange(false);
+      handleOpenChange(false);
     } catch (err) {
       if (!navigator.onLine && intentId > 0) {
         const clientUuid = crypto.randomUUID();
@@ -216,7 +244,7 @@ export function TenderDrawer({
         notify.info(t('tender.offline_queued'));
         skipAbortOnCloseRef.current = true;
         onDone({ kind: 'queued', clientUuid, model });
-        onOpenChange(false);
+        handleOpenChange(false);
       } else {
         mapPosErrorToToast(err, (k) => t(k));
       }
@@ -225,21 +253,79 @@ export function TenderDrawer({
     }
   }
 
+  async function completeExchangeRefund() {
+    if (!shiftId || !canCompleteRefund) return;
+    setBusy(true);
+    try {
+      const amt = refundAmountDec.toFixed(2);
+      await addShiftCashEvent(shiftId, {
+        event_type: 'cash_out',
+        amount: amt,
+        note: t('tender.refund_due'),
+      });
+      const model = thermalModelFromCart(cart, {
+        branchLabel,
+        currency,
+        invoiceNumber: null,
+        paymentMethod: 'cash',
+        tendered: amt,
+        changeDue: '0',
+      });
+      skipAbortOnCloseRef.current = true;
+      onDone({ kind: 'exchange_refund', refundAmount: amt, model });
+      handleOpenChange(false);
+    } catch (err) {
+      mapPosErrorToToast(err, (k) => t(k));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (!next && !skipAbortOnCloseRef.current) {
+      void onAbortCheckout?.();
+    }
+    onOpenChange(next);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next && !skipAbortOnCloseRef.current) {
-          void onAbortCheckout?.();
-        }
-        onOpenChange(next);
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
         <DialogHeader className="border-b px-6 pt-6 pb-4">
           <DialogTitle>{t('tender.title')}</DialogTitle>
         </DialogHeader>
         <div className="grid max-h-[calc(100dvh-14rem)] gap-4 overflow-y-auto px-6 py-4">
+          {hasExchangeOffset ? (
+            <div className="space-y-2 rounded-lg border border-primary/20 bg-muted/30 p-3 text-sm">
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground">{t('tender.exchange_new_items')}</span>
+                <span className="font-medium tabular-nums" dir="ltr">
+                  {formatCurrency(exchangeItemsDec.toNumber(), currency)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground">{t('tender.exchange_credit')}</span>
+                <span className="font-medium tabular-nums text-amber-800 dark:text-amber-200" dir="ltr">
+                  −{formatCurrency(creditDec.toNumber(), currency)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2 border-t border-border/60 pt-2 font-semibold">
+                <span>{t('tender.net_exchange')}</span>
+                <span className="tabular-nums" dir="ltr">
+                  {formatCurrency(netDec.toNumber(), currency)}
+                </span>
+              </div>
+            </div>
+          ) : null}
+          {isRefundDue ? (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-center">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                {t('tender.refund_due')}:{' '}
+                <span dir="ltr">{formatCurrency(refundAmountDec.toNumber(), currency)}</span>
+              </p>
+            </div>
+          ) : null}
+          {!isRefundDue ? (
           <div className="flex flex-wrap gap-2">
             {(['cash', 'card', 'transfer'] as const).map((m) => (
               <Button
@@ -253,7 +339,16 @@ export function TenderDrawer({
               </Button>
             ))}
           </div>
-          {method === 'cash' ? (
+          ) : null}
+          {!isRefundDue && amountDueDec.greaterThan(0) ? (
+            <p className="text-sm text-muted-foreground">
+              {t('tender.net_exchange')}:{' '}
+              <span className="font-semibold text-foreground" dir="ltr">
+                {formatCurrency(amountDueDec.toNumber(), currency)}
+              </span>
+            </p>
+          ) : null}
+          {!isRefundDue && method === 'cash' ? (
             <div className="space-y-1">
               <Label>{t('tender.tendered')}</Label>
               <MoneyInput value={tendered} onChange={setTendered} />
@@ -273,7 +368,7 @@ export function TenderDrawer({
               ) : null}
             </div>
           ) : null}
-          {method === 'card' ? (
+          {!isRefundDue && method === 'card' ? (
             <div className="space-y-1">
               <Label>{t('tender.card_last4')}</Label>
               <input
@@ -287,7 +382,7 @@ export function TenderDrawer({
               />
             </div>
           ) : null}
-          {method === 'transfer' ? (
+          {!isRefundDue && method === 'transfer' ? (
             <div className="space-y-1">
               <Label>{t('tender.reference')}</Label>
               <input
@@ -305,18 +400,29 @@ export function TenderDrawer({
               type="button"
               variant="outline"
               className="min-h-11"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
             >
               {t('actions.cancel', { ns: 'common' })}
             </Button>
-            <Button
-              type="button"
-              className="min-h-12 min-w-[8rem] font-semibold"
-              onClick={() => void pay()}
-              disabled={!canPay}
-            >
-              {t('tender.pay')}
-            </Button>
+            {isRefundDue ? (
+              <Button
+                type="button"
+                className="min-h-12 min-w-[8rem] font-semibold"
+                onClick={() => void completeExchangeRefund()}
+                disabled={!canCompleteRefund}
+              >
+                {t('tender.complete_refund')}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="min-h-12 min-w-[8rem] font-semibold"
+                onClick={() => void pay()}
+                disabled={!canPay}
+              >
+                {t('tender.pay')}
+              </Button>
+            )}
           </div>
         </DialogFooter>
       </DialogContent>

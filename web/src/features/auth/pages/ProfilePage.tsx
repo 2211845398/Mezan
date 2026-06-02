@@ -26,7 +26,6 @@ import {
 import type { AuthUser } from '@/features/auth/stores/authStore';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import EmployeeLeaveRequestDialog from '@/features/hr/pages/employees/EmployeeLeaveRequestDialog';
-import { usePermission } from '@/hooks/usePermission';
 import { resolveMediaUrl, withMediaCacheBust } from '@/lib/mediaUrl';
 import { formatPersonName } from '@/lib/personName';
 import { isLibyanMobilePhone } from '@/lib/validation/contact';
@@ -118,7 +117,6 @@ export default function ProfilePage() {
   const setUser = useAuthStore((s) => s.setUser);
   const roleCodes = useAuthStore((s) => s.roleCodes);
   const avatarCacheBust = useAuthStore((s) => s.avatarCacheBust);
-  const canCreateLeave = usePermission('employees', 'create');
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const { data: me, isLoading, isError } = useMe();
   const update = useUpdateProfile();
@@ -284,10 +282,7 @@ export default function ProfilePage() {
     });
   }
 
-  const showLeaveRequest =
-    canCreateLeave &&
-    me.employee_profile_id != null &&
-    me.employee_profile_id > 0;
+  const showLeaveRequest = me.employee_profile_id != null && me.employee_profile_id > 0;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -308,6 +303,7 @@ export default function ProfilePage() {
           employeeProfileId={me.employee_profile_id!}
           open={leaveDialogOpen}
           onOpenChange={setLeaveDialogOpen}
+          selfService
         />
       ) : null}
 

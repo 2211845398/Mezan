@@ -3,6 +3,7 @@ import { subDays } from 'date-fns';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -19,22 +20,60 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { listBranches } from '@/features/admin/api';
+import { getBranchDisplayName } from '@/features/admin/lib/branchLabels';
 import { adminKeys } from '@/features/admin/queries';
+import { useMe, useMyBranch } from '@/features/auth/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { A4InvoicePrintButton } from '@/features/sales/print/A4InvoicePrintDialog';
 import type { SalesInvoiceRegisterRow } from '@/features/marketing/api';
+import { InvoiceRepaymentDialog } from '@/features/marketing/components/InvoiceRepaymentDialog';
 import { salesInvoicesRegisterQueryOptions } from '@/features/marketing/queries';
 import { usePermission } from '@/hooks/usePermission';
+import { cn } from '@/lib/utils';
 import { format, now } from '@/lib/date';
 import { formatCurrencyWithLeadingSymbol, formatNumber } from '@/lib/format';
 
 const PAGE_SIZE = 50;
+
+/** Status/payment pills: deepen same hue on hover (avoid Badge `secondary` gold/muted hover). */
+const registerBadge = {
+  sale: cn(
+    'border-transparent bg-emerald-100 text-emerald-900 shadow-none',
+    'hover:bg-emerald-200 hover:text-emerald-950',
+    'dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900 dark:hover:text-emerald-50',
+  ),
+  return: cn(
+    'border-transparent bg-red-100 text-red-900 shadow-none',
+    'hover:bg-red-200 hover:text-red-950',
+    'dark:bg-red-950 dark:text-red-100 dark:hover:bg-red-900 dark:hover:text-red-50',
+  ),
+  partial: cn(
+    'border-transparent bg-amber-100 text-amber-900 shadow-none',
+    'hover:bg-amber-200 hover:text-amber-950',
+    'dark:bg-amber-950 dark:text-amber-100 dark:hover:bg-amber-900 dark:hover:text-amber-50',
+  ),
+  paid: cn(
+    'border-transparent bg-emerald-100 text-emerald-900 shadow-none',
+    'hover:bg-emerald-200 hover:text-emerald-950',
+    'dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900 dark:hover:text-emerald-50',
+  ),
+} as const;
 const DISPLAY_CURRENCY = 'USD';
 
 export default function SalesInvoiceRegister() {
   const { t } = useTranslation('marketing');
   const activeBranchId = useAuthStore((s) => s.activeBranchId);
+  const user = useAuthStore((s) => s.user);
+  const userBranchId = activeBranchId ?? user?.branch_id ?? null;
+  const { data: me } = useMe();
   const canRead = usePermission('sales_invoices', 'read');
+  const canApplyAr = usePermission('accounting', 'update');
+  const canPickBranch = usePermission('branches', 'read');
+  const [repayTarget, setRepayTarget] = useState<SalesInvoiceRegisterRow | null>(null);
+  const branchNameHint = me?.branch_name?.trim() || user?.branch_name?.trim();
+  const { data: myBranch } = useMyBranch({
+    enabled: !canPickBranch && userBranchId != null && !branchNameHint,
+  });
 
   const [periodEnd, setPeriodEnd] = useState(() => format(now(), 'yyyy-MM-dd'));
   const [periodStart, setPeriodStart] = useState(() =>
@@ -46,17 +85,29 @@ export default function SalesInvoiceRegister() {
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
+    enabled: canPickBranch,
   });
+
+  const branchDisplayName = getBranchDisplayName(
+    branches,
+    userBranchId,
+    branchNameHint || myBranch?.name,
+  );
 
   const [branchId, setBranchId] = useState(0);
 
   useEffect(() => {
-    if (branches.length === 0) return;
-    setBranchId((prev) => {
-      if (prev > 0 && branches.some((b) => b.id === prev)) return prev;
-      return activeBranchId ?? branches[0]!.id;
-    });
-  }, [branches, activeBranchId]);
+    if (canPickBranch && branches.length > 0) {
+      setBranchId((prev) => {
+        if (prev > 0 && branches.some((b) => b.id === prev)) return prev;
+        return userBranchId ?? branches[0]!.id;
+      });
+      return;
+    }
+    if (userBranchId != null && userBranchId > 0) {
+      setBranchId(userBranchId);
+    }
+  }, [branches, userBranchId, canPickBranch]);
 
   const registerQuery = useQuery({
     ...salesInvoicesRegisterQueryOptions({
@@ -114,12 +165,73 @@ export default function SalesInvoiceRegister() {
           ),
         },
         {
-          id: 'print',
+          id: 'txn',
+          accessorKey: 'transaction_type',
+          header: t('salesRegister.col_txn_type'),
+          cell: ({ row }) => {
+            const tt = row.original.transaction_type ?? 'sale';
+            if (tt === 'return') {
+              return (
+                <Badge variant="outline" className={registerBadge.return}>
+                  {t('salesRegister.txn_return')}
+                </Badge>
+              );
+            }
+            return (
+              <Badge variant="outline" className={registerBadge.sale}>
+                {t('salesRegister.txn_sale')}
+              </Badge>
+            );
+          },
+        },
+        {
+          id: 'status',
+          accessorKey: 'payment_status',
+          header: t('salesRegister.col_payment'),
+          cell: ({ row }) => {
+            if (row.original.transaction_type === 'return') {
+              return <span className="text-muted-foreground">—</span>;
+            }
+            const ps = row.original.payment_status ?? 'paid';
+            if (ps === 'partially_paid') {
+              return (
+                <Badge variant="outline" className={registerBadge.partial}>
+                  {t('salesRegister.status_partial')}
+                </Badge>
+              );
+            }
+            return (
+              <Badge variant="outline" className={registerBadge.paid}>
+                {t('salesRegister.status_paid')}
+              </Badge>
+            );
+          },
+        },
+        {
+          id: 'actions',
           header: '',
-          cell: ({ row }) => <A4InvoicePrintButton invoiceId={row.original.id} />,
+          cell: ({ row }) => (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {row.original.transaction_type !== 'return' &&
+              row.original.payment_status === 'partially_paid' &&
+              canApplyAr ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRepayTarget(row.original)}
+                >
+                  {t('salesRegister.collect_payment')}
+                </Button>
+              ) : null}
+              {row.original.transaction_type !== 'return' ? (
+                <A4InvoicePrintButton invoiceId={row.original.id} />
+              ) : null}
+            </div>
+          ),
         },
       ]),
-    [t],
+    [t, canApplyAr],
   );
 
   if (!canRead) {
@@ -135,52 +247,64 @@ export default function SalesInvoiceRegister() {
   }
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
-      <PageHeader title={t('salesRegister.title')} subtitle={t('salesRegister.subtitle')} />
+    <div className="flex w-full min-w-0 flex-col gap-6 p-4 md:p-6">
+      <PageHeader title={t('salesRegister.title')} />
 
-      <Card>
+      <Card className="w-full">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">{t('salesRegister.filters_title')}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-4">
-          <div className="grid gap-1">
-            <Label>{t('analytics.period_start')}</Label>
-            <DateField value={periodStart} onChange={setPeriodStart} />
+        <CardContent className="flex items-end gap-3 overflow-x-auto">
+          <div className="grid w-[9.75rem] shrink-0 gap-1">
+            <Label className="text-xs">{t('analytics.period_start')}</Label>
+            <DateField value={periodStart} onChange={setPeriodStart} className="w-full" />
           </div>
-          <div className="grid gap-1">
-            <Label>{t('analytics.period_end')}</Label>
-            <DateField value={periodEnd} onChange={setPeriodEnd} />
+          <div className="grid w-[9.75rem] shrink-0 gap-1">
+            <Label className="text-xs">{t('analytics.period_end')}</Label>
+            <DateField value={periodEnd} onChange={setPeriodEnd} className="w-full" />
           </div>
-          <div className="grid min-w-[200px] gap-1">
-            <Label>{t('salesRegister.branch')}</Label>
-            <Select
-              value={branchId > 0 ? String(branchId) : ''}
-              onValueChange={(v) => {
-                setBranchId(Number(v));
-                setPage(0);
-              }}
-              disabled={branches.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {branches.map((b) => (
-                  <SelectItem key={b.id} value={String(b.id)}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid w-[10.5rem] shrink-0 gap-1">
+            <Label className="text-xs">{t('salesRegister.branch')}</Label>
+            {canPickBranch ? (
+              <Select
+                value={branchId > 0 ? String(branchId) : ''}
+                onValueChange={(v) => {
+                  setBranchId(Number(v));
+                  setPage(0);
+                }}
+                disabled={branches.length === 0}
+              >
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue placeholder={t('salesRegister.branch')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={String(b.id)}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="flex h-10 w-full items-center truncate rounded-md border border-input bg-muted/30 px-3 text-sm">
+                {branchDisplayName}
+              </p>
+            )}
           </div>
-          <Button type="button" onClick={applyFilters} disabled={registerQuery.isFetching}>
+          <Button
+            type="button"
+            size="sm"
+            className="h-10 shrink-0 px-5"
+            onClick={applyFilters}
+            disabled={registerQuery.isFetching}
+          >
             {t('analytics.apply')}
           </Button>
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
+      <div className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="min-w-0">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t('salesRegister.kpi_count')}
@@ -192,7 +316,7 @@ export default function SalesInvoiceRegister() {
             </span>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t('salesRegister.kpi_subtotal')}
@@ -209,7 +333,7 @@ export default function SalesInvoiceRegister() {
             </span>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0 sm:col-span-2 lg:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t('salesRegister.kpi_total')}
@@ -228,8 +352,9 @@ export default function SalesInvoiceRegister() {
         </Card>
       </div>
 
-      <SectionCard title={t('salesRegister.table_title')} description={t('salesRegister.table_hint')}>
+      <SectionCard title={t('salesRegister.table_title')} className="w-full" contentClassName="min-w-0">
         <DataTable
+          className="w-full"
           mode="client"
           columns={cols}
           data={registerQuery.data?.items ?? []}
@@ -264,6 +389,19 @@ export default function SalesInvoiceRegister() {
           </div>
         </div>
       </SectionCard>
+
+      {repayTarget ? (
+        <InvoiceRepaymentDialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setRepayTarget(null);
+          }}
+          invoiceId={repayTarget.id}
+          invoiceNumber={repayTarget.invoice_number}
+          branchId={repayTarget.branch_id}
+          onApplied={() => void registerQuery.refetch()}
+        />
+      ) : null}
     </div>
   );
 }

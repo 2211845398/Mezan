@@ -12,11 +12,18 @@ import {
 } from '@/features/auth/stores/authStore';
 import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
+import { canAccessPath } from '@/lib/canAccessPath';
 import { sanitizeNextPath } from '@/lib/nextPath';
 import { notify } from '@/lib/toast';
 
 import { classifyLoginError } from './loginErrors';
 import { type LoginFormValues, loginSchema } from './loginSchema';
+
+function resolvePostLoginPath(nextRaw: string | null, permissions: Set<string>): string {
+  const target = sanitizeNextPath(nextRaw);
+  if (target === '/') return '/dashboard';
+  return canAccessPath(target, permissions) ? target : '/dashboard';
+}
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -36,11 +43,13 @@ export default function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
+  const permissions = useAuthStore((s) => s.permissions);
+
   useEffect(() => {
-    if (status === 'authenticated') {
-      navigate(sanitizeNextPath(nextRaw), { replace: true });
+    if (status === 'authenticated' && useAuthStore.getState().permissionsLoaded) {
+      navigate(resolvePostLoginPath(nextRaw, permissions), { replace: true });
     }
-  }, [status, navigate, nextRaw]);
+  }, [status, navigate, nextRaw, permissions]);
 
   async function onSubmit(values: LoginFormValues) {
     try {
@@ -55,9 +64,12 @@ export default function LoginPage() {
       setUser(me as AuthUser);
       setPermissions(perms);
       setRoleCodes(roles.codes);
+      const permSet = new Set(
+        perms.map((p) => `${p.resource}:${p.action}`),
+      );
       setStatus('authenticated');
 
-      navigate(sanitizeNextPath(nextRaw), { replace: true });
+      navigate(resolvePostLoginPath(nextRaw, permSet), { replace: true });
     } catch (err) {
       const key = classifyLoginError(err);
       notify.error(t(key));

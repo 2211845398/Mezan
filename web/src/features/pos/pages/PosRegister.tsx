@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Decimal from 'decimal.js';
 import { UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,14 +7,15 @@ import { Link, Navigate } from 'react-router-dom';
 
 import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
-import { useBranch } from '@/features/admin/queries';
+import { getBranchDisplayName } from '@/features/admin/lib/branchLabels';
+import { useMe, useMyBranch } from '@/features/auth/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { customerDetailQueryOptions, crmKeys } from '@/features/crm/queries';
 import { useOnline } from '@/hooks/useOnline';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 
-import { changeCartState, getCart, type CartRead } from '../api';
+import { addCartLine, addShiftCashEvent, changeCartState, getCart, type CartRead } from '../api';
 import { thermalModelFromCreditNote } from '../print/mapModel';
 import { CustomerPicker } from '../components/CustomerPicker';
 import { PosQuickAddCustomerDialog } from '../components/PosQuickAddCustomerDialog';
@@ -70,6 +72,7 @@ const CREATE_CART_BOOTSTRAP_MS = 28_000;
 type RegisterSessionProps = {
   cartId: number;
   terminalId: number;
+  shiftId: number;
   branchLabel: string;
   /** Branch for POS product grid stock filter (shift branch). */
   posBranchId: number;
@@ -90,6 +93,7 @@ type RegisterSessionProps = {
 function RegisterSession({
   cartId,
   terminalId: _terminalId,
+  shiftId,
   branchLabel,
   posBranchId,
   transactionsInShift,
@@ -116,14 +120,21 @@ function RegisterSession({
   const canCreateCustomer = usePermission('customers', 'create');
 
   const [tenderOpen, setTenderOpen] = useState(false);
+  const [pendingExchangeCredit, setPendingExchangeCredit] = useState<Decimal | null>(null);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [variantPickerProduct, setVariantPickerProduct] = useState<ProductRead | null>(null);
-
+  const [selectedLineId, setSelectedLineId] = useState<number | null>(null);
+  const [numpadBuffer, setNumpadBuffer] = useState('');
   const addLine = useAddLine(cartId);
   /** Serialize add-line calls so each POST sees the previous response (avoids stale absolute qty races). */
   const addLineChainRef = useRef(Promise.resolve());
   useEffect(() => {
     addLineChainRef.current = Promise.resolve();
+  }, [cartId]);
+
+  useEffect(() => {
+    setSelectedLineId(null);
+    setNumpadBuffer('');
   }, [cartId]);
   const updateQty = useUpdateLineQty(cartId);
   const applyDisc = useApplyDiscount(cartId);
@@ -147,6 +158,9 @@ function RegisterSession({
   const submitReturnMut = useSubmitReturnMutation();
 
   const abortCheckoutIfLocked = useCallback(async () => {
+    setPendingExchangeCredit(null);
+    setSelectedLineId(null);
+    setNumpadBuffer('');
     const cached = qc.getQueryData<CartRead>(cartKeys.detail(cartId));
     if (cached?.status !== 'checkout_locked') return;
     try {
@@ -155,6 +169,43 @@ function RegisterSession({
       notifyApiError(error);
     }
   }, [cancelCart, cartId, qc]);
+
+  function onSelectCartLine(lineId: number | null) {
+    setSelectedLineId(lineId);
+    if (lineId == null) {
+      setNumpadBuffer('');
+      return;
+    }
+    const line = cart?.lines?.find((l) => l.id === lineId);
+    setNumpadBuffer(line != null ? String(line.qty) : '');
+  }
+
+  function applyNumpadToLine() {
+    if (!cart?.lines?.length || selectedLineId == null) return;
+    const line = cart.lines.find((l) => l.id === selectedLineId);
+    if (!line) return;
+    const parsed = Number.parseFloat(numpadBuffer);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    let nextQty = Math.round(parsed);
+    const returnMeta = returnExchangeSession
+      ? Object.values(returnExchangeSession.loads).find(
+          (m) => m.productId === line.product_id && m.variantId === (line.variant_id ?? 0),
+        )
+      : undefined;
+    if (returnMeta?.qtyLoaded != null) {
+      nextQty = Math.min(returnMeta.qtyLoaded, nextQty);
+    }
+    void updateQty
+      .mutateAsync({
+        line_id: line.id,
+        product_id: line.product_id,
+        variant_id: line.variant_id ?? 0,
+        qty: nextQty,
+      })
+      .catch((error) => notifyApiError(error));
+    setNumpadBuffer('');
+    setSelectedLineId(null);
+  }
 
   function onAddLine(productId: number, qty = 1, variantId?: number) {
     const pid = productId;
@@ -207,16 +258,17 @@ function RegisterSession({
       await addLineChainRef.current;
       const fresh = await getCart(cartId);
       const linesPayload: { sales_invoice_line_id: number; qty: number }[] = [];
+      const returnLineMetas: ReturnExchangeSession['loads'][number][] = [];
       for (const [idStr, meta] of Object.entries(returnExchangeSession.loads)) {
         const salesInvoiceLineId = Number.parseInt(idStr, 10);
         const cartLn = fresh.lines?.find(
           (l) => l.product_id === meta.productId && l.variant_id === meta.variantId,
         );
         const current = cartLn ? Number(cartLn.qty) : 0;
-        const retQty = Math.max(0, meta.qtyLoaded - current);
-        if (retQty > 0) {
-          linesPayload.push({ sales_invoice_line_id: salesInvoiceLineId, qty: retQty });
-        }
+        const retQty = Math.max(0, current);
+        if (retQty === 0) continue;
+        linesPayload.push({ sales_invoice_line_id: salesInvoiceLineId, qty: retQty });
+        returnLineMetas.push(meta);
       }
       if (!linesPayload.length) {
         notify.error(t('return.none_return_qty'));
@@ -245,9 +297,41 @@ function RegisterSession({
         }),
       });
       notify.success(t('return.credit_note', { id: res.credit_note_id }));
-      onReturnExchangeSessionChange(null);
       onReturnCredit(model);
-      // Any extra catalog lines still in the cart are discarded; cancel + fresh empty slate.
+
+      for (const meta of returnLineMetas) {
+        await addCartLine(cartId, {
+          product_id: meta.productId,
+          variant_id: meta.variantId,
+          qty: 0,
+        });
+      }
+      const cartAfter = await getCart(cartId);
+      qc.setQueryData(cartKeys.detail(cartId), cartAfter);
+      onReturnExchangeSessionChange(null);
+
+      const creditDec = new Decimal(res.total_amount);
+      const hasExchangeLines = (cartAfter.lines ?? []).some((ln) => Number(ln.qty) > 0);
+
+      if (hasExchangeLines) {
+        setPendingExchangeCredit(creditDec);
+        await addLineChainRef.current;
+        if (cartAfter.status === 'active' && canUpdateCart) {
+          await lock.mutateAsync();
+          const locked = await getCart(cartId);
+          qc.setQueryData(cartKeys.detail(cartId), locked);
+        }
+        setTenderOpen(true);
+        return;
+      }
+
+      if (creditDec.greaterThan(0)) {
+        await addShiftCashEvent(shiftId, {
+          event_type: 'cash_out',
+          amount: creditDec.toFixed(2),
+          note: `CRN ${res.credit_number}`,
+        });
+      }
       await cancelCart.mutateAsync();
       await onOpenFreshCart({ dropDetailFor: cartId });
     } catch (error) {
@@ -256,6 +340,7 @@ function RegisterSession({
   }
 
   async function openCheckout() {
+    setPendingExchangeCredit(null);
     const hasPayableLines = (activeCart.lines ?? []).some((ln) => (ln.qty ?? 0) > 0);
     if (!hasPayableLines) {
       notify.info(t('register.cart_empty'));
@@ -293,7 +378,7 @@ function RegisterSession({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(calc(24rem_-_50px),2.35fr)_minmax(calc(13rem_+_50px),1.32fr)_minmax(0,2.85fr)] xl:grid-rows-1 xl:gap-4 xl:overflow-hidden">
+      <div className="grid h-full min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(calc(24rem_-_50px),2.35fr)_minmax(calc(13rem_+_50px),1.32fr)_minmax(0,2.85fr)] xl:grid-rows-[minmax(0,1fr)] xl:items-stretch xl:gap-4 xl:overflow-hidden">
         <RegisterCartColumn
           cart={cart}
           editable={editable}
@@ -303,8 +388,18 @@ function RegisterSession({
             void updateQty
               .mutateAsync({ line_id: lineId, product_id: productId, variant_id: variantId, qty })
               .catch((error) => notifyApiError(error));
+            if (selectedLineId === lineId) {
+              setNumpadBuffer(String(qty));
+            }
           }}
           currency={POS_CURRENCY}
+          returnSession={returnExchangeSession?.loads ?? null}
+          selectedLineId={selectedLineId}
+          onSelectLine={onSelectCartLine}
+          numpadBuffer={numpadBuffer}
+          onNumpadBufferChange={setNumpadBuffer}
+          onNumpadApply={applyNumpadToLine}
+          onNumpadClear={() => setNumpadBuffer('')}
         />
         <RegisterTotalsColumn
           cart={cart}
@@ -371,7 +466,6 @@ function RegisterSession({
           <ProductGrid
             disabled={!editable}
             branchId={posBranchId}
-            inStockOnly
             onAddProduct={(productId, qty) => void onAddLine(productId, qty)}
             onPickProductWithVariants={(product) => setVariantPickerProduct(product)}
           />
@@ -399,8 +493,21 @@ function RegisterSession({
         currency={POS_CURRENCY}
         branchLabel={branchLabel}
         customerId={(cart as typeof cart & { customer_id?: number | null }).customer_id ?? null}
+        exchangeCredit={pendingExchangeCredit}
+        shiftId={shiftId}
         onAbortCheckout={abortCheckoutIfLocked}
-        onDone={onTenderDone}
+        onDone={(result) => {
+          setPendingExchangeCredit(null);
+          if (result.kind === 'exchange_refund') {
+            onTenderDone(result);
+            void (async () => {
+              await cancelCart.mutateAsync();
+              await onOpenFreshCart({ dropDetailFor: cartId });
+            })();
+            return;
+          }
+          onTenderDone(result);
+        }}
       />
     </div>
   );
@@ -409,16 +516,22 @@ function RegisterSession({
 export default function PosRegister() {
   const { t } = useTranslation('pos');
   const { t: tc } = useTranslation('common');
-  const activeBranchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
-  const { data: activeBranch } = useBranch(activeBranchId ?? 0, {
-    enabled: activeBranchId != null && activeBranchId > 0,
+  const user = useAuthStore((s) => s.user);
+  const activeBranchId = useAuthStore((s) => s.activeBranchId ?? user?.branch_id ?? null);
+  const { data: me } = useMe();
+  const branchNameHint = me?.branch_name?.trim() || user?.branch_name?.trim();
+  const { data: myBranch } = useMyBranch({
+    enabled: activeBranchId != null && !branchNameHint,
   });
-  const branchLabel =
-    activeBranch?.name?.trim() ||
-    (activeBranchId != null ? tc('layout.branch_context', { id: activeBranchId }) : '');
 
   const { activeTerminalId: terminalId } = usePosTerminalStore();
   const { data: shift, isError: shiftError, isLoading: shiftLoading } = useCurrentShift(terminalId);
+  const branchIdForDisplay = shift?.branch_id ?? activeBranchId;
+  const branchLabel = getBranchDisplayName(
+    undefined,
+    branchIdForDisplay,
+    branchNameHint || myBranch?.name,
+  );
   const { activeCartId, setActiveCartId } = usePosRegisterStore();
   const qc = useQueryClient();
 
@@ -554,6 +667,13 @@ export default function PosRegister() {
   }
 
   function onTenderDone(result: TenderDone) {
+    if (result.kind === 'exchange_refund') {
+      setReceiptModel(result.model);
+      setReceiptCredit(true);
+      setReceiptOpen(true);
+      void openFreshCartAfterSessionEnd();
+      return;
+    }
     setReceiptModel(result.model);
     setReceiptCredit(false);
     setReceiptOpen(true);
@@ -574,6 +694,7 @@ export default function PosRegister() {
     if (id == null) return;
     if (!activeCartHasLines) return;
     await changeCartState(id, { action: 'park' });
+    void qc.invalidateQueries({ queryKey: ['parked-carts'] });
     await openFreshCartAfterSessionEnd();
   }
 
@@ -583,6 +704,7 @@ export default function PosRegister() {
         // `useCart` uses infinite staleTime; without this, a resumed cart keeps cached `parked` → UI stays read-only.
         qc.setQueryData(cartKeys.detail(cart.id), cart);
         setActiveCartId(cart.id);
+        void qc.invalidateQueries({ queryKey: ['parked-carts'] });
       })
       .catch((error) => notifyApiError(error));
   }
@@ -617,6 +739,7 @@ export default function PosRegister() {
           <RegisterSession
             cartId={activeCartId}
             terminalId={terminalId}
+            shiftId={shift.id}
             branchLabel={branchLabel}
             posBranchId={shift.branch_id}
             transactionsInShift={shift.transactions_in_shift ?? 0}

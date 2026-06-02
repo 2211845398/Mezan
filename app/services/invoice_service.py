@@ -23,7 +23,7 @@ from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
-from app.models.sales_return import SalesReturn
+from app.models.sales_return import CreditNote, SalesReturn
 from app.schemas.sales_invoice import (
     SalesInvoiceDetailRead,
     SalesInvoiceLineRead,
@@ -46,8 +46,8 @@ from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
 from app.services.pos_customer_guard import assert_customer_active_for_pos
 from app.services.shift_service import add_cash_event
+from app.services.subledger_service import create_ar_open_item
 from app.utils.money import q2
-from app.utils.person_name import display_person_name
 
 VOID_INVOICE_MAX_AGE_HOURS = 48
 
@@ -174,6 +174,24 @@ async def finalize_paid_cart(
         select(SalesInvoiceLine).where(SalesInvoiceLine.sales_invoice_id == invoice.id)
     )
     await post_sales_invoice_gl(db, invoice=invoice, lines=list(sil_res.scalars().all()))
+
+    shortfall = q2(invoice.total - paid_amount)
+    if shortfall > Decimal("0.00") and cart.customer_id is not None:
+        doc_date = issued_at.date() if issued_at.tzinfo else issued_at.replace(tzinfo=UTC).date()
+        await create_ar_open_item(
+            db,
+            data={
+                "branch_id": invoice.branch_id,
+                "customer_id": cart.customer_id,
+                "source_type": "sales_invoice",
+                "source_id": str(invoice.id),
+                "description": f"Invoice {invoice.invoice_number} balance",
+                "document_date": doc_date,
+                "currency_code": "USD",
+                "amount_total": shortfall,
+            },
+        )
+        invoice.payment_status = "partially_paid"
 
     if cart.customer_id:
         loyalty_disc_res = await db.execute(
@@ -529,6 +547,8 @@ async def list_sales_invoices_for_terminal_window(
                 discount_total=inv.discount_total,
                 tax_total=inv.tax_total,
                 total=inv.total,
+                payment_status=inv.payment_status,
+                transaction_type="sale",
                 created_at=inv.created_at,
             )
         )
@@ -558,35 +578,58 @@ async def list_sales_invoices_register_page(
         SalesInvoice.voided_at.is_(None),
     )
 
+    ret_filt = (
+        SalesInvoice.branch_id == branch_id,
+        CreditNote.created_at >= start_inclusive,
+        CreditNote.created_at < end_exclusive,
+    )
+
+    inv_cnt = int(await db.scalar(select(func.count()).select_from(SalesInvoice).where(*filt)) or 0)
+    ret_cnt = int(
+        await db.scalar(
+            select(func.count())
+            .select_from(CreditNote)
+            .join(SalesReturn, CreditNote.sales_return_id == SalesReturn.id)
+            .join(SalesInvoice, SalesReturn.sales_invoice_id == SalesInvoice.id)
+            .where(*ret_filt),
+        )
+        or 0,
+    )
+    total_count = inv_cnt + ret_cnt
+
     agg_row = (
         await db.execute(
             select(
-                func.count(SalesInvoice.id),
                 func.coalesce(func.sum(SalesInvoice.subtotal), 0),
                 func.coalesce(func.sum(SalesInvoice.total), 0),
             ).where(*filt),
         )
     ).one()
-    total_count = int(agg_row[0] or 0)
-    sum_subtotal = q2(Decimal(str(agg_row[1] or 0)))
-    sum_total = q2(Decimal(str(agg_row[2] or 0)))
+    sum_subtotal = q2(Decimal(str(agg_row[0] or 0)))
+    sum_total = q2(Decimal(str(agg_row[1] or 0)))
 
     inv_res = await db.execute(
         select(SalesInvoice, CustomerProfile)
         .outerjoin(CustomerProfile, SalesInvoice.customer_id == CustomerProfile.id)
         .where(*filt)
-        .order_by(SalesInvoice.created_at.desc())
-        .limit(limit)
-        .offset(offset),
+        .order_by(SalesInvoice.created_at.desc()),
     )
-    rows = inv_res.all()
-    out: list[SalesInvoiceListItem] = []
-    for inv, cust in rows:
+    cn_res = await db.execute(
+        select(CreditNote, SalesReturn, SalesInvoice, CustomerProfile)
+        .join(SalesReturn, CreditNote.sales_return_id == SalesReturn.id)
+        .join(SalesInvoice, SalesReturn.sales_invoice_id == SalesInvoice.id)
+        .outerjoin(CustomerProfile, SalesInvoice.customer_id == CustomerProfile.id)
+        .where(*ret_filt)
+        .order_by(CreditNote.created_at.desc()),
+    )
+
+    merged: list[SalesInvoiceListItem] = []
+    for inv, cust in inv_res.all():
         cust_disp: str | None = None
         if cust is not None:
             name = display_person_name(cust.first_name, cust.father_name, cust.family_name)
             cust_disp = name or (cust.phone or "").strip() or None
-        out.append(
+        merged.append(
             SalesInvoiceListItem(
                 id=inv.id,
                 invoice_number=inv.invoice_number,
@@ -600,7 +643,36 @@ async def list_sales_invoices_register_page(
                 discount_total=inv.discount_total,
                 tax_total=inv.tax_total,
                 total=inv.total,
+                payment_status=inv.payment_status,
+                transaction_type="sale",
                 created_at=inv.created_at,
             ),
         )
+    for cn, _ret, inv, cust in cn_res.all():
+        cust_disp: str | None = None
+        if cust is not None:
+            name = display_person_name(cust.first_name, cust.father_name, cust.family_name)
+            cust_disp = name or (cust.phone or "").strip() or None
+        merged.append(
+            SalesInvoiceListItem(
+                id=cn.id,
+                invoice_number=cn.credit_number,
+                invoice_barcode=cn.credit_number,
+                cart_id=inv.cart_id,
+                terminal_id=inv.terminal_id,
+                branch_id=inv.branch_id,
+                customer_id=inv.customer_id,
+                customer_display=cust_disp,
+                subtotal=cn.total_amount,
+                discount_total=Decimal("0.00"),
+                tax_total=Decimal("0.00"),
+                total=cn.total_amount,
+                payment_status="paid",
+                transaction_type="return",
+                created_at=cn.created_at,
+            ),
+        )
+
+    merged.sort(key=lambda row: row.created_at, reverse=True)
+    out = merged[offset : offset + limit]
     return out, total_count, sum_subtotal, sum_total

@@ -38,9 +38,10 @@ issue the cookie, at which point this file and the auth store drop
 ### What never lives in client storage?
 
 - Access tokens (memory-only).
-- Any user PII beyond `/auth/me`'s response shape — the TanStack Query
-  cache holds a copy while the tab is open; `QueryClient` is re-created on
-  boot and dropped on logout.
+- Any user PII beyond `/auth/me`'s response shape — the TanStack Query cache
+  holds a copy while the tab is open. On explicit logout, auth expiry, or
+  cross-tab refresh removal, [`signOutSession`](./src/features/auth/signOutSession.ts)
+  calls `queryClient.clear()` and purges `mezan.*` storage keys.
 
 ---
 

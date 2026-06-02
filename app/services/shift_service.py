@@ -57,6 +57,20 @@ async def get_open_shift_for_terminal(db: AsyncSession, *, terminal_id: int) -> 
     return existing.scalar_one_or_none()
 
 
+async def list_cash_events_for_shift(
+    db: AsyncSession, *, shift_id: int, limit: int = 20
+) -> list[PosCashEvent]:
+    """Recent cash drawer events for an open or closed shift (newest first)."""
+    cap = max(1, min(limit, 100))
+    result = await db.execute(
+        select(PosCashEvent)
+        .where(PosCashEvent.shift_id == shift_id)
+        .order_by(PosCashEvent.created_at.desc())
+        .limit(cap)
+    )
+    return list(result.scalars().all())
+
+
 async def count_completed_sales_transactions_for_shift(db: AsyncSession, *, shift_id: int) -> int:
     """Non-voided sales invoices whose originating cart belongs to this shift."""
     stmt = (

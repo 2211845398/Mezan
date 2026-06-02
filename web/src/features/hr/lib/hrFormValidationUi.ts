@@ -1,4 +1,4 @@
-import type { FieldError, FieldErrors } from 'react-hook-form';
+import type { FieldError, FieldErrors, FieldValues } from 'react-hook-form';
 import type { TFunction } from 'i18next';
 
 export const EMPLOYEE_DATA_FIELD_ORDER = [
@@ -50,7 +50,7 @@ export function hrFieldErrorMessage(
 
 /** Returns unique toast messages for invalid submit (in display order). */
 export function collectHrValidationToasts(
-  errs: FieldErrors<Record<string, unknown>>,
+  errs: FieldErrors<FieldValues>,
   t: TFunction<'hr'>,
   tc: TFunction<'common'>,
   fieldOrder: readonly string[] = EMPLOYEE_DATA_FIELD_ORDER,

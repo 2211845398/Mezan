@@ -132,8 +132,8 @@ export default function GeneralLedger() {
       const description_label = formatJournalEntryDescription(
         {
           description: ln.description,
-          source_type: ln.source_type,
-          source_id: ln.source_id,
+          source_type: ln.source_type ?? 'manual',
+          source_id: ln.source_id ?? null,
         },
         t,
         i18n.language,

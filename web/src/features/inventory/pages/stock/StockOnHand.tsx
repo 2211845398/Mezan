@@ -8,19 +8,17 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { TableCategoryTags } from '@/components/shared/TableCategoryTags';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useCategoryTreeQuery } from '@/features/catalog/queries';
-import { usePermission } from '@/hooks/usePermission';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import { BranchStockFilterBar } from '../../components/BranchStockFilterBar';
 import { InventoryStockNavActions } from '../../components/InventoryStockNavActions';
-import { inventoryKeys, useStockOnHandQuery } from '../../queries';
+import { useStockOnHandQuery } from '../../queries';
 import type { StockOnHandRow } from '../../types';
 import AdjustmentForm from '../adjustments/AdjustmentForm';
 

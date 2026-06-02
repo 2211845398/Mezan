@@ -39,6 +39,9 @@ class SalesInvoice(Base):
     tax_total: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=Decimal("0.00")
     )
+    payment_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="paid"
+    )  # paid | partially_paid
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

@@ -64,8 +64,7 @@ export function RequirePermission({
   }
 
   if (!hasPermission) {
-    // 403 is a render (no redirect) so the browser back button stays useful.
-    return <Navigate to="/403" replace state={{ resource, action }} />;
+    return <Navigate to="/dashboard" replace />;
   }
   return <>{children ?? <Outlet />}</>;
 }
@@ -79,7 +78,7 @@ export function RequireOrgNotificationManager({ children }: { children?: ReactNo
   }
 
   if (!isOrgNotificationManager(roleCodes)) {
-    return <Navigate to="/403" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return <>{children ?? <Outlet />}</>;
 }

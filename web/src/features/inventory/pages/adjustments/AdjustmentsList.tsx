@@ -141,7 +141,7 @@ export default function AdjustmentsList() {
                       setMovementFormKey((k) => k + 1);
                       setMovementDialogOpen(true);
                     }
-                  : undefined
+                  : () => {}
               }
             />
           </div>

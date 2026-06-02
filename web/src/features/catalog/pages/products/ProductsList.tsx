@@ -220,7 +220,7 @@ export default function ProductsList() {
           header: t('products.col.vat'),
           cell: ({ row }) => (
             <ProductTaxChips
-              taxDefinitionIds={row.original.tax_definition_ids}
+              taxDefinitionIds={row.original.tax_definition_ids ?? []}
               outputVatRate={row.original.output_vat_rate}
               taxById={taxById}
             />

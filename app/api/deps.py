@@ -90,6 +90,26 @@ def require_permission(resource: str, action: str) -> Callable:
     return Depends(_check)
 
 
+# Staff self-service (schedule, leave, branch label): any authenticated role with
+# routine operational access — includes CASHIER without ``employees:read``.
+POS_CATALOG_READ_ANY: tuple[tuple[str, str], ...] = (
+    ("catalog", "read"),
+    ("pos_shifts", "read"),
+    ("pos_carts", "read"),
+)
+
+
+STAFF_SELF_SERVICE_ANY: tuple[tuple[str, str], ...] = (
+    ("employees", "read"),
+    ("pos_shifts", "read"),
+    ("catalog", "read"),
+    ("customers", "read"),
+    ("accounting", "read"),
+    ("users", "read"),
+    ("sales_invoices", "read"),
+)
+
+
 def require_any_permission(*pairs: tuple[str, str]) -> Callable:
     """Require at least one of the given (resource, action) permissions."""
 

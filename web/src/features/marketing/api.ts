@@ -84,6 +84,8 @@ export type SalesInvoiceRegisterRow = {
   discount_total: string;
   tax_total: string;
   total: string;
+  payment_status: string;
+  transaction_type: string;
   created_at: string;
 };
 

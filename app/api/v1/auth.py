@@ -5,7 +5,13 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_current_user_permissions, get_user_role_codes
+from app.api.deps import (
+    STAFF_SELF_SERVICE_ANY,
+    get_current_user,
+    get_current_user_permissions,
+    get_user_role_codes,
+    require_any_permission,
+)
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.db.database import get_db
@@ -133,16 +139,51 @@ async def password_reset_confirm(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+class BranchBrief(BaseModel):
+    """Minimal branch label for the signed-in user (no ``branches:read``)."""
+
+    id: int
+    name: str
+    code: str | None = None
+
+
+@router.get("/auth/me/branch", response_model=BranchBrief)
+async def me_branch(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> BranchBrief:
+    """Return the current user's assigned branch name (for UI labels without ``branches:read``)."""
+    from app.models.branch import Branch
+
+    if user.branch_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No branch assigned to this account",
+        )
+    branch = await db.get(Branch, user.branch_id)
+    if branch is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Branch not found")
+    return BranchBrief(id=branch.id, name=branch.name, code=branch.code)
+
+
 @router.get("/auth/me", response_model=UserRead)
 async def me(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserRead:
     """Return current authenticated user (profile)."""
+    from app.models.branch import Branch
+
     res = await db.execute(select(EmployeeProfile.id).where(EmployeeProfile.user_id == user.id))
     employee_profile_id = res.scalar_one_or_none()
+    branch_name: str | None = None
+    if user.branch_id is not None:
+        bres = await db.execute(select(Branch.name).where(Branch.id == user.branch_id))
+        branch_name = bres.scalar_one_or_none()
     payload = UserRead.model_validate(user).model_dump()
     payload["employee_profile_id"] = employee_profile_id
+    payload["branch_name"] = branch_name
     return UserRead.model_validate(payload)
 
 

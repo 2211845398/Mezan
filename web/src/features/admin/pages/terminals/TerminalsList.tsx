@@ -7,7 +7,7 @@ import { floatingFormCloseButtonSmClassName } from '@/components/shared/Floating
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 
-import { getBranchLabel } from '../../lib/branchLabels';
+import { getBranchDisplayName } from '../../lib/branchLabels';
 import { useBranches, useTerminals } from '../../queries';
 import type { TerminalRead } from '../../types';
 import { TerminalForm } from './TerminalForm';
@@ -17,6 +17,7 @@ export default function TerminalsList() {
   const { data: terms = [], isLoading, isError, refetch } = useTerminals();
   const { data: branches = [] } = useBranches(false);
   const canCreate = usePermission('terminals', 'create');
+  const canUpdate = usePermission('terminals', 'update');
   const [formOpen, setFormOpen] = useState(false);
   const [edit, setEdit] = useState<TerminalRead | null>(null);
 
@@ -34,7 +35,8 @@ export default function TerminalsList() {
         {
           id: 'branch',
           header: t('terminals.col.branch'),
-          cell: ({ row }) => getBranchLabel(branches, row.original.branch_id),
+          cell: ({ row }) =>
+            getBranchDisplayName(branches, row.original.branch_id, row.original.branch_name),
         },
         {
           id: 'status',
@@ -44,24 +46,28 @@ export default function TerminalsList() {
               ? t('terminals.status.authorized')
               : t('terminals.status.unauthorized'),
         },
-        {
-          id: 'row',
-          cell: ({ row }) => (
-            <Button
-              type="button"
-              size="sm"
-              className={floatingFormCloseButtonSmClassName}
-              onClick={() => {
-                setEdit(row.original);
-                setFormOpen(true);
-              }}
-            >
-              {t('actions.edit')}
-            </Button>
-          ),
-        },
+        ...(canUpdate
+          ? [
+              {
+                id: 'row',
+                cell: ({ row }: { row: { original: TerminalRead } }) => (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className={floatingFormCloseButtonSmClassName}
+                    onClick={() => {
+                      setEdit(row.original);
+                      setFormOpen(true);
+                    }}
+                  >
+                    {t('actions.edit')}
+                  </Button>
+                ),
+              },
+            ]
+          : []),
       ]),
-    [t, branches],
+    [t, branches, canUpdate],
   );
 
   return (

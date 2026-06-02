@@ -39,7 +39,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_user_role_codes
 from app.core.config import settings
 from app.core.errors import ExternalServiceError, NotFoundError, ValidationError
-from app.core.notification_rbac import ORG_NOTIFICATION_MANAGER_ROLE_CODES
+from app.core.notification_rbac import (
+    ORG_NOTIFICATION_MANAGER_ROLE_CODES,
+    is_company_wide_schedule,
+)
 from app.db.database import AsyncSessionLocal
 from app.models.notifications import (
     DevicePlatform,
@@ -211,6 +214,26 @@ async def list_templates(db: AsyncSession) -> list[NotificationTemplate]:
     return list(result.scalars().all())
 
 
+def is_org_notification_manager(role_codes: frozenset[str]) -> bool:
+    return bool(role_codes & ORG_NOTIFICATION_MANAGER_ROLE_CODES)
+
+
+async def assert_schedule_mutable(
+    schedule: NotificationSchedule,
+    *,
+    user_id: int,
+    role_codes: frozenset[str],
+) -> None:
+    """Org managers may edit org routines; standard users only their own private rows."""
+    if is_org_notification_manager(role_codes):
+        return
+    if schedule.owner_user_id != user_id:
+        raise ValidationError(
+            "You can only manage your own notification routines",
+            details={"schedule_id": schedule.id},
+        )
+
+
 async def upsert_schedule(
     db: AsyncSession,
     *,
@@ -221,6 +244,7 @@ async def upsert_schedule(
     branch_id: int | None,
     parameters: dict,
     is_active: bool,
+    owner_user_id: int | None = None,
 ) -> NotificationSchedule:
     if get_generator(kind) is None:
         raise ValidationError(
@@ -237,6 +261,7 @@ async def upsert_schedule(
             interval_minutes=interval_minutes,
             target_role_code=target_role_code,
             branch_id=branch_id,
+            owner_user_id=owner_user_id,
             parameters=parameters or {},
             is_active=is_active,
         )
@@ -246,6 +271,7 @@ async def upsert_schedule(
         row.interval_minutes = interval_minutes
         row.target_role_code = target_role_code
         row.branch_id = branch_id
+        row.owner_user_id = owner_user_id
         row.parameters = parameters or {}
         row.is_active = is_active
     await db.commit()
@@ -266,19 +292,12 @@ async def get_schedule(db: AsyncSession, *, schedule_id: int) -> NotificationSch
 async def list_schedules(
     db: AsyncSession, *, viewer_user_id: int | None = None
 ) -> list[NotificationSchedule]:
-    """List schedules; non–org-managers do not see company-wide (all users, all branches) rows."""
+    """Org managers see org routines; standard users only their private schedules."""
     stmt = select(NotificationSchedule).order_by(NotificationSchedule.id.asc())
     if viewer_user_id is not None:
         codes = await get_user_role_codes(db, viewer_user_id)
-        if not (codes & ORG_NOTIFICATION_MANAGER_ROLE_CODES):
-            stmt = stmt.where(
-                not_(
-                    and_(
-                        NotificationSchedule.target_role_code.is_(None),
-                        NotificationSchedule.branch_id.is_(None),
-                    )
-                )
-            )
+        if not is_org_notification_manager(codes):
+            stmt = stmt.where(NotificationSchedule.owner_user_id == viewer_user_id)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 

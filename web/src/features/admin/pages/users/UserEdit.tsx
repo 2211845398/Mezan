@@ -28,7 +28,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 import RouteLoader from '@/routes/RouteLoader';
 
-import { BranchPicker } from '../../components/BranchPicker';
+import { BranchCombobox } from '../../components/BranchCombobox';
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog';
 import { RoleIdCombobox } from '../../components/RoleCodeCombobox';
 import { roleCodeLabel } from '../../lib/roleLabels';
@@ -229,7 +229,7 @@ export default function UserEdit() {
                 control={form.control}
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
-                    <BranchPicker
+                    <BranchCombobox
                       label={t('users.col.branch')}
                       value={field.value}
                       onChange={(b) => field.onChange(b)}

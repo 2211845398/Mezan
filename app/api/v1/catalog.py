@@ -8,7 +8,12 @@ from starlette.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_any_permission, require_permission
+from app.api.deps import (
+    POS_CATALOG_READ_ANY,
+    get_current_user,
+    require_any_permission,
+    require_permission,
+)
 from app.core.config import settings
 from app.db.database import get_db
 from app.models.users import User
@@ -375,7 +380,7 @@ async def list_products_endpoint(
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
-    __: None = require_permission("catalog", "read"),
+    __: None = require_any_permission(*POS_CATALOG_READ_ANY),
 ) -> ProductListResponse:
     if in_stock_only and branch_id is None:
         raise HTTPException(
@@ -595,7 +600,7 @@ async def get_product_with_variants_endpoint(
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_any_permission(
-        ("catalog", "read"),
+        *POS_CATALOG_READ_ANY,
         ("inventory", "read"),
         ("inventory", "update"),
     ),

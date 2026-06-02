@@ -61,6 +61,27 @@ async def generate_manual_broadcast(
     if not title or not body:
         return []
 
+    raw_user_ids = params.get("target_user_ids")
+    if raw_user_ids:
+        user_ids = [int(uid) for uid in raw_user_ids if uid is not None]
+        if not user_ids:
+            return []
+        window = datetime.now(UTC).strftime("%Y%m%d%H%M")
+        return [
+            GeneratedNotification(
+                user_ids=user_ids,
+                idempotency_key=f"manual_broadcast:{window}:users:{','.join(str(u) for u in sorted(user_ids))}",
+                context={
+                    "title": title,
+                    "body": body,
+                    "target_user_ids": user_ids,
+                },
+                title_override=title,
+                body_override=body,
+                data_override={"source": "routine_manual_broadcast"},
+            )
+        ]
+
     branch_id = params.get("branch_id")
     target_role_code = params.get("target_role_code")
     stmt = select(User.id).where(User.status == "active")

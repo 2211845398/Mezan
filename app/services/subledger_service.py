@@ -13,6 +13,7 @@ from app.models.currency import Currency
 from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
+from app.models.sales_invoice import SalesInvoice
 from app.models.ar_payment_application import ArPaymentApplication
 from app.services.document_posting_service import post_ap_payment_gl, post_ar_cash_receipt_gl
 from app.services.payment_terms_service import due_date_from_supplier
@@ -126,13 +127,22 @@ async def create_ap_open_item(db: AsyncSession, *, data: dict) -> ApOpenItem:
 
 
 async def list_ar_open_items(
-    db: AsyncSession, *, branch_id: int | None = None, status: str | None = None
+    db: AsyncSession,
+    *,
+    branch_id: int | None = None,
+    status: str | None = None,
+    source_type: str | None = None,
+    source_id: str | None = None,
 ) -> list[ArOpenItem]:
     stmt = select(ArOpenItem).order_by(ArOpenItem.due_date.asc().nulls_last(), ArOpenItem.id.asc())
     if branch_id is not None:
         stmt = stmt.where(ArOpenItem.branch_id == branch_id)
     if status:
         stmt = stmt.where(ArOpenItem.status == status)
+    if source_type:
+        stmt = stmt.where(ArOpenItem.source_type == source_type)
+    if source_id is not None:
+        stmt = stmt.where(ArOpenItem.source_id == source_id)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -180,6 +190,19 @@ async def apply_ar_payment(
     item.status = _next_status(_d(item.amount_open))
     db.add(application)
     await db.flush()
+    if item.source_type == "sales_invoice":
+        try:
+            inv_id = int(item.source_id)
+        except (TypeError, ValueError):
+            inv_id = 0
+        if inv_id > 0:
+            inv_res = await db.execute(select(SalesInvoice).where(SalesInvoice.id == inv_id))
+            inv = inv_res.scalar_one_or_none()
+            if inv is not None and inv.voided_at is None:
+                if _d(item.amount_open) <= Decimal("0.00"):
+                    inv.payment_status = "paid"
+                else:
+                    inv.payment_status = "partially_paid"
     await post_ar_cash_receipt_gl(
         db,
         branch_id=item.branch_id,

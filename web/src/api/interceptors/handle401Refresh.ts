@@ -1,7 +1,8 @@
 import type { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 import { notAuthenticatedFromAxios } from '@/api/mapError';
-import { clearAuthSync, setAccessTokenSync } from '@/stores/authStore';
+import { resetClientSessionState } from '@/features/auth/signOutSession';
+import { setAccessTokenSync } from '@/stores/authStore';
 
 /*
  * Single-flight 401 refresh handler.
@@ -49,7 +50,7 @@ function shouldSkipRefresh(config: InternalAxiosRequestConfig | undefined): bool
 }
 
 function broadcastExpired(): void {
-  clearAuthSync();
+  resetClientSessionState();
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
   }

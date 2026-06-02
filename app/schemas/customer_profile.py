@@ -199,6 +199,8 @@ class CustomerSalesInvoiceListItem(BaseModel):
     discount_total: Decimal
     tax_total: Decimal
     total: Decimal
+    payment_status: str = "paid"
+    transaction_type: str = "sale"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})

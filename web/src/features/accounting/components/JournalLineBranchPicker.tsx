@@ -16,7 +16,7 @@ export function JournalLineBranchPicker({ value, onChange, disabled, className }
       onChange={(id) => {
         if (id != null) onChange(id);
       }}
-      disabled={disabled}
+      disabled={disabled ?? false}
       showCode={false}
       includeArchived={false}
       className={cn('min-w-[120px]', className)}

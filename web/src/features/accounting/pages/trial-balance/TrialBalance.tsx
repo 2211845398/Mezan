@@ -21,7 +21,6 @@ import { exportTrialBalanceCsvBlob, exportTrialBalancePdfBlob } from '../../api'
 import {
   accountingMoneyCell,
   journalLineHead,
-  journalLineMoneyCell,
   journalLineMoneyHead,
   journalListCellWrap,
 } from '../../lib/accountingTableClasses';

@@ -24,6 +24,7 @@ export type AuthUser = {
   family_name: string | null;
   status: string;
   branch_id: number | null;
+  branch_name?: string | null;
   phone: string | null;
   city: string | null;
   preferred_language: string | null;

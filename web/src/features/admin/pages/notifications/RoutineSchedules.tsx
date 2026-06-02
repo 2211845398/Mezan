@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { useOrgNotificationManager } from '@/hooks/useOrgNotificationManager';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
@@ -46,6 +47,7 @@ type EditingState = NotificationScheduleRead | 'new' | null;
 export default function RoutineSchedules() {
   const { t } = useTranslation('admin');
   const canUpdate = usePermission('notifications', 'update');
+  const canOrgNotificationAdmin = useOrgNotificationManager();
   const { data: rows = [], isLoading, refetch } = useNotificationSchedules();
   const [editing, setEditing] = useState<EditingState>(null);
   const toggle = useToggleScheduleActive();
@@ -132,7 +134,7 @@ export default function RoutineSchedules() {
                     {t('actions.edit')}
                   </Button>
                 ) : null}
-                {canUpdate ? (
+                {canUpdate && canOrgNotificationAdmin ? (
                   <Button
                     type="button"
                     size="sm"
@@ -217,7 +219,11 @@ function RoutineDialog({
 }) {
   const { t } = useTranslation('admin');
   const canOrgNotificationAdmin = useOrgNotificationManager();
+  const userId = useAuthStore((s) => s.user?.id);
   const upsert = useUpsertSchedule();
+  const kindOptions = canOrgNotificationAdmin
+    ? routineKindOptions
+    : routineKindOptions.filter((o) => o.kind === 'manual_broadcast');
   const [name, setName] = useState('');
   const [kind, setKind] = useState('manual_broadcast');
   const [messageTitle, setMessageTitle] = useState('');
@@ -259,20 +265,27 @@ function RoutineDialog({
     (kind === 'manual_broadcast' &&
       (messageTitle.trim().length === 0 || messageBody.trim().length === 0)) ||
     Number(intervalMinutes) < 1 ||
-    (targetType === 'role' && roleCode.length === 0);
+    (canOrgNotificationAdmin && targetType === 'role' && roleCode.length === 0);
 
   async function handleSave() {
+    if (!canOrgNotificationAdmin && userId == null) return;
     try {
+      const messageParams =
+        kind === 'manual_broadcast'
+          ? {
+              title: messageTitle.trim(),
+              body: messageBody.trim(),
+              ...(canOrgNotificationAdmin ? {} : { target_user_ids: [userId!] }),
+            }
+          : (row?.parameters ?? {});
+
       await upsert.mutateAsync({
         name: name.trim(),
-        kind,
+        kind: canOrgNotificationAdmin ? kind : 'manual_broadcast',
         interval_minutes: Number(intervalMinutes),
-        target_role_code: targetType === 'role' ? roleCode : null,
-        branch_id: branchId,
-        parameters:
-          kind === 'manual_broadcast'
-            ? { title: messageTitle.trim(), body: messageBody.trim() }
-            : (row?.parameters ?? {}),
+        target_role_code: canOrgNotificationAdmin && targetType === 'role' ? roleCode : null,
+        branch_id: canOrgNotificationAdmin ? branchId : null,
+        parameters: messageParams,
         is_active: isActive,
       });
       notify.success(t('notifications.schedule_saved'));
@@ -323,7 +336,7 @@ function RoutineDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {routineKindOptions.map((option) => (
+                {kindOptions.map((option) => (
                   <SelectItem key={option.kind} value={option.kind}>
                     {t(option.labelKey)}
                   </SelectItem>
@@ -361,34 +374,39 @@ function RoutineDialog({
           </div>
         ) : null}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="grid gap-2">
-            <Label>{t('notifications.audience')}</Label>
-            <Select value={targetType} onValueChange={(value) => setTargetType(value as 'all' | 'role')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {canOrgNotificationAdmin ? (
-                  <SelectItem value="all">{t('notifications.audience_all')}</SelectItem>
-                ) : null}
-                <SelectItem value="role">{t('notifications.audience_role')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <BranchPicker
-            label={t('notifications.branch_filter')}
-            value={branchId}
-            onChange={setBranchId}
-            allowClear
-          />
-        </div>
+        {canOrgNotificationAdmin ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>{t('notifications.audience')}</Label>
+                <Select
+                  value={targetType}
+                  onValueChange={(value) => setTargetType(value as 'all' | 'role')}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('notifications.audience_all')}</SelectItem>
+                    <SelectItem value="role">{t('notifications.audience_role')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <BranchPicker
+                label={t('notifications.branch_filter')}
+                value={branchId}
+                onChange={setBranchId}
+                allowClear
+              />
+            </div>
 
-        {targetType === 'role' ? (
-          <div className="grid gap-2">
-            <Label>{t('notifications.target_role')}</Label>
-            <RoleCodeCombobox value={roleCode} onChange={setRoleCode} />
-          </div>
+            {targetType === 'role' ? (
+              <div className="grid gap-2">
+                <Label>{t('notifications.target_role')}</Label>
+                <RoleCodeCombobox value={roleCode} onChange={setRoleCode} />
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         <label className="flex items-center gap-2 rounded-xl border p-3 text-sm">

@@ -86,9 +86,9 @@ export default function InventoryProductLineFields({
             variantId={variantId}
             variantPickLabel={variantLabel}
             disabled={disabled || pid <= 0}
-            placeholder={
-              variantLabelMode === 'variant' ? t('movement.field.variant_placeholder') : undefined
-            }
+            {...(variantLabelMode === 'variant'
+              ? { placeholder: t('movement.field.variant_placeholder') }
+              : {})}
             onVariantPick={onVariant}
           />
         </div>

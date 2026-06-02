@@ -44,8 +44,20 @@ export async function logout(body: LogoutRequest): Promise<void> {
   await apiClient.post('/auth/logout', body);
 }
 
+export type BranchBrief = {
+  id: number;
+  name: string;
+  code?: string | null;
+};
+
 export async function getMe(): Promise<UserRead> {
   const { data } = await apiClient.get<UserRead>('/auth/me');
+  return data;
+}
+
+/** Assigned branch label without ``branches:read`` (cashier, etc.). */
+export async function getMyBranch(): Promise<BranchBrief> {
+  const { data } = await apiClient.get<BranchBrief>('/auth/me/branch');
   return data;
 }
 

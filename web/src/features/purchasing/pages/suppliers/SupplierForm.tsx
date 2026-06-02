@@ -375,7 +375,7 @@ export default function SupplierForm({
       >
         {useSectionLayout ? (
           <>
-            <SectionCard title={embedded ? t('suppliers.tabs.data') : undefined}>
+            <SectionCard {...(embedded ? {} : { title: t('suppliers.tabs.data') })}>
               <div className="grid gap-4 sm:grid-cols-2">
                 {nameFields}
                 {financialFields}

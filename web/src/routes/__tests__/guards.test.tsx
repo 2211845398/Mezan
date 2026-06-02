@@ -17,8 +17,8 @@ function Protected() {
 function LoginStub() {
   return <div>login</div>;
 }
-function ForbiddenStub() {
-  return <div>forbidden</div>;
+function DashboardStub() {
+  return <div>dashboard</div>;
 }
 function BranchPickerStub() {
   return <div>pick a branch</div>;
@@ -68,8 +68,9 @@ describe('RequirePermission', () => {
     useAuthStore.setState({ status: 'authenticated' });
   });
 
-  it('renders /403 when the permission is missing', () => {
+  it('redirects to /dashboard when the permission is missing', () => {
     useAuthStore.getState().setPermissions([{ resource: 'pos_carts', action: 'create' }]);
+    expect(useAuthStore.getState().permissionsLoaded).toBe(true);
 
     renderWithProviders(
       <Routes>
@@ -81,12 +82,12 @@ describe('RequirePermission', () => {
             </RequirePermission>
           }
         />
-        <Route path="/403" element={<ForbiddenStub />} />
+        <Route path="/dashboard" element={<DashboardStub />} />
       </Routes>,
       { initialEntries: ['/admin/users'] },
     );
 
-    expect(screen.getByText('forbidden')).toBeInTheDocument();
+    expect(screen.getByText('dashboard')).toBeInTheDocument();
     expect(screen.queryByText('protected')).toBeNull();
   });
 
@@ -133,19 +134,19 @@ describe('RequirePermission — loading race (W-2 bug 2)', () => {
             </RequirePermission>
           }
         />
-        <Route path="/403" element={<ForbiddenStub />} />
+        <Route path="/dashboard" element={<DashboardStub />} />
       </Routes>,
       { initialEntries: ['/dashboard'] },
     );
 
-    // Must render the loader (role="status") rather than the 403 page or
+    // Must render the loader (role="status") rather than a redirect or
     // the protected content. The single aria-live="polite" spinner belongs
     // to the guard.
     const loader = screen.getByRole('status');
     expect(loader).toBeInTheDocument();
     expect(loader).toHaveAttribute('aria-busy', 'true');
 
-    expect(screen.queryByText('forbidden')).toBeNull();
+    expect(screen.queryByText('dashboard')).toBeNull();
     expect(screen.queryByText('protected')).toBeNull();
   });
 

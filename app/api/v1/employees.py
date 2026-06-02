@@ -7,7 +7,12 @@ from datetime import date
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_any_permission, require_permission
+from app.api.deps import (
+    STAFF_SELF_SERVICE_ANY,
+    get_current_user,
+    require_any_permission,
+    require_permission,
+)
 from app.core.config import settings
 from app.core.errors import ValidationError
 from app.db.database import get_db
@@ -51,6 +56,7 @@ from app.services.employee_service import (
     list_employee_profiles_enriched_page,
     list_leave_requests,
     list_leave_requests_filtered,
+    get_employee_profile_id_for_user,
     list_weekly_schedules,
     list_weekly_schedules_for_authenticated_user,
     review_leave_request,
@@ -84,6 +90,53 @@ def _append_ref_note(body: str, note: str | None) -> str:
     if not text:
         return body
     return f"{body}\n\nملاحظة المرجع:\n{text}"
+
+
+async def _finalize_created_leave_request(
+    db: AsyncSession,
+    *,
+    request: Request,
+    current_user: User,
+    employee_profile_id: int,
+    body: LeaveRequestCreate,
+) -> LeaveRequestRead:
+    row = await create_leave_request(
+        db, employee_profile_id=employee_profile_id, data=body.model_dump()
+    )
+    await audit_service.log(
+        session=db,
+        action="leave_request.created",
+        resource_type="leave_request",
+        resource_id=str(row.id),
+        user_id=current_user.id,
+        request=request,
+    )
+    reads = await enrich_leave_request_reads(db, [row])
+    delivery_id: int | None = None
+    ep = await db.get(EmployeeProfile, row.employee_profile_id)
+    if ep is not None:
+        kind_ar = _leave_type_label_ar(row.leave_type)
+        period = _leave_period_phrase(row.start_date, row.end_date)
+        title = "تم استلام طلب إجازتك"
+        body_txt = f"تم تسجيل طلب {kind_ar} (رقم {row.id}) للفترة {period}."
+        body_txt = _append_ref_note(body_txt, row.reason)
+        delivery_id = await enqueue_direct_notification(
+            db,
+            user_id=ep.user_id,
+            title=title,
+            body=body_txt,
+            template_kind="leave_request_submitted",
+            idempotency_key=f"leave_req_submitted:{row.id}",
+            data={"leave_request_id": row.id, "path": "/profile"},
+            provider_name=None,
+            default_push_provider=settings.PUSH_PROVIDER,
+        )
+    await db.commit()
+    if delivery_id is not None:
+        await dispatch_delivery_after_commit(
+            delivery_id, default_push_provider=settings.PUSH_PROVIDER
+        )
+    return reads[0]
 
 
 def _review_idempotency_key(request: Request, body_key: str | None) -> str | None:
@@ -155,17 +208,54 @@ async def list_employee_profiles_endpoint(
 async def list_my_weekly_schedules_endpoint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: None = require_any_permission(
-        ("employees", "read"),
-        ("pos_shifts", "read"),
-        ("catalog", "read"),
-        ("customers", "read"),
-        ("accounting", "read"),
-        ("users", "read"),
-    ),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
 ) -> list[WeeklyScheduleRead]:
     rows = await list_weekly_schedules_for_authenticated_user(db, user_id=current_user.id)
     return [WeeklyScheduleRead.model_validate(r) for r in rows]
+
+
+@router.get("/employees/me/leave-balance", response_model=VacationLeaveBalanceRead)
+async def get_my_leave_balance_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> VacationLeaveBalanceRead:
+    """Self-service vacation balance (no ``employees:read``)."""
+    employee_profile_id = await get_employee_profile_id_for_user(db, current_user.id)
+    if employee_profile_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No employee profile linked to this account",
+        )
+    return await get_vacation_leave_balance(db, employee_profile_id=employee_profile_id)
+
+
+@router.post(
+    "/employees/me/leave-requests",
+    response_model=LeaveRequestRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_my_leave_request_endpoint(
+    body: LeaveRequestCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> LeaveRequestRead:
+    """Submit a leave request for the signed-in employee (no ``employees:create``)."""
+    employee_profile_id = await get_employee_profile_id_for_user(db, current_user.id)
+    if employee_profile_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No employee profile linked to this account",
+        )
+    return await _finalize_created_leave_request(
+        db,
+        request=request,
+        current_user=current_user,
+        employee_profile_id=employee_profile_id,
+        body=body,
+    )
 
 
 @router.get("/employees/{employee_profile_id}", response_model=EmployeeProfileRead)
@@ -515,43 +605,13 @@ async def create_leave_request_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("employees", "create"),
 ) -> LeaveRequestRead:
-    row = await create_leave_request(
-        db, employee_profile_id=employee_profile_id, data=body.model_dump()
-    )
-    await audit_service.log(
-        session=db,
-        action="leave_request.created",
-        resource_type="leave_request",
-        resource_id=str(row.id),
-        user_id=current_user.id,
+    return await _finalize_created_leave_request(
+        db,
         request=request,
+        current_user=current_user,
+        employee_profile_id=employee_profile_id,
+        body=body,
     )
-    reads = await enrich_leave_request_reads(db, [row])
-    delivery_id: int | None = None
-    ep = await db.get(EmployeeProfile, row.employee_profile_id)
-    if ep is not None:
-        kind_ar = _leave_type_label_ar(row.leave_type)
-        period = _leave_period_phrase(row.start_date, row.end_date)
-        title = "تم استلام طلب إجازتك"
-        body_txt = f"تم تسجيل طلب {kind_ar} (رقم {row.id}) للفترة {period}."
-        body_txt = _append_ref_note(body_txt, row.reason)
-        delivery_id = await enqueue_direct_notification(
-            db,
-            user_id=ep.user_id,
-            title=title,
-            body=body_txt,
-            template_kind="leave_request_submitted",
-            idempotency_key=f"leave_req_submitted:{row.id}",
-            data={"leave_request_id": row.id, "path": "/hr/leave"},
-            provider_name=None,
-            default_push_provider=settings.PUSH_PROVIDER,
-        )
-    await db.commit()
-    if delivery_id is not None:
-        await dispatch_delivery_after_commit(
-            delivery_id, default_push_provider=settings.PUSH_PROVIDER
-        )
-    return reads[0]
 
 
 @router.get(

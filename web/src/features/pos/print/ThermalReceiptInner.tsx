@@ -115,10 +115,16 @@ export function ThermalReceiptInner({ model }: { model: ThermalReceiptModel }) {
             <span dir="ltr">{money(model.tendered, model.currency)}</span>
           </div>
         ) : null}
-        {model.changeDue != null && model.changeDue !== '' ? (
+        {model.changeDue != null && model.changeDue !== '' && model.changeDue !== '0' ? (
           <div className="flex justify-between gap-2">
             <span>{t('tender.change')}</span>
             <span dir="ltr">{money(model.changeDue, model.currency)}</span>
+          </div>
+        ) : null}
+        {model.remaining != null && model.remaining !== '' && model.remaining !== '0' ? (
+          <div className="flex justify-between gap-2 font-semibold">
+            <span>{t('tender.remaining')}</span>
+            <span dir="ltr">{money(model.remaining, model.currency)}</span>
           </div>
         ) : null}
       </div>

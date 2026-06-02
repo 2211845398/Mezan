@@ -78,10 +78,30 @@ export type {
   VoidSaleBody,
 };
 
+export type PosCashEventRead = {
+  id: number;
+  shift_id: number;
+  event_type: string;
+  amount: string;
+  note: string | null;
+  created_at: string;
+};
+
 export async function getCurrentShift(
   params: CurrentShiftParams,
 ): Promise<PosShiftRead | null> {
   const { data } = await apiClient.get<PosShiftRead | null>('/pos/shifts/current', { params });
+  return data;
+}
+
+export async function getShiftCashEvents(
+  shiftId: number,
+  limit = 20,
+): Promise<{ items: PosCashEventRead[] }> {
+  const { data } = await apiClient.get<{ items: PosCashEventRead[] }>(
+    `/pos/shifts/${shiftId}/cash-events`,
+    { params: { limit } },
+  );
   return data;
 }
 
@@ -175,8 +195,10 @@ export async function listCarts(params?: {
   terminal_id?: number;
   branch_id?: number;
 }): Promise<CartRead[]> {
-  const { data } = await apiClient.get<CartRead[]>('/pos/carts', { params });
-  return data;
+  const { data } = await apiClient.get<{ items: CartRead[]; total: number }>('/pos/carts', {
+    params,
+  });
+  return data.items;
 }
 
 export async function updateCartCustomer(cartId: number, customerId: number | null): Promise<CartRead> {

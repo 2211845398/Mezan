@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
+from app.models.branch import Branch
 from app.models.pos_terminal import POSTerminal
 from app.models.users import User
 from app.schemas.terminal import (
@@ -32,11 +33,20 @@ async def list_terminals(
     __: None = require_permission("terminals", "read"),
 ) -> list[TerminalRead]:
     """List terminals, optionally by branch. Requires terminals:read."""
-    q = select(POSTerminal).order_by(POSTerminal.id)
+    q = (
+        select(POSTerminal, Branch.name.label("branch_name"))
+        .join(Branch, Branch.id == POSTerminal.branch_id)
+        .order_by(POSTerminal.id)
+    )
     if branch_id is not None:
         q = q.where(POSTerminal.branch_id == branch_id)
     result = await db.execute(q)
-    return [TerminalRead.model_validate(t) for t in result.scalars().all()]
+    rows: list[TerminalRead] = []
+    for terminal, branch_name in result.all():
+        payload = TerminalRead.model_validate(terminal).model_dump()
+        payload["branch_name"] = branch_name
+        rows.append(TerminalRead.model_validate(payload))
+    return rows
 
 
 @router.post("/terminals", response_model=TerminalCreateResponse)

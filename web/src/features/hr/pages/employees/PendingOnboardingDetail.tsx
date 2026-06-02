@@ -37,6 +37,7 @@ import type { UserOnboardingRead } from '@/features/admin/types';
 import { digitsOnlyNationalId, isValidLibyanNationalId } from '@/features/hr/lib/libyanNationalId';
 import { isValidLibyanIban, normalizeLibyanIban } from '@/features/hr/lib/libyanIban';
 import { focusElementById, invalidFieldClass } from '@/lib/formValidation';
+import type { FieldErrors, FieldValues } from 'react-hook-form';
 import { cn } from '@/lib/utils';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { formatPersonName } from '@/lib/personName';
@@ -353,7 +354,11 @@ export default function PendingOnboardingDetail() {
                 }}
                 autoComplete="off"
                 disabled={uploadIdScan.isPending}
-                className={invalidFieldClass(pendingFieldErrors, 'identity_document_number', submitAttempted)}
+                className={invalidFieldClass(
+                  pendingFieldErrors as FieldErrors<FieldValues>,
+                  'identity_document_number',
+                  submitAttempted,
+                )}
                 aria-invalid={fieldErrors.identity_document_number ? true : undefined}
               />
             </div>
@@ -466,7 +471,14 @@ export default function PendingOnboardingDetail() {
             <Input
               id="pending-bank"
               dir="ltr"
-              className={cn('font-mono text-start', invalidFieldClass(pendingFieldErrors, 'bank_account', submitAttempted))}
+              className={cn(
+                'font-mono text-start',
+                invalidFieldClass(
+                  pendingFieldErrors as FieldErrors<FieldValues>,
+                  'bank_account',
+                  submitAttempted,
+                ),
+              )}
               value={bankAccount}
               onChange={(e) => {
                 setBankAccount(e.target.value);

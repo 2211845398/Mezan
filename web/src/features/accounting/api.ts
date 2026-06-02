@@ -295,7 +295,12 @@ export async function getGeneralLedger(params: {
   return data;
 }
 
-export async function listArOpenItems(params?: { branch_id?: number; status?: string }): Promise<OpenItemRead[]> {
+export async function listArOpenItems(params?: {
+  branch_id?: number;
+  status?: string;
+  source_type?: string;
+  source_id?: string;
+}): Promise<OpenItemRead[]> {
   const { data } = await apiClient.get<OpenItemRead[]>('/accounting/ar/open-items', { params });
   return data;
 }

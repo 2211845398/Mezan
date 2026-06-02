@@ -10,6 +10,10 @@ declare module '@tanstack/react-table' {
   interface ColumnMeta<TData, TValue> {
     /** Header and body text alignment for DataTable cells. */
     align?: 'start' | 'center' | 'end';
+    /** Label in the column visibility dropdown (when header is not a plain string). */
+    visibilityLabel?: string;
+    /** Hide this column by default until the user enables it. */
+    defaultHidden?: boolean;
   }
 }
 

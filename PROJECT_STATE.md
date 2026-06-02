@@ -271,6 +271,8 @@
 | **Dockerfile multi-stage** | Open | Medium | W-8.1 |
 | **PWA + Dexie offline** | Open | High | W-9 (requires backend Epic 12) |
 | **Notifications client** | Open | Medium | W-10 (in-app center + deep links shipped; FCM wiring pending) |
+| **Session cleanse on logout** | Closed | — | `signOutSession`: React Query clear + POS stores + `mezan.*` storage purge |
+| **User-scoped routine notifications** | Closed | — | `owner_user_id` on schedules; cashier `notifications:update`; private `manual_broadcast` |
 | **Phase 3 frontend restructure** | Completed | — | POS overhaul, transfer Kanban, price-less purchasing/product forms, customer performance, marketing charts, and accounting operations workspace |
 
 ### Known Divergences (Plan vs Reality)

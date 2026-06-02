@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { setRefreshFn } from '@/api/interceptors/handle401Refresh';
 import { getMe, getMyPermissions, getMyRoles, refresh as refreshTokenApi } from '@/features/auth/api';
+import { resetClientSessionState } from '@/features/auth/signOutSession';
 import {
   type AuthUser,
   getRefreshStorageKey,
@@ -35,7 +36,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const setPermissions = useAuthStore((s) => s.setPermissions);
   const setRoleCodes = useAuthStore((s) => s.setRoleCodes);
-  const clear = useAuthStore((s) => s.clear);
+  const setStatusUnauthenticated = useAuthStore((s) => s.setStatus);
 
   useEffect(() => {
     // 2) Plug the refresh callback into the Axios 401 interceptor.
@@ -54,7 +55,8 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
 
     // 3) Wire the auth-expired event so a hard-failed refresh resets state.
     const onAuthExpired = () => {
-      clear();
+      resetClientSessionState();
+      setStatusUnauthenticated('unauthenticated');
     };
     window.addEventListener('mezan:auth-expired', onAuthExpired);
 
@@ -62,7 +64,8 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== refreshKey) return;
       if (e.newValue == null && e.oldValue != null) {
-        clear();
+        resetClientSessionState();
+        setStatusUnauthenticated('unauthenticated');
       }
     };
     window.addEventListener('storage', onStorage);
@@ -71,7 +74,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
       window.removeEventListener('mezan:auth-expired', onAuthExpired);
       window.removeEventListener('storage', onStorage);
     };
-  }, [clear]);
+  }, [setStatusUnauthenticated]);
 
   useEffect(() => {
     // 1) Session restore. Must not use a "run once" ref: React 18 Strict Mode
@@ -102,7 +105,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
       } catch {
         if (cancelled) return;
         setRefreshTokenSync(null);
-        clear();
+        resetClientSessionState();
         setStatus('unauthenticated');
       }
     })();
@@ -110,7 +113,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [clear, setAccessToken, setPermissions, setRoleCodes, setStatus, setUser]);
+  }, [setAccessToken, setPermissions, setRoleCodes, setStatus, setUser]);
 
   if (status === 'idle' || status === 'booting') {
     return (

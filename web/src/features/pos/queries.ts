@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { ConflictError, ValidationError } from '@/api/errors';
+import { notifyApiError } from '@/api/errorMessages';
+import { ConflictError } from '@/api/errors';
 import { createOptimisticMutation } from '@/api/mutations';
 import { now, utcCalendarDayKey } from '@/lib/date';
 import { notify } from '@/lib/toast';
@@ -109,13 +110,12 @@ export function useCart(cartId: number | null) {
   });
 }
 
+/** Query key for parked carts list (used by toolbar badge + delete invalidation). */
+export const parkedCartsQueryKey = (terminalId: number) => ['parked-carts', terminalId] as const;
+
 export function useParkedCarts(terminalId: number | null) {
-  const listParams: Record<string, unknown> =
-    terminalId != null
-      ? { status: 'parked' as const, terminal_id: terminalId }
-      : { status: 'parked' as const };
   return useQuery({
-    queryKey: cartKeys.list(listParams),
+    queryKey: terminalId != null ? parkedCartsQueryKey(terminalId) : ['parked-carts', 'none'],
     queryFn: () => {
       if (terminalId == null) {
         throw new Error('useParkedCarts requires terminalId');
@@ -124,6 +124,16 @@ export function useParkedCarts(terminalId: number | null) {
     },
     enabled: terminalId != null,
     staleTime: 15_000,
+  });
+}
+
+export function useDeleteParkedCart() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cartId: number) => changeCartState(cartId, { action: 'cancel' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['parked-carts'] });
+    },
   });
 }
 
@@ -214,16 +224,19 @@ export function useCreateCart() {
 
 type LineVars = { product_id: number; qty: number; variant_id?: number };
 
-function cartLineMatches(
-  ln: NonNullable<CartRead['lines']>[number],
+/** Resolve cart line for catalog add — matches server (product, variant) keying. */
+export function findCartLineForAdd(
+  lines: CartRead['lines'] | undefined,
   productId: number,
   variantId?: number,
-): boolean {
-  if (ln.product_id !== productId) return false;
+): NonNullable<CartRead['lines']>[number] | undefined {
+  const list = lines ?? [];
   if (variantId != null && variantId > 0) {
-    return ln.variant_id === variantId;
+    return list.find((ln) => ln.product_id === productId && ln.variant_id === variantId);
   }
-  return (ln.variant_id ?? 0) <= 0;
+  const forProduct = list.filter((ln) => ln.product_id === productId);
+  if (forProduct.length === 1) return forProduct[0];
+  return forProduct.find((ln) => (ln.variant_id ?? 0) <= 0) ?? forProduct[0];
 }
 
 export function useAddLine(cartId: number) {
@@ -232,9 +245,7 @@ export function useAddLine(cartId: number) {
     /** Backend `upsert_line` treats `qty` as absolute, not a delta — read post-optimistic cart. */
     mutationFn: async (variables, _idempotencyKey) => {
       const cart = qc.getQueryData<CartRead>(cartKeys.detail(cartId));
-      const line = cart?.lines?.find((ln) =>
-        cartLineMatches(ln, variables.product_id, variables.variant_id),
-      );
+      const line = findCartLineForAdd(cart?.lines, variables.product_id, variables.variant_id);
       const target = line != null ? Number(line.qty) + variables.qty : variables.qty;
       const absQty = Math.max(
         0,
@@ -254,11 +265,14 @@ export function useAddLine(cartId: number) {
       if (!prev) return;
       const hit = findProductInCatalogCache(client, variables.product_id);
       const unitPrice = hit ? catalogListUnitPriceString(hit) : '0.00';
+      if (!hit || Number.parseFloat(unitPrice) <= 0) {
+        return;
+      }
       const rateStr = hit ? String(hit.output_vat_rate ?? '0') : '0';
       const prevLines = prev.lines ?? [];
-      const existingIdx = prevLines.findIndex((ln) =>
-        cartLineMatches(ln, variables.product_id, variables.variant_id),
-      );
+      const existingLine = findCartLineForAdd(prevLines, variables.product_id, variables.variant_id);
+      const existingIdx =
+        existingLine != null ? prevLines.findIndex((ln) => ln.id === existingLine.id) : -1;
 
       let draftLines: NonNullable<CartRead['lines']>;
       if (existingIdx >= 0) {
@@ -362,12 +376,7 @@ export function useParkCart(cartId: number) {
     mutationFn: () => changeCartState(cartId, { action: 'park' }),
     onSuccess: (data) => {
       qc.setQueryData(cartKeys.detail(cartId), data);
-      void qc.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return Array.isArray(key) && key[0] === 'pos' && key[1] === 'carts' && key[2] === 'list';
-        },
-      });
+      void qc.invalidateQueries({ queryKey: ['parked-carts'] });
     },
   });
 }
@@ -378,12 +387,7 @@ export function useCancelCart(cartId: number) {
     mutationFn: () => changeCartState(cartId, { action: 'cancel' }),
     onSuccess: (data) => {
       qc.setQueryData(cartKeys.detail(cartId), data);
-      void qc.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return Array.isArray(key) && key[0] === 'pos' && key[1] === 'carts' && key[2] === 'list';
-        },
-      });
+      void qc.invalidateQueries({ queryKey: ['parked-carts'] });
     },
   });
 }
@@ -470,11 +474,5 @@ export function mapPosErrorToToast(err: unknown, t: (k: string) => string): void
     notify.error(t('errors.payment.capture_failed'));
     return;
   }
-  if (err instanceof ValidationError) {
-    notify.error(err.message);
-    return;
-  }
-  if (err instanceof Error) {
-    notify.error(err.message);
-  }
+  notifyApiError(err);
 }

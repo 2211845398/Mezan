@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { OfflineBadge } from '@/components/shared/OfflineBadge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +19,7 @@ import { now } from '@/lib/date';
 import { formatCurrency, formatDateTime } from '@/lib/format';
 import { formatPersonName } from '@/lib/personName';
 
-import { useParkedCarts } from '../queries';
+import { useDeleteParkedCart, useParkedCarts } from '../queries';
 import { ShiftCloseForm } from './ShiftCloseForm';
 
 export type RegisterToolbarProps = {
@@ -61,6 +62,7 @@ export function RegisterToolbar({
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const [clock, setClock] = useState(() => now());
   const parked = useParkedCarts(terminalId);
+  const deleteParked = useDeleteParkedCart();
 
   useEffect(() => {
     const id = window.setInterval(() => setClock(now()), 1000);
@@ -203,6 +205,19 @@ export function RegisterToolbar({
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={deleteParked.isPending}
+                      onClick={() => {
+                        void deleteParked.mutateAsync(cart.id).catch((error) => {
+                          notifyApiError(error);
+                        });
+                      }}
+                    >
+                      {t('pending.delete')}
+                    </Button>
                     <Button
                       type="button"
                       size="sm"

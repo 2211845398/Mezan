@@ -11,7 +11,9 @@ export type RefreshRequest = components['schemas']['RefreshRequest'];
 export type LogoutRequest = components['schemas']['LogoutRequest'];
 export type PasswordResetRequest = components['schemas']['PasswordResetRequest'];
 export type PasswordResetConfirm = components['schemas']['PasswordResetConfirm'];
-export type UserRead = components['schemas']['UserRead'];
+export type UserRead = components['schemas']['UserRead'] & {
+  branch_name?: string | null;
+};
 export type UserUpdate = components['schemas']['UserUpdate'];
 export type ProfileUpdate = components['schemas']['ProfileUpdate'];
 export type PermissionRead = components['schemas']['app__api__v1__auth__PermissionRead'];

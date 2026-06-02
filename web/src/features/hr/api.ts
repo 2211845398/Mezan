@@ -160,6 +160,17 @@ export async function createLeaveRequest(
   return data;
 }
 
+/** Self-service: submit leave for the signed-in employee (no ``employees:create``). */
+export async function createMyLeaveRequest(body: LeaveRequestCreate): Promise<LeaveRequestRead> {
+  const { data } = await apiClient.post<LeaveRequestRead>('/employees/me/leave-requests', body);
+  return data;
+}
+
+export async function getMyLeaveBalance(): Promise<VacationLeaveBalanceRead> {
+  const { data } = await apiClient.get<VacationLeaveBalanceRead>('/employees/me/leave-balance');
+  return data;
+}
+
 export async function getEmployeeLeaveBalance(
   employeeProfileId: number,
 ): Promise<VacationLeaveBalanceRead> {

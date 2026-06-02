@@ -18,6 +18,7 @@ export function thermalModelFromCart(
     paymentMethod?: string | null;
     tendered?: string | null;
     changeDue?: string | null;
+    remaining?: string | null;
     createdAt?: Date;
   },
 ): ThermalReceiptModel {
@@ -41,6 +42,7 @@ export function thermalModelFromCart(
     paymentMethod: opts.paymentMethod ?? null,
     tendered: opts.tendered ?? null,
     changeDue: opts.changeDue ?? null,
+    remaining: opts.remaining ?? null,
     createdAtLabel: formatDateTime(opts.createdAt ?? now()),
   };
   return opts.provisionalWatermark !== undefined

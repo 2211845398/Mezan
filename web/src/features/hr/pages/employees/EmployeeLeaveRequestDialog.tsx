@@ -26,7 +26,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { inclusiveEndIsoDateFromStartAndDays } from '@/lib/date';
 
-import { createLeaveRequest } from '../../api';
+import { createLeaveRequest, createMyLeaveRequest } from '../../api';
 import { formatVacationBalanceRemaining } from '../../lib/leaveBalanceDisplay';
 import { hrKeys, leaveBalanceQueryOptions } from '../../queries';
 
@@ -47,15 +47,22 @@ type Props = {
   employeeProfileId: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Use self-service API (no ``employees:create`` / ``employees:read``). */
+  selfService?: boolean;
 };
 
-export default function EmployeeLeaveRequestDialog({ employeeProfileId, open, onOpenChange }: Props) {
+export default function EmployeeLeaveRequestDialog({
+  employeeProfileId,
+  open,
+  onOpenChange,
+  selfService = false,
+}: Props) {
   const { t } = useTranslation('hr');
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
 
   const { data: balance } = useQuery({
-    ...leaveBalanceQueryOptions(employeeProfileId),
+    ...leaveBalanceQueryOptions(employeeProfileId, selfService),
     enabled: open && employeeProfileId > 0 && !Number.isNaN(employeeProfileId),
   });
 
@@ -94,13 +101,17 @@ export default function EmployeeLeaveRequestDialog({ employeeProfileId, open, on
   }, [open, form]);
 
   const mutation = useMutation({
-    mutationFn: async (v: FormValues) =>
-      createLeaveRequest(employeeProfileId, {
+    mutationFn: async (v: FormValues) => {
+      const body = {
         leave_type: v.leave_type,
         start_date: v.start_date,
         end_date: inclusiveEndIsoDateFromStartAndDays(v.start_date, v.duration_days),
         reason: v.reason?.trim() ? v.reason.trim() : null,
-      }),
+      };
+      return selfService
+        ? createMyLeaveRequest(body)
+        : createLeaveRequest(employeeProfileId, body);
+    },
     onSuccess: async () => {
       toast.success(t('leave.created'));
       await qc.invalidateQueries({ queryKey: hrKeys.root });

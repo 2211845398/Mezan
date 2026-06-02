@@ -45,6 +45,7 @@ class UserRead(BaseModel):
     family_name: str | None = None
     status: str
     branch_id: int | None = None
+    branch_name: str | None = None
     phone: str | None = None
     city: str | None = None
     preferred_language: str | None = None

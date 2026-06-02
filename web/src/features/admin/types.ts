@@ -2,7 +2,7 @@ import type { components } from '@/api/generated/schema';
 
 type Schemas = components['schemas'];
 
-export type UserRead = Schemas['UserRead'];
+export type UserRead = Schemas['UserRead'] & { branch_name?: string | null };
 export type UserCreateBody = Schemas['UserCreate'];
 export type UserUpdateBody = Schemas['UserUpdate'];
 
@@ -25,7 +25,7 @@ export type BranchRead = Schemas['BranchRead'];
 export type BranchCreateBody = Schemas['BranchCreate'];
 export type BranchUpdateBody = Schemas['BranchUpdate'];
 
-export type TerminalRead = Schemas['TerminalRead'];
+export type TerminalRead = Schemas['TerminalRead'] & { branch_name?: string | null };
 export type TerminalCreateBody = Schemas['TerminalCreate'];
 export type TerminalUpdateBody = Schemas['TerminalUpdate'];
 export type TerminalCreateResponse = Schemas['TerminalCreateResponse'];

@@ -6,10 +6,13 @@ from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
+from app.models.sales_invoice import SalesInvoice
+from app.models.sales_return import CreditNote, SalesReturn
 from app.models.users import User
 from app.schemas.customer_profile import (
     CustomerCompleteOnboardingRequest,
@@ -190,7 +193,7 @@ async def list_customer_sales_invoices_endpoint(
     _: None = Depends(get_current_user),
     __: None = require_permission("customers", "read"),
 ) -> CustomerSalesInvoiceListResponse:
-    invoices, total = await list_customer_sales_invoices(
+    invoices, total_inv = await list_customer_sales_invoices(
         db, customer_id=customer_id, limit=limit, offset=offset
     )
     items = [
@@ -205,11 +208,58 @@ async def list_customer_sales_invoices_endpoint(
             discount_total=inv.discount_total,
             tax_total=inv.tax_total,
             total=inv.total,
+            payment_status=inv.payment_status,
+            transaction_type="sale",
             created_at=inv.created_at,
         )
         for inv in invoices
     ]
-    return CustomerSalesInvoiceListResponse(items=items, total=total, limit=limit, offset=offset)
+    ret_cnt = int(
+        await db.scalar(
+            select(func.count())
+            .select_from(CreditNote)
+            .join(SalesReturn, CreditNote.sales_return_id == SalesReturn.id)
+            .join(SalesInvoice, SalesReturn.sales_invoice_id == SalesInvoice.id)
+            .where(
+                SalesInvoice.customer_id == customer_id,
+                SalesInvoice.voided_at.is_(None),
+            ),
+        )
+        or 0,
+    )
+    cn_res = await db.execute(
+        select(CreditNote, SalesInvoice)
+        .join(SalesReturn, CreditNote.sales_return_id == SalesReturn.id)
+        .join(SalesInvoice, SalesReturn.sales_invoice_id == SalesInvoice.id)
+        .where(
+            SalesInvoice.customer_id == customer_id,
+            SalesInvoice.voided_at.is_(None),
+        )
+        .order_by(CreditNote.created_at.desc())
+    )
+    for cn, inv in cn_res.all():
+        items.append(
+            CustomerSalesInvoiceListItem(
+                id=cn.id,
+                invoice_number=cn.credit_number,
+                invoice_barcode=cn.credit_number,
+                cart_id=inv.cart_id,
+                terminal_id=inv.terminal_id,
+                branch_id=inv.branch_id,
+                subtotal=cn.total_amount,
+                discount_total=Decimal("0.00"),
+                tax_total=Decimal("0.00"),
+                total=cn.total_amount,
+                payment_status="paid",
+                transaction_type="return",
+                created_at=cn.created_at,
+            )
+        )
+    items.sort(key=lambda row: row.created_at, reverse=True)
+    items = items[offset : offset + limit]
+    return CustomerSalesInvoiceListResponse(
+        items=items, total=total_inv + ret_cnt, limit=limit, offset=offset
+    )
 
 
 @router.get("/customers/{customer_id}", response_model=CustomerDetailRead)

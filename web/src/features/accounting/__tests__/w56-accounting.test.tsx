@@ -109,7 +109,7 @@ describe('W-5.6 accounting', () => {
       <Routes>
         <Route path="/accounting/journal/:id" element={<JournalDetail />} />
       </Routes>,
-      { initialEntries: ['/accounting/journal/1'], initialIndex: 0 },
+      { initialEntries: ['/accounting/journal/1'] },
     );
 
     await waitFor(() => {

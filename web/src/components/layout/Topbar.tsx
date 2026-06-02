@@ -13,8 +13,8 @@ import {
 import { useShellNavigation } from '@/config/navigationFilter';
 import { getTitleKeyForPath } from '@/config/routeTitle';
 import { useBranch } from '@/features/admin/queries';
-import { logout as logoutApi } from '@/features/auth/api';
-import { getRefreshTokenSync, useAuthStore } from '@/features/auth/stores/authStore';
+import { signOutSession } from '@/features/auth/signOutSession';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { NotificationCenter } from '@/features/notifications/NotificationCenter';
 import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
@@ -28,7 +28,6 @@ export function Topbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const clear = useAuthStore((s) => s.clear);
   const branchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
   const { data: branchRow } = useBranch(branchId ?? 0, {
     enabled: branchId != null && branchId > 0,
@@ -47,16 +46,16 @@ export function Topbar() {
   }
 
   async function onSignOut() {
-    const token = getRefreshTokenSync();
-    try {
-      if (token) await logoutApi({ refresh_token: token });
-    } catch {
-      // Best-effort: we revoke locally regardless of backend reachability.
-    } finally {
-      clear();
-      navigate('/login', { replace: true });
-    }
+    await signOutSession();
+    navigate('/login', { replace: true });
   }
+
+  const branchLabel =
+    branchId != null
+      ? user?.branch_name?.trim() ||
+        branchRow?.name?.trim() ||
+        t('layout.branch_context', { id: branchId })
+      : t('layout.branch_unassigned');
 
   const userDisplay = user
     ? formatPersonName(user.first_name, user.father_name, user.family_name).trim() || user.email
@@ -93,11 +92,7 @@ export function Topbar() {
             </Button>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-lg font-semibold leading-tight">{t(titleKey)}</h1>
-              {branchId != null ? (
-                <p className="truncate text-xs text-muted-foreground">
-                  {branchRow?.name?.trim() || t('layout.branch_context', { id: branchId })}
-                </p>
-              ) : null}
+              <p className="truncate text-xs text-muted-foreground">{branchLabel}</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">

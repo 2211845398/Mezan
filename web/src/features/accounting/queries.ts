@@ -30,8 +30,12 @@ export const accountingKeys = {
     supplier_id?: number;
     employee_id?: number;
   }) => [...accountingKeys.root, 'gl', p] as const,
-  arOpen: (p: { branch_id?: number; status?: string }) =>
-    [...accountingKeys.root, 'ar', p] as const,
+  arOpen: (p: {
+    branch_id?: number;
+    status?: string;
+    source_type?: string;
+    source_id?: string;
+  }) => [...accountingKeys.root, 'ar', p] as const,
   apOpen: (p: { branch_id?: number; status?: string }) =>
     [...accountingKeys.root, 'ap', p] as const,
   fiscal: () => [...accountingKeys.root, 'fiscal'] as const,
@@ -169,7 +173,12 @@ export function generalLedgerQueryOptions(p: {
   });
 }
 
-export function arOpenItemsQueryOptions(p: { branch_id?: number; status?: string }) {
+export function arOpenItemsQueryOptions(p: {
+  branch_id?: number;
+  status?: string;
+  source_type?: string;
+  source_id?: string;
+}) {
   return queryOptions({
     queryKey: accountingKeys.arOpen(p),
     queryFn: () => api.listArOpenItems(p),

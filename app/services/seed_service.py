@@ -174,6 +174,7 @@ SYSTEM_ROLE_SPECS = [
             ("customers", "create"),
             ("customers", "read"),
             ("notifications", "read"),
+            ("notifications", "update"),
         ],
     },
     {

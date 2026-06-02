@@ -164,11 +164,14 @@ export function leaveListQueryOptions(params: {
   });
 }
 
-export function leaveBalanceQueryOptions(employeeProfileId: number) {
+export function leaveBalanceQueryOptions(employeeProfileId: number, selfService = false) {
   return queryOptions({
-    queryKey: hrKeys.leaveBalance(employeeProfileId),
-    queryFn: () => api.getEmployeeLeaveBalance(employeeProfileId),
-    enabled: !Number.isNaN(employeeProfileId) && employeeProfileId > 0,
+    queryKey: selfService
+      ? ([...hrKeys.root, 'my-leave-balance'] as const)
+      : hrKeys.leaveBalance(employeeProfileId),
+    queryFn: () =>
+      selfService ? api.getMyLeaveBalance() : api.getEmployeeLeaveBalance(employeeProfileId),
+    enabled: selfService || (!Number.isNaN(employeeProfileId) && employeeProfileId > 0),
   });
 }
 

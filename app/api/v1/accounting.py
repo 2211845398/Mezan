@@ -420,11 +420,19 @@ async def create_ar_open_item_endpoint(
 async def list_ar_open_items_endpoint(
     branch_id: int | None = Query(default=None),
     status: str | None = Query(default=None),
+    source_type: str | None = Query(default=None),
+    source_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
     __: None = require_permission("accounting", "read"),
 ) -> list[OpenItemRead]:
-    rows = await list_ar_open_items(db, branch_id=branch_id, status=status)
+    rows = await list_ar_open_items(
+        db,
+        branch_id=branch_id,
+        status=status,
+        source_type=source_type,
+        source_id=source_id,
+    )
     return [OpenItemRead.model_validate(serialize_ar_item(r)) for r in rows]
 
 

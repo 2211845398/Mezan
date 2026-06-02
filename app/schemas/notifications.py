@@ -78,6 +78,7 @@ class NotificationScheduleRead(BaseModel):
     interval_minutes: int
     target_role_code: str | None
     branch_id: int | None
+    owner_user_id: int | None = None
     parameters: dict
     is_active: bool
     last_run_at: datetime | None

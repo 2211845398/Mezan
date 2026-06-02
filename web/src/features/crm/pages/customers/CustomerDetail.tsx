@@ -31,6 +31,8 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { formatPersonName } from '@/lib/personName';
 import { cn } from '@/lib/utils';
 
+import { Badge } from '@/components/ui/badge';
+import { InvoiceRepaymentDialog } from '@/features/marketing/components/InvoiceRepaymentDialog';
 import { A4InvoicePrintButton } from '@/features/sales/print/A4InvoicePrintDialog';
 
 import type { CustomerSalesInvoiceListResponse, LedgerEntryRead } from '../../api';
@@ -57,6 +59,11 @@ export default function CustomerDetail() {
   const [tab, setTab] = useState<CustomerTab>('performance');
   const [adjOpen, setAdjOpen] = useState(false);
   const [arPayOpen, setArPayOpen] = useState(false);
+  const [repayInvoice, setRepayInvoice] = useState<{
+    id: number;
+    invoice_number: string;
+    branch_id: number;
+  } | null>(null);
   const canEdit = usePermission('customers', 'update');
   const canAdjust = usePermission('loyalty', 'adjust');
   const canReadLoyalty = usePermission('loyalty', 'read');
@@ -117,7 +124,6 @@ export default function CustomerDetail() {
   const { data: arItems = [], isLoading: arLoading } = useQuery({
     ...arOpenItemsQueryOptions({
       ...(activeBranchId != null ? { branch_id: activeBranchId } : {}),
-      status: 'open',
     }),
     enabled:
       !Number.isNaN(cid) &&
@@ -143,10 +149,58 @@ export default function CustomerDetail() {
 
   const invRows = (invData as CustomerSalesInvoiceListResponse | undefined)?.items ?? [];
 
+  type CustomerInvoiceRow = (typeof invRows)[0] & {
+    payment_status?: string;
+    transaction_type?: string;
+  };
+
   const invColumns = useMemo(
     () =>
-      defineColumns<(typeof invRows)[0]>()([
+      defineColumns<CustomerInvoiceRow>()([
         { id: 'no', accessorKey: 'invoice_number', header: t('customers.invoice_no') },
+        {
+          id: 'txn',
+          accessorKey: 'transaction_type',
+          header: t('customers.col_txn_type'),
+          cell: ({ row }) => {
+            const tt = row.original.transaction_type ?? 'sale';
+            if (tt === 'return') {
+              return (
+                <Badge variant="secondary" className="bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-100">
+                  {t('customers.txn_return')}
+                </Badge>
+              );
+            }
+            return (
+              <Badge variant="secondary" className="bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+                {t('customers.txn_sale')}
+              </Badge>
+            );
+          },
+        },
+        {
+          id: 'pay',
+          accessorKey: 'payment_status',
+          header: t('customers.col_payment_status'),
+          cell: ({ row }) => {
+            if (row.original.transaction_type === 'return') {
+              return <span className="text-muted-foreground">—</span>;
+            }
+            const ps = row.original.payment_status ?? 'paid';
+            if (ps === 'partially_paid') {
+              return (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                  {t('customers.payment_partial')}
+                </Badge>
+              );
+            }
+            return (
+              <Badge variant="secondary" className="bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+                {t('customers.payment_paid')}
+              </Badge>
+            );
+          },
+        },
         { id: 'tot', accessorKey: 'total', header: t('customers.invoice_total') },
         {
           id: 'dt',
@@ -163,12 +217,36 @@ export default function CustomerDetail() {
           },
         },
         {
-          id: 'print',
+          id: 'actions',
           header: '',
-          cell: ({ row }) => <A4InvoicePrintButton invoiceId={row.original.id} />,
+          cell: ({ row }) => (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {row.original.transaction_type !== 'return' &&
+              row.original.payment_status === 'partially_paid' &&
+              canApplyAr ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setRepayInvoice({
+                      id: row.original.id,
+                      invoice_number: row.original.invoice_number,
+                      branch_id: row.original.branch_id,
+                    })
+                  }
+                >
+                  {t('customers.collect_payment')}
+                </Button>
+              ) : null}
+              {row.original.transaction_type !== 'return' ? (
+                <A4InvoicePrintButton invoiceId={row.original.id} />
+              ) : null}
+            </div>
+          ),
         },
       ]),
-    [t],
+    [t, canApplyAr],
   );
 
   const ledColumns = useMemo(
@@ -515,6 +593,19 @@ export default function CustomerDetail() {
         items={customerOpenItems}
         onApplied={onArApplied}
       />
+
+      {repayInvoice ? (
+        <InvoiceRepaymentDialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setRepayInvoice(null);
+          }}
+          invoiceId={repayInvoice.id}
+          invoiceNumber={repayInvoice.invoice_number}
+          branchId={repayInvoice.branch_id}
+          onApplied={onArApplied}
+        />
+      ) : null}
     </div>
   );
 }

@@ -20,6 +20,7 @@ class TerminalRead(BaseModel):
 
     id: int
     branch_id: int
+    branch_name: str | None = None
     name: str
     terminal_code: str
     is_authorized: bool

@@ -26,22 +26,20 @@ def _is_retryable_inventory_integrity_error(error: IntegrityError) -> bool:
 
 def _validate_stock_level_invariants(level: StockLevel) -> None:
     if level.on_hand < 0 or level.reserved < 0 or level.damaged < 0:
-        raise ValidationError(
+        validation_error(
+            "stock_levels_negative",
             "Stock levels cannot be negative",
-            details={
-                "on_hand": level.on_hand,
-                "reserved": level.reserved,
-                "damaged": level.damaged,
-            },
+            on_hand=level.on_hand,
+            reserved=level.reserved,
+            damaged=level.damaged,
         )
     if level.reserved + level.damaged > level.on_hand:
-        raise ValidationError(
+        validation_error(
+            "stock_reserved_exceeds_on_hand",
             "reserved + damaged cannot exceed on_hand",
-            details={
-                "on_hand": level.on_hand,
-                "reserved": level.reserved,
-                "damaged": level.damaged,
-            },
+            on_hand=level.on_hand,
+            reserved=level.reserved,
+            damaged=level.damaged,
         )
 
 

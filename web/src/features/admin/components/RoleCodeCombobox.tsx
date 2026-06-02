@@ -204,7 +204,7 @@ export function RoleCodeCombobox({
       value={value}
       onChange={onChange}
       disabled={disabled ?? false}
-      className={className}
+      className={className ?? ''}
       invalid={invalid}
     />
   );

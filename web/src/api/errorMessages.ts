@@ -180,6 +180,8 @@ const LEGACY_MESSAGE_TO_API_KEY: Record<string, string> = {
   'Cancellation must be performed at the sending branch': 'transfer_cancel_wrong_branch',
   'Transfer batch not found': 'transfer_batch_not_found',
   'Insufficient sellable stock': 'insufficient_sellable_stock',
+  'Stock levels cannot be negative': 'stock_levels_negative',
+  'reserved + damaged cannot exceed on_hand': 'stock_reserved_exceeds_on_hand',
   'All stock count lines must have counted quantity before posting': 'stock_count_incomplete_lines',
   'Cart not found': 'cart_not_found',
   'Cart is not active': 'cart_not_active',

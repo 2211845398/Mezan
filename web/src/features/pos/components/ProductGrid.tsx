@@ -57,6 +57,9 @@ const ProductTile = memo(function ProductTile({
       onPickProductWithVariants(product);
       return;
     }
+    if (!Number.isFinite(product.id) || product.id <= 0) {
+      return;
+    }
     onAddProduct(product.id, qty);
   };
 
@@ -64,7 +67,8 @@ const ProductTile = memo(function ProductTile({
     <button
       type="button"
       disabled={disabled}
-      onClick={() => {
+      onClick={(e) => {
+        e.stopPropagation();
         if (clickTimerRef.current != null) {
           window.clearTimeout(clickTimerRef.current);
           clickTimerRef.current = null;
@@ -76,7 +80,7 @@ const ProductTile = memo(function ProductTile({
           handleAdd(1);
         }, 280);
       }}
-      className="group flex min-h-0 flex-col overflow-hidden rounded-xl border bg-[#fcfbf8] text-start text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
+      className="group flex min-h-0 flex-col overflow-hidden rounded-xl border bg-[#fcfbf8] text-start text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-background hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
     >
       <div className="aspect-[3/2] w-full shrink-0 overflow-hidden bg-muted">
         {imgSrc ? (

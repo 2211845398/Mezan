@@ -36,7 +36,13 @@ export default function StockCountPage() {
 
   const { data: sessions = [], isLoading, isError, refetch } = useQuery({
     queryKey: [...inventoryKeys.root, 'stock-count-sessions', branchFilter],
-    queryFn: () => listStockCountSessions({ branch_id: branchFilter ?? undefined, limit: 200 }),
+    queryFn: () => {
+      const params: { limit: number; branch_id?: number } = { limit: 200 };
+      if (branchFilter != null) {
+        params.branch_id = branchFilter;
+      }
+      return listStockCountSessions(params);
+    },
   });
 
   const pdfM = useMutation({

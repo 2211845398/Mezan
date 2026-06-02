@@ -278,6 +278,29 @@ describe('API error message extraction', () => {
     expect(getLocalizedApiErrorMessage(err, tEn)).toBe(tEn('apiErrors.insufficient_transfer_stock'));
   });
 
+  it('localizes stock_levels_negative by details.code', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'Stock levels cannot be negative',
+            details: {
+              code: 'stock_levels_negative',
+              on_hand: -2,
+              reserved: 0,
+              damaged: 0,
+            },
+          },
+        },
+      },
+      null,
+    );
+    const tAr = i18n.getFixedT('ar', 'common');
+    expect(getLocalizedApiErrorMessage(err, tAr)).toBe(tAr('apiErrors.stock_levels_negative'));
+  });
+
   it('falls back to generic copy when API message is untranslated', () => {
     const err = mapResponseToApiError(
       {

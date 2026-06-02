@@ -1,12 +1,22 @@
 import { ShieldAlert } from 'lucide-react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
+
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 export default function ForbiddenPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const authStatus = useAuthStore((s) => s.status);
   const state = location.state as { resource?: string; action?: string } | null;
+
+  useEffect(() => {
+    if (authStatus === 'authenticated') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [authStatus, navigate]);
 
   return (
     <div className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background px-4 py-12">

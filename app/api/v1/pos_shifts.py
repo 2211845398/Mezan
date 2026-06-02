@@ -5,12 +5,17 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
+from app.core.errors import NotFoundError
 from app.db.database import get_db
+from app.models.pos_shift import PosShift
 from app.models.users import User
 from app.schemas.pos_shift import (
+    PosCashEventListResponse,
+    PosCashEventRead,
     PosShiftCashEventRequest,
     PosShiftCloseRequest,
     PosShiftOpenRequest,
@@ -23,6 +28,7 @@ from app.services.shift_service import (
     close_shift,
     count_completed_sales_transactions_for_shift,
     get_open_shift_for_terminal,
+    list_cash_events_for_shift,
     open_shift,
 )
 
@@ -41,6 +47,25 @@ async def get_current_shift_endpoint(
         return None
     tx_count = await count_completed_sales_transactions_for_shift(db, shift_id=shift.id)
     return PosShiftRead.model_validate(shift).model_copy(update={"transactions_in_shift": tx_count})
+
+
+@router.get(
+    "/pos/shifts/{shift_id}/cash-events",
+    response_model=PosCashEventListResponse,
+)
+async def list_shift_cash_events_endpoint(
+    shift_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _: None = require_permission("pos_shifts", "read"),
+) -> PosCashEventListResponse:
+    res = await db.execute(select(PosShift).where(PosShift.id == shift_id))
+    if res.scalar_one_or_none() is None:
+        raise NotFoundError("Shift not found", details={"shift_id": shift_id})
+    rows = await list_cash_events_for_shift(db, shift_id=shift_id, limit=limit)
+    return PosCashEventListResponse(
+        items=[PosCashEventRead.model_validate(r) for r in rows],
+    )
 
 
 @router.post("/pos/shifts/open", response_model=PosShiftRead, status_code=status.HTTP_201_CREATED)

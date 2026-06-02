@@ -46,8 +46,11 @@ from app.schemas.notifications import (
     NotificationUnreadCountResponse,
     ScheduleTriggerResponse,
 )
+from app.core.errors import ValidationError as AppValidationError
 from app.services import audit_service
 from app.services.notifications.service import (
+    assert_schedule_mutable,
+    is_org_notification_manager,
     broadcast_notification,
     count_unread_deliveries,
     delete_all_deliveries,
@@ -318,23 +321,60 @@ async def upsert_schedule_endpoint(
     _: None = require_permission("notifications", "update"),
     role_codes: frozenset[str] = Depends(get_current_user_role_codes),
 ) -> NotificationScheduleRead:
-    if is_company_wide_audience(body):
-        if not (role_codes & ORG_NOTIFICATION_MANAGER_ROLE_CODES):
+    from sqlalchemy import select
+
+    from app.models.notifications import NotificationSchedule
+
+    existing_res = await db.execute(
+        select(NotificationSchedule).where(NotificationSchedule.name == body.name)
+    )
+    existing = existing_res.scalar_one_or_none()
+    if existing is not None:
+        try:
+            await assert_schedule_mutable(
+                existing, user_id=current_user.id, role_codes=role_codes
+            )
+        except AppValidationError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    if is_org_notification_manager(role_codes):
+        if is_company_wide_audience(body):
+            pass
+        owner_user_id = None
+        target_role_code = body.target_role_code
+        branch_id = body.branch_id
+        parameters = body.parameters
+        kind = body.kind
+    else:
+        if body.branch_id is not None or body.target_role_code is not None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "Company-wide notification routines require Owner, Admin, IT Admin, or HR Manager role."
-                ),
+                detail="Branch and role targeting are reserved for organization notification managers.",
             )
+        if body.kind != "manual_broadcast":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Standard users may only create personal manual message routines.",
+            )
+        owner_user_id = current_user.id
+        target_role_code = None
+        branch_id = None
+        parameters = {
+            **(body.parameters or {}),
+            "target_user_ids": [current_user.id],
+        }
+        kind = body.kind
+
     row = await upsert_schedule(
         db,
         name=body.name,
-        kind=body.kind,
+        kind=kind,
         interval_minutes=body.interval_minutes,
-        target_role_code=body.target_role_code,
-        branch_id=body.branch_id,
-        parameters=body.parameters,
+        target_role_code=target_role_code,
+        branch_id=branch_id,
+        parameters=parameters,
         is_active=body.is_active,
+        owner_user_id=owner_user_id,
     )
     await audit_service.log(
         session=db,
@@ -377,8 +417,12 @@ async def delete_schedule_endpoint(
     role_codes: frozenset[str] = Depends(get_current_user_role_codes),
 ) -> None:
     sch = await get_schedule(db, schedule_id=schedule_id)
+    try:
+        await assert_schedule_mutable(sch, user_id=current_user.id, role_codes=role_codes)
+    except AppValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     if is_company_wide_schedule(sch):
-        if not (role_codes & ORG_NOTIFICATION_MANAGER_ROLE_CODES):
+        if not is_org_notification_manager(role_codes):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Deleting company-wide routines requires Owner, Admin, IT Admin, or HR Manager role.",
@@ -507,8 +551,12 @@ async def trigger_schedule_endpoint(
     role_codes: frozenset[str] = Depends(get_current_user_role_codes),
 ) -> ScheduleTriggerResponse:
     sch = await get_schedule(db, schedule_id=schedule_id)
+    try:
+        await assert_schedule_mutable(sch, user_id=current_user.id, role_codes=role_codes)
+    except AppValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     if is_company_wide_schedule(sch):
-        if not (role_codes & ORG_NOTIFICATION_MANAGER_ROLE_CODES):
+        if not is_org_notification_manager(role_codes):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Running company-wide routines requires Owner, Admin, IT Admin, or HR Manager role.",

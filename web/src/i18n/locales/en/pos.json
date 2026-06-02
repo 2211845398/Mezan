@@ -58,6 +58,7 @@
     "variant_picker_stock": "On hand: {{count}}",
     "variant_picker_cancel": "Cancel",
     "product_unlabeled": "Product",
+    "select_line_hint": "Select a cart line to edit quantity with the keypad",
     "park": "Park",
     "resume": "Resume",
     "checkout": "Checkout",
@@ -108,7 +109,17 @@
   "pending": {
     "title": "Pending invoices",
     "description": "Parked or pending carts appear here when available.",
-    "empty": "No pending invoices."
+    "empty": "No pending invoices.",
+    "delete": "Delete"
+  },
+  "numpad": {
+    "mode_qty": "Qty",
+    "mode_disc": "Disc",
+    "mode_price": "Price",
+    "backspace": "Backspace",
+    "clear": "Clear",
+    "apply": "Apply",
+    "mode_qty_only": "Quantity mode is active for line edits"
   },
   "tender": {
     "title": "Tender",
@@ -123,11 +134,17 @@
     "card_last4": "Last 4 digits",
     "tendered": "Tendered",
     "change": "Change",
+    "remaining": "Remaining balance",
     "need_online_intent": "Network is required to create a payment intent.",
     "offline_queued": "Operation queued while offline.",
     "shortfall_ar": "Remaining {{amount}} posts to customer receivables",
     "partial_cash_needs_customer": "Assign a customer on the cart to record the shortfall as receivable when paying less than the total in cash.",
-    "transfer_ref_placeholder": "Transfer reference (optional)"
+    "transfer_ref_placeholder": "Transfer reference (optional)",
+    "exchange_credit": "Return Credit",
+    "exchange_new_items": "Exchange Items",
+    "net_exchange": "Net Due",
+    "refund_due": "Refund to Customer",
+    "complete_refund": "Complete Refund"
   },
   "print": {
     "a4": {
@@ -190,7 +207,7 @@
     "totals_followup": "Adjust the cart, then press «Register return» on the main register when ready.",
     "need_cart": "An active sale cart is required.",
     "reload_invoice": "Search the same invoice again or reload.",
-    "none_return_qty": "Nothing to return was calculated — lower a loaded invoice line’s quantity in the cart or remove it entirely for a full return.",
+    "none_return_qty": "No return quantities — set a quantity on a loaded invoice line to return.",
     "none_selected": "Select quantities to return",
     "submit": "Register return",
     "credit_note": "Credit note #{{id}}",
