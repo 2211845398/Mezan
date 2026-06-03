@@ -1,3 +1,5 @@
+
+
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -12,6 +14,7 @@ from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.pos_cart import PosCart
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.services.catalog_service import resolve_default_variant_id
 
@@ -48,9 +51,17 @@ async def _create_product(db_session, *, category_id: int, name: str) -> Product
         name=name,
         sku=_unique("sku"),
         status="active",
-        attributes={},
     )
     db_session.add(product)
+    await db_session.flush()
+    db_session.add(
+        ProductVariant(
+            product_id=product.id,
+            sku=f"{product.sku}-V",
+            attribute_values={},
+            active=True,
+        )
+    )
     await db_session.flush()
     return product
 

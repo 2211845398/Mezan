@@ -83,7 +83,6 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
         name="Void SKU",
         sku=f"vk-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)
@@ -262,7 +261,6 @@ async def test_void_is_idempotent(db_session) -> None:
         name="V2p",
         sku=f"v2p-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)
@@ -405,7 +403,6 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
         name="V3p",
         sku=f"v3p-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)

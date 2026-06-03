@@ -84,6 +84,8 @@ async def test_update_manual_journal_entry(db_session) -> None:
         ],
     )
     await db_session.commit()
+    await db_session.refresh(je)
+    db_session.expire(je, ["lines"])
 
     detail = await get_journal_entry_detail(db_session, journal_entry_id=je.id)
     assert detail.description == "after"

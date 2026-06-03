@@ -183,6 +183,7 @@ async def test_sync_creates_pivot_rows(db_session) -> None:
 @pytest.mark.asyncio
 async def test_preview_without_category_variant_defs(db_session) -> None:
     """Axes come from the global catalog without category-bound definitions."""
+
     catalog_category = await _leaf_category(db_session)
     color_attr = await create_attribute(db_session, CatalogAttributeCreate(code="hue", name="Hue"))
     red = await create_attribute_value(

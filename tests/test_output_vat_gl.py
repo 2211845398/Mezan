@@ -79,7 +79,6 @@ async def test_walk_in_sale_posts_credit_to_output_vat_payable(db_session) -> No
         name="VAT SKU",
         sku=f"vk-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)
@@ -204,7 +203,6 @@ async def test_sales_return_debits_output_vat_payable(db_session) -> None:
         name="VRP",
         sku=f"vrp-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
     )
     db_session.add(product)
     await db_session.flush()

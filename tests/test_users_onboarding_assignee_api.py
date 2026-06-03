@@ -18,6 +18,7 @@ async def test_create_user_invalid_email_returns_422(
     admin_auth_header: dict[str, str],
 ) -> None:
     """Pydantic / FastAPI validation uses 422 with envelope ``details.errors``."""
+
     resp = await client.post(
         "/api/v1/users",
         json={"email": "not-an-email"},

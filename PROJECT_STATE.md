@@ -597,8 +597,10 @@ When converting UI mockups (PDF/PNG) to implementation:
 # Linting
 uv run ruff check . --fix
 
-# Testing (requires TEST_DATABASE_URL)
+# Testing (requires TEST_DATABASE_URL; default ~70 core+security tests)
 uv run pytest -q
+# Full catalog including skipped legacy modules:
+# uv run pytest -q -m ""
 
 # Migrations
 uv run alembic upgrade head

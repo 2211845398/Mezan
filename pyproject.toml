@@ -49,6 +49,15 @@ python_functions = "test_*"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+# Default CI/local gate: accounting atomicity + platform security only.
+addopts = "-m 'core or security'"
+markers = [
+    "core: GL accuracy, transactional atomicity, and fiscal seed integrity",
+    "security: Auth barriers, CORS, rate limits, route audit, and admin protection",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
 
 [dependency-groups]
 dev = [

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+
 import uuid
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 from decimal import Decimal
 
 import pytest
@@ -55,7 +57,6 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
         name="Atomicity Product One",
         sku=f"AT-P1-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         standard_cost=Decimal("10.0000"),
     )
     product_two = Product(
@@ -63,7 +64,6 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
         name="Atomicity Product Two",
         sku=f"AT-P2-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         standard_cost=Decimal("15.0000"),
     )
     terminal = POSTerminal(
@@ -248,7 +248,6 @@ async def test_finalize_cash_sale_updates_shift_expected_cash(db_session, monkey
         name="ECash Product",
         sku=f"EC-P-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         standard_cost=Decimal("10.0000"),
     )
     terminal = POSTerminal(
@@ -341,7 +340,11 @@ async def test_finalize_cash_sale_updates_shift_expected_cash(db_session, monkey
     await db_session.commit()
     payment_intent_id = payment_intent.id
 
-    monkeypatch.setattr(invoice_service, "post_sales_invoice_gl", lambda *a, **k: None)
+    monkeypatch.setattr(
+        invoice_service,
+        "post_sales_invoice_gl",
+        AsyncMock(return_value=None),
+    )
 
     await invoice_service.finalize_paid_cart(
         db_session,

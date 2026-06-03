@@ -34,6 +34,7 @@ async def test_supplier_statement_gr_and_payment(db_session) -> None:
 
     supplier = await create_supplier(
         db_session,
+        code=f"SUP-{uuid.uuid4().hex[:8]}",
         first_name="Stmt",
         father_name=None,
         family_name="Vendor",
@@ -66,7 +67,6 @@ async def test_supplier_statement_gr_and_payment(db_session) -> None:
         name="Stmt Product",
         sku=f"sp-{uuid.uuid4().hex[:6]}",
         status="active",
-        attributes={},
         standard_cost=Decimal("5"),
         output_vat_rate=Decimal("0"),
     )

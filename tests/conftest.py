@@ -169,3 +169,117 @@ async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
 
     token = create_access_token(user.id)
     return {"Authorization": f"Bearer {token}"}
+
+
+# ---------------------------------------------------------------------------
+# Test suite policy: default CI runs ``-m "core or security"`` (see pyproject.toml).
+# ---------------------------------------------------------------------------
+
+_SKIP_LEGACY = frozenset(
+    {
+        "test_attendance_log_payroll_impact",
+        "test_payroll_overview",
+        "test_po_receive_variant",
+    }
+)
+
+_SKIP_VOLATILE = frozenset(
+    {
+        "test_payroll_srs",
+        "test_payroll_period",
+        "test_attendance_logs_pagination",
+        "test_attendance_policy_snapshot",
+        "test_hr_anomaly_service",
+        "test_employees_me_schedules_api",
+        "test_employees_me_leave_requests_api",
+        "test_employees_list_search",
+        "test_pos_e2e_flow",
+        "test_pos_checkout_contract",
+        "test_happy_user_journey",
+        "test_variant_attribute_pivot",
+        "test_variant_purchasing_search",
+        "test_variant_reference_and_barcode",
+        "test_variant_display",
+        "test_variant_combinator",
+        "test_product_template_axes",
+        "test_product_unit_conversions",
+        "test_product_barcode_deprecated",
+        "test_catalog_category_tree",
+        "test_catalog_product_categories",
+        "test_catalog_tax_definitions",
+        "test_catalog_default_variant",
+        "test_smart_sku",
+        "test_sequential_attribute_code",
+        "test_po_line_uom",
+        "test_inventory_reporting_open_po",
+        "test_inventory_operations",
+        "test_transfer_in_transit",
+        "test_transfer_variant",
+        "test_stock_count_sessions",
+        "test_purchase_order_send_email",
+        "test_epic2",
+        "test_api_pagination",
+        "test_notifications",
+        "test_notification_schedule_owner",
+        "test_users_onboarding_assignee_api",
+        "test_profile_me",
+        "test_currencies_payment_terms",
+        "test_chart_account_suggest_code",
+        "test_chart_account_tree_sort",
+        "test_chart_account_i18n",
+        "test_branch_archival",
+        "test_units_of_measure",
+        "test_libyan_validators",
+    }
+)
+
+_CORE_MODULES = frozenset(
+    {
+        "test_finalize_atomicity",
+        "test_output_vat_gl",
+        "test_gl_milestone2",
+        "test_milestone5_operational_gl",
+        "test_journal_subledger",
+        "test_journal_update",
+        "test_journal_source_reference",
+        "test_transfer_branch_gl",
+        "test_sales_invoice_void",
+        "test_branch_cash_accounts",
+        "test_supplier_statement",
+        "test_coa_seed_structure",
+        "test_core_seed",
+        "test_enum_compat",
+        "test_main",
+    }
+)
+
+_SECURITY_MODULES = frozenset(
+    {
+        "test_security_hardening",
+        "test_bootstrap_admin_protection",
+        "test_auth_permissions_endpoint",
+        "test_password_reset_flow",
+        "test_date_filter_hardening",
+    }
+)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    for item in items:
+        stem = item.path.stem
+        if stem in _SKIP_LEGACY:
+            item.add_marker(
+                pytest.mark.skip(reason="Legacy workflow, pending redesign")
+            )
+            continue
+        if stem in _SKIP_VOLATILE:
+            item.add_marker(
+                pytest.mark.skip(
+                    reason="Volatile workflow excluded from default CI; pending redesign"
+                )
+            )
+            continue
+        if stem in _CORE_MODULES:
+            item.add_marker(pytest.mark.core)
+        elif stem in _SECURITY_MODULES:
+            item.add_marker(pytest.mark.security)

@@ -58,7 +58,6 @@ async def test_transfer_receive_posts_inter_branch_inventory_journal(db_session)
         name="Xfer SKU",
         sku=f"xk-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         standard_cost=Decimal("4.0000"),
         output_vat_rate=Decimal("0"),
     )

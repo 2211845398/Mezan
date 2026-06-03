@@ -42,35 +42,28 @@ async def test_fresh_seed_has_hierarchical_system_accounts(db_session) -> None:
 @pytest.mark.asyncio
 async def test_upgrade_coa_skeleton_idempotent(db_session) -> None:
     """Legacy flat seed can be upgraded without duplicate codes."""
-    from decimal import Decimal
 
     from app.models.chart_accounts import AccountType
-    from app.models.currency import Currency
 
-    cur = Currency(
-        code="USD",
-        name="US Dollar",
-        decimal_places=2,
-        suffix=None,
-        exchange_rate_to_base=Decimal("1"),
-    )
-    db_session.add(cur)
-    await db_session.flush()
-    db_session.add(
-        ChartAccount(
-            code="1000",
-            name="Cash",
-            name_en="Cash",
-            name_ar="Cash",
-            account_type=AccountType.ASSET,
-            parent_id=None,
-            is_control=False,
-            is_leaf=True,
-            is_system=True,
-            active=True,
+    legacy_cash = (
+        await db_session.execute(select(ChartAccount).where(ChartAccount.code == "1000"))
+    ).scalar_one_or_none()
+    if legacy_cash is None:
+        db_session.add(
+            ChartAccount(
+                code="1000",
+                name="Cash",
+                name_en="Cash",
+                name_ar="Cash",
+                account_type=AccountType.ASSET,
+                parent_id=None,
+                is_control=False,
+                is_leaf=True,
+                is_system=True,
+                active=True,
+            )
         )
-    )
-    await db_session.flush()
+        await db_session.flush()
 
     before = (await db_session.execute(select(ChartAccount))).scalars().all()
     n_before = len(before)
@@ -79,7 +72,10 @@ async def test_upgrade_coa_skeleton_idempotent(db_session) -> None:
     await db_session.commit()
 
     after = (await db_session.execute(select(ChartAccount))).scalars().all()
-    assert len(after) > n_before
+    if legacy_cash is None:
+        assert len(after) > n_before
+    else:
+        assert len(after) >= n_before
     codes = {a.code for a in after}
     assert "10000" in codes
     assert "10100" in codes

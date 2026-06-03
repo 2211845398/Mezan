@@ -13,6 +13,7 @@ from app.services.catalog_service import build_category_tree_nodes
 
 def test_build_category_tree_nodes_nested_without_db() -> None:
     """Pure in-memory categories: builder must not assign to mapped ``children``."""
+
     now = datetime.now(UTC)
     root = Category(
         id=901,

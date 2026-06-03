@@ -225,7 +225,6 @@ async def test_pos_sale_debits_terminal_cash_account(db_session) -> None:
         name="GL SKU",
         sku=f"gk-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)

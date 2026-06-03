@@ -101,6 +101,7 @@ async def test_api_blocks_deactivate_when_config_matches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Requires TEST_DATABASE_URL (same as conftest client fixture)."""
+
     monkeypatch.setattr(settings, "DEFAULT_ADMIN_EMAIL", "admin@example.com")
     from sqlalchemy import select
 
@@ -112,7 +113,7 @@ async def test_api_blocks_deactivate_when_config_matches(
         json={"status": "deactivated"},
     )
     assert resp.status_code == 403
-    assert resp.json().get("detail") == "bootstrap_admin_status_must_remain_active"
+    assert resp.json()["error"]["details"]["detail"] == "bootstrap_admin_status_must_remain_active"
 
 
 @pytest.mark.asyncio
@@ -140,4 +141,4 @@ async def test_api_blocks_remove_admin_role_when_config_matches(
         json={"role_id": role.id, "branch_id": None},
     )
     assert resp.status_code == 403
-    assert resp.json().get("detail") == "bootstrap_admin_admin_role_cannot_be_removed"
+    assert resp.json()["error"]["details"]["detail"] == "bootstrap_admin_admin_role_cannot_be_removed"
