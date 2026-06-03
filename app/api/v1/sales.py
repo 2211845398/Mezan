@@ -11,7 +11,6 @@ from app.models.users import User
 from app.schemas.sales_invoice import (
     FinalizeInvoiceRequest,
     SalesInvoiceDetailRead,
-    SalesInvoiceListItem,
     SalesInvoiceListResponse,
     SalesInvoiceRead,
     SalesInvoiceRegisterPageRead,
@@ -99,9 +98,7 @@ async def list_sales_invoices_endpoint(
         limit=limit,
         offset=offset,
     )
-    return SalesInvoiceListResponse(
-        items=items, total=total, limit=limit, offset=offset
-    )
+    return SalesInvoiceListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.post("/pos/sales/finalize", response_model=SalesInvoiceRead)

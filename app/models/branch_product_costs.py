@@ -16,7 +16,12 @@ class BranchProductCost(Base):
 
     __tablename__ = "branch_product_costs"
     __table_args__ = (
-        UniqueConstraint("branch_id", "product_id", "variant_id", name="uq_branch_product_costs_branch_product_variant"),
+        UniqueConstraint(
+            "branch_id",
+            "product_id",
+            "variant_id",
+            name="uq_branch_product_costs_branch_product_variant",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

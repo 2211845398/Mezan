@@ -99,7 +99,9 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
     await db_session.flush()
 
     db_session.add(
-        StockLevel(branch_id=branch.id, product_id=product.id, variant_id=pv.id, on_hand=10, reserved=0)
+        StockLevel(
+            branch_id=branch.id, product_id=product.id, variant_id=pv.id, on_hand=10, reserved=0
+        )
     )
     await db_session.flush()
 
@@ -274,7 +276,9 @@ async def test_void_is_idempotent(db_session) -> None:
     db_session.add(pv2)
     await db_session.flush()
     db_session.add(
-        StockLevel(branch_id=branch.id, product_id=product.id, variant_id=pv2.id, on_hand=5, reserved=0)
+        StockLevel(
+            branch_id=branch.id, product_id=product.id, variant_id=pv2.id, on_hand=5, reserved=0
+        )
     )
     await db_session.flush()
     await apply_stock_movement(
@@ -415,7 +419,9 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
     db_session.add(pv3)
     await db_session.flush()
     db_session.add(
-        StockLevel(branch_id=branch.id, product_id=product.id, variant_id=pv3.id, on_hand=3, reserved=0)
+        StockLevel(
+            branch_id=branch.id, product_id=product.id, variant_id=pv3.id, on_hand=3, reserved=0
+        )
     )
     await db_session.flush()
     await apply_stock_movement(

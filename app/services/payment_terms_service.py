@@ -73,9 +73,7 @@ async def update_payment_term(
     return PaymentTermRead.model_validate(row)
 
 
-async def resolve_supplier_payment_term_label(
-    db: AsyncSession, supplier: Supplier
-) -> str | None:
+async def resolve_supplier_payment_term_label(db: AsyncSession, supplier: Supplier) -> str | None:
     if supplier.payment_terms_id is not None:
         term = await get_payment_term(db, supplier.payment_terms_id)
         return term.name_en

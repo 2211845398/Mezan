@@ -43,7 +43,8 @@ def assert_bootstrap_admin_may_not_be_deactivated(user: User, new_status: str | 
 
 
 def assert_bootstrap_admin_admin_role_not_removed(
-    user: User, role_code: str | None,
+    user: User,
+    role_code: str | None,
 ) -> None:
     if not role_code:
         return

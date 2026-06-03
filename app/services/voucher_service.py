@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 from sqlalchemy import select
@@ -28,26 +28,29 @@ from app.services.branch_accounting_service import (
 from app.utils.money import q2
 
 
-class VoucherType(str, Enum):
+class VoucherType(StrEnum):
     """Supported voucher types."""
-    RECEIPT = "receipt"      # Dr Cash/Bank, Cr AR/Customer
-    PAYMENT = "payment"      # Dr AP/Supplier, Cr Cash/Bank
-    EXPENSE = "expense"      # Dr Expense, Cr Cash/Bank
-    TRANSFER = "transfer"    # Dr Bank, Cr Bank (internal transfer)
-    JOURNAL = "journal"      # Generic: any debit → any credit
+
+    RECEIPT = "receipt"  # Dr Cash/Bank, Cr AR/Customer
+    PAYMENT = "payment"  # Dr AP/Supplier, Cr Cash/Bank
+    EXPENSE = "expense"  # Dr Expense, Cr Cash/Bank
+    TRANSFER = "transfer"  # Dr Bank, Cr Bank (internal transfer)
+    JOURNAL = "journal"  # Generic: any debit → any credit
 
 
 @dataclass(frozen=True)
 class VoucherAccountSpec:
     """Specification for resolving an account from an entity reference."""
+
     account_type: Literal["customer", "supplier", "cash", "bank", "expense", "ar", "ap", "custom"]
-    entity_id: int | None = None          # For customer/supplier lookups
+    entity_id: int | None = None  # For customer/supplier lookups
     custom_account_id: int | None = None  # For explicit account selection
 
 
 @dataclass
 class VoucherLine:
     """Single line in a voucher (one side of the entry)."""
+
     spec: VoucherAccountSpec
     amount: Decimal
     memo: str = ""
@@ -107,9 +110,7 @@ async def _resolve_account_id(
     if spec.account_type == "supplier":
         if not spec.entity_id:
             raise ValidationError("entity_id required for supplier account resolution")
-        sup_res = await db.execute(
-            select(Supplier).where(Supplier.id == spec.entity_id)
-        )
+        sup_res = await db.execute(select(Supplier).where(Supplier.id == spec.entity_id))
         supplier = sup_res.scalar_one_or_none()
         if not supplier:
             raise ValidationError(f"Supplier {spec.entity_id} not found")
@@ -165,7 +166,10 @@ async def post_voucher_gl(
     cr_amt = q2(credit.amount)
 
     if dr_amt <= 0 or cr_amt <= 0:
-        raise ValidationError("Voucher amounts must be positive", details={"debit": str(dr_amt), "credit": str(cr_amt)})
+        raise ValidationError(
+            "Voucher amounts must be positive",
+            details={"debit": str(dr_amt), "credit": str(cr_amt)},
+        )
 
     if dr_amt != cr_amt:
         raise ValidationError(

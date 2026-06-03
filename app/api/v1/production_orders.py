@@ -100,9 +100,7 @@ async def list_boms_endpoint(
     _: User = Depends(get_current_user),
     __: None = require_permission("production_orders", "read"),
 ) -> list[BillOfMaterialsRead]:
-    boms = await list_boms(
-        db, finished_product_id=finished_product_id, active_only=active_only
-    )
+    boms = await list_boms(db, finished_product_id=finished_product_id, active_only=active_only)
     ids = {b.finished_product_id for b in boms}
     names = await _product_name_map(db, ids)
     return [_bom_to_read(b, names) for b in boms]
@@ -340,4 +338,3 @@ async def complete_production_order_endpoint(
     )
     await db.commit()
     return ProductionOrderRead.model_validate(order)
-

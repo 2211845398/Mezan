@@ -7,7 +7,10 @@ from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.inventory_adjustments import StockAdjustmentRequest
-from app.schemas.inventory_human_movement import HumanInventoryMovementCreate, HumanInventoryMovementResponse
+from app.schemas.inventory_human_movement import (
+    HumanInventoryMovementCreate,
+    HumanInventoryMovementResponse,
+)
 from app.services import audit_service
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.inventory_adjustment_service import post_stock_movement_gl

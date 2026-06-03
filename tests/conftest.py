@@ -9,7 +9,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
+
 from alembic import command
+from app.db.enum_compat import patch_sqlalchemy_enum_value_compat
 from app.main import app
 from app.models.branch import Branch
 from app.models.role import Role
@@ -22,13 +24,10 @@ from app.services.seed_service import (
 )
 from app.utils.security import create_access_token, hash_password
 
+patch_sqlalchemy_enum_value_compat()
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI_PATH = REPO_ROOT / "alembic.ini"
-
-
-from app.db.enum_compat import patch_sqlalchemy_enum_value_compat
-
-patch_sqlalchemy_enum_value_compat()
 
 
 def _test_db_url() -> str | None:

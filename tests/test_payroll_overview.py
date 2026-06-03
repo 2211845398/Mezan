@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ValidationError
 from app.models.attendance_log import AttendanceLog
 from app.models.branch import Branch
 from app.models.employee_profile import EmployeeProfile
@@ -19,7 +20,6 @@ from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
 from app.services.attendance_policy_service import seed_default_policies
-from app.core.errors import ValidationError
 from app.services.payroll_service import (
     calendar_month_period_bounds,
     get_payroll_period_snapshot,
@@ -88,9 +88,7 @@ async def test_overview_no_payslip_has_null_amounts(db_session: AsyncSession) ->
     ep = await _active_hourly_employee(db_session)
     period_start, period_end = calendar_month_period_bounds(2026, 6)
 
-    rows = await list_payroll_overview(
-        db_session, period_start=period_start, period_end=period_end
-    )
+    rows = await list_payroll_overview(db_session, period_start=period_start, period_end=period_end)
     row = next(r for r in rows if r["employee_profile_id"] == ep.id)
     assert row["payslip_status"] == "no_payslip"
     assert row["gross_amount"] is None
@@ -146,9 +144,7 @@ async def test_overview_legacy_draft_null_breakdown_uses_fallback(db_session: As
     )
     await db_session.commit()
 
-    rows = await list_payroll_overview(
-        db_session, period_start=period_start, period_end=period_end
-    )
+    rows = await list_payroll_overview(db_session, period_start=period_start, period_end=period_end)
     row = next(r for r in rows if r["employee_profile_id"] == ep.id)
     assert row["automatic_deductions_amount"] is not None
     assert row["gross_amount"] is not None

@@ -13,7 +13,9 @@ from app.db.database import Base
 class StockLevel(Base):
     __tablename__ = "stock_levels"
     __table_args__ = (
-        UniqueConstraint("branch_id", "product_id", "variant_id", name="uq_stock_levels_branch_product_variant"),
+        UniqueConstraint(
+            "branch_id", "product_id", "variant_id", name="uq_stock_levels_branch_product_variant"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

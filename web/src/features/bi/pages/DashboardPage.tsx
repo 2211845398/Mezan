@@ -7,7 +7,6 @@ import { NoModuleAccessCard } from '../components/NoModuleAccessCard';
 import DashboardHomeFallback from './DashboardHomeFallback';
 
 const ExecutiveBiDashboardContent = lazy(() => import('./ExecutiveBiDashboardContent'));
-const AccountantDashboard = lazy(() => import('./role-dashboards/AccountantDashboard'));
 const MarketingDashboard = lazy(() => import('./role-dashboards/MarketingDashboard'));
 const ItAdminDashboard = lazy(() => import('./role-dashboards/ItAdminDashboard'));
 const HrManagerDashboard = lazy(() => import('./role-dashboards/HrManagerDashboard'));
@@ -40,8 +39,8 @@ function ExecutiveBiGate() {
 }
 
 /**
- * Role-aware authenticated dashboard: executive BI for OWNER/ADMIN; focused
- * surfaces for other base roles; shortcut fallback otherwise.
+ * Role-aware authenticated dashboard: executive BI for OWNER/ADMIN/ACCOUNTANT/
+ * MARKETING_MANAGER; focused surfaces for other base roles; shortcut fallback otherwise.
  */
 export default function DashboardPage() {
   const roleCodes = useAuthStore((s) => s.roleCodes);
@@ -51,8 +50,6 @@ export default function DashboardPage() {
     switch (kind) {
       case 'executive':
         return <ExecutiveBiGate />;
-      case 'accountant':
-        return <AccountantDashboard />;
       case 'marketing':
         return <MarketingDashboard />;
       case 'it':

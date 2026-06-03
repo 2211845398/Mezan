@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { isOrgNotificationManager } from '@/config/notificationOrgRoles';
+import { isPersonalLeaveBlocked } from '@/config/roleNavAccess';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 
 /*
@@ -78,6 +79,22 @@ export function RequireOrgNotificationManager({ children }: { children?: ReactNo
   }
 
   if (!isOrgNotificationManager(roleCodes)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children ?? <Outlet />}</>;
+}
+
+/** Blocks OWNER/ADMIN from personal leave request UI (`/hr/leave`). */
+export function RequirePersonalLeaveAccess({ children }: { children?: ReactNode }) {
+  const permissionsLoaded = useAuthStore((s) => s.permissionsLoaded);
+  const roleCodes = useAuthStore((s) => s.roleCodes);
+  const hasEmployeesRead = useAuthStore((s) => s.permissions.has('employees:read'));
+
+  if (!permissionsLoaded) {
+    return <FullScreenSpinner />;
+  }
+
+  if (!hasEmployeesRead || isPersonalLeaveBlocked(roleCodes)) {
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children ?? <Outlet />}</>;

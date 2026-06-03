@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
+from app.schemas.inventory_human_movement import (
+    HumanInventoryMovementResponse,
+)
 from app.schemas.inventory_operations import (
     AdhocGoodsReceiptCreate,
     AdhocGoodsReceiptResponse,
@@ -25,18 +28,19 @@ from app.schemas.stock_count import (
     StockCountSessionDetailRead,
     StockCountSessionRead,
 )
-from app.schemas.inventory_human_movement import HumanInventoryMovementCreate, HumanInventoryMovementResponse
 from app.services import audit_service
 from app.services.adhoc_goods_receipt_service import receive_adhoc_goods
 from app.services.branch_scope import require_branch_open_for_operations
-from app.services.inventory_human_movement_service import apply_human_inventory_movement
 from app.services.inventory_damage_service import (
     list_damaged_positions,
     scrap_damaged_position,
     unmark_damaged_position,
 )
 from app.services.inventory_reservation_service import list_open_reservations, release_reservation
-from app.services.stock_count_pdf_service import export_stock_count_pdf, export_stock_count_pdf_from_session
+from app.services.stock_count_pdf_service import (
+    export_stock_count_pdf,
+    export_stock_count_pdf_from_session,
+)
 from app.services.stock_count_session_service import (
     create_stock_count_session,
     get_stock_count_session,
@@ -229,7 +233,9 @@ async def create_stock_count_session_endpoint(
     return detail
 
 
-@router.get("/inventory/stock-count/sessions/{session_id}", response_model=StockCountSessionDetailRead)
+@router.get(
+    "/inventory/stock-count/sessions/{session_id}", response_model=StockCountSessionDetailRead
+)
 async def get_stock_count_session_endpoint(
     session_id: int,
     db: AsyncSession = Depends(get_db),
@@ -258,7 +264,9 @@ async def export_stock_count_session_pdf_endpoint(
     )
 
 
-@router.patch("/inventory/stock-count/sessions/{session_id}/lines", response_model=StockCountSessionDetailRead)
+@router.patch(
+    "/inventory/stock-count/sessions/{session_id}/lines", response_model=StockCountSessionDetailRead
+)
 async def patch_stock_count_lines_endpoint(
     session_id: int,
     body: StockCountLinesPatch,
@@ -271,7 +279,9 @@ async def patch_stock_count_lines_endpoint(
     return detail
 
 
-@router.post("/inventory/stock-count/sessions/{session_id}/post", response_model=StockCountPostResult)
+@router.post(
+    "/inventory/stock-count/sessions/{session_id}/post", response_model=StockCountPostResult
+)
 async def post_stock_count_session_endpoint(
     session_id: int,
     db: AsyncSession = Depends(get_db),

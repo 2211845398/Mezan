@@ -109,15 +109,14 @@ class PosCartEvent(Base):
     )
 
 
-
 class CartDaySequence(Base):
-    '''Per-branch-per-day cart number sequence (Epic 21.1).'''
+    """Per-branch-per-day cart number sequence (Epic 21.1)."""
 
-    __tablename__ = 'cart_day_sequences'
+    __tablename__ = "cart_day_sequences"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     branch_id: Mapped[int] = mapped_column(
-        ForeignKey('branches.id', ondelete='CASCADE'), nullable=False, index=True
+        ForeignKey("branches.id", ondelete="CASCADE"), nullable=False, index=True
     )
     cart_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     next_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

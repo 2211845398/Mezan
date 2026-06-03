@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import and_, cast, exists, func, or_, select
-from sqlalchemy.types import Integer
+from sqlalchemy import cast, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.types import Integer
 
 from app.core.errors import NotFoundError
 from app.models.ap_open_item import ApOpenItem
@@ -135,7 +135,9 @@ async def _fetch_ap_lines(
         )
         .join(JournalEntryLine, JournalEntryLine.journal_entry_id == JournalEntry.id)
         .where(*where_clauses)
-        .order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc(), JournalEntryLine.line_no.asc())
+        .order_by(
+            JournalEntry.entry_date.asc(), JournalEntry.id.asc(), JournalEntryLine.line_no.asc()
+        )
     )
     if date_from is not None:
         stmt = stmt.where(JournalEntry.entry_date >= date_from)
@@ -297,11 +299,7 @@ async def get_supplier_evaluation(
     receipt_count = int(gr_count_res.scalar_one() or 0)
 
     avg_days_stmt = (
-        select(
-            func.avg(
-                func.date(ApPaymentApplication.applied_at) - ApOpenItem.due_date
-            )
-        )
+        select(func.avg(func.date(ApPaymentApplication.applied_at) - ApOpenItem.due_date))
         .select_from(ApPaymentApplication)
         .join(ApOpenItem, ApOpenItem.id == ApPaymentApplication.ap_open_item_id)
         .where(

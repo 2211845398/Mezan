@@ -31,9 +31,7 @@ async def get_unit_cost_for_sale(
     )
     if await get_valuation_policy(db) == "fifo":
         return _q4(
-            await get_fifo_unit_cost(
-                db, branch_id=branch_id, product_id=product_id, variant_id=vid
-            )
+            await get_fifo_unit_cost(db, branch_id=branch_id, product_id=product_id, variant_id=vid)
         )
     cost_res = await db.execute(
         select(BranchProductCost.average_unit_cost).where(
@@ -82,7 +80,9 @@ async def get_unit_costs_for_sale(
         if row_avg is not None:
             costs[pid] = _q4(Decimal(str(row_avg)))
 
-    missing_product_ids = [product_id for product_id in unique_product_ids if product_id not in costs]
+    missing_product_ids = [
+        product_id for product_id in unique_product_ids if product_id not in costs
+    ]
     if missing_product_ids:
         product_res = await db.execute(
             select(Product.id, Product.standard_cost).where(Product.id.in_(missing_product_ids))

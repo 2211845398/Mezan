@@ -16,7 +16,6 @@ from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.catalog_service import resolve_default_variant_id
-from app.services.product_uom_service import convert_product_qty_to_base, get_product_base_uom_id
 from app.services.document_posting_service import post_transfer_batch_receive_gl
 from app.services.inventory_service import (
     apply_stock_movement,
@@ -26,6 +25,7 @@ from app.services.inventory_valuation_service import (
     apply_receipt_to_weighted_average,
     get_unit_cost_for_sale,
 )
+from app.services.product_uom_service import convert_product_qty_to_base, get_product_base_uom_id
 
 
 async def _stock_level(

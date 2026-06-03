@@ -113,17 +113,15 @@ async def post_journal_entry(
         )
 
     settings = await get_accounting_settings(db)
-    base_res = await db.execute(select(Currency.code).where(Currency.id == settings.base_currency_id))
+    base_res = await db.execute(
+        select(Currency.code).where(Currency.id == settings.base_currency_id)
+    )
     base_code = str(base_res.scalar_one()).strip()
     for i, ln in enumerate(normalized):
         cc = ln.get("currency_code")
         txn_amt = ln.get("transaction_amount")
         fx = ln.get("fx_rate")
-        is_foreign = (
-            isinstance(cc, str)
-            and cc.strip()
-            and cc.strip().upper() != base_code.upper()
-        )
+        is_foreign = isinstance(cc, str) and cc.strip() and cc.strip().upper() != base_code.upper()
         if is_foreign:
             if txn_amt is None or fx is None:
                 raise ValidationError(
@@ -257,15 +255,15 @@ async def _build_normalized_journal_lines(
         )
 
     settings = await get_accounting_settings(db)
-    base_res = await db.execute(select(Currency.code).where(Currency.id == settings.base_currency_id))
+    base_res = await db.execute(
+        select(Currency.code).where(Currency.id == settings.base_currency_id)
+    )
     base_code = str(base_res.scalar_one()).strip()
     for i, ln in enumerate(normalized):
         cc = ln.get("currency_code")
         txn_amt = ln.get("transaction_amount")
         fx = ln.get("fx_rate")
-        is_foreign = (
-            isinstance(cc, str) and cc.strip() and cc.strip().upper() != base_code.upper()
-        )
+        is_foreign = isinstance(cc, str) and cc.strip() and cc.strip().upper() != base_code.upper()
         if is_foreign:
             if txn_amt is None or fx is None:
                 raise ValidationError(
@@ -308,7 +306,9 @@ async def update_journal_entry(
     )
     je = res.scalar_one_or_none()
     if je is None:
-        raise NotFoundError("Journal entry not found", details={"journal_entry_id": journal_entry_id})
+        raise NotFoundError(
+            "Journal entry not found", details={"journal_entry_id": journal_entry_id}
+        )
 
     if je.source_type == "journal_reversal":
         raise ValidationError("Cannot edit a journal reversal entry")

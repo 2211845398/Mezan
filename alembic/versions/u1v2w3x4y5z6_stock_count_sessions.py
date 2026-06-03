@@ -5,15 +5,16 @@ Revises: t4u5v6w7x8y9
 Create Date: 2026-05-25
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "u1v2w3x4y5z6"
-down_revision: Union[str, None] = "t4u5v6w7x8y9"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "t4u5v6w7x8y9"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -33,7 +34,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["category_id"], ["categories.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["created_by"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("branch_id", "version_no", name="uq_stock_count_sessions_branch_version"),
+        sa.UniqueConstraint(
+            "branch_id", "version_no", name="uq_stock_count_sessions_branch_version"
+        ),
     )
     op.create_index("ix_stock_count_sessions_branch_id", "stock_count_sessions", ["branch_id"])
 

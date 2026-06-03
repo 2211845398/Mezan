@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from app.models.chart_accounts import AccountType, ChartAccount
+from app.models.chart_accounts import ChartAccount
 from app.services.chart_account_service import (
     _suggest_child_code,
     suggest_chart_account_code,

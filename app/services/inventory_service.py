@@ -67,7 +67,9 @@ async def apply_stock_movement_extended(
         )
 
     resolved_variant_id = (
-        variant_id if variant_id is not None else await resolve_default_variant_id(db, product_id=product_id)
+        variant_id
+        if variant_id is not None
+        else await resolve_default_variant_id(db, product_id=product_id)
     )
 
     for attempt in range(2):

@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
-from enum import Enum
-from typing import Callable
+from enum import StrEnum
 
 
-class RuleTrigger(str, Enum):
+class RuleTrigger(StrEnum):
     ON_PURCHASE = "on_purchase"
     ON_CART_VALUE = "on_cart_value"
     ON_PRODUCT_CATEGORY = "on_product_category"
 
 
-class RuleActionType(str, Enum):
+class RuleActionType(StrEnum):
     ADD_POINTS = "add_points"
     MULTIPLIER = "multiplier"
 

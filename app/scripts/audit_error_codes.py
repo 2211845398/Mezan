@@ -56,7 +56,9 @@ def audit_file(path: Path) -> list[tuple[int, str]]:
                 "PermissionDeniedError",
             }:
                 if not _details_has_code(exc):
-                    msg = ast.get_source_segment(path.read_text(encoding="utf-8"), exc) or exc.func.id
+                    msg = (
+                        ast.get_source_segment(path.read_text(encoding="utf-8"), exc) or exc.func.id
+                    )
                     issues.append((node.lineno, msg[:120]))
     return issues
 

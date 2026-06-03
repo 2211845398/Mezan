@@ -67,7 +67,9 @@ async def test_create_batch_rejects_variant_not_matching_product(db_session) -> 
     db_session.add_all([p1, p2])
     await db_session.flush()
 
-    v1 = ProductVariant(product_id=p1.id, sku=f"{p1.sku}-A", attribute_values={"color": "red"}, active=True)
+    v1 = ProductVariant(
+        product_id=p1.id, sku=f"{p1.sku}-A", attribute_values={"color": "red"}, active=True
+    )
     v2 = ProductVariant(product_id=p2.id, sku=f"{p2.sku}-B", attribute_values={}, active=True)
     db_session.add_all([v1, v2])
     await db_session.flush()
@@ -124,8 +126,12 @@ async def test_create_batch_persists_explicit_variant(db_session) -> None:
     db_session.add(product)
     await db_session.flush()
 
-    va = ProductVariant(product_id=product.id, sku=f"{product.sku}-A", attribute_values={"size": "S"}, active=True)
-    vb = ProductVariant(product_id=product.id, sku=f"{product.sku}-B", attribute_values={"size": "L"}, active=True)
+    va = ProductVariant(
+        product_id=product.id, sku=f"{product.sku}-A", attribute_values={"size": "S"}, active=True
+    )
+    vb = ProductVariant(
+        product_id=product.id, sku=f"{product.sku}-B", attribute_values={"size": "L"}, active=True
+    )
     db_session.add_all([va, vb])
     await db_session.flush()
 
@@ -151,7 +157,9 @@ async def test_create_batch_persists_explicit_variant(db_session) -> None:
             "lines": [{"product_id": product.id, "variant_id": va.id, "qty": 2}],
         },
     )
-    res = await db_session.execute(select(TransferLine).where(TransferLine.transfer_batch_id == batch.id))
+    res = await db_session.execute(
+        select(TransferLine).where(TransferLine.transfer_batch_id == batch.id)
+    )
     line = res.scalars().first()
     assert line is not None
     assert line.variant_id == va.id

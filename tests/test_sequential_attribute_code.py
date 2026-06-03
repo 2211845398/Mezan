@@ -8,9 +8,7 @@ from app.services.attribute_service import create_attribute, create_attribute_va
 
 @pytest.mark.asyncio
 async def test_next_val_codes_per_attribute(db_session) -> None:
-    attr = await create_attribute(
-        db_session, CatalogAttributeCreate(code="size", name="Size")
-    )
+    attr = await create_attribute(db_session, CatalogAttributeCreate(code="size", name="Size"))
     v1 = await create_attribute_value(
         db_session,
         attr.id,

@@ -19,11 +19,7 @@ from app.utils.request_locale import RequestLocale
 _EMAIL_COPY: dict[RequestLocale, dict[str, str]] = {
     "ar": {
         "subject": "أمر شراء رقم {po_id} من {company}",
-        "body": (
-            "مرحباً،\n\n"
-            "نرفق أمر الشراء رقم {po_id} بصيغة PDF.\n\n"
-            "مع التحية،\n{company}"
-        ),
+        "body": ("مرحباً،\n\nنرفق أمر الشراء رقم {po_id} بصيغة PDF.\n\nمع التحية،\n{company}"),
     },
     "en": {
         "subject": "Purchase order #{po_id} from {company}",

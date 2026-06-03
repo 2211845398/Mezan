@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
 
 
-class PaginatedListResponse(BaseModel, Generic[T]):
+class PaginatedListResponse[T](BaseModel):
     """Standard list payload: ``items``, ``total``, ``limit``, ``offset``."""
 
     items: list[T]

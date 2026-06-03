@@ -17,7 +17,5 @@ async def list_users_page(
 ) -> tuple[list[User], int]:
     limit, offset = clamp_pagination(limit, offset)
     total = int(await db.scalar(select(func.count()).select_from(User)) or 0)
-    res = await db.execute(
-        select(User).order_by(User.id.asc()).limit(limit).offset(offset)
-    )
+    res = await db.execute(select(User).order_by(User.id.asc()).limit(limit).offset(offset))
     return list(res.scalars().all()), total

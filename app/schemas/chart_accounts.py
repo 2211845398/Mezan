@@ -110,7 +110,7 @@ class ChartAccountTreeNode(BaseModel):
     branch_id: int | None = None
     pos_terminal_id: int | None = None
     depth: int
-    children: list["ChartAccountTreeNode"] = []
+    children: list[ChartAccountTreeNode] = []
 
     class Config:
         from_attributes = True
@@ -137,7 +137,7 @@ class ChartAccountTreeBranchNode(BaseModel):
     branch_subtree_net: Decimal = Decimal("0")
     branch_id: int | None = None
     pos_terminal_id: int | None = None
-    children: list["ChartAccountTreeBranchNode"] = []
+    children: list[ChartAccountTreeBranchNode] = []
 
     class Config:
         from_attributes = True

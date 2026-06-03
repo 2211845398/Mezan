@@ -74,7 +74,9 @@ async def _load_attendance(
             AttendanceLog.clock_out_at,
             EmployeeProfile.id.label("ep_id"),
             EmployeeProfile.user_id,
-            person_name_sql_expr(User.first_name, User.father_name, User.family_name).label("full_name"),
+            person_name_sql_expr(User.first_name, User.father_name, User.family_name).label(
+                "full_name"
+            ),
         )
         .join(EmployeeProfile, EmployeeProfile.id == AttendanceLog.employee_profile_id)
         .join(User, User.id == EmployeeProfile.user_id)
@@ -109,7 +111,9 @@ async def _employees_in_scope(
         select(
             EmployeeProfile.id,
             User.branch_id,
-            person_name_sql_expr(User.first_name, User.father_name, User.family_name).label("full_name"),
+            person_name_sql_expr(User.first_name, User.father_name, User.family_name).label(
+                "full_name"
+            ),
         )
         .join(User, User.id == EmployeeProfile.user_id)
         .where(User.status == "active")
@@ -130,9 +134,7 @@ async def _detect_scheduled_absences(
     branch_id: int | None,
     employee_ids: list[int] | None,
 ) -> list[HrAnomaly]:
-    employees = await _employees_in_scope(
-        db, branch_id=branch_id, employee_ids=employee_ids
-    )
+    employees = await _employees_in_scope(db, branch_id=branch_id, employee_ids=employee_ids)
     out: list[HrAnomaly] = []
     for emp_id, user_branch_id, name in employees:
         sched_branch = user_branch_id

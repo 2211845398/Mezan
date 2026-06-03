@@ -235,7 +235,9 @@ async def lookup_sales_invoice_for_return(
     )
 
 
-async def get_exchange_link_detail(db: AsyncSession, *, sales_return_id: int) -> ExchangeLinkDetailRead:
+async def get_exchange_link_detail(
+    db: AsyncSession, *, sales_return_id: int
+) -> ExchangeLinkDetailRead:
     link_res = await db.execute(
         select(ExchangeLink).where(ExchangeLink.sales_return_id == sales_return_id)
     )

@@ -889,7 +889,9 @@ async def save_employee_identity_document_image(
     db: AsyncSession, *, employee_profile_id: int, file_body: bytes
 ) -> EmployeeProfile:
     employee = await _get_employee_profile(db, employee_profile_id)
-    url = persist_raster_identity_scan(basename=f"employee-{employee_profile_id}", file_body=file_body)
+    url = persist_raster_identity_scan(
+        basename=f"employee-{employee_profile_id}", file_body=file_body
+    )
     employee.identity_document_image_url = url
     await db.flush()
     await db.refresh(employee)

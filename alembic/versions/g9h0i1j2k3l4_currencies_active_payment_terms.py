@@ -5,16 +5,17 @@ Revises: d4e5f6a7b8c9
 Create Date: 2026-05-20
 """
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Sequence, Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "g9h0i1j2k3l4"
-down_revision: Union[str, None] = "d4e5f6a7b8c9"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "d4e5f6a7b8c9"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 _DEFAULT_TERMS: list[tuple[str, str, str, int]] = [
     ("NET_0", "Net 0", "عند الاستلام", 0),

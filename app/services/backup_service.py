@@ -17,9 +17,7 @@ from app.core.errors import ExternalServiceError, _details_with_code
 logger = logging.getLogger(__name__)
 
 STATUS_FILE = "last_backup_status.json"
-_PGDUMP_MISSING_MESSAGE = (
-    "pg_dump binary not found; install postgresql-client in the API container"
-)
+_PGDUMP_MISSING_MESSAGE = "pg_dump binary not found; install postgresql-client in the API container"
 
 
 @dataclass

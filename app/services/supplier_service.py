@@ -22,14 +22,10 @@ _SUP_CODE_RE = re.compile(r"^SUP-(\d+)$", re.IGNORECASE)
 _EXCLUDED_PAYABLES_CODES = frozenset({"2100", "2110", "2150", "2200"})
 
 
-async def _validate_payables_account_id(
-    db: AsyncSession, payables_account_id: int | None
-) -> None:
+async def _validate_payables_account_id(db: AsyncSession, payables_account_id: int | None) -> None:
     if payables_account_id is None:
         return
-    res = await db.execute(
-        select(ChartAccount).where(ChartAccount.id == payables_account_id)
-    )
+    res = await db.execute(select(ChartAccount).where(ChartAccount.id == payables_account_id))
     account = res.scalar_one_or_none()
     if not account or not account.active:
         raise ValidationError(
@@ -39,7 +35,10 @@ async def _validate_payables_account_id(
     if account.account_type != AccountType.LIABILITY:
         raise ValidationError(
             "Payables account must be a liability account",
-            details={"payables_account_id": payables_account_id, "account_type": account.account_type.value},
+            details={
+                "payables_account_id": payables_account_id,
+                "account_type": account.account_type.value,
+            },
         )
     if account.is_control:
         raise ValidationError(
@@ -78,7 +77,9 @@ async def _sync_payment_terms_fields(
         res = await db.execute(select(PaymentTerm).where(PaymentTerm.id == payment_terms_id))
         term = res.scalar_one_or_none()
         if not term:
-            raise NotFoundError("Payment term not found", details={"payment_terms_id": payment_terms_id})
+            raise NotFoundError(
+                "Payment term not found", details={"payment_terms_id": payment_terms_id}
+            )
         return term.id, term.name_en
     return None, payment_terms
 
@@ -174,9 +175,7 @@ async def list_suppliers_read(
     from app.schemas.pagination import clamp_pagination
 
     limit, offset = clamp_pagination(limit, offset)
-    total = int(
-        await db.scalar(select(func.count()).select_from(Supplier)) or 0
-    )
+    total = int(await db.scalar(select(func.count()).select_from(Supplier)) or 0)
     q = (
         select(Supplier, Currency)
         .join(Currency, Currency.id == Supplier.currency_id)
@@ -227,8 +226,16 @@ async def update_supplier(
         )
 
     if "payment_terms_id" in data or "payment_terms" in data:
-        raw_pt_id = data.pop("payment_terms_id", s.payment_terms_id) if "payment_terms_id" in data else s.payment_terms_id
-        raw_pt = data.pop("payment_terms", s.payment_terms) if "payment_terms" in data else s.payment_terms
+        raw_pt_id = (
+            data.pop("payment_terms_id", s.payment_terms_id)
+            if "payment_terms_id" in data
+            else s.payment_terms_id
+        )
+        raw_pt = (
+            data.pop("payment_terms", s.payment_terms)
+            if "payment_terms" in data
+            else s.payment_terms
+        )
         pt_id, pt_label = await _sync_payment_terms_fields(
             db,
             payment_terms_id=raw_pt_id,

@@ -8,7 +8,8 @@ from sqlalchemy import func, select
 from app.models.chart_accounts import ChartAccount
 from app.models.permission import Permission
 from app.models.unit_of_measure import UnitOfMeasure
-from app.scripts import core_seed, seed as seed_script
+from app.scripts import core_seed
+from app.scripts import seed as seed_script
 from app.scripts.core_seed import seed_default_uoms
 from app.services.seed_service import (
     seed_accounting_defaults,

@@ -4,7 +4,6 @@ import pytest
 from sqlalchemy import select
 
 from app.models.category import Category
-from app.models.product import Product
 from app.models.unit_of_measure import UnitOfMeasure
 from app.services.catalog_service import (
     create_product,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -12,13 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, StateTransitionError, ValidationError
 from app.models.ar_open_item import ArOpenItem
-from app.models.category import Category
-from app.models.pos_cart import PosCart, PosCartDiscount, PosCartLine
-from app.models.pos_payment import PaymentIntent, PaymentReceipt
 from app.models.branch import Branch
+from app.models.category import Category
 from app.models.currency import Currency
 from app.models.customer_profile import CustomerAccountStatus, CustomerProfile
 from app.models.global_config import GlobalConfig
+from app.models.loyalty import LedgerEntryType, LedgerReasonCode
+from app.models.pos_cart import PosCart, PosCartDiscount, PosCartLine
+from app.models.pos_payment import PaymentIntent, PaymentReceipt
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
@@ -36,18 +36,17 @@ from app.services.accounting_governance_service import (
     same_fiscal_period_as_today,
 )
 from app.services.accounting_service import get_accounting_settings
-from app.services.document_posting_service import post_sales_invoice_gl
-from app.utils.person_name import display_person_name
-from app.services.inventory_service import apply_stock_movement
 from app.services.catalog_service import resolve_default_variant_id
+from app.services.document_posting_service import post_sales_invoice_gl
+from app.services.inventory_service import apply_stock_movement
 from app.services.loyalty_dsl_service import calculate_loyalty_for_purchase
 from app.services.loyalty_service import adjust_points
-from app.models.loyalty import LedgerEntryType, LedgerReasonCode
 from app.services.numbering_service import next_sales_invoice_number
 from app.services.pos_customer_guard import assert_customer_active_for_pos
 from app.services.shift_service import add_cash_event
 from app.services.subledger_service import create_ar_open_item
 from app.utils.money import q2
+from app.utils.person_name import display_person_name
 
 VOID_INVOICE_MAX_AGE_HOURS = 48
 
@@ -441,14 +440,13 @@ async def _sales_invoice_to_detail_read(
         )
         cust = cres.scalar_one_or_none()
         if cust:
-            customer_display = display_person_name(
-                cust.first_name, cust.father_name, cust.family_name
-            ) or cust.phone
+            customer_display = (
+                display_person_name(cust.first_name, cust.father_name, cust.family_name)
+                or cust.phone
+            )
 
     company_legal_name: str | None = None
-    cfg_res = await db.execute(
-        select(GlobalConfig).where(GlobalConfig.key == "company_legal_name")
-    )
+    cfg_res = await db.execute(select(GlobalConfig).where(GlobalConfig.key == "company_legal_name"))
     cfg = cfg_res.scalar_one_or_none()
     if cfg and cfg.value and isinstance(cfg.value, dict):
         raw = cfg.value.get("name") or cfg.value.get("legal_name")
@@ -515,9 +513,7 @@ async def list_sales_invoices_for_terminal_window(
         SalesInvoice.created_at < end_exclusive,
         SalesInvoice.voided_at.is_(None),
     )
-    total = int(
-        await db.scalar(select(func.count()).select_from(SalesInvoice).where(*filt)) or 0
-    )
+    total = int(await db.scalar(select(func.count()).select_from(SalesInvoice).where(*filt)) or 0)
     inv_res = await db.execute(
         select(SalesInvoice, CustomerProfile)
         .outerjoin(CustomerProfile, SalesInvoice.customer_id == CustomerProfile.id)

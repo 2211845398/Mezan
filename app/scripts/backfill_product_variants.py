@@ -23,17 +23,17 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import AsyncSessionLocal
+from app.models.branch_product_costs import BranchProductCost
+from app.models.goods_receipt_line import GoodsReceiptLine
+from app.models.pos_cart import PosCartLine
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
-from app.models.stock_movement import StockMovement
-from app.models.stock_level import StockLevel
-from app.models.branch_product_costs import BranchProductCost
-from app.models.pos_cart import PosCartLine
-from app.models.sales_invoice import SalesInvoiceLine
 from app.models.purchase_order_line import PurchaseOrderLine
-from app.models.goods_receipt_line import GoodsReceiptLine
-from app.models.transfer_line import TransferLine
+from app.models.sales_invoice import SalesInvoiceLine
 from app.models.sales_return import SalesReturnLine
+from app.models.stock_level import StockLevel
+from app.models.stock_movement import StockMovement
+from app.models.transfer_line import TransferLine
 
 
 async def backfill_variants(db: AsyncSession) -> dict[str, Any]:
@@ -65,7 +65,9 @@ async def backfill_variants(db: AsyncSession) -> dict[str, Any]:
     variant_result = await db.execute(select(ProductVariant))
     existing_variants = {v.product_id: v for v in variant_result.scalars().all()}
 
-    print(f"[backfill_variants] Found {len(products)} products, {len(existing_variants)} already have variants")
+    print(
+        f"[backfill_variants] Found {len(products)} products, {len(existing_variants)} already have variants"
+    )
 
     # 2. Create variants for products without one
     product_id_to_variant: dict[int, ProductVariant] = {}
@@ -298,10 +300,14 @@ async def backfill_variants(db: AsyncSession) -> dict[str, Any]:
 
     print(f"[backfill_variants] Updated {stats['stock_movements_updated']} stock_movements")
     print(f"[backfill_variants] Updated {stats['stock_levels_updated']} stock_levels")
-    print(f"[backfill_variants] Updated {stats['branch_product_costs_updated']} branch_product_costs")
+    print(
+        f"[backfill_variants] Updated {stats['branch_product_costs_updated']} branch_product_costs"
+    )
     print(f"[backfill_variants] Updated {stats['pos_cart_lines_updated']} pos_cart_lines")
     print(f"[backfill_variants] Updated {stats['sales_invoice_lines_updated']} sales_invoice_lines")
-    print(f"[backfill_variants] Updated {stats['purchase_order_lines_updated']} purchase_order_lines")
+    print(
+        f"[backfill_variants] Updated {stats['purchase_order_lines_updated']} purchase_order_lines"
+    )
     print(f"[backfill_variants] Updated {stats['goods_receipt_lines_updated']} goods_receipt_lines")
     print(f"[backfill_variants] Updated {stats['transfer_lines_updated']} transfer_lines")
     print(f"[backfill_variants] Updated {stats['sales_return_lines_updated']} sales_return_lines")

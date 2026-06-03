@@ -12,21 +12,28 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ValidationError
 from app.models.branch_product_costs import BranchProductCost
 from app.models.product import Product
 from app.models.stock_movement import StockMovement
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
-from app.services.fifo_valuation_service import consume_layers_fifo, get_fifo_unit_cost, get_valuation_policy
+from app.services.fifo_valuation_service import (
+    consume_layers_fifo,
+    get_fifo_unit_cost,
+    get_valuation_policy,
+)
 from app.utils.money import q2
 
 
 def _negative_adjustment_expense_account_id(settings, reason: str) -> int:
     r = (reason or "").strip().lower()
     if r in {"damaged", "damage"}:
-        return int(settings.default_inventory_damaged_account_id or settings.default_cogs_account_id)
+        return int(
+            settings.default_inventory_damaged_account_id or settings.default_cogs_account_id
+        )
     if r in {"shortage", "count_loss"}:
-        return int(settings.default_inventory_shortage_account_id or settings.default_cogs_account_id)
+        return int(
+            settings.default_inventory_shortage_account_id or settings.default_cogs_account_id
+        )
     return int(settings.default_cogs_account_id)
 
 
@@ -54,8 +61,7 @@ async def _extended_cost_for_adjustment(
 
     unit_cost = Decimal("0")
     result = await db.execute(
-        select(BranchProductCost)
-        .where(
+        select(BranchProductCost).where(
             BranchProductCost.branch_id == movement.branch_id,
             BranchProductCost.product_id == movement.product_id,
             BranchProductCost.variant_id == movement.variant_id,

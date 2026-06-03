@@ -20,17 +20,16 @@ from app.models.category import Category
 from app.models.product import Product
 from app.models.product_category import ProductCategory
 from app.models.product_tax_definition import ProductTaxDefinition
+from app.models.product_unit_conversion import ProductUnitConversion
 from app.models.product_variant import ProductVariant
 from app.models.stock_level import StockLevel
 from app.models.tax_definition import TaxDefinition
-from app.models.product_unit_conversion import ProductUnitConversion
 from app.models.unit_of_measure import UnitOfMeasure
 from app.schemas.catalog import (
     CategoryTreeNode,
     ProductAlternativeUomRead,
     ProductRead,
     ProductVariantPurchasingSearchItem,
-    TaxDefinitionRead,
     UnitOfMeasureRead,
 )
 from app.services.pricing_service import set_product_sell_price
@@ -42,7 +41,6 @@ from app.utils.smart_sku import (
     validate_sku_reference,
 )
 from app.utils.variant_display import (
-    format_purchasing_variant_option,
     variant_attributes_summary,
     variant_value_labels_summary,
 )
@@ -150,7 +148,9 @@ def build_category_tree_nodes(
 
 
 async def count_products_by_primary_category(db: AsyncSession) -> dict[int, int]:
-    result = await db.execute(select(Product.category_id, func.count()).group_by(Product.category_id))
+    result = await db.execute(
+        select(Product.category_id, func.count()).group_by(Product.category_id)
+    )
     return {int(cid): int(n) for cid, n in result.all()}
 
 
@@ -392,7 +392,9 @@ async def _validate_tax_link_bundle(db: AsyncSession, tax_ids: list[int]) -> Non
         return
     unique = sorted(set(tax_ids))
     if len(unique) != len(tax_ids):
-        raise ValidationError("Duplicate tax_definition_id", details={"tax_definition_ids": tax_ids})
+        raise ValidationError(
+            "Duplicate tax_definition_id", details={"tax_definition_ids": tax_ids}
+        )
     await _ensure_tax_definition_ids_exist(db, set(unique))
     res = await db.execute(
         select(TaxDefinition.id, TaxDefinition.rate, TaxDefinition.is_active).where(
@@ -425,13 +427,17 @@ async def sync_product_tax_definition_links(
         return
     want = sorted(set(tax_definition_ids))
     await _validate_tax_link_bundle(db, want)
-    await db.execute(delete(ProductTaxDefinition).where(ProductTaxDefinition.product_id == product_id))
+    await db.execute(
+        delete(ProductTaxDefinition).where(ProductTaxDefinition.product_id == product_id)
+    )
     for tid in want:
         db.add(ProductTaxDefinition(product_id=product_id, tax_definition_id=tid))
     await db.flush()
 
 
-async def list_tax_definitions(db: AsyncSession, *, include_inactive: bool = True) -> list[TaxDefinition]:
+async def list_tax_definitions(
+    db: AsyncSession, *, include_inactive: bool = True
+) -> list[TaxDefinition]:
     q = select(TaxDefinition).order_by(TaxDefinition.name.asc())
     if not include_inactive:
         q = q.where(TaxDefinition.is_active.is_(True))
@@ -459,7 +465,9 @@ async def create_tax_definition(db: AsyncSession, *, data: dict[str, Any]) -> Ta
     return row
 
 
-async def update_tax_definition(db: AsyncSession, *, tax_id: int, data: dict[str, Any]) -> TaxDefinition:
+async def update_tax_definition(
+    db: AsyncSession, *, tax_id: int, data: dict[str, Any]
+) -> TaxDefinition:
     row = await get_tax_definition_row(db, tax_id)
     for k, v in data.items():
         setattr(row, k, v)
@@ -1029,7 +1037,11 @@ async def update_product(db: AsyncSession, *, product_id: int, data: dict[str, A
 
     sell_price: Decimal | None = None
     if sell_price_value is not _UNSET or has_sell_price_currency:
-        sell_price = None if sell_price_value is _UNSET or sell_price_value is None else _normalize_sell_price(sell_price_value)
+        sell_price = (
+            None
+            if sell_price_value is _UNSET or sell_price_value is None
+            else _normalize_sell_price(sell_price_value)
+        )
 
     if "sku" in data and data["sku"] is not None:
         try:

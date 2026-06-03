@@ -77,9 +77,7 @@ async def preview_fx_revaluation_endpoint(
 ) -> FxRevaluationSummaryResponse:
     """Preview estimated FX gains/losses without creating journal entries."""
     _ = current_user
-    preview = await preview_fx_revaluation(
-        db, as_of_date=body.as_of_date, branch_id=body.branch_id
-    )
+    preview = await preview_fx_revaluation(db, as_of_date=body.as_of_date, branch_id=body.branch_id)
     return FxRevaluationSummaryResponse(
         as_of_date=preview.as_of_date,
         branch_id=preview.branch_id,

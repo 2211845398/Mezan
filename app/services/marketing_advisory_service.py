@@ -185,7 +185,9 @@ def _build_messages(facts: dict[str, Any], max_suggestions: int) -> list[dict[st
     ]
 
 
-async def _call_llm(messages: list[dict[str, str]]) -> tuple[_LLMAdvisoryEnvelope, dict[str, int] | None]:
+async def _call_llm(
+    messages: list[dict[str, str]],
+) -> tuple[_LLMAdvisoryEnvelope, dict[str, int] | None]:
     if not settings.OPENAI_API_KEY:
         raise ExternalServiceError("OPENAI_API_KEY is not configured", http_status=503)
 

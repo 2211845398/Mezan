@@ -10,17 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ValidationError
 from app.models.suppliers import Supplier
-from app.utils.person_name import person_name_sql_expr
 from app.schemas.inventory_reorder import (
+    CreatedPurchaseOrderRef,
     CreatePurchaseOrdersFromReorderRequest,
     CreatePurchaseOrdersFromReorderResponse,
-    CreatedPurchaseOrderRef,
     ReorderAlertRow,
 )
 from app.schemas.purchase_orders import PurchaseOrderCreate, PurchaseOrderLineCreate
 from app.services.inventory_reporting_service import list_stock_on_hand
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
 from app.services.purchase_order_service import create_po
+from app.utils.person_name import person_name_sql_expr
 
 
 async def list_reorder_alerts(

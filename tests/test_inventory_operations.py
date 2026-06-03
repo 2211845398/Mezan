@@ -16,12 +16,12 @@ from app.models.stock_movement import StockMovement
 from app.models.unit_of_measure import UnitOfMeasure
 from app.services.adhoc_goods_receipt_service import receive_adhoc_goods
 from app.services.catalog_service import create_product
-from app.services.inventory_human_movement_service import apply_human_inventory_movement
 from app.services.inventory_damage_service import (
     list_damaged_positions,
     scrap_damaged_position,
     unmark_damaged_position,
 )
+from app.services.inventory_human_movement_service import apply_human_inventory_movement
 from app.services.inventory_reservation_service import list_open_reservations, release_reservation
 from app.services.inventory_service import apply_stock_movement
 from app.services.stock_count_pdf_service import build_stock_count_pdf
@@ -120,7 +120,9 @@ async def test_adhoc_receipt_with_box_uom(db_session) -> None:
         await db_session.execute(select(UnitOfMeasure).where(UnitOfMeasure.code == "BOX"))
     ).scalar_one()
 
-    cat = Category(name="Adhoc Cat", slug=f"ac-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="Adhoc Cat", slug=f"ac-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
 
@@ -322,7 +324,7 @@ def test_stock_count_pdf_builds_bytes_en() -> None:
         ],
     )
     assert pdf[:4] == b"%PDF"
-    assert b"Unit" in pdf or "Unit".encode() in pdf
+    assert b"Unit" in pdf or b"Unit" in pdf
 
 
 def test_stock_count_pdf_builds_bytes_ar() -> None:
@@ -342,5 +344,5 @@ def test_stock_count_pdf_builds_bytes_ar() -> None:
         ],
     )
     assert pdf[:4] == b"%PDF"
-    assert "الوحدة".encode("utf-8") in pdf
-    assert "ورقة".encode("utf-8") in pdf
+    assert "الوحدة".encode() in pdf
+    assert "ورقة".encode() in pdf

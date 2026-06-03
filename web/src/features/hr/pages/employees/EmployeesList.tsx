@@ -158,24 +158,26 @@ export default function EmployeesList() {
       <PageHeader
         title={t('employees.title')}
         actions={
-          <Button variant="outline" asChild>
-            <Link
-              to="/hr/employees/pending"
-              className="relative inline-flex items-center gap-2 overflow-visible"
-            >
-              <UserCheck className="size-4 shrink-0" aria-hidden />
-              <span>{t('pending.title')}</span>
-              <ArrowRight className="size-4 shrink-0" aria-hidden />
-              {onboardingPendingCount > 0 ? (
-                <span
-                  className="pointer-events-none absolute -top-2 z-10 ltr:-end-2 rtl:-start-2"
-                  aria-hidden
-                >
-                  <NavAttentionBadge count={onboardingPendingCount} />
-                </span>
-              ) : null}
-            </Link>
-          </Button>
+          canOnboardingRead ? (
+            <Button variant="outline" asChild>
+              <Link
+                to="/hr/employees/pending"
+                className="relative inline-flex items-center gap-2 overflow-visible"
+              >
+                <UserCheck className="size-4 shrink-0" aria-hidden />
+                <span>{t('pending.title')}</span>
+                <ArrowRight className="size-4 shrink-0" aria-hidden />
+                {onboardingPendingCount > 0 ? (
+                  <span
+                    className="pointer-events-none absolute -top-2 z-10 ltr:-end-2 rtl:-start-2"
+                    aria-hidden
+                  >
+                    <NavAttentionBadge count={onboardingPendingCount} />
+                  </span>
+                ) : null}
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
       <DataTable

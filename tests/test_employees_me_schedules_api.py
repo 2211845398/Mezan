@@ -70,7 +70,9 @@ async def test_my_schedules_ok_without_employees_read(
     await db_session.commit()
 
     token = create_access_token(u.id)
-    r = await client.get("/api/v1/employees/me/schedules", headers={"Authorization": f"Bearer {token}"})
+    r = await client.get(
+        "/api/v1/employees/me/schedules", headers={"Authorization": f"Bearer {token}"}
+    )
     assert r.status_code == 200
     data = r.json()
     assert len(data) == 1
@@ -108,6 +110,8 @@ async def test_my_schedules_empty_when_no_employee_profile(
     await db_session.commit()
 
     token = create_access_token(u.id)
-    r = await client.get("/api/v1/employees/me/schedules", headers={"Authorization": f"Bearer {token}"})
+    r = await client.get(
+        "/api/v1/employees/me/schedules", headers={"Authorization": f"Bearer {token}"}
+    )
     assert r.status_code == 200
     assert r.json() == []

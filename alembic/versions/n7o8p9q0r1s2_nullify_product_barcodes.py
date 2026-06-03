@@ -5,15 +5,16 @@ Revises: m6n7o8p9q0r1
 Create Date: 2026-05-23
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "n7o8p9q0r1s2"
-down_revision: Union[str, None] = "m6n7o8p9q0r1"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "m6n7o8p9q0r1"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

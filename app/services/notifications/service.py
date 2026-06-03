@@ -32,7 +32,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy import and_, func, not_, or_, select, update
+from sqlalchemy import func, not_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,7 +41,6 @@ from app.core.config import settings
 from app.core.errors import ExternalServiceError, NotFoundError, ValidationError
 from app.core.notification_rbac import (
     ORG_NOTIFICATION_MANAGER_ROLE_CODES,
-    is_company_wide_schedule,
 )
 from app.db.database import AsyncSessionLocal
 from app.models.notifications import (

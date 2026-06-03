@@ -30,7 +30,6 @@ from app.schemas.ai_advisory import (
     TargetedCampaignRequest,
     TargetedCampaignResponse,
 )
-from app.services.ai_call_context import finalize_advisor_run, load_cached_advisor_response
 from app.services.ai.campaign_advisor_service import (
     export_segment_customer_ids_csv,
     generate_targeted_campaigns,
@@ -38,6 +37,7 @@ from app.services.ai.campaign_advisor_service import (
 from app.services.ai.hr_anomaly_service import detect_hr_anomalies
 from app.services.ai.invoice_matcher_service import match_invoice_scan
 from app.services.ai.purchase_reorder_service import generate_purchase_reorder
+from app.services.ai_call_context import finalize_advisor_run, load_cached_advisor_response
 
 router = APIRouter()
 

@@ -11,11 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class VoucherAccountSpecIn(BaseModel):
     """Account specification for voucher line."""
+
     model_config = ConfigDict(populate_by_name=True)
 
-    account_type: Literal["customer", "supplier", "cash", "bank", "expense", "ar", "ap", "custom"] = Field(
-        description="Type of account to resolve"
-    )
+    account_type: Literal[
+        "customer", "supplier", "cash", "bank", "expense", "ar", "ap", "custom"
+    ] = Field(description="Type of account to resolve")
     entity_id: int | None = Field(
         None, description="Customer or Supplier ID (required for customer/supplier types)"
     )
@@ -26,6 +27,7 @@ class VoucherAccountSpecIn(BaseModel):
 
 class VoucherLineIn(BaseModel):
     """Single line in a voucher request."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     spec: VoucherAccountSpecIn
@@ -35,6 +37,7 @@ class VoucherLineIn(BaseModel):
 
 class VoucherCreate(BaseModel):
     """Generic voucher creation request."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     voucher_type: Literal["receipt", "payment", "expense", "transfer", "journal"]
@@ -53,6 +56,7 @@ class VoucherCreate(BaseModel):
 
 class ReceiptVoucherCreate(BaseModel):
     """Simplified receipt voucher: Dr Cash, Cr Customer AR."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     customer_id: int | None = Field(None, description="Customer to clear AR for")
@@ -68,6 +72,7 @@ class ReceiptVoucherCreate(BaseModel):
 
 class PaymentVoucherCreate(BaseModel):
     """Simplified payment voucher: Dr Supplier AP, Cr Cash."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     supplier_id: int | None = Field(None, description="Supplier to clear AP for")
@@ -83,6 +88,7 @@ class PaymentVoucherCreate(BaseModel):
 
 class ExpenseVoucherCreate(BaseModel):
     """Simplified expense voucher: Dr Expense, Cr Cash."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     expense_account_id: int = Field(description="Chart of Accounts expense account to debit")
@@ -98,6 +104,7 @@ class ExpenseVoucherCreate(BaseModel):
 
 class InternalTransferCreate(BaseModel):
     """Internal cash/bank transfer: Dr To, Cr From."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     from_cash_account_id: int = Field(description="Source cash/bank account")
@@ -113,6 +120,7 @@ class InternalTransferCreate(BaseModel):
 
 class VoucherRead(BaseModel):
     """Voucher posting result."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     status: Literal["posted", "duplicate"]

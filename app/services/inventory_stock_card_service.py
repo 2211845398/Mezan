@@ -22,8 +22,11 @@ from app.services.inventory_reporting_service import (
     _reorder_status,
 )
 
+
 async def get_product_stock_card(db: AsyncSession, *, product_id: int) -> StockCardRead:
-    p_res = await db.execute(select(Product, Category).join(Category).where(Product.id == product_id))
+    p_res = await db.execute(
+        select(Product, Category).join(Category).where(Product.id == product_id)
+    )
     row = p_res.one_or_none()
     if not row:
         raise NotFoundError("Product not found", details={"product_id": product_id})
@@ -71,7 +74,11 @@ async def get_product_stock_card(db: AsyncSession, *, product_id: int) -> StockC
 
         rp = int(pol.reorder_point) if pol and pol.is_active else None
         rq = int(pol.reorder_qty) if pol and pol.is_active else None
-        psid = int(pol.preferred_supplier_id) if pol and pol.is_active and pol.preferred_supplier_id else None
+        psid = (
+            int(pol.preferred_supplier_id)
+            if pol and pol.is_active and pol.preferred_supplier_id
+            else None
+        )
         pol_active = bool(pol and pol.is_active)
         rstatus = _reorder_status(
             available=available,

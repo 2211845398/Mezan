@@ -116,34 +116,58 @@ SYSTEM_ROLE_SPECS = [
     {
         "code": "OWNER",
         "name": "Owner",
-        "description": "Executive full-access role",
-        "selectors": [("*", "*")],
+        "description": "Primary stakeholder; full monitoring without POS or invoice scans",
+        "selectors": [
+            ("catalog", "*"),
+            ("inventory", "*"),
+            ("purchase_orders", "*"),
+            ("suppliers", "*"),
+            ("ai_advisory", "run"),
+            ("employees", "*"),
+            ("payroll", "*"),
+            ("onboarding", "*"),
+            ("accounting", "*"),
+            ("discounts", "*"),
+            ("analytics", "read"),
+            ("loyalty", "*"),
+            ("customers", "*"),
+            ("marketing_advisory", "run"),
+            ("users", "*"),
+            ("roles", "*"),
+            ("audit_log", "read"),
+            ("config", "*"),
+            ("branches", "*"),
+            ("terminals", "*"),
+            ("backups", "*"),
+            ("notifications", "*"),
+        ],
     },
     {
         "code": "IT_ADMIN",
         "name": "IT Admin",
-        "description": "Identity, access, and system administration",
+        "description": "Identity, catalog dictionary, and system administration",
         "selectors": [
             ("users", "*"),
             ("roles", "*"),
             ("audit_log", "read"),
             ("config", "*"),
-            ("notifications", "read"),
-            ("notifications", "update"),
             ("branches", "*"),
             ("terminals", "*"),
-            ("onboarding", "read"),
             ("backups", "*"),
+            ("catalog", "*"),
+            ("notifications", "read"),
+            ("notifications", "update"),
         ],
     },
     {
         "code": "HR_MANAGER",
         "name": "HR Manager",
-        "description": "Staff onboarding and payroll approvals",
+        "description": "Human resources lifecycle, payroll, and personnel monitoring",
         "selectors": [
             ("employees", "*"),
             ("payroll", "*"),
             ("onboarding", "*"),
+            ("ai_advisory", "run"),
             ("notifications", "read"),
             ("notifications", "update"),
         ],
@@ -151,18 +175,27 @@ SYSTEM_ROLE_SPECS = [
     {
         "code": "ACCOUNTANT",
         "name": "Accountant",
-        "description": "General ledger, periods, and supplier accounting",
+        "description": "General ledger, catalog costing, inventory, HR directory, and payroll",
         "selectors": [
             ("accounting", "*"),
             ("suppliers", "*"),
             ("sales_invoices", "void"),
+            ("catalog", "read"),
+            ("inventory", "*"),
+            ("employees", "read"),
+            ("payroll", "*"),
+            ("customers", "read"),
+            ("analytics", "read"),
+            ("discounts", "read"),
+            ("loyalty", "read"),
+            ("branches", "read"),
             ("notifications", "read"),
         ],
     },
     {
         "code": "CASHIER",
         "name": "Cashier",
-        "description": "Point-of-sale execution role",
+        "description": "Point-of-sale execution and customer registration",
         "selectors": [
             ("terminals", "read"),
             ("pos_shifts", "*"),
@@ -180,21 +213,22 @@ SYSTEM_ROLE_SPECS = [
     {
         "code": "WAREHOUSE_MANAGER",
         "name": "Warehouse Manager",
-        "description": "Inventory, purchase, and goods receiving operations",
+        "description": "Logistics, catalog, stock, and procurement execution",
         "selectors": [
             ("catalog", "*"),
             ("purchase_orders", "*"),
+            ("suppliers", "read"),
             ("inventory", "*"),
-            ("invoice_scans", "*"),
             ("stock_adjustments", "*"),
             ("ai_advisory", "run"),
+            ("branches", "read"),
             ("notifications", "read"),
         ],
     },
     {
         "code": "MARKETING_MANAGER",
         "name": "Marketing Manager",
-        "description": "Discount and advisory operations",
+        "description": "Growth, discounts, campaigns, and advisory analytics",
         "selectors": [
             ("discounts", "*"),
             ("analytics", "read"),
@@ -205,19 +239,25 @@ SYSTEM_ROLE_SPECS = [
             ("customers", "update"),
             ("marketing_advisory", "run"),
             ("ai_advisory", "run"),
-            ("invoice_scans", "read"),
-            ("invoice_scans", "validate"),
+            ("catalog", "read"),
             ("notifications", "read"),
         ],
     },
     {
         "code": "FLOOR_STAFF",
         "name": "Floor Staff",
-        "description": "Read-only floor operations role",
+        "description": "Floor lookup, POS, and read-only stock with customer capture",
         "selectors": [
+            ("pos_shifts", "*"),
+            ("pos_carts", "*"),
+            ("pos_payments", "*"),
+            ("sales_invoices", "create"),
+            ("sales_invoices", "read"),
+            ("returns", "create"),
             ("catalog", "read"),
             ("inventory", "read"),
             ("customers", "create"),
+            ("terminals", "read"),
             ("notifications", "read"),
         ],
     },
@@ -238,13 +278,17 @@ def _permission_ids_for_selectors(
     return ids
 
 
-async def _ensure_role_permissions(
+async def _sync_role_permissions(
     db: AsyncSession, *, role: Role, target_permission_ids: set[int]
 ) -> None:
-    result = await db.execute(
-        select(RolePermission.permission_id).where(RolePermission.role_id == role.id)
-    )
-    assigned = {pid for (pid,) in result.all()}
+    """Replace role permissions with the target set (idempotent for system roles)."""
+    result = await db.execute(select(RolePermission).where(RolePermission.role_id == role.id))
+    assigned: set[int] = set()
+    for rp in result.scalars().all():
+        if rp.permission_id in target_permission_ids:
+            assigned.add(rp.permission_id)
+        else:
+            await db.delete(rp)
     for pid in target_permission_ids - assigned:
         db.add(RolePermission(role_id=role.id, permission_id=pid))
 
@@ -282,7 +326,7 @@ async def seed_permissions_and_roles(db: AsyncSession) -> None:
     result = await db.execute(select(Permission))
     all_perms = result.scalars().all()
     perm_ids = {p.id for p in all_perms}
-    await _ensure_role_permissions(db, role=admin_role, target_permission_ids=perm_ids)
+    await _sync_role_permissions(db, role=admin_role, target_permission_ids=perm_ids)
 
     # Ensure immutable base roles are present and permissioned.
     for spec in SYSTEM_ROLE_SPECS:
@@ -304,7 +348,7 @@ async def seed_permissions_and_roles(db: AsyncSession) -> None:
         target_permission_ids = _permission_ids_for_selectors(
             all_perms, selectors=spec["selectors"]
         )
-        await _ensure_role_permissions(db, role=role, target_permission_ids=target_permission_ids)
+        await _sync_role_permissions(db, role=role, target_permission_ids=target_permission_ids)
 
     await seed_default_policies(db)
     await db.commit()

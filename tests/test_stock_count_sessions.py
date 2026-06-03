@@ -35,7 +35,9 @@ async def test_stock_count_session_create_and_post(db_session) -> None:
     db_session.add(branch)
     await db_session.flush()
 
-    cat = Category(name="Count Cat", slug=f"cc-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="Count Cat", slug=f"cc-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
 
@@ -121,7 +123,9 @@ async def test_stock_count_post_requires_all_lines_complete(db_session) -> None:
     db_session.add(branch)
     await db_session.flush()
 
-    cat = Category(name="Incomplete Cat", slug=f"ic-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="Incomplete Cat", slug=f"ic-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
 
@@ -215,9 +219,7 @@ async def test_stock_count_post_allows_optional_damaged(db_session) -> None:
     )
 
     detail = await create_stock_count_session(db_session, user_id=1, branch_id=branch.id)
-    updates = [
-        StockCountLineUpdate(id=ln.id, counted_qty=ln.system_on_hand) for ln in detail.lines
-    ]
+    updates = [StockCountLineUpdate(id=ln.id, counted_qty=ln.system_on_hand) for ln in detail.lines]
     await patch_stock_count_lines(db_session, session_id=detail.id, updates=updates)
 
     result = await post_stock_count_session(db_session, user_id=1, session_id=detail.id)
@@ -240,7 +242,9 @@ async def test_stock_count_lines_unique_per_session(db_session) -> None:
     db_session.add(branch)
     await db_session.flush()
 
-    cat = Category(name="Count Cat 2", slug=f"cc2-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="Count Cat 2", slug=f"cc2-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
 

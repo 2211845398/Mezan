@@ -80,22 +80,26 @@ async def post_opening_balance_gl(
 
         if line.line_type == "debit":
             total_dr += amt
-            journal_lines.append({
-                "account_id": line.account_id,
-                "branch_id": line_branch,
-                "debit": amt,
-                "credit": Decimal("0"),
-                "memo": line.memo or f"Opening balance - debit",
-            })
+            journal_lines.append(
+                {
+                    "account_id": line.account_id,
+                    "branch_id": line_branch,
+                    "debit": amt,
+                    "credit": Decimal("0"),
+                    "memo": line.memo or "Opening balance - debit",
+                }
+            )
         else:
             total_cr += amt
-            journal_lines.append({
-                "account_id": line.account_id,
-                "branch_id": line_branch,
-                "debit": Decimal("0"),
-                "credit": amt,
-                "memo": line.memo or f"Opening balance - credit",
-            })
+            journal_lines.append(
+                {
+                    "account_id": line.account_id,
+                    "branch_id": line_branch,
+                    "debit": Decimal("0"),
+                    "credit": amt,
+                    "memo": line.memo or "Opening balance - credit",
+                }
+            )
 
     if q2(total_dr) != q2(total_cr):
         raise ValidationError(

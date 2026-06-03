@@ -5,7 +5,6 @@
  */
 export type RoleDashboardKind =
   | 'executive'
-  | 'accountant'
   | 'marketing'
   | 'it'
   | 'hr'
@@ -16,7 +15,7 @@ const PRIORITY: { code: string; kind: RoleDashboardKind }[] = [
   { code: 'OWNER', kind: 'executive' },
   { code: 'ADMIN', kind: 'executive' },
   { code: 'HR_MANAGER', kind: 'hr' },
-  { code: 'ACCOUNTANT', kind: 'accountant' },
+  { code: 'ACCOUNTANT', kind: 'executive' },
   { code: 'MARKETING_MANAGER', kind: 'executive' },
   { code: 'IT_ADMIN', kind: 'it' },
   { code: 'CASHIER', kind: 'staff' },

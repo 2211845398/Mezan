@@ -6,8 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.accounting_settings import AccountingSettings
-from app.models.chart_accounts import ChartAccount
-from app.models.chart_accounts import SubledgerKind
+from app.models.chart_accounts import ChartAccount, SubledgerKind
 from app.services.coa_seed_data import iter_seed_nodes
 from app.services.coa_seed_service import upgrade_coa_skeleton
 from app.services.seed_service import seed_accounting_defaults
@@ -73,17 +72,13 @@ async def test_upgrade_coa_skeleton_idempotent(db_session) -> None:
     )
     await db_session.flush()
 
-    before = (
-        await db_session.execute(select(ChartAccount))
-    ).scalars().all()
+    before = (await db_session.execute(select(ChartAccount))).scalars().all()
     n_before = len(before)
 
     await upgrade_coa_skeleton(db_session)
     await db_session.commit()
 
-    after = (
-        await db_session.execute(select(ChartAccount))
-    ).scalars().all()
+    after = (await db_session.execute(select(ChartAccount))).scalars().all()
     assert len(after) > n_before
     codes = {a.code for a in after}
     assert "10000" in codes
@@ -91,9 +86,7 @@ async def test_upgrade_coa_skeleton_idempotent(db_session) -> None:
 
     await upgrade_coa_skeleton(db_session)
     await db_session.commit()
-    after2 = (
-        await db_session.execute(select(ChartAccount))
-    ).scalars().all()
+    after2 = (await db_session.execute(select(ChartAccount))).scalars().all()
     assert len(after2) == len(after)
 
 

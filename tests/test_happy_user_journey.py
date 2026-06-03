@@ -152,7 +152,7 @@ async def test_happy_user_journey(
     settings_result = await db_session.execute(
         select(AccountingSettings.base_currency_id).where(AccountingSettings.id == 1)
     )
-    base_currency_id = settings_result.scalar_one()
+    settings_result.scalar_one()
 
     # Supplier (used later for purchase orders / AP attribution).
     sup = await client.post(

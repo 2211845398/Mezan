@@ -147,10 +147,9 @@ async def close_shift_endpoint(
     return PosShiftRead.model_validate(shift)
 
 
-
 class PosExpenseCreate(BaseModel):
     shift_id: int
-    expense_category: str = Field(..., description='Category: cleaning, lunch, other')
+    expense_category: str = Field(..., description="Category: cleaning, lunch, other")
     amount: Decimal = Field(..., gt=0)
     description: str | None = Field(None, max_length=255)
 
@@ -168,13 +167,13 @@ class PosExpenseRead(BaseModel):
         from_attributes = True
 
 
-@router.post('/pos/expenses', response_model=PosExpenseRead, status_code=status.HTTP_201_CREATED)
+@router.post("/pos/expenses", response_model=PosExpenseRead, status_code=status.HTTP_201_CREATED)
 async def create_pos_expense_endpoint(
     body: PosExpenseCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission('pos_shifts', 'update'),
+    _: None = require_permission("pos_shifts", "update"),
 ) -> PosExpenseRead:
     expense = await record_pos_expense(
         db,
@@ -186,8 +185,8 @@ async def create_pos_expense_endpoint(
     )
     await audit_service.log(
         session=db,
-        action='pos_expense.created',
-        resource_type='pos_expense',
+        action="pos_expense.created",
+        resource_type="pos_expense",
         resource_id=str(expense.id),
         user_id=current_user.id,
         request=request,

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
-from app.models.accounting_settings import AccountingSettings
 from app.models.ap_open_item import ApOpenItem
 from app.models.ar_open_item import ArOpenItem
 from app.models.currency import Currency
@@ -47,9 +46,7 @@ async def list_currencies(
         stmt = stmt.where(Currency.active.is_(True))
     res = await db.execute(stmt)
     rows = list(res.scalars().all())
-    return [
-        _currency_to_read(c, is_base=c.id == settings.base_currency_id) for c in rows
-    ]
+    return [_currency_to_read(c, is_base=c.id == settings.base_currency_id) for c in rows]
 
 
 async def get_currency_by_code(db: AsyncSession, code: str) -> Currency:
@@ -73,7 +70,9 @@ async def resolve_currency_id(
         res = await db.execute(select(Currency).where(Currency.id == currency_id))
         cur = res.scalar_one_or_none()
         if not cur or not cur.active:
-            raise ValidationError("Invalid or inactive currency_id", details={"currency_id": currency_id})
+            raise ValidationError(
+                "Invalid or inactive currency_id", details={"currency_id": currency_id}
+            )
         return cur.id
     if currency_code:
         return (await get_currency_by_code(db, currency_code)).id
@@ -104,9 +103,7 @@ async def create_currency(db: AsyncSession, body: CurrencyCreate) -> CurrencyRea
     return _currency_to_read(row, is_base=row.id == settings.base_currency_id)
 
 
-async def update_currency(
-    db: AsyncSession, currency_id: int, body: CurrencyUpdate
-) -> CurrencyRead:
+async def update_currency(db: AsyncSession, currency_id: int, body: CurrencyUpdate) -> CurrencyRead:
     settings = await get_accounting_settings(db)
     res = await db.execute(select(Currency).where(Currency.id == currency_id))
     row = res.scalar_one_or_none()
@@ -155,12 +152,17 @@ async def get_accounting_settings_read(db: AsyncSession) -> AccountingSettingsRe
     )
 
 
-async def update_base_currency(db: AsyncSession, *, base_currency_id: int) -> AccountingSettingsRead:
+async def update_base_currency(
+    db: AsyncSession, *, base_currency_id: int
+) -> AccountingSettingsRead:
     settings = await get_accounting_settings(db)
     res = await db.execute(select(Currency).where(Currency.id == base_currency_id))
     new_base = res.scalar_one_or_none()
     if not new_base or not new_base.active:
-        raise ValidationError("Base currency must be an active currency", details={"base_currency_id": base_currency_id})
+        raise ValidationError(
+            "Base currency must be an active currency",
+            details={"base_currency_id": base_currency_id},
+        )
 
     if new_base.id != settings.base_currency_id:
         ar_foreign = await db.execute(

@@ -11,25 +11,25 @@ from app.db.database import get_db
 from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
-from app.schemas.role import UserRoleAssign
 from app.schemas.employees import IdentityDocumentImageResponse
+from app.schemas.role import UserRoleAssign
 from app.schemas.users import (
     UserCreate,
+    UserListResponse,
     UserOnboardingComplete,
     UserOnboardingRead,
     UserOnboardingSubjectUpdate,
     UserPermissionOverrideRead,
     UserPermissionOverrideWrite,
-    UserListResponse,
     UserRead,
     UserUpdate,
 )
-from app.services.user_admin_service import list_users_page
 from app.services import audit_service, auth_service, bootstrap_admin_protection
 from app.services.effective_permissions import (
     list_onboarding_assignee_users,
     user_can_act_as_onboarding_assignee,
 )
+from app.services.user_admin_service import list_users_page
 from app.services.user_lifecycle_service import (
     assign_role_by_code,
     complete_onboarding_task,

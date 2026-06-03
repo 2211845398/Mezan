@@ -102,15 +102,11 @@ async def _ensure_products_exist(db: AsyncSession, product_ids: set[int]) -> Non
 async def branch_names_by_id(db: AsyncSession, branch_ids: set[int]) -> dict[int, str]:
     if not branch_ids:
         return {}
-    result = await db.execute(
-        select(Branch.id, Branch.name).where(Branch.id.in_(branch_ids))
-    )
+    result = await db.execute(select(Branch.id, Branch.name).where(Branch.id.in_(branch_ids)))
     return {int(bid): str(name) for bid, name in result.all()}
 
 
-def _po_lines_to_read(
-  po: PurchaseOrder, uom_by_id: dict[int, Any]
-) -> list[PurchaseOrderLineRead]:
+def _po_lines_to_read(po: PurchaseOrder, uom_by_id: dict[int, Any]) -> list[PurchaseOrderLineRead]:
     lines: list[PurchaseOrderLineRead] = []
     for ln in po.lines:
         uom = uom_by_id.get(int(ln.uom_id))
@@ -178,9 +174,10 @@ async def _resolve_supplier_name(db: AsyncSession, data: dict[str, Any]) -> dict
         sup = res.scalar_one_or_none()
         if not sup:
             raise ValidationError("Unknown supplier_id", details={"supplier_id": supplier_id})
-        data["supplier_name"] = display_person_name(
-            sup.first_name, sup.father_name, sup.family_name
-        ).strip() or sup.code
+        data["supplier_name"] = (
+            display_person_name(sup.first_name, sup.father_name, sup.family_name).strip()
+            or sup.code
+        )
     elif not (data.get("supplier_name") or "").strip():
         raise ValidationError("supplier_id is required")
     return data

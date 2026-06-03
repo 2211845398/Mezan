@@ -9,12 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
-from app.models.currency import Currency
 from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
-from app.models.sales_invoice import SalesInvoice
 from app.models.ar_payment_application import ArPaymentApplication
+from app.models.currency import Currency
+from app.models.sales_invoice import SalesInvoice
 from app.services.document_posting_service import post_ap_payment_gl, post_ar_cash_receipt_gl
 from app.services.payment_terms_service import due_date_from_supplier
 

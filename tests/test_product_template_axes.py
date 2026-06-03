@@ -10,10 +10,17 @@ from app.models.category import Category
 from app.models.product_attribute_line import ProductAttributeLine
 from app.models.product_attribute_line_value import ProductAttributeLineValue
 from app.models.product_variant import ProductVariant
-from app.schemas.attributes import CatalogAttributeCreate, CatalogAttributeValueCreate
+from app.schemas.attributes import (
+    CatalogAttributeCreate,
+    CatalogAttributeValueCreate,
+    CatalogAttributeValueMergeRequest,
+)
 from app.schemas.variant_generation import VariantSyncRequest, VariantSyncRow
-from app.services.attribute_service import create_attribute, create_attribute_value, merge_attribute_values
-from app.schemas.attributes import CatalogAttributeValueMergeRequest
+from app.services.attribute_service import (
+    create_attribute,
+    create_attribute_value,
+    merge_attribute_values,
+)
 from app.services.catalog_service import create_product
 from app.services.variant_attribute_service import (
     load_product_attribute_axes,

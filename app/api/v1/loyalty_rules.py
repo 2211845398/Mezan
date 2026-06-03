@@ -4,7 +4,7 @@ Hardcoded rule evaluator for stability per user decision.
 Rules are implemented in code, not dynamic JSONB.
 """
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
@@ -18,7 +18,11 @@ from app.schemas.loyalty_rules import (
     LoyaltyRulesListResponse,
     MatchedRuleRead,
 )
-from app.services.loyalty_dsl_service import calculate_loyalty_for_purchase, evaluate_rules, get_all_rules
+from app.services.loyalty_dsl_service import (
+    calculate_loyalty_for_purchase,
+    evaluate_rules,
+    get_all_rules,
+)
 
 router = APIRouter()
 
@@ -37,9 +41,7 @@ async def list_loyalty_rules_endpoint(
     Returns the hardcoded rules that drive loyalty accrual.
     """
     rules = get_all_rules()
-    return LoyaltyRulesListResponse(
-        rules=[LoyaltyRuleRead(**r) for r in rules]
-    )
+    return LoyaltyRulesListResponse(rules=[LoyaltyRuleRead(**r) for r in rules])
 
 
 @router.post(

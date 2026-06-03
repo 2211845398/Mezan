@@ -17,7 +17,6 @@ from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.stock_level import StockLevel
 from app.models.suppliers import Supplier
-from app.utils.person_name import display_person_name
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.fifo_valuation_service import create_cost_layer, get_valuation_policy
@@ -28,6 +27,7 @@ from app.services.product_uom_service import (
     convert_product_unit_cost_to_base,
 )
 from app.services.purchase_order_service import validate_variant_belongs_to_product
+from app.utils.person_name import display_person_name
 
 
 async def _qty_received_by_po_line(db: AsyncSession, *, purchase_order_id: int) -> dict[int, int]:
@@ -112,7 +112,9 @@ async def receive_goods_for_purchase_order(
     )
     purchase_order = po.scalar_one_or_none()
     if not purchase_order:
-        not_found_error("purchase_order_not_found", "Purchase order not found", po_id=purchase_order_id)
+        not_found_error(
+            "purchase_order_not_found", "Purchase order not found", po_id=purchase_order_id
+        )
 
     if purchase_order.status in {"draft", "cancelled", "closed"}:
         validation_error(

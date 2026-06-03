@@ -11,6 +11,8 @@ def display_person_name(first: str | None, father: str | None, family: str | Non
     return " ".join(parts)
 
 
-def person_name_sql_expr(first_col: ColumnElement, father_col: ColumnElement, family_col: ColumnElement) -> ColumnElement:
+def person_name_sql_expr(
+    first_col: ColumnElement, father_col: ColumnElement, family_col: ColumnElement
+) -> ColumnElement:
     """Single trimmed display string for SQL selects (PostgreSQL ``concat_ws``)."""
     return func.nullif(func.trim(func.concat_ws(" ", first_col, father_col, family_col)), "")

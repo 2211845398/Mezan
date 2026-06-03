@@ -72,7 +72,9 @@ class ProductionOrder(Base):
         ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     qty_to_produce: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
-    qty_produced: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False, default=Decimal("0"))
+    qty_produced: Mapped[Decimal] = mapped_column(
+        Numeric(14, 4), nullable=False, default=Decimal("0")
+    )
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="draft"
     )  # draft, issued, in_progress, completed, cancelled
@@ -80,8 +82,12 @@ class ProductionOrder(Base):
     planned_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     actual_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     actual_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    total_cost_issued: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0"))
-    finished_goods_value: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0"))
+    total_cost_issued: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), nullable=False, default=Decimal("0")
+    )
+    finished_goods_value: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), nullable=False, default=Decimal("0")
+    )
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -139,7 +145,9 @@ class ProductionOrderReceipt(Base):
         ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     qty_received: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
-    unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)  # Calculated from total WIP cost
+    unit_cost: Mapped[Decimal] = mapped_column(
+        Numeric(14, 4), nullable=False
+    )  # Calculated from total WIP cost
     total_cost: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False

@@ -23,8 +23,8 @@ from app.services.cart_service import (
     apply_loyalty_discount,
     change_state,
     create_cart,
-    patch_cart_customer,
     list_carts_read,
+    patch_cart_customer,
     read_cart_as_schema,
     upsert_line,
 )
@@ -152,7 +152,6 @@ async def change_state_endpoint(
     )
     await db.commit()
     return await read_cart_as_schema(db, cart_id=cart.id)
-
 
 
 @router.patch("/pos/carts/{cart_id}", response_model=CartRead)

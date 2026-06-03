@@ -8,14 +8,15 @@ import pytest
 from sqlalchemy import select
 
 from app.models.category import Category
-from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.services.catalog_service import create_product, search_product_variants_for_purchasing
 
 
 @pytest.mark.asyncio
 async def test_variant_search_does_not_match_barcode_only(db_session) -> None:
-    cat = Category(name="Search Cat", slug=f"sc-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="Search Cat", slug=f"sc-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
 

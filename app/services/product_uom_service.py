@@ -43,7 +43,11 @@ async def validate_po_line_uom(db: AsyncSession, *, product_id: int, uom_id: int
     if int(uom_id) not in allowed:
         raise ValidationError(
             "Unit of measure is not configured for this product",
-            details={"product_id": product_id, "uom_id": uom_id, "allowed_uom_ids": sorted(allowed)},
+            details={
+                "product_id": product_id,
+                "uom_id": uom_id,
+                "allowed_uom_ids": sorted(allowed),
+            },
         )
 
 

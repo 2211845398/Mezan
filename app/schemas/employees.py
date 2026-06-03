@@ -8,12 +8,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.pagination import PaginatedListResponse
 from app.utils.libyan_validators import (
     validate_annual_leave_entitlement_days,
     validate_employee_identity_and_bank,
 )
-
-from app.schemas.pagination import PaginatedListResponse
 
 
 class EmployeeProfileCreate(BaseModel):
@@ -61,6 +60,7 @@ class EmployeeProfileUpdate(BaseModel):
             identity_document_number=self.identity_document_number,
             bank_account=self.bank_account,
         )
+
     # Linked user (via employees:update); email and status are not editable here.
     subject_first_name: str | None = None
     subject_father_name: str | None = None

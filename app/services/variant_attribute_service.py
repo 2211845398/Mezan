@@ -5,14 +5,13 @@ from __future__ import annotations
 import csv
 import io
 from datetime import UTC, datetime
-from typing import Any
+from decimal import Decimal
 
 from sqlalchemy import delete, exists, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.errors import ConflictError, NotFoundError, ValidationError
-from decimal import Decimal
 
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.catalog_attribute import CatalogAttribute
 from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.product import Product
@@ -39,8 +38,8 @@ from app.services.catalog_service import (
     get_product,
     product_to_read,
 )
-from app.utils.variant_combination_key import build_combination_key
 from app.utils.smart_sku import format_variant_sku, validate_sku_reference
+from app.utils.variant_combination_key import build_combination_key
 from app.utils.variant_combinator import cartesian_product_combos
 
 
@@ -220,9 +219,7 @@ async def sync_product_attribute_lines(
     out: list[ProductAxisLineRead] = []
     for sort_idx, attr_id in enumerate(order):
         val_ids = axes[attr_id]
-        attr_res = await db.execute(
-            select(CatalogAttribute).where(CatalogAttribute.id == attr_id)
-        )
+        attr_res = await db.execute(select(CatalogAttribute).where(CatalogAttribute.id == attr_id))
         attr = attr_res.scalar_one()
         line = ProductAttributeLine(
             product_id=product_id,
@@ -287,16 +284,14 @@ async def load_product_attribute_axes(
 async def _existing_variant_value_sets(
     db: AsyncSession, product_id: int
 ) -> dict[int, frozenset[int]]:
-    res = await db.execute(
-        select(ProductVariant.id)
-        .where(ProductVariant.product_id == product_id)
-    )
+    res = await db.execute(select(ProductVariant.id).where(ProductVariant.product_id == product_id))
     variant_ids = [int(v) for v in res.scalars().all()]
     if not variant_ids:
         return {}
     pva_res = await db.execute(
-        select(ProductVariantAttribute.variant_id, ProductVariantAttribute.attribute_value_id)
-        .where(ProductVariantAttribute.variant_id.in_(variant_ids))
+        select(
+            ProductVariantAttribute.variant_id, ProductVariantAttribute.attribute_value_id
+        ).where(ProductVariantAttribute.variant_id.in_(variant_ids))
     )
     buckets: dict[int, set[int]] = {vid: set() for vid in variant_ids}
     for vid, val_id in pva_res.all():
@@ -346,9 +341,7 @@ async def _variant_has_inventory_activity(db: AsyncSession, variant_id: int) -> 
     total = res.scalar_one()
     if total is not None and total > 0:
         return True
-    mov_res = await db.execute(
-        select(exists().where(StockMovement.variant_id == variant_id))
-    )
+    mov_res = await db.execute(select(exists().where(StockMovement.variant_id == variant_id)))
     return bool(mov_res.scalar_one())
 
 
@@ -445,9 +438,7 @@ async def sync_product_variants(
     )
     by_id: dict[int, ProductVariant] = {int(v.id): v for v in existing_res.scalars().all()}
     existing_sets = await _existing_variant_value_sets(db, product_id)
-    set_to_vid: dict[frozenset[int], int] = {
-        s: vid for vid, s in existing_sets.items() if s
-    }
+    set_to_vid: dict[frozenset[int], int] = {s: vid for vid, s in existing_sets.items() if s}
 
     requested_sets: dict[frozenset[int], VariantSyncRow] = {}
     for row in body.variants:
@@ -585,9 +576,7 @@ async def sync_product_variants(
     )
 
 
-async def get_product_with_variants(
-    db: AsyncSession, product_id: int
-) -> ProductWithVariantsRead:
+async def get_product_with_variants(db: AsyncSession, product_id: int) -> ProductWithVariantsRead:
     """Product template detail with saved axes and variant rows."""
     from app.core.errors import ValidationError as AppValidationError
     from app.models.branch_product_costs import BranchProductCost
@@ -623,7 +612,9 @@ async def get_product_with_variants(
         value_ids = sorted(pva_map.get(int(v.id), []))
         if value_ids:
             summary = await _attribute_summary_for_value_ids(db, value_ids)
-            labels = [s.label for s in sorted(summary, key=lambda s: (s.attribute_code, s.value_code))]
+            labels = [
+                s.label for s in sorted(summary, key=lambda s: (s.attribute_code, s.value_code))
+            ]
             display = variant_display_label(product.name, labels)
         else:
             display = v.sku.strip() or product.name.strip()
@@ -703,9 +694,7 @@ async def filter_variants_by_attribute_value(
 async def generate_missing_variant_barcodes(db: AsyncSession, *, product_id: int) -> int:
     """Assign internal EAN-13 to variants of this product that lack a barcode."""
     await get_product(db, product_id)
-    res = await db.execute(
-        select(ProductVariant).where(ProductVariant.product_id == product_id)
-    )
+    res = await db.execute(select(ProductVariant).where(ProductVariant.product_id == product_id))
     assigned = 0
     for pv in res.scalars().all():
         if assign_variant_barcode_if_missing(pv):
@@ -742,14 +731,14 @@ async def export_variant_barcodes_csv(
     buf = io.StringIO()
     buf.write("\ufeff")
     writer = csv.writer(buf)
-    writer.writerow(
-        ["variant_label", "system_sku", "reference_code", "barcode", "active"]
-    )
+    writer.writerow(["variant_label", "system_sku", "reference_code", "barcode", "active"])
     for v in variants:
         value_ids = sorted(pva_map.get(int(v.id), []))
         if value_ids:
             summary = await _attribute_summary_for_value_ids(db, value_ids)
-            labels = [s.label for s in sorted(summary, key=lambda s: (s.attribute_code, s.value_code))]
+            labels = [
+                s.label for s in sorted(summary, key=lambda s: (s.attribute_code, s.value_code))
+            ]
             label = variant_display_label(product.name, labels)
         else:
             label = v.sku.strip() or product.name.strip()

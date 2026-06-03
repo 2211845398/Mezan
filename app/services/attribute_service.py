@@ -384,9 +384,7 @@ async def delete_attribute(db: AsyncSession, attribute_id: int) -> None:
     await db.flush()
 
 
-async def delete_attribute_value(
-    db: AsyncSession, attribute_id: int, value_id: int
-) -> None:
+async def delete_attribute_value(db: AsyncSession, attribute_id: int, value_id: int) -> None:
     row = await get_attribute_value(db, value_id)
     if row.attribute_id != attribute_id:
         raise ValidationError(
@@ -444,9 +442,7 @@ async def merge_attribute_values(
 
     for sid in source_ids:
         pivot_res = await db.execute(
-            select(ProductVariantAttribute).where(
-                ProductVariantAttribute.attribute_value_id == sid
-            )
+            select(ProductVariantAttribute).where(ProductVariantAttribute.attribute_value_id == sid)
         )
         for pva in pivot_res.scalars().all():
             affected_variant_ids.add(int(pva.variant_id))

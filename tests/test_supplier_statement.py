@@ -15,13 +15,12 @@ from app.models.category import Category
 from app.models.chart_accounts import ChartAccount
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
-from app.models.suppliers import Supplier
 from app.services.goods_receipt_service import receive_goods_for_purchase_order
 from app.services.purchase_order_service import create_po, mark_po_sent
 from app.services.seed_service import seed_accounting_defaults
 from app.services.subledger_service import apply_ap_payment, create_ap_open_item
-from app.services.supplier_statement_service import get_supplier_evaluation, get_supplier_statement
 from app.services.supplier_service import create_supplier
+from app.services.supplier_statement_service import get_supplier_evaluation, get_supplier_statement
 
 
 @pytest.mark.asyncio

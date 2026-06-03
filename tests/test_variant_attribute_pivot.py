@@ -9,10 +9,7 @@ from sqlalchemy import select
 
 from app.core.errors import ConflictError, ValidationError
 from app.models.branch import Branch
-from app.models.catalog_attribute import CatalogAttribute
-from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.category import Category
-from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.product_variant_attribute import ProductVariantAttribute
 from app.schemas.attributes import (
@@ -29,8 +26,8 @@ from app.services.attribute_service import (
     update_attribute_value,
 )
 from app.services.catalog_service import create_product, search_product_variants_for_purchasing
-from app.services.purchase_order_service import validate_variant_belongs_to_product
 from app.services.inventory_service import apply_stock_movement
+from app.services.purchase_order_service import validate_variant_belongs_to_product
 from app.services.variant_attribute_service import (
     preview_generate_variants,
     sync_product_attribute_lines,
@@ -51,9 +48,7 @@ async def test_preview_generate_cartesian(db_session) -> None:
     color_attr = await create_attribute(
         db_session, CatalogAttributeCreate(code="color", name="Color")
     )
-    size_attr = await create_attribute(
-        db_session, CatalogAttributeCreate(code="size", name="Size")
-    )
+    size_attr = await create_attribute(db_session, CatalogAttributeCreate(code="size", name="Size"))
     red = await create_attribute_value(
         db_session,
         color_attr.id,
@@ -108,7 +103,7 @@ async def test_preview_generate_cartesian(db_session) -> None:
 
 @pytest.mark.asyncio
 async def test_create_attribute_value_assigns_val_for_arabic_label(db_session) -> None:
-    catalog_category = await _leaf_category(db_session)
+    await _leaf_category(db_session)
     color_attr = await create_attribute(
         db_session, CatalogAttributeCreate(code="color", name="Color")
     )
@@ -176,9 +171,9 @@ async def test_sync_creates_pivot_rows(db_session) -> None:
     assert result.created == 1
 
     pva = await db_session.execute(
-        select(ProductVariantAttribute).join(
-            ProductVariant, ProductVariant.id == ProductVariantAttribute.variant_id
-        ).where(ProductVariant.product_id == product.id)
+        select(ProductVariantAttribute)
+        .join(ProductVariant, ProductVariant.id == ProductVariantAttribute.variant_id)
+        .where(ProductVariant.product_id == product.id)
     )
     rows = pva.scalars().all()
     assert len(rows) == 1
@@ -189,9 +184,7 @@ async def test_sync_creates_pivot_rows(db_session) -> None:
 async def test_preview_without_category_variant_defs(db_session) -> None:
     """Axes come from the global catalog without category-bound definitions."""
     catalog_category = await _leaf_category(db_session)
-    color_attr = await create_attribute(
-        db_session, CatalogAttributeCreate(code="hue", name="Hue")
-    )
+    color_attr = await create_attribute(db_session, CatalogAttributeCreate(code="hue", name="Hue"))
     red = await create_attribute_value(
         db_session,
         color_attr.id,

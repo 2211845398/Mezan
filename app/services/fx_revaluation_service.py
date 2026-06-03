@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,7 +55,9 @@ async def _base_currency_code(db: AsyncSession, settings: AccountingSettings) ->
     return str(code).strip()
 
 
-def _fx_base_delta(*, amount_open: Decimal, original_rate: Decimal, current_rate: Decimal) -> Decimal:
+def _fx_base_delta(
+    *, amount_open: Decimal, original_rate: Decimal, current_rate: Decimal
+) -> Decimal:
     open_amt = Decimal(str(amount_open))
     booked_base = q2(open_amt * original_rate)
     current_base = q2(open_amt * current_rate)

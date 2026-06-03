@@ -79,7 +79,9 @@ async def apply_human_inventory_movement(
 ) -> StockMovement:
     """Map a business transaction to stock level deltas + ledger row."""
     resolved_variant_id = (
-        variant_id if variant_id is not None else await resolve_default_variant_id(db, product_id=product_id)
+        variant_id
+        if variant_id is not None
+        else await resolve_default_variant_id(db, product_id=product_id)
     )
     level = await _stock_level_for_variant(
         db,
@@ -100,14 +102,18 @@ async def apply_human_inventory_movement(
 
     if transaction_type == "count_adjust":
         if qty_signed is None:
-            validation_error("qty_signed_required_count_adjust", "qty_signed is required for count_adjust")
+            validation_error(
+                "qty_signed_required_count_adjust", "qty_signed is required for count_adjust"
+            )
         if qty_signed == 0:
             validation_error("qty_signed_zero", "qty_signed cannot be zero")
         on_hand_delta = int(qty_signed)
         q = abs(on_hand_delta)
     elif transaction_type == "release":
         if reserve_movement_id is None:
-            validation_error("reserve_movement_id_required", "reserve_movement_id is required for release")
+            validation_error(
+                "reserve_movement_id_required", "reserve_movement_id is required for release"
+            )
         if quantity is None or quantity <= 0:
             validation_error("quantity_positive_required", "quantity must be a positive integer")
         q = int(quantity)

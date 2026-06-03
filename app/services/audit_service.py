@@ -26,7 +26,11 @@ async def log(
     (e.g. sync counters, FX run metadata). Pass ``new_value`` for full resource snapshots.
     """
     if new_value is not None and details is not None:
-        payload: dict | list | None = {**details, **new_value} if isinstance(details, dict) and isinstance(new_value, dict) else new_value
+        payload: dict | list | None = (
+            {**details, **new_value}
+            if isinstance(details, dict) and isinstance(new_value, dict)
+            else new_value
+        )
     elif new_value is not None:
         payload = new_value
     else:

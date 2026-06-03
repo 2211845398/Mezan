@@ -5,15 +5,16 @@ Revises: n7o8p9q0r1s2
 Create Date: 2026-05-23
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "o8p9q0r1s2t3"
-down_revision: Union[str, None] = "n7o8p9q0r1s2"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "n7o8p9q0r1s2"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 DEFAULT_UOMS = [
     ("PIECE", "Piece", "pcs"),
@@ -44,13 +45,18 @@ def upgrade() -> None:
     )
     op.bulk_insert(
         uom,
-        [{"id": i + 1, "code": c, "name": n, "symbol": s} for i, (c, n, s) in enumerate(DEFAULT_UOMS)],
+        [
+            {"id": i + 1, "code": c, "name": n, "symbol": s}
+            for i, (c, n, s) in enumerate(DEFAULT_UOMS)
+        ],
     )
 
     op.add_column("products", sa.Column("uom_id", sa.Integer(), nullable=True))
     conn = op.get_bind()
     conn.execute(
-        sa.text("UPDATE products SET uom_id = (SELECT id FROM units_of_measure WHERE code = 'PIECE' LIMIT 1)")
+        sa.text(
+            "UPDATE products SET uom_id = (SELECT id FROM units_of_measure WHERE code = 'PIECE' LIMIT 1)"
+        )
     )
     op.alter_column("products", "uom_id", nullable=False)
     op.create_foreign_key(

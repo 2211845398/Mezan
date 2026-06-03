@@ -66,6 +66,8 @@ export type NavItem = {
   icon: LucideIcon;
   href: string;
   permission?: Permission;
+  /** Hide when the user has any of these base role codes. */
+  denyRoleCodes?: readonly string[];
   /** Optional grouping label in the sidebar (top-level items only). */
   section?: NavSection;
   children?: NavItem[];
@@ -124,7 +126,7 @@ export const navigation: NavItem[] = [
         labelKey: 'nav.catalog_attributes',
         icon: SlidersHorizontal,
         href: '/catalog/attributes',
-        permission: { resource: 'catalog', action: 'read' },
+        permission: { resource: 'catalog', action: 'update' },
       },
     ],
   },
@@ -155,6 +157,13 @@ export const navigation: NavItem[] = [
         icon: ArrowLeftRight,
         href: '/inventory/transfers',
         permission: { resource: 'inventory', action: 'read' },
+      },
+      {
+        key: 'inventory-stock-count',
+        labelKey: 'nav.inventory_stock_count',
+        icon: ClipboardList,
+        href: '/inventory/stock-count',
+        permission: { resource: 'stock_adjustments', action: 'create' },
       },
     ],
   },
@@ -224,6 +233,7 @@ export const navigation: NavItem[] = [
         icon: CalendarX,
         href: '/hr/leave',
         permission: { resource: 'employees', action: 'read' },
+        denyRoleCodes: ['OWNER', 'ADMIN'],
         badge: 'leave_pending',
       },
       {
@@ -262,6 +272,13 @@ export const navigation: NavItem[] = [
         icon: Banknote,
         href: '/payroll/runs',
         permission: { resource: 'payroll', action: 'read' },
+      },
+      {
+        key: 'payroll-approvals',
+        labelKey: 'nav.payroll_approvals',
+        icon: ShieldCheck,
+        href: '/payroll/approvals',
+        permission: { resource: 'payroll', action: 'approve' },
       },
     ],
   },
@@ -377,6 +394,14 @@ export const navigation: NavItem[] = [
         labelKey: 'nav.crm_customers',
         icon: Users,
         href: '/crm/customers',
+        permission: { resource: 'customers', action: 'read' },
+        denyRoleCodes: ['MARKETING_MANAGER', 'FLOOR_STAFF'],
+      },
+      {
+        key: 'crm-customers-new',
+        labelKey: 'nav.crm_customers_new',
+        icon: UserCheck,
+        href: '/crm/customers/new',
         permission: { resource: 'customers', action: 'create' },
       },
       {

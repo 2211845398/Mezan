@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.accounting_settings import AccountingSettings
 from app.models.payment_terms import PaymentTerm
 from app.models.suppliers import Supplier
-from app.services.seed_service import seed_accounting_defaults
 from app.services.payment_terms_service import due_date_from_supplier, parse_net_days_from_text
+from app.services.seed_service import seed_accounting_defaults
 from app.services.supplier_service import _next_supplier_code
 
 

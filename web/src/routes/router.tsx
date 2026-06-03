@@ -4,7 +4,13 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AdminLayoutOutlet from '@/components/layout/AdminLayoutOutlet';
 import AuthLayoutOutlet from '@/components/layout/AuthLayoutOutlet';
 
-import { RequireAuth, RequireBranchContext, RequireOrgNotificationManager, RequirePermission } from './guards';
+import {
+  RequireAuth,
+  RequireBranchContext,
+  RequireOrgNotificationManager,
+  RequirePermission,
+  RequirePersonalLeaveAccess,
+} from './guards';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import RouteLoader from './RouteLoader';
 
@@ -357,7 +363,7 @@ export const router = createBrowserRouter([
               {
                 path: 'attributes',
                 element: (
-                  <RequirePermission resource="catalog" action="read">
+                  <RequirePermission resource="catalog" action="update">
                     {withSuspense(CatalogAttributesPage)}
                   </RequirePermission>
                 ),
@@ -827,9 +833,9 @@ export const router = createBrowserRouter([
                   {
                     index: true,
                     element: (
-                      <RequirePermission resource="employees" action="read">
+                      <RequirePersonalLeaveAccess>
                         {withSuspense(HrLeaveList)}
-                      </RequirePermission>
+                      </RequirePersonalLeaveAccess>
                     ),
                   },
                 ],

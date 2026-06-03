@@ -19,8 +19,6 @@ from app.schemas.transfers import (
     TransferBatchUpdate,
     TransferLineRead,
 )
-from app.utils.person_name import person_name_sql_expr
-from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 from app.services import audit_service
 from app.services.product_uom_service import uom_map_for_ids
 from app.services.transfer_service import (
@@ -32,11 +30,15 @@ from app.services.transfer_service import (
     receive_batch,
     update_pending_batch,
 )
+from app.utils.person_name import person_name_sql_expr
+from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 
 router = APIRouter()
 
 
-async def _transfer_batches_to_read(db: AsyncSession, batches: list[TransferBatch]) -> list[TransferBatchRead]:
+async def _transfer_batches_to_read(
+    db: AsyncSession, batches: list[TransferBatch]
+) -> list[TransferBatchRead]:
     if not batches:
         return []
     bids: set[int] = set()

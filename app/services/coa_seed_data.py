@@ -84,8 +84,20 @@ COA_SEED_FOREST: tuple[CoaSeedNode, ...] = (
                         "النقد وما يعادله",
                         AccountType.ASSET,
                         (
-                            _leaf("1000", "Cash on Hand", "النقدية بالصندوق", AccountType.ASSET, is_system=True),
-                            _leaf("1010", "Card Clearing", "تسوية البطاقات", AccountType.ASSET, is_system=True),
+                            _leaf(
+                                "1000",
+                                "Cash on Hand",
+                                "النقدية بالصندوق",
+                                AccountType.ASSET,
+                                is_system=True,
+                            ),
+                            _leaf(
+                                "1010",
+                                "Card Clearing",
+                                "تسوية البطاقات",
+                                AccountType.ASSET,
+                                is_system=True,
+                            ),
                             _leaf(
                                 "1015",
                                 "Other Payments Clearing",
@@ -136,9 +148,7 @@ COA_SEED_FOREST: tuple[CoaSeedNode, ...] = (
                         "Inventory",
                         "المخزون",
                         AccountType.ASSET,
-                        (
-                            _leaf("1200", "Inventory", "المخزون", AccountType.ASSET, is_system=True),
-                        ),
+                        (_leaf("1200", "Inventory", "المخزون", AccountType.ASSET, is_system=True),),
                         is_system=True,
                     ),
                     _group(
@@ -154,7 +164,15 @@ COA_SEED_FOREST: tuple[CoaSeedNode, ...] = (
                         "Work in Progress",
                         "أعمال تحت التنفيذ",
                         AccountType.ASSET,
-                        (_leaf("1310", "WIP Inventory", "مخزون تحت التنفيذ", AccountType.ASSET, is_system=True),),
+                        (
+                            _leaf(
+                                "1310",
+                                "WIP Inventory",
+                                "مخزون تحت التنفيذ",
+                                AccountType.ASSET,
+                                is_system=True,
+                            ),
+                        ),
                         is_system=True,
                     ),
                 ),
@@ -222,7 +240,13 @@ COA_SEED_FOREST: tuple[CoaSeedNode, ...] = (
                         "التزامات الرواتب",
                         AccountType.LIABILITY,
                         (
-                            _leaf("2100", "Payroll Liability", "التزامات رواتب", AccountType.LIABILITY, is_system=True),
+                            _leaf(
+                                "2100",
+                                "Payroll Liability",
+                                "التزامات رواتب",
+                                AccountType.LIABILITY,
+                                is_system=True,
+                            ),
                             _leaf(
                                 "2110",
                                 "Payroll Deductions Payable",
@@ -233,7 +257,13 @@ COA_SEED_FOREST: tuple[CoaSeedNode, ...] = (
                         ),
                         is_system=True,
                     ),
-                    _leaf("2200", "Output VAT Payable", "ضريبة مخرجات مستحقة", AccountType.LIABILITY, is_system=True),
+                    _leaf(
+                        "2200",
+                        "Output VAT Payable",
+                        "ضريبة مخرجات مستحقة",
+                        AccountType.LIABILITY,
+                        is_system=True,
+                    ),
                     _leaf(
                         "2150",
                         "Loyalty Points Liability",
@@ -246,7 +276,11 @@ COA_SEED_FOREST: tuple[CoaSeedNode, ...] = (
                         "Accrued Expenses",
                         "مصروفات مستحقة",
                         AccountType.LIABILITY,
-                        (_leaf("2160", "Accrued Expenses", "مصروفات مستحقة", AccountType.LIABILITY),),
+                        (
+                            _leaf(
+                                "2160", "Accrued Expenses", "مصروفات مستحقة", AccountType.LIABILITY
+                            ),
+                        ),
                     ),
                     _group(
                         "21700",
@@ -311,22 +345,54 @@ COA_SEED_FOREST: tuple[CoaSeedNode, ...] = (
         "المصروفات",
         AccountType.EXPENSE,
         (
-            _leaf("5000", "Cost of Goods Sold", "تكلفة البضاعة المباعة", AccountType.EXPENSE, is_system=True),
+            _leaf(
+                "5000",
+                "Cost of Goods Sold",
+                "تكلفة البضاعة المباعة",
+                AccountType.EXPENSE,
+                is_system=True,
+            ),
             _leaf("5010", "Cost of Services", "تكلفة الخدمات", AccountType.EXPENSE),
             _leaf("5020", "Inventory Shortage", "عجز مخزون", AccountType.EXPENSE, is_system=True),
             _leaf("5030", "Inventory Damaged", "مخزون تالف", AccountType.EXPENSE, is_system=True),
-            _leaf("4090", "Sales Discounts", "خصومات المبيعات", AccountType.EXPENSE, is_system=True),
+            _leaf(
+                "4090", "Sales Discounts", "خصومات المبيعات", AccountType.EXPENSE, is_system=True
+            ),
             _group(
                 "60000",
                 "Operating Expenses",
                 "مصروفات تشغيلية",
                 AccountType.EXPENSE,
                 (
-                    _leaf("6000", "Salary Expense", "مصروف الرواتب", AccountType.EXPENSE, is_system=True),
-                    _leaf("6100", "Loyalty / Marketing Expense", "مصروف ولاء/تسويق", AccountType.EXPENSE, is_system=True),
-                    _leaf("1020", "Cash Over and Short", "فائض وعجز نقدي", AccountType.EXPENSE, is_system=True),
+                    _leaf(
+                        "6000",
+                        "Salary Expense",
+                        "مصروف الرواتب",
+                        AccountType.EXPENSE,
+                        is_system=True,
+                    ),
+                    _leaf(
+                        "6100",
+                        "Loyalty / Marketing Expense",
+                        "مصروف ولاء/تسويق",
+                        AccountType.EXPENSE,
+                        is_system=True,
+                    ),
+                    _leaf(
+                        "1020",
+                        "Cash Over and Short",
+                        "فائض وعجز نقدي",
+                        AccountType.EXPENSE,
+                        is_system=True,
+                    ),
                     _leaf("6040", "Rent Expense", "مصروف إيجار", AccountType.EXPENSE),
-                    _leaf("6050", "Other Expenses", "مصروفات أخرى", AccountType.EXPENSE, is_system=True),
+                    _leaf(
+                        "6050",
+                        "Other Expenses",
+                        "مصروفات أخرى",
+                        AccountType.EXPENSE,
+                        is_system=True,
+                    ),
                     _leaf("6060", "Bank Fees", "رسوم بنكية", AccountType.EXPENSE),
                     _leaf("6070", "Utilities", "مرافق", AccountType.EXPENSE),
                 ),

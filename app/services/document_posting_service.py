@@ -225,7 +225,11 @@ async def post_sales_invoice_gl(
 
         # Walk-in, or customer cart settled in full at the register → settlement accounts (not full AR accrual).
         if invoice.customer_id is None or paid >= total or remainder <= Decimal("0"):
-            key = f"sales_invoice:{invoice.id}:pos_cash" if invoice.customer_id is None else f"sales_invoice:{invoice.id}:pos_settlement"
+            key = (
+                f"sales_invoice:{invoice.id}:pos_cash"
+                if invoice.customer_id is None
+                else f"sales_invoice:{invoice.id}:pos_settlement"
+            )
             desc = (
                 f"Sales invoice {invoice.invoice_number}"
                 if invoice.customer_id is None
@@ -236,14 +240,14 @@ async def post_sales_invoice_gl(
 
         # Customer + partial tender: cash (or card/transfer clearing) + AR remainder
         if paid <= Decimal("0"):
-            raise ValidationError("Recorded payments must be greater than zero for partial settlement")
+            raise ValidationError(
+                "Recorded payments must be greater than zero for partial settlement"
+            )
         tender = await _first_invoice_payment_tender(db, invoice.id)
         settle_id = await _settlement_account_id(
             db, settings, tender, branch_id=branch_id, terminal_id=terminal_id
         )
-        ar_account = await resolve_ar_account_id(
-            db, settings, customer_id=invoice.customer_id
-        )
+        ar_account = await resolve_ar_account_id(db, settings, customer_id=invoice.customer_id)
         ar_line: dict = {
             "account_id": ar_account,
             "branch_id": branch_id,
@@ -309,9 +313,7 @@ async def post_sales_return_gl(
     orig = inv_res.scalar_one_or_none()
     return_customer_id: int | None = None
     if orig and orig.customer_id is not None:
-        settle_id = await resolve_ar_account_id(
-            db, settings, customer_id=orig.customer_id
-        )
+        settle_id = await resolve_ar_account_id(db, settings, customer_id=orig.customer_id)
         return_customer_id = orig.customer_id
     else:
         tender = await _first_invoice_payment_tender(db, sales_invoice_id)
@@ -586,9 +588,7 @@ async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> N
     if total_ext <= 0:
         return
 
-    ap_account_id = await resolve_ap_account_id(
-        db, settings, supplier_id=receipt.supplier_id
-    )
+    ap_account_id = await resolve_ap_account_id(db, settings, supplier_id=receipt.supplier_id)
     inventory_account_id = await resolve_posting_account_id(
         db, settings.default_inventory_account_id
     )

@@ -148,12 +148,12 @@ async def general_ledger_lines(
 
     cust_names: dict[int, str] = {}
     if cust_ids:
-        c_res = await db.execute(
-            select(CustomerProfile).where(CustomerProfile.id.in_(cust_ids))
-        )
+        c_res = await db.execute(select(CustomerProfile).where(CustomerProfile.id.in_(cust_ids)))
         for c in c_res.scalars().all():
             cust_names[int(c.id)] = (
-                display_person_name(c.first_name, c.father_name, c.family_name) or c.phone or f"#{c.id}"
+                display_person_name(c.first_name, c.father_name, c.family_name)
+                or c.phone
+                or f"#{c.id}"
             )
 
     sup_names: dict[int, str] = {}
@@ -169,7 +169,9 @@ async def general_ledger_lines(
         )
         for r in s_res.all():
             sup_names[int(r.id)] = (
-                display_person_name(r.first_name, r.father_name, r.family_name) or r.code or f"#{r.id}"
+                display_person_name(r.first_name, r.father_name, r.family_name)
+                or r.code
+                or f"#{r.id}"
             )
 
     emp_names: dict[int, str] = {}
@@ -182,7 +184,10 @@ async def general_ledger_lines(
             .where(EmployeeProfile.id.in_(emp_ids))
         )
         for r in e_res.all():
-            emp_names[int(r.id)] = display_person_name(r.first_name, r.father_name, r.family_name) or f"Employee #{r.id}"
+            emp_names[int(r.id)] = (
+                display_person_name(r.first_name, r.father_name, r.family_name)
+                or f"Employee #{r.id}"
+            )
 
     running = Decimal("0")
     out: list[dict] = []

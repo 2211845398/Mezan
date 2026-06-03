@@ -26,10 +26,10 @@ from app.models.payslip import Payslip, PayslipStatus
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
 from app.schemas.payroll import PayslipRead
-from app.utils.person_name import person_name_sql_expr
 from app.services import employee_service as employee_service_module
 from app.services.attendance_payroll_engine import compute_period_payroll_components
 from app.services.document_posting_service import post_payslip_approved_gl
+from app.utils.person_name import person_name_sql_expr
 
 MONEY_Q = Decimal("0.01")
 
@@ -95,7 +95,9 @@ def assert_calendar_month_payroll_actions_allowed(
         )
 
 
-def is_approval_open_for_calendar_month(year: int, month: int, *, today: date | None = None) -> bool:
+def is_approval_open_for_calendar_month(
+    year: int, month: int, *, today: date | None = None
+) -> bool:
     ref = today if today is not None else _utc_today()
     opens = approval_opens_on_for_month(year, month)
     return ref >= opens
@@ -277,7 +279,7 @@ async def generate_payslip(
         if found:
             return found, False
 
-    employee = await _get_employee_profile(db, employee_profile_id)
+    await _get_employee_profile(db, employee_profile_id)
 
     existing = await db.execute(
         select(Payslip).where(

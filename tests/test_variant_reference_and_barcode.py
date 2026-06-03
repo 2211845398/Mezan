@@ -109,7 +109,9 @@ async def test_reference_code_unique(db_session) -> None:
             db_session,
             product_id=p2.id,
             body=VariantSyncRequest(
-                variants=[VariantSyncRow(attribute_value_ids=[], reference_code="SHARED", active=True)]
+                variants=[
+                    VariantSyncRow(attribute_value_ids=[], reference_code="SHARED", active=True)
+                ]
             ),
         )
         await db_session.flush()
@@ -138,7 +140,9 @@ async def test_export_variant_barcodes_csv(db_session) -> None:
     )
     await db_session.commit()
 
-    csv_text = await export_variant_barcodes_csv(db_session, product_id=product.id, active_only=True)
+    csv_text = await export_variant_barcodes_csv(
+        db_session, product_id=product.id, active_only=True
+    )
     assert "system_sku" in csv_text
     assert "reference_code" in csv_text
     assert "EXP-001" in csv_text

@@ -55,7 +55,9 @@ async def test_post_rejects_control_account(db_session) -> None:
                         await db_session.execute(
                             select(ChartAccount).where(ChartAccount.code == "1000")
                         )
-                    ).scalar_one().id,
+                    )
+                    .scalar_one()
+                    .id,
                     "branch_id": branch.id,
                     "debit": Decimal("0"),
                     "credit": Decimal("10"),

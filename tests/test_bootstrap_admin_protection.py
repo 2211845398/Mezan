@@ -24,7 +24,9 @@ def _user(email: str) -> User:
     )
 
 
-def test_is_bootstrap_protected_matches_configured_email_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_is_bootstrap_protected_matches_configured_email_case_insensitive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(settings, "DEFAULT_ADMIN_EMAIL", "Owner@Example.com")
     u = _user("  owner@example.com  ")
     assert bap.is_bootstrap_protected_user(u) is True

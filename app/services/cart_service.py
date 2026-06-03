@@ -12,8 +12,6 @@ from app.core.errors import (
     NotFoundError,
     StateTransitionError,
     ValidationError,
-    not_found_error,
-    state_transition_error,
     validation_error,
 )
 from app.models.discount import DiscountRule, DiscountType, DiscountUsageLog
@@ -89,7 +87,9 @@ def _assert_transition(current: str, action: str) -> str:
     return nxt
 
 
-async def _next_daily_cart_number(db: AsyncSession, branch_id: int, cart_date: date | None = None) -> int:
+async def _next_daily_cart_number(
+    db: AsyncSession, branch_id: int, cart_date: date | None = None
+) -> int:
     """Get the next cart number for a branch on a given date (Epic 21.1)."""
     if cart_date is None:
         cart_date = datetime.now(UTC).date()
@@ -386,9 +386,7 @@ async def apply_discount(
                 details={"target_product_ids": list(targets)},
             )
     else:
-        eligible = q2(
-            sum(q2(ln.unit_price * Decimal(int(ln.qty))) for ln in positive_lines)
-        )
+        eligible = q2(sum(q2(ln.unit_price * Decimal(int(ln.qty))) for ln in positive_lines))
 
     discount_amount = _discount_amount_from_rule(rule=rule, eligible_subtotal=eligible)
 
@@ -457,9 +455,7 @@ async def apply_loyalty_discount(
     lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
     lines = list(lines_res.scalars().all())
     positive_lines = [ln for ln in lines if int(ln.qty or 0) > 0]
-    subtotal_net = q2(
-        sum(q2(ln.unit_price * Decimal(int(ln.qty))) for ln in positive_lines)
-    )
+    subtotal_net = q2(sum(q2(ln.unit_price * Decimal(int(ln.qty))) for ln in positive_lines))
     if subtotal_net <= 0:
         raise ValidationError(
             "Cart has no positive line subtotal for loyalty discount",
@@ -547,7 +543,9 @@ async def change_state(db: AsyncSession, *, cart_id: int, action: str, user_id: 
         raise NotFoundError("Cart not found")
     if action in ("lock", "park"):
         lines_chk = await db.execute(
-            select(PosCartLine.id).where(PosCartLine.cart_id == cart.id, PosCartLine.qty > 0).limit(1)
+            select(PosCartLine.id)
+            .where(PosCartLine.cart_id == cart.id, PosCartLine.qty > 0)
+            .limit(1)
         )
         if lines_chk.scalar_one_or_none() is None:
             msg = (
@@ -656,9 +654,7 @@ async def _load_cart_catalog_maps(
             uom_by_id = {int(u.id): u for u in ures.scalars().all()}
     variants: dict[int, ProductVariant] = {}
     if variant_ids:
-        vres = await db.execute(
-            select(ProductVariant).where(ProductVariant.id.in_(variant_ids))
-        )
+        vres = await db.execute(select(ProductVariant).where(ProductVariant.id.in_(variant_ids)))
         variants = {v.id: v for v in vres.scalars().all()}
     return prods, variants, uom_by_id
 

@@ -6,22 +6,29 @@ Create Date: 2026-05-17
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "d4f8a1c2e3b0"
-down_revision: Union[str, None] = "c8e2f4a1b9d0"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "c8e2f4a1b9d0"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
     # --- customer_profiles ---
-    op.add_column("customer_profiles", sa.Column("first_name", sa.String(length=255), nullable=True))
-    op.add_column("customer_profiles", sa.Column("father_name", sa.String(length=255), nullable=True))
-    op.add_column("customer_profiles", sa.Column("family_name", sa.String(length=255), nullable=True))
+    op.add_column(
+        "customer_profiles", sa.Column("first_name", sa.String(length=255), nullable=True)
+    )
+    op.add_column(
+        "customer_profiles", sa.Column("father_name", sa.String(length=255), nullable=True)
+    )
+    op.add_column(
+        "customer_profiles", sa.Column("family_name", sa.String(length=255), nullable=True)
+    )
     op.execute(
         sa.text(
             "UPDATE customer_profiles SET first_name = full_name "
@@ -49,8 +56,7 @@ def upgrade() -> None:
     op.add_column("suppliers", sa.Column("family_name", sa.String(length=255), nullable=True))
     op.execute(
         sa.text(
-            "UPDATE suppliers SET first_name = name "
-            "WHERE name IS NOT NULL AND btrim(name) <> ''"
+            "UPDATE suppliers SET first_name = name WHERE name IS NOT NULL AND btrim(name) <> ''"
         )
     )
     op.drop_column("suppliers", "name")

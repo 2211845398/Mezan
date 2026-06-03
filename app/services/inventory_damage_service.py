@@ -97,7 +97,9 @@ async def scrap_damaged_position(
     notes: str | None = None,
 ) -> StockMovement:
     if quantity <= 0:
-        validation_error("quantity_positive_required", "quantity must be positive", quantity=quantity)
+        validation_error(
+            "quantity_positive_required", "quantity must be positive", quantity=quantity
+        )
     return await apply_human_inventory_movement(
         db,
         user_id=user_id,
@@ -126,7 +128,9 @@ async def unmark_damaged_position(
     notes: str | None = None,
 ) -> StockMovement:
     if quantity <= 0:
-        validation_error("quantity_positive_required", "quantity must be positive", quantity=quantity)
+        validation_error(
+            "quantity_positive_required", "quantity must be positive", quantity=quantity
+        )
     return await apply_human_inventory_movement(
         db,
         user_id=user_id,

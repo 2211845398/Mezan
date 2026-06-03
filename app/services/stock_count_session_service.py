@@ -220,15 +220,15 @@ async def patch_stock_count_lines(
             session_id=session_id,
         )
     if session.status == "posted":
-        validation_error("stock_count_cannot_edit_posted", "Cannot edit a posted stock count session")
+        validation_error(
+            "stock_count_cannot_edit_posted", "Cannot edit a posted stock count session"
+        )
 
     if session.status == "draft":
         session.status = "in_progress"
 
     by_id = {u.id: u for u in updates}
-    res = await db.execute(
-        select(StockCountLine).where(StockCountLine.session_id == session_id)
-    )
+    res = await db.execute(select(StockCountLine).where(StockCountLine.session_id == session_id))
     for line in res.scalars().all():
         upd = by_id.get(line.id)
         if upd is None:
@@ -260,11 +260,11 @@ async def post_stock_count_session(
     if session.status == "posted":
         validation_error("stock_count_already_posted", "Stock count session is already posted")
     if session.status == "cancelled":
-        validation_error("stock_count_cancelled_cannot_post", "Cannot post a cancelled stock count session")
+        validation_error(
+            "stock_count_cancelled_cannot_post", "Cannot post a cancelled stock count session"
+        )
 
-    res = await db.execute(
-        select(StockCountLine).where(StockCountLine.session_id == session_id)
-    )
+    res = await db.execute(select(StockCountLine).where(StockCountLine.session_id == session_id))
     lines = list(res.scalars().all())
     incomplete = [line.id for line in lines if line.counted_qty is None]
     if incomplete:

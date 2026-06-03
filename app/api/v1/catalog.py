@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
-from fastapi.encoders import jsonable_encoder
-from starlette.responses import JSONResponse, Response
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import Response
 
 from app.api.deps import (
     POS_CATALOG_READ_ANY,
@@ -35,20 +33,13 @@ from app.schemas.catalog import (
     UnitOfMeasureRead,
 )
 from app.schemas.variant_generation import (
+    ProductWithVariantsRead,
     VariantPreviewRequest,
     VariantPreviewResponse,
     VariantSyncRequest,
     VariantSyncResponse,
 )
 from app.services import audit_service
-from app.schemas.variant_generation import ProductWithVariantsRead
-from app.services.variant_attribute_service import (
-    export_variant_barcodes_csv,
-    generate_missing_variant_barcodes,
-    get_product_with_variants,
-    preview_generate_variants,
-    sync_product_variant_configuration,
-)
 from app.services.catalog_service import (
     archive_product,
     archive_tax_definition,
@@ -75,6 +66,13 @@ from app.services.catalog_service import (
     update_category,
     update_product,
     update_tax_definition,
+)
+from app.services.variant_attribute_service import (
+    export_variant_barcodes_csv,
+    generate_missing_variant_barcodes,
+    get_product_with_variants,
+    preview_generate_variants,
+    sync_product_variant_configuration,
 )
 
 router = APIRouter()
@@ -232,7 +230,9 @@ async def list_tax_definitions_endpoint(
     return [TaxDefinitionRead.model_validate(r) for r in rows]
 
 
-@router.post("/tax-definitions", response_model=TaxDefinitionRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/tax-definitions", response_model=TaxDefinitionRead, status_code=status.HTTP_201_CREATED
+)
 async def create_tax_definition_endpoint(
     body: TaxDefinitionCreate,
     request: Request,
@@ -617,9 +617,7 @@ async def export_variant_barcodes_endpoint(
     _: User = Depends(get_current_user),
     __: None = require_permission("catalog", "read"),
 ) -> Response:
-    csv_text = await export_variant_barcodes_csv(
-        db, product_id=product_id, active_only=active_only
-    )
+    csv_text = await export_variant_barcodes_csv(db, product_id=product_id, active_only=active_only)
     return Response(
         content=csv_text.encode("utf-8"),
         media_type="text/csv; charset=utf-8",

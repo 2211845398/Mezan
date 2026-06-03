@@ -36,9 +36,7 @@ async def next_catalog_attribute_code(db: AsyncSession) -> str:
 
 async def next_catalog_attribute_value_code(db: AsyncSession, attribute_id: int) -> str:
     res = await db.execute(
-        select(CatalogAttributeValue.code).where(
-            CatalogAttributeValue.attribute_id == attribute_id
-        )
+        select(CatalogAttributeValue.code).where(CatalogAttributeValue.attribute_id == attribute_id)
     )
     codes = [row[0] for row in res.all()]
     return f"VAL_{_max_numeric_suffix(codes, VAL_CODE_RE) + 1}"

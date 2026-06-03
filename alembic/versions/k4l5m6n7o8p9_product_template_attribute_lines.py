@@ -5,15 +5,16 @@ Revises: j3k4l5m6n7o8
 Create Date: 2026-05-21
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "k4l5m6n7o8p9"
-down_revision: Union[str, None] = "j3k4l5m6n7o8"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "j3k4l5m6n7o8"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -53,7 +54,9 @@ def upgrade() -> None:
         sa.Column("line_id", sa.Integer(), nullable=False),
         sa.Column("attribute_value_id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["attribute_value_id"], ["attribute_values.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["attribute_value_id"], ["attribute_values.id"], ondelete="RESTRICT"
+        ),
         sa.ForeignKeyConstraint(["line_id"], ["product_attribute_lines.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
@@ -77,11 +80,15 @@ def upgrade() -> None:
 
     op.add_column(
         "product_variants",
-        sa.Column("combination_key", sa.String(length=512), nullable=False, server_default="_default"),
+        sa.Column(
+            "combination_key", sa.String(length=512), nullable=False, server_default="_default"
+        ),
     )
     op.add_column(
         "product_variants",
-        sa.Column("price_extra", sa.Numeric(precision=14, scale=4), nullable=False, server_default="0"),
+        sa.Column(
+            "price_extra", sa.Numeric(precision=14, scale=4), nullable=False, server_default="0"
+        ),
     )
     op.create_index(
         op.f("ix_product_variants_combination_key"),
@@ -138,7 +145,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_product_variants_product_combination", "product_variants", type_="unique")
+    op.drop_constraint(
+        "uq_product_variants_product_combination", "product_variants", type_="unique"
+    )
     op.drop_index(op.f("ix_product_variants_combination_key"), table_name="product_variants")
     op.drop_column("product_variants", "price_extra")
     op.drop_column("product_variants", "combination_key")

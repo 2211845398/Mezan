@@ -56,9 +56,11 @@ from app.services.accounting_service import (
 from app.services.branch_reporting_service import branch_financial_snapshot
 from app.services.financial_reports_service import (
     balance_sheet,
-    general_ledger_lines as gl_lines_svc,
     income_statement,
     trial_balance,
+)
+from app.services.financial_reports_service import (
+    general_ledger_lines as gl_lines_svc,
 )
 from app.services.journal_inquiry_service import (
     JournalEntryDetail,

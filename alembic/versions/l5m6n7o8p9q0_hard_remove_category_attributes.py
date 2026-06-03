@@ -5,16 +5,17 @@ Revises: k4l5m6n7o8p9
 Create Date: 2026-05-21
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 revision: str = "l5m6n7o8p9q0"
-down_revision: Union[str, None] = "k4l5m6n7o8p9"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "k4l5m6n7o8p9"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -45,12 +46,16 @@ def downgrade() -> None:
         sa.Column("validation", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("sort_order", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("attribute_id", sa.Integer(), nullable=True),
-        sa.Column("use_for_variants", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column(
+            "use_for_variants", sa.Boolean(), nullable=False, server_default=sa.text("false")
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["attribute_id"], ["attributes.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["category_id"], ["categories.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["inherited_from_category_id"], ["categories.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(
+            ["inherited_from_category_id"], ["categories.id"], ondelete="SET NULL"
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("category_id", "key", name="uq_cat_attr_defs_category_key"),
     )

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import time
-from datetime import UTC, date, datetime, time as dt_time, timedelta
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as dt_time
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,7 @@ from app.schemas.analytics import (
 from app.schemas.discount import DiscountRuleRead
 from app.schemas.marketing_advisory import MarketingAdvisoryRequest, MarketingAdvisoryResponse
 from app.services import audit_service
+from app.services.ai_call_context import finalize_advisor_run, load_cached_advisor_response
 from app.services.analytics_service import (
     get_inventory_alerts,
     get_promotion_performance,
@@ -30,7 +32,6 @@ from app.services.analytics_service import (
     get_top_selling_products,
 )
 from app.services.discount_service import create_ai_draft_discount
-from app.services.ai_call_context import finalize_advisor_run, load_cached_advisor_response
 from app.services.marketing_advisory_service import generate_marketing_advisory
 
 router = APIRouter()
@@ -193,7 +194,9 @@ async def marketing_advisory_endpoint(
 @router.get("/marketing/analytics/charts/sales-trend")
 async def sales_trend_chart_endpoint(
     days: int = Query(30, ge=1, le=366),
-    period_start: date | None = Query(None, description="UTC calendar day inclusive (overrides rolling `days`)"),
+    period_start: date | None = Query(
+        None, description="UTC calendar day inclusive (overrides rolling `days`)"
+    ),
     period_end: date | None = Query(None, description="UTC calendar day inclusive"),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
@@ -254,8 +257,7 @@ async def sales_trend_chart_endpoint(
         "period_start": period_start.isoformat() if period_start else None,
         "period_end": period_end.isoformat() if period_end else None,
         "data": [
-            {"date": str(r.date), "total": float(r.total or 0), "count": r.count or 0}
-            for r in rows
+            {"date": str(r.date), "total": float(r.total or 0), "count": r.count or 0} for r in rows
         ],
     }
 
@@ -269,10 +271,12 @@ async def category_breakdown_chart_endpoint(
 ) -> dict:
     """Get sales by category for pie/donut charts (Recharts compatible)."""
     from datetime import timedelta
+
     from sqlalchemy import func, select
+
+    from app.models.product import Product
     from app.models.sales_invoice import SalesInvoice
     from app.models.sales_invoice_line import SalesInvoiceLine
-    from app.models.product import Product
 
     end_date = datetime.now()
     start_date = end_date - timedelta(days=days)
@@ -300,7 +304,9 @@ async def category_breakdown_chart_endpoint(
     from app.models.category import Category
 
     cat_ids = [r.category_id for r in rows if r.category_id]
-    cat_result = await db.execute(select(Category.id, Category.name).where(Category.id.in_(cat_ids)))
+    cat_result = await db.execute(
+        select(Category.id, Category.name).where(Category.id.in_(cat_ids))
+    )
     cat_map = {c.id: c.name for c in cat_result.scalars().all()}
 
     return {
@@ -325,7 +331,9 @@ async def customer_activity_chart_endpoint(
 ) -> dict:
     """Get customer activity data for bar charts (Recharts compatible)."""
     from datetime import timedelta
+
     from sqlalchemy import func, select
+
     from app.models.sales_invoice import SalesInvoice
 
     end_date = datetime.now()
@@ -353,7 +361,6 @@ async def customer_activity_chart_endpoint(
     return {
         "period_days": days,
         "data": [
-            {"hour": int(r.hour), "count": r.count or 0, "total": float(r.total or 0)}
-            for r in rows
+            {"hour": int(r.hour), "count": r.count or 0, "total": float(r.total or 0)} for r in rows
         ],
     }

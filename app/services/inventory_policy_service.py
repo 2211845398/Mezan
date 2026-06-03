@@ -69,9 +69,7 @@ async def upsert_policy(
     return row
 
 
-async def require_policy(
-    db: AsyncSession, *, branch_id: int, product_id: int
-) -> InventoryPolicy:
+async def require_policy(db: AsyncSession, *, branch_id: int, product_id: int) -> InventoryPolicy:
     row = await get_policy(db, branch_id=branch_id, product_id=product_id)
     if not row:
         raise NotFoundError(

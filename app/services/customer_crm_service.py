@@ -10,16 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError, ValidationError
 from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
 from app.models.customer_profile import CustomerAccountStatus, CustomerProfile
-from app.services.branch_accounting_service import default_receivables_account_id
 from app.models.loyalty import LoyaltyLedger
 from app.models.sales_invoice import SalesInvoice
-from app.utils.money import q2
-from app.utils.person_name import person_name_sql_expr
-
+from app.services.branch_accounting_service import default_receivables_account_id
 from app.services.customer_account_status import (
     parse_account_status,
     sync_is_active_from_account_status,
 )
+from app.utils.money import q2
+from app.utils.person_name import person_name_sql_expr
 
 
 async def _loyalty_balance_scalar(db: AsyncSession, customer_id: int) -> int:
@@ -189,9 +188,7 @@ async def _validate_receivables_account_id(
 ) -> None:
     if receivables_account_id is None:
         return
-    res = await db.execute(
-        select(ChartAccount).where(ChartAccount.id == receivables_account_id)
-    )
+    res = await db.execute(select(ChartAccount).where(ChartAccount.id == receivables_account_id))
     account = res.scalar_one_or_none()
     if not account or not account.active:
         raise ValidationError(

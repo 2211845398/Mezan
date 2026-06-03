@@ -19,7 +19,9 @@ _STATIC_FONTS = _APP_DIR / "static" / "fonts"
 
 
 def _has_arabic(s: str) -> bool:
-    return bool(re.search(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]", s))
+    return bool(
+        re.search(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]", s)
+    )
 
 
 def _visual_text(s: str) -> str:
@@ -218,7 +220,9 @@ def build_payroll_period_csv(
         ]
     )
     for r in rows:
-        name = r.get("user_full_name") or r.get("user_email") or str(r.get("employee_profile_id", ""))
+        name = (
+            r.get("user_full_name") or r.get("user_email") or str(r.get("employee_profile_id", ""))
+        )
         writer.writerow(
             [
                 name,

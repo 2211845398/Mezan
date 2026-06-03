@@ -50,13 +50,13 @@ from app.services.employee_service import (
     delete_weekly_schedule,
     enrich_leave_request_reads,
     get_employee_profile_enriched,
+    get_employee_profile_id_for_user,
     get_vacation_leave_balance,
     list_attendance_logs,
     list_attendance_logs_enriched_page,
     list_employee_profiles_enriched_page,
     list_leave_requests,
     list_leave_requests_filtered,
-    get_employee_profile_id_for_user,
     list_weekly_schedules,
     list_weekly_schedules_for_authenticated_user,
     review_leave_request,
@@ -197,9 +197,7 @@ async def list_employee_profiles_endpoint(
     _: None = Depends(get_current_user),
     __: None = require_permission("employees", "read"),
 ) -> EmployeeListResponse:
-    rows, total = await list_employee_profiles_enriched_page(
-        db, limit=limit, offset=offset, q=q
-    )
+    rows, total = await list_employee_profiles_enriched_page(db, limit=limit, offset=offset, q=q)
     items = [_employee_row_to_read(row) for row in rows]
     return EmployeeListResponse(items=items, total=total, limit=limit, offset=offset)
 

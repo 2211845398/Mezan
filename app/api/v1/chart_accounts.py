@@ -72,9 +72,7 @@ async def get_coa_tree_endpoint(
 
     Suitable for tree editor UI with drag-drop support.
     """
-    tree = await get_chart_account_tree(
-        db, account_type=account_type, active_only=active_only
-    )
+    tree = await get_chart_account_tree(db, account_type=account_type, active_only=active_only)
     return [ChartAccountTreeNode(**node) for node in tree]
 
 
@@ -115,9 +113,7 @@ async def list_coa_endpoint(
     """List Chart of Accounts entries as a flat list."""
     from app.services.chart_account_service import build_parent_depth_cache
 
-    accounts = await list_chart_accounts(
-        db, active_only=active_only, account_type=account_type
-    )
+    accounts = await list_chart_accounts(db, active_only=active_only, account_type=account_type)
     depth_cache = await build_parent_depth_cache(db)
     result = []
     for account in accounts:
@@ -313,9 +309,7 @@ async def get_coa_summary_endpoint(
     """Get summary of accounts grouped by type."""
     summary = []
     for account_type in AccountType:
-        accounts = await list_chart_accounts(
-            db, active_only=False, account_type=account_type
-        )
+        accounts = await list_chart_accounts(db, active_only=False, account_type=account_type)
         root_count = sum(1 for a in accounts if a.parent_id is None)
         summary.append(
             CoaTypeSummary(

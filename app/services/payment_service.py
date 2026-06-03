@@ -63,7 +63,9 @@ async def create_payment_intent(
 
     amount = q2(cart.total)
 
-    inv_row = await db.execute(select(SalesInvoice.id).where(SalesInvoice.cart_id == cart.id).limit(1))
+    inv_row = await db.execute(
+        select(SalesInvoice.id).where(SalesInvoice.cart_id == cart.id).limit(1)
+    )
     if inv_row.scalar_one_or_none() is None:
         succ_row = await db.execute(
             select(PaymentIntent).where(
@@ -150,7 +152,9 @@ async def capture_payment(
             raise ValidationError("cash_tendered is only valid for cash payments")
         ct = q2(cash_tendered)
         if ct <= Decimal("0"):
-            raise ValidationError("cash_tendered must be greater than zero", details={"cash_tendered": str(ct)})
+            raise ValidationError(
+                "cash_tendered must be greater than zero", details={"cash_tendered": str(ct)}
+            )
         if ct > amount:
             raise ValidationError(
                 "cash_tendered cannot exceed payment intent amount",

@@ -29,8 +29,8 @@ from app.api.v1.loyalty import router as loyalty_router
 from app.api.v1.loyalty_rules import router as loyalty_rules_router
 from app.api.v1.marketing import router as marketing_router
 from app.api.v1.notifications import router as notifications_router
-from app.api.v1.payments import router as payments_router
 from app.api.v1.payment_terms import router as payment_terms_router
+from app.api.v1.payments import router as payments_router
 from app.api.v1.payroll import router as payroll_router
 from app.api.v1.pos_shifts import router as pos_shifts_router
 from app.api.v1.price_lists import router as price_lists_router

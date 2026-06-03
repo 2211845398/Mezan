@@ -23,7 +23,7 @@ async def list_boms(
 ) -> list[BillOfMaterials]:
     stmt = select(BillOfMaterials).order_by(BillOfMaterials.name.asc())
     if active_only:
-        stmt = stmt.where(BillOfMaterials.is_active == True)
+        stmt = stmt.where(BillOfMaterials.is_active)
     if finished_product_id is not None:
         stmt = stmt.where(BillOfMaterials.finished_product_id == finished_product_id)
     res = await db.execute(stmt)
@@ -52,7 +52,9 @@ async def create_bom(
 ) -> BillOfMaterials:
     fp = await db.execute(select(Product).where(Product.id == finished_product_id))
     if fp.scalar_one_or_none() is None:
-        raise NotFoundError("Finished product not found", details={"product_id": finished_product_id})
+        raise NotFoundError(
+            "Finished product not found", details={"product_id": finished_product_id}
+        )
 
     bom = BillOfMaterials(
         name=name.strip(),
@@ -118,7 +120,9 @@ async def add_bom_line(
 
     cp = await db.execute(select(Product).where(Product.id == component_product_id))
     if cp.scalar_one_or_none() is None:
-        raise NotFoundError("Component product not found", details={"product_id": component_product_id})
+        raise NotFoundError(
+            "Component product not found", details={"product_id": component_product_id}
+        )
 
     if component_product_id == bom.finished_product_id:
         raise ValidationError("Component cannot be the same as finished product")

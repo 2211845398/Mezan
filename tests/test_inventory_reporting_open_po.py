@@ -74,9 +74,7 @@ async def test_open_po_qty_map_accepts_null_variant_id(db_session) -> None:
 
     m = await _open_po_qty_map(db_session)
     assert m[(branch.id, product.id, None)] == 12
-    assert _on_order_qty_for_branch_product(
-        m, branch_id=branch.id, product_id=product.id
-    ) == 12
+    assert _on_order_qty_for_branch_product(m, branch_id=branch.id, product_id=product.id) == 12
 
 
 @pytest.mark.asyncio

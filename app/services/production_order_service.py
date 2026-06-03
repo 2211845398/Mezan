@@ -14,7 +14,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, StateTransitionError, ValidationError
-from app.models.bom import BillOfMaterials, BomLine, ProductionOrder, ProductionOrderIssue, ProductionOrderReceipt
+from app.models.bom import (
+    BillOfMaterials,
+    BomLine,
+    ProductionOrder,
+    ProductionOrderIssue,
+    ProductionOrderReceipt,
+)
 from app.models.product import Product
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
 from app.services.catalog_service import resolve_default_variant_id
@@ -75,7 +81,9 @@ async def issue_materials(
     idempotency_key: str,
     user_id: int,
 ) -> ProductionOrder:
-    order_res = await db.execute(select(ProductionOrder).where(ProductionOrder.id == production_order_id))
+    order_res = await db.execute(
+        select(ProductionOrder).where(ProductionOrder.id == production_order_id)
+    )
     order = order_res.scalar_one_or_none()
     if not order:
         raise NotFoundError("Production order not found")
@@ -88,7 +96,9 @@ async def issue_materials(
         raise ValidationError("Bill of Materials has no components")
 
     component_ids = [ln.component_product_id for ln in bom_lines]
-    unit_costs = await get_unit_costs_for_sale(db, branch_id=order.branch_id, product_ids=component_ids)
+    unit_costs = await get_unit_costs_for_sale(
+        db, branch_id=order.branch_id, product_ids=component_ids
+    )
     settings = await get_accounting_settings(db)
     wip_clearing = settings.default_wip_account_id or settings.default_other_clearing_account_id
     inventory_account = settings.default_inventory_account_id
@@ -100,7 +110,9 @@ async def issue_materials(
         unit_cost = unit_costs.get(bom_line.component_product_id, Decimal("0"))
         line_cost = q2(Decimal(qty_int) * unit_cost)
 
-        comp_variant_id = await resolve_default_variant_id(db, product_id=bom_line.component_product_id)
+        comp_variant_id = await resolve_default_variant_id(
+            db, product_id=bom_line.component_product_id
+        )
         issue = ProductionOrderIssue(
             production_order_id=order.id,
             product_id=bom_line.component_product_id,
@@ -166,7 +178,9 @@ async def receive_finished_goods(
     idempotency_key: str,
     user_id: int,
 ) -> ProductionOrder:
-    order_res = await db.execute(select(ProductionOrder).where(ProductionOrder.id == production_order_id))
+    order_res = await db.execute(
+        select(ProductionOrder).where(ProductionOrder.id == production_order_id)
+    )
     order = order_res.scalar_one_or_none()
     if not order:
         raise NotFoundError("Production order not found")

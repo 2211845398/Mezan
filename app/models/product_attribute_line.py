@@ -15,7 +15,9 @@ class ProductAttributeLine(Base):
 
     __tablename__ = "product_attribute_lines"
     __table_args__ = (
-        UniqueConstraint("product_id", "attribute_id", name="uq_product_attribute_lines_product_attr"),
+        UniqueConstraint(
+            "product_id", "attribute_id", name="uq_product_attribute_lines_product_attr"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

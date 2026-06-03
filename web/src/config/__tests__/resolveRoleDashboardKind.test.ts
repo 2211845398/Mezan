@@ -12,6 +12,10 @@ describe('resolveRoleDashboardKind', () => {
     expect(resolveRoleDashboardKind(['MARKETING_MANAGER'])).toBe('executive');
   });
 
+  it('maps accountant alone to executive BI', () => {
+    expect(resolveRoleDashboardKind(['ACCOUNTANT'])).toBe('executive');
+  });
+
   it('orders HR before accountant when both present', () => {
     expect(resolveRoleDashboardKind(['ACCOUNTANT', 'HR_MANAGER'])).toBe('hr');
   });

@@ -12,9 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.refresh_token import RefreshToken
 from app.models.users import User
+from app.schemas.auth import ProfileUpdate
 from app.services import bootstrap_admin_protection, email_service
 from app.services.password_reset_email import build_password_reset_email, normalize_reset_locale
-from app.schemas.auth import ProfileUpdate
 from app.utils.image_format import detect_raster_image_extension
 from app.utils.security import (
     create_access_token,
@@ -263,7 +263,11 @@ async def update_own_profile(db: AsyncSession, user: User, body: ProfileUpdate) 
                 raise ValueError("email_already_in_use")
             user.email = new_email
 
-    for field, col in (("first_name", "first_name"), ("father_name", "father_name"), ("family_name", "family_name")):
+    for field, col in (
+        ("first_name", "first_name"),
+        ("father_name", "father_name"),
+        ("family_name", "family_name"),
+    ):
         if field in data:
             v = getattr(body, field)
             setattr(user, col, v.strip() if isinstance(v, str) and v.strip() else None)

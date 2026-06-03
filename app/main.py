@@ -1,9 +1,5 @@
 """FastAPI application entry point."""
 
-from app.db.enum_compat import patch_sqlalchemy_enum_value_compat
-
-patch_sqlalchemy_enum_value_compat()
-
 import asyncio
 import logging
 import uuid
@@ -77,9 +73,12 @@ from app.core.config import settings
 from app.core.errors import AppError
 from app.core.rate_limit import limiter
 from app.db.database import close_db
+from app.db.enum_compat import patch_sqlalchemy_enum_value_compat
 from app.services.backup_service import backup_scheduler_loop
 from app.services.customer_gc_service import customer_gc_scheduler_loop
 from app.services.notifications.service import notification_scheduler_loop
+
+patch_sqlalchemy_enum_value_compat()
 
 logger = logging.getLogger(__name__)
 
@@ -191,9 +190,7 @@ async def lifespan(app: FastAPI):
             notification_scheduler_loop(notifications_stop_event)
         )
     if settings.CUSTOMER_GC_ENABLED:
-        customer_gc_task = asyncio.create_task(
-            customer_gc_scheduler_loop(customer_gc_stop_event)
-        )
+        customer_gc_task = asyncio.create_task(customer_gc_scheduler_loop(customer_gc_stop_event))
     yield
     # Shutdown
     backup_stop_event.set()

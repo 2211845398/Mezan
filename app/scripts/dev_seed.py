@@ -38,13 +38,13 @@ from app.models.role import Role
 from app.models.stock_level import StockLevel
 from app.models.user_role import UserRole
 from app.models.users import User
+from app.scripts.core_seed import run_core_seed
+from app.scripts.dev_seed_fixtures import seed_dev_extended_fixtures
 from app.services.branch_accounting_service import (
     ensure_terminal_cash_account,
     provision_branch_accounting,
 )
 from app.services.catalog_service import get_default_uom_id
-from app.scripts.core_seed import run_core_seed
-from app.scripts.dev_seed_fixtures import seed_dev_extended_fixtures
 from app.services.seed_service import ADMIN_ROLE_CODE
 from app.utils.security import hash_password, hash_token
 
@@ -363,9 +363,7 @@ async def seed_dev_fixtures(
 ) -> None:
     branches = await _get_or_create_branches(db)
     primary = branches[0]
-    admin_user = await _ensure_dev_admin(
-        db, email=email, password=password, primary_branch=primary
-    )
+    admin_user = await _ensure_dev_admin(db, email=email, password=password, primary_branch=primary)
     categories = await _get_or_create_categories(db)
     await _ensure_products_prices_stock_terminals(db, branches, categories)
     currency_id = await _base_currency_id(db)

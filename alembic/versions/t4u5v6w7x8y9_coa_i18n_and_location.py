@@ -5,15 +5,16 @@ Revises: s2t3u4v5w6
 Create Date: 2026-05-24
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "t4u5v6w7x8y9"
-down_revision: Union[str, None] = "s2t3u4v5w6"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "s2t3u4v5w6"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -50,9 +51,7 @@ def upgrade() -> None:
         ondelete="SET NULL",
     )
     op.create_index("ix_chart_accounts_branch_id", "chart_accounts", ["branch_id"])
-    op.create_index(
-        "ix_chart_accounts_pos_terminal_id", "chart_accounts", ["pos_terminal_id"]
-    )
+    op.create_index("ix_chart_accounts_pos_terminal_id", "chart_accounts", ["pos_terminal_id"])
     # Backfill bilingual names from legacy name column.
     op.execute(
         sa.text(
@@ -65,9 +64,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_chart_accounts_pos_terminal_id", table_name="chart_accounts")
     op.drop_index("ix_chart_accounts_branch_id", table_name="chart_accounts")
-    op.drop_constraint(
-        "fk_chart_accounts_pos_terminal_id", "chart_accounts", type_="foreignkey"
-    )
+    op.drop_constraint("fk_chart_accounts_pos_terminal_id", "chart_accounts", type_="foreignkey")
     op.drop_constraint("fk_chart_accounts_branch_id", "chart_accounts", type_="foreignkey")
     op.drop_column("chart_accounts", "pos_terminal_id")
     op.drop_column("chart_accounts", "branch_id")

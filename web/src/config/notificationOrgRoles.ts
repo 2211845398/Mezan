@@ -3,7 +3,6 @@ export const ORG_NOTIFICATION_MANAGER_ROLE_CODES = [
   'OWNER',
   'ADMIN',
   'IT_ADMIN',
-  'HR_MANAGER',
 ] as const;
 
 export function isOrgNotificationManager(roleCodes: readonly string[]): boolean {

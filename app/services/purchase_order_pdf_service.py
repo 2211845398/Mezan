@@ -8,9 +8,9 @@ from fpdf import FPDF
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
-from app.core.config import settings
 from app.models.purchase_order import PurchaseOrder
 from app.services.payroll_pdf_service import _register_unicode_font, _txt
 from app.services.purchase_order_service import purchase_order_to_read_one
@@ -75,9 +75,7 @@ def _fmt_dt(val: datetime | None) -> str:
     return val.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
-async def _line_rows_for_pdf(
-    db: AsyncSession, po: PurchaseOrder
-) -> list[dict[str, str | int]]:
+async def _line_rows_for_pdf(db: AsyncSession, po: PurchaseOrder) -> list[dict[str, str | int]]:
     product_ids = {int(ln.product_id) for ln in po.lines}
     variant_ids = {int(ln.variant_id) for ln in po.lines if ln.variant_id is not None}
 
@@ -125,46 +123,52 @@ def _build_pdf_bytes(
     notes: str | None,
     line_rows: list[dict[str, str | int]],
 ) -> bytes:
-    L = _labels(locale)
+    labels = _labels(locale)
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=12)
     pdf.add_page()
     family = _register_unicode_font(pdf)
 
     pdf.set_font(family, size=14)
-    pdf.cell(0, 8, _txt(L["title"], 80), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, _txt(labels["title"], 80), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font(family, size=9)
-    pdf.cell(0, 5, _txt(f"{L['company']}: {company_name}", 120), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _txt(f"{labels['company']}: {company_name}", 120), new_x="LMARGIN", new_y="NEXT")
     if branch_name:
-        pdf.cell(0, 5, _txt(f"{L['branch']}: {branch_name}", 120), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(
+            0, 5, _txt(f"{labels['branch']}: {branch_name}", 120), new_x="LMARGIN", new_y="NEXT"
+        )
     pdf.cell(
         0,
         5,
-        _txt(f"{L['po_number']}{po_id}", 80),
+        _txt(f"{labels['po_number']}{po_id}", 80),
         new_x="LMARGIN",
         new_y="NEXT",
     )
     pdf.cell(
         0,
         5,
-        _txt(f"{L['created']}: {_fmt_dt(created_at)}", 80),
+        _txt(f"{labels['created']}: {_fmt_dt(created_at)}", 80),
         new_x="LMARGIN",
         new_y="NEXT",
     )
-    pdf.cell(0, 5, _txt(f"{L['supplier']}: {supplier_name}", 120), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(
+        0, 5, _txt(f"{labels['supplier']}: {supplier_name}", 120), new_x="LMARGIN", new_y="NEXT"
+    )
     if expected_at is not None:
         pdf.cell(
             0,
             5,
-            _txt(f"{L['expected']}: {_fmt_dt(expected_at)}", 80),
+            _txt(f"{labels['expected']}: {_fmt_dt(expected_at)}", 80),
             new_x="LMARGIN",
             new_y="NEXT",
         )
     if notes and notes.strip():
-        pdf.cell(0, 5, _txt(f"{L['notes']}: {notes.strip()}", 200), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(
+            0, 5, _txt(f"{labels['notes']}: {notes.strip()}", 200), new_x="LMARGIN", new_y="NEXT"
+        )
     pdf.ln(3)
 
-    headers = [L["col_product"], L["col_variant"], L["col_qty"], L["col_uom"]]
+    headers = [labels["col_product"], labels["col_variant"], labels["col_qty"], labels["col_uom"]]
     widths = [70, 55, 22, 35]
     pdf.set_font(family, size=8)
     for w, h in zip(widths, headers, strict=True):
@@ -172,12 +176,12 @@ def _build_pdf_bytes(
     pdf.ln()
 
     for row in line_rows:
-        variant_name = str(row.get("variant_name") or "").strip() or L["none"]
+        variant_name = str(row.get("variant_name") or "").strip() or labels["none"]
         vals = [
             row.get("product_name", ""),
             variant_name,
             str(row.get("qty", "")),
-            row.get("uom_label") or L["none"],
+            row.get("uom_label") or labels["none"],
         ]
         for w, val in zip(widths, vals, strict=True):
             pdf.cell(w, 6, _txt(val, 56), border=1)

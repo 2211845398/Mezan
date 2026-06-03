@@ -7,8 +7,8 @@ import re
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.goods_receipt import GoodsReceipt
 from app.models.bom import ProductionOrder
+from app.models.goods_receipt import GoodsReceipt
 from app.models.sales_invoice import SalesInvoice
 
 _UUID_RE = re.compile(
@@ -65,9 +65,7 @@ async def resolve_journal_source_reference(
         oid = _parse_int_prefix(sid)
         if oid is None:
             return None
-        res = await db.execute(
-            select(SalesInvoice.invoice_number).where(SalesInvoice.id == oid)
-        )
+        res = await db.execute(select(SalesInvoice.invoice_number).where(SalesInvoice.id == oid))
         row = res.first()
         return str(row[0]) if row else f"#{oid}"
 

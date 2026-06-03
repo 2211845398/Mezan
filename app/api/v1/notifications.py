@@ -21,6 +21,7 @@ from app.api.deps import (
     require_permission,
 )
 from app.core.config import Settings
+from app.core.errors import ValidationError as AppValidationError
 from app.core.notification_rbac import (
     ORG_NOTIFICATION_MANAGER_ROLE_CODES,
     is_company_wide_audience,
@@ -46,19 +47,18 @@ from app.schemas.notifications import (
     NotificationUnreadCountResponse,
     ScheduleTriggerResponse,
 )
-from app.core.errors import ValidationError as AppValidationError
 from app.services import audit_service
 from app.services.notifications.service import (
     assert_schedule_mutable,
-    is_org_notification_manager,
     broadcast_notification,
     count_unread_deliveries,
     delete_all_deliveries,
     delete_read_deliveries,
     delete_schedule,
     get_schedule,
-    list_device_tokens,
+    is_org_notification_manager,
     list_admin_deliveries_for_viewer,
+    list_device_tokens,
     list_notification_runs,
     list_recent_deliveries,
     list_schedules,
@@ -331,9 +331,7 @@ async def upsert_schedule_endpoint(
     existing = existing_res.scalar_one_or_none()
     if existing is not None:
         try:
-            await assert_schedule_mutable(
-                existing, user_id=current_user.id, role_codes=role_codes
-            )
+            await assert_schedule_mutable(existing, user_id=current_user.id, role_codes=role_codes)
         except AppValidationError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
@@ -465,9 +463,7 @@ async def list_admin_deliveries_endpoint(
     _: None = require_permission("notifications", "read"),
     __: None = require_any_role(*ORG_NOTIFICATION_MANAGER_ROLE_CODES),
 ) -> NotificationDeliveryListResponse:
-    rows = await list_admin_deliveries_for_viewer(
-        db, viewer_user_id=current_user.id, limit=limit
-    )
+    rows = await list_admin_deliveries_for_viewer(db, viewer_user_id=current_user.id, limit=limit)
     return NotificationDeliveryListResponse(
         items=[NotificationDeliveryRead.model_validate(r) for r in rows]
     )

@@ -135,7 +135,9 @@ class Settings(BaseSettings):
         default=False,
         description="Use implicit SSL (typically port 465); mutually exclusive with STARTTLS",
     )
-    EMAIL_FROM: str | None = Field(default=None, description="Default From address for outbound mail")
+    EMAIL_FROM: str | None = Field(
+        default=None, description="Default From address for outbound mail"
+    )
     EMAIL_FROM_NAME: str | None = Field(
         default=None, description="Display name for the default From address"
     )

@@ -59,7 +59,9 @@ async def _open_po_qty_map(db: AsyncSession) -> dict[OpenPoQtyKey, int]:
             PurchaseOrder.status.in_(OPEN_PO_STATUSES),
             PurchaseOrder.branch_id.is_not(None),
         )
-        .group_by(PurchaseOrder.branch_id, PurchaseOrderLine.product_id, PurchaseOrderLine.variant_id)
+        .group_by(
+            PurchaseOrder.branch_id, PurchaseOrderLine.product_id, PurchaseOrderLine.variant_id
+        )
     )
     res = await db.execute(stmt)
     out: dict[OpenPoQtyKey, int] = {}
@@ -237,7 +239,11 @@ async def list_stock_on_hand(
 
             rp = int(pol.reorder_point) if pol and pol.is_active else None
             rq = int(pol.reorder_qty) if pol and pol.is_active else None
-            psid = int(pol.preferred_supplier_id) if pol and pol.is_active and pol.preferred_supplier_id else None
+            psid = (
+                int(pol.preferred_supplier_id)
+                if pol and pol.is_active and pol.preferred_supplier_id
+                else None
+            )
             pol_active = bool(pol and pol.is_active)
             rstatus = _reorder_status(
                 available=available,

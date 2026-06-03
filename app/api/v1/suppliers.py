@@ -14,16 +14,16 @@ from app.models.currency import Currency
 from app.models.users import User
 from app.schemas.supplier_statement import SupplierEvaluationRead, SupplierStatementRead
 from app.schemas.suppliers import SupplierCreate, SupplierListResponse, SupplierRead, SupplierUpdate
-from app.services.supplier_statement_service import (
-    get_supplier_evaluation,
-    get_supplier_statement,
-)
 from app.services.supplier_service import (
     create_supplier,
     get_supplier_read,
     list_suppliers_read,
     supplier_to_read,
     update_supplier,
+)
+from app.services.supplier_statement_service import (
+    get_supplier_evaluation,
+    get_supplier_statement,
 )
 
 router = APIRouter()

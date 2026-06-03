@@ -35,7 +35,7 @@ class StockCountSession(Base):
     )
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    lines: Mapped[list["StockCountLine"]] = relationship(
+    lines: Mapped[list[StockCountLine]] = relationship(
         "StockCountLine",
         back_populates="session",
         cascade="all, delete-orphan",
@@ -73,4 +73,4 @@ class StockCountLine(Base):
     damaged_counted: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
-    session: Mapped["StockCountSession"] = relationship("StockCountSession", back_populates="lines")
+    session: Mapped[StockCountSession] = relationship("StockCountSession", back_populates="lines")

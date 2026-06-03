@@ -5,15 +5,16 @@ Revises: g9h0i1j2k3l4
 Create Date: 2026-05-21
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "h1i2j3k4l5m6"
-down_revision: Union[str, None] = "g9h0i1j2k3l4"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "g9h0i1j2k3l4"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _goods_receipts_has_notes(conn) -> bool:
@@ -42,9 +43,7 @@ def upgrade() -> None:
         )
 
     ap_parent = conn.execute(
-        sa.text(
-            "SELECT id FROM chart_accounts WHERE code = '2000' LIMIT 1"
-        )
+        sa.text("SELECT id FROM chart_accounts WHERE code = '2000' LIMIT 1")
     ).fetchone()
     if ap_parent is None:
         return

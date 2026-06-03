@@ -14,7 +14,7 @@ from app.services.ai_logging_service import get_cached_response, log_ai_usage
 T = TypeVar("T", bound=BaseModel)
 
 
-async def load_cached_advisor_response(
+async def load_cached_advisor_response[T: BaseModel](
     db: AsyncSession,
     *,
     endpoint: str,

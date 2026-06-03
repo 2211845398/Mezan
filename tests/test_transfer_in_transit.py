@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
+from app.core.errors import StateTransitionError
 from app.models.branch import Branch
 from app.models.category import Category
 from app.models.product import Product
@@ -18,7 +19,6 @@ from app.models.unit_of_measure import UnitOfMeasure
 from app.services.catalog_service import create_product
 from app.services.inventory_reporting_service import list_stock_on_hand
 from app.services.inventory_service import apply_stock_movement
-from app.core.errors import StateTransitionError
 from app.services.transfer_service import (
     cancel_pending_batch,
     create_batch,

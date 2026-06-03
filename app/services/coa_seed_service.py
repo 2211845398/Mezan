@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.accounting_settings import AccountingSettings
 from app.models.chart_accounts import ChartAccount
-from app.models.currency import Currency
 from app.models.journal_entries import JournalEntryLine
 from app.services.coa_seed_data import (
     COA_SEED_FOREST,

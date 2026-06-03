@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.errors import ValidationError
 from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
 from app.models.pos_terminal import POSTerminal
-from app.utils.chart_account_display import normalize_coa_name_fields, resolve_account_display_name
+from app.utils.chart_account_display import normalize_coa_name_fields
 from app.utils.money import q2
-
 
 MAX_COA_DEPTH = 5  # Root + 4 sub-levels per spec
 
@@ -38,9 +37,7 @@ async def _refresh_parent_is_leaf(db: AsyncSession, parent_id: int | None) -> No
     await db.flush()
 
 
-async def _get_account_with_parents(
-    db: AsyncSession, account_id: int
-) -> ChartAccount | None:
+async def _get_account_with_parents(db: AsyncSession, account_id: int) -> ChartAccount | None:
     """Fetch a chart account (walkers use ``parent_id``; no ORM ``parent`` relationship)."""
     result = await db.execute(select(ChartAccount).where(ChartAccount.id == account_id))
     return result.scalar_one_or_none()
@@ -123,9 +120,7 @@ async def _validate_location_scope(
 ) -> tuple[int | None, int | None]:
     """Validate optional branch/POS scope; system accounts must stay global."""
     if is_system and (branch_id is not None or pos_terminal_id is not None):
-        raise ValidationError(
-            "System chart accounts cannot be scoped to a branch or POS terminal"
-        )
+        raise ValidationError("System chart accounts cannot be scoped to a branch or POS terminal")
     eff_branch = branch_id
     eff_terminal = pos_terminal_id
     if pos_terminal_id is not None:
@@ -210,13 +205,9 @@ async def create_chart_account(
     pos_terminal_id: int | None = None,
 ) -> ChartAccount:
     """Create a new Chart of Accounts entry with validation."""
-    await validate_account_hierarchy(
-        db, parent_id=parent_id, account_type=account_type
-    )
+    await validate_account_hierarchy(db, parent_id=parent_id, account_type=account_type)
 
-    legacy_name, ar, en = normalize_coa_name_fields(
-        name=name, name_ar=name_ar, name_en=name_en
-    )
+    legacy_name, ar, en = normalize_coa_name_fields(name=name, name_ar=name_ar, name_en=name_en)
     if not legacy_name:
         raise ValidationError("Account name is required")
 
@@ -394,9 +385,7 @@ async def suggest_chart_account_code(
 
 async def get_chart_account(db: AsyncSession, account_id: int) -> ChartAccount | None:
     """Get ChartAccount by ID."""
-    result = await db.execute(
-        select(ChartAccount).where(ChartAccount.id == account_id)
-    )
+    result = await db.execute(select(ChartAccount).where(ChartAccount.id == account_id))
     return result.scalar_one_or_none()
 
 
@@ -410,7 +399,7 @@ async def list_chart_accounts(
     stmt = select(ChartAccount)
 
     if active_only:
-        stmt = stmt.where(ChartAccount.active == True)
+        stmt = stmt.where(ChartAccount.active)
     if account_type:
         stmt = stmt.where(ChartAccount.account_type == account_type)
 
@@ -473,7 +462,7 @@ async def get_chart_account_tree(
     # Get all accounts
     stmt = select(ChartAccount)
     if active_only:
-        stmt = stmt.where(ChartAccount.active == True)
+        stmt = stmt.where(ChartAccount.active)
     if account_type:
         stmt = stmt.where(ChartAccount.account_type == account_type)
 
@@ -506,7 +495,9 @@ async def get_chart_account_tree(
         if account is None or account.parent_id is None:
             depths[account_id] = 1
         else:
-            depths[account_id] = calc_depth(account_id=account.parent_id, visited=visited.copy()) + 1
+            depths[account_id] = (
+                calc_depth(account_id=account.parent_id, visited=visited.copy()) + 1
+            )
         return depths[account_id]
 
     for a in accounts:
@@ -672,11 +663,7 @@ async def _validate_single_account_for_posting(
             details={"account_id": aid, "line": line_index},
         )
 
-    sub_dims = sum(
-        1
-        for x in (customer_id, supplier_id, employee_id)
-        if x is not None
-    )
+    sub_dims = sum(1 for x in (customer_id, supplier_id, employee_id) if x is not None)
     if sub_dims > 1:
         raise ValidationError(
             "Journal line may reference at most one sub-ledger entity",
@@ -788,9 +775,7 @@ async def validate_accounts_for_journal_posting(
 
     unique_ids = sorted({int(x) for x in (account_ids or []) if x is not None})
     for aid in unique_ids:
-        account = await _validate_single_account_for_posting(
-            db, aid=aid, require_subledger=False
-        )
+        account = await _validate_single_account_for_posting(db, aid=aid, require_subledger=False)
         await _validate_account_hierarchy_chain(db, account)
 
 
@@ -819,11 +804,11 @@ async def list_postable_chart_accounts(
 ) -> list[dict]:
     """Flat list of leaf posting accounts for journal/voucher pickers."""
     stmt = select(ChartAccount).where(
-        ChartAccount.is_leaf == True,
-        ChartAccount.is_control == False,
+        ChartAccount.is_leaf,
+        not ChartAccount.is_control,
     )
     if active_only:
-        stmt = stmt.where(ChartAccount.active == True)
+        stmt = stmt.where(ChartAccount.active)
     stmt = stmt.order_by(ChartAccount.code)
     res = await db.execute(stmt)
     accounts = list(res.scalars().all())
@@ -842,7 +827,9 @@ async def list_postable_chart_accounts(
                 "name": a.name,
                 "name_ar": a.name_ar,
                 "name_en": a.name_en,
-                "account_type": a.account_type.value if hasattr(a.account_type, "value") else str(a.account_type),
+                "account_type": a.account_type.value
+                if hasattr(a.account_type, "value")
+                else str(a.account_type),
                 "parent_id": a.parent_id,
                 "parent_code": parent.code if parent else None,
                 "parent_name": parent.name if parent else None,

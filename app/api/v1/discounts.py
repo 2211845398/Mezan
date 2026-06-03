@@ -64,9 +64,7 @@ async def list_discount_rules_endpoint(
     _: None = Depends(get_current_user),
     __: None = require_permission("discounts", "read"),
 ) -> DiscountRuleListResponse:
-    rules, total = await list_discount_rules(
-        db, status=status_filter, limit=limit, offset=offset
-    )
+    rules, total = await list_discount_rules(db, status=status_filter, limit=limit, offset=offset)
     items = [DiscountRuleRead.model_validate(r) for r in rules]
     return DiscountRuleListResponse(items=items, total=total, limit=limit, offset=offset)
 

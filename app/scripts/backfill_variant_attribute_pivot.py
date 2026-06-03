@@ -22,9 +22,7 @@ from app.utils.attribute_code import normalize_attribute_code
 logger = logging.getLogger(__name__)
 
 
-async def get_or_create_attribute(
-    session: AsyncSession, *, key: str
-) -> CatalogAttribute:
+async def get_or_create_attribute(session: AsyncSession, *, key: str) -> CatalogAttribute:
     code = normalize_attribute_code(key) or key[:64].upper()
     res = await session.execute(select(CatalogAttribute).where(CatalogAttribute.code == code))
     row = res.scalar_one_or_none()
@@ -82,9 +80,9 @@ async def backfill_pivot(session: AsyncSession) -> dict[str, Any]:
             stats["skipped_empty"] += 1
             continue
         existing = await session.execute(
-            select(ProductVariantAttribute.id).where(
-                ProductVariantAttribute.variant_id == pv.id
-            ).limit(1)
+            select(ProductVariantAttribute.id)
+            .where(ProductVariantAttribute.variant_id == pv.id)
+            .limit(1)
         )
         if existing.scalar_one_or_none():
             continue

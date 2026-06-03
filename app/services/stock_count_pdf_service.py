@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+
 from fpdf import FPDF
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,7 +62,7 @@ def build_stock_count_pdf(
     rows: list[dict],
     locale: StockCountLocale = "ar",
 ) -> bytes:
-    L = _labels(locale)
+    labels = _labels(locale)
     generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
 
     pdf = FPDF(orientation="L", unit="mm", format="A4")
@@ -70,26 +71,26 @@ def build_stock_count_pdf(
     family = _register_unicode_font(pdf)
 
     pdf.set_font(family, size=12)
-    title = L["title"].format(branch=branch_name)
+    title = labels["title"].format(branch=branch_name)
     pdf.cell(0, 8, _txt(title, 120), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font(family, size=8)
-    meta = L["date"].format(datetime=generated_at)
+    meta = labels["date"].format(datetime=generated_at)
     if responsible_name.strip():
-        meta += f"  |  {L['responsible'].format(name=responsible_name)}"
+        meta += f"  |  {labels['responsible'].format(name=responsible_name)}"
     pdf.cell(0, 6, _txt(meta, 200), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
 
     headers = [
-        L["col_product"],
-        L["col_variant"],
-        L["col_reference"],
-        L["col_on_hand"],
-        L["col_reserved"],
-        L["col_unit"],
-        L["col_counted"],
-        L["col_damaged"],
-        L["col_variance"],
-        L["col_notes"],
+        labels["col_product"],
+        labels["col_variant"],
+        labels["col_reference"],
+        labels["col_on_hand"],
+        labels["col_reserved"],
+        labels["col_unit"],
+        labels["col_counted"],
+        labels["col_damaged"],
+        labels["col_variance"],
+        labels["col_notes"],
     ]
     widths = [38, 32, 22, 18, 18, 14, 18, 18, 18, 28]
     pdf.set_font(family, size=7)
@@ -97,7 +98,7 @@ def build_stock_count_pdf(
         pdf.cell(w, 6, _txt(h, 24), border=1)
     pdf.ln()
 
-    default_unit = L["default_unit"]
+    default_unit = labels["default_unit"]
     for row in rows:
         vals = [
             row.get("product_name", ""),

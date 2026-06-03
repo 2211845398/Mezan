@@ -19,7 +19,6 @@ from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.purchase_order import PurchaseOrder
-from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.stock_level import StockLevel
 from app.services.accounting_service import get_accounting_settings
 from app.services.goods_receipt_service import receive_goods_for_purchase_order

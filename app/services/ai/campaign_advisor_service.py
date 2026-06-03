@@ -138,10 +138,7 @@ def _fallback_campaigns(
             description=_SEGMENT_DESCRIPTIONS_AR[code],
             customer_count=len(rows),
             average_order_value=aov,
-            rationale=(
-                f"تضم الشريحة {len(rows)} عميلاً؛ متوسط قيمة الطلب {aov} "
-                "(حسب عملة النظام)."
-            ),
+            rationale=(f"تضم الشريحة {len(rows)} عميلاً؛ متوسط قيمة الطلب {aov} (حسب عملة النظام)."),
         )
         if code == "champions":
             offer, channel, cta, lift = (

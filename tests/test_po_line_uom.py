@@ -10,10 +10,10 @@ from sqlalchemy import select
 
 from app.core.errors import ValidationError
 from app.models.branch import Branch
+from app.models.branch_product_costs import BranchProductCost
 from app.models.category import Category
 from app.models.product import Product
 from app.models.purchase_order_line import PurchaseOrderLine
-from app.models.branch_product_costs import BranchProductCost
 from app.models.stock_level import StockLevel
 from app.models.unit_of_measure import UnitOfMeasure
 from app.services.catalog_service import create_product, resolve_default_variant_id
@@ -24,7 +24,9 @@ from app.services.seed_service import seed_accounting_defaults
 
 @pytest.mark.asyncio
 async def test_po_line_box_sets_qty_base(db_session) -> None:
-    cat = Category(name="PO UOM Cat", slug=f"po-uom-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="PO UOM Cat", slug=f"po-uom-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
 
@@ -65,7 +67,9 @@ async def test_po_line_box_sets_qty_base(db_session) -> None:
 
 @pytest.mark.asyncio
 async def test_po_line_rejects_unknown_uom(db_session) -> None:
-    cat = Category(name="PO UOM Reject", slug=f"po-rej-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="PO UOM Reject", slug=f"po-rej-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
 
@@ -113,7 +117,9 @@ async def test_receive_increases_stock_by_qty_base(db_session) -> None:
     db_session.add(branch)
     await db_session.flush()
 
-    cat = Category(name="PO Recv UOM", slug=f"pru-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="PO Recv UOM", slug=f"pru-{uuid.uuid4().hex[:8]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
 

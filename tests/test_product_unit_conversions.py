@@ -1,13 +1,10 @@
 """Product alternative units of measure with conversion factors."""
 
-from decimal import Decimal
-
 import pytest
 from sqlalchemy import select
 
 from app.core.errors import ValidationError
 from app.models.category import Category
-from app.models.product import Product
 from app.models.product_unit_conversion import ProductUnitConversion
 from app.models.unit_of_measure import UnitOfMeasure
 from app.services.catalog_service import create_product, product_to_read, update_product

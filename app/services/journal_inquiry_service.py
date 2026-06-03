@@ -17,8 +17,8 @@ from app.models.employee_profile import EmployeeProfile
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.suppliers import Supplier
 from app.models.users import User
-from app.utils.money import q2
 from app.services.journal_source_reference import resolve_journal_source_reference
+from app.utils.money import q2
 from app.utils.person_name import display_person_name
 
 
@@ -156,7 +156,11 @@ async def _resolve_subledger_entity_names(
     if cust_ids:
         c_res = await db.execute(select(CustomerProfile).where(CustomerProfile.id.in_(cust_ids)))
         for c in c_res.scalars().all():
-            label = display_person_name(c.first_name, c.father_name, c.family_name) or c.phone or f"#{c.id}"
+            label = (
+                display_person_name(c.first_name, c.father_name, c.family_name)
+                or c.phone
+                or f"#{c.id}"
+            )
             out[("customer", int(c.id))] = label
 
     if sup_ids:
@@ -170,7 +174,11 @@ async def _resolve_subledger_entity_names(
             ).where(Supplier.id.in_(sup_ids))
         )
         for r in s_res.all():
-            label = display_person_name(r.first_name, r.father_name, r.family_name) or r.code or f"#{r.id}"
+            label = (
+                display_person_name(r.first_name, r.father_name, r.family_name)
+                or r.code
+                or f"#{r.id}"
+            )
             out[("supplier", int(r.id))] = label
 
     if emp_ids:

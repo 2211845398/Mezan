@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError, ValidationError
 from app.models.accounting_settings import AccountingSettings
 from app.models.branch import Branch
-from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
+from app.models.chart_accounts import AccountType, ChartAccount
 from app.models.customer_profile import CustomerProfile
 from app.models.pos_terminal import POSTerminal
 from app.models.suppliers import Supplier
@@ -158,7 +158,9 @@ def _global_clearing_account_id(settings: AccountingSettings, tender: str) -> in
     if tender == "card":
         return settings.default_card_clearing_account_id
     if tender == "transfer":
-        return getattr(settings, "default_bank_transfer_account_id", settings.default_cash_account_id)
+        return getattr(
+            settings, "default_bank_transfer_account_id", settings.default_cash_account_id
+        )
     if tender == "other":
         return settings.default_other_clearing_account_id
     return settings.default_cash_account_id

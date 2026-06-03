@@ -44,7 +44,6 @@ from app.services.payroll_service import (
     export_approved_payslips_csv,
     generate_payslip,
     get_payroll_period_snapshot,
-    get_payslip,
     get_payslip_read,
     list_payroll_overview,
     list_payslips_read,
@@ -70,9 +69,13 @@ def _idempotency_key(request: Request, body_key: str | None) -> str | None:
 
 def _validate_payroll_year_month(year: int, month: int) -> None:
     if year < 2000 or year > 2100:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="year out of range")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="year out of range"
+        )
     if month < 1 or month > 12:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="month out of range")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="month out of range"
+        )
 
 
 async def _enqueue_payslip_paid_for_user(

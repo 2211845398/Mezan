@@ -3,32 +3,31 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 
 from app.models.branch import Branch
+from app.models.category import Category
 from app.models.chart_accounts import ChartAccount
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.pos_cart import PosCart
 from app.models.pos_terminal import POSTerminal
+from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
+from app.models.users import User
+from app.services.accounting_service import get_accounting_settings
 from app.services.branch_accounting_service import (
     ensure_branch_cash_account,
     ensure_terminal_cash_account,
     provision_branch_accounting,
     resolve_settlement_account_id,
 )
-from app.services.accounting_service import get_accounting_settings
 from app.services.customer_crm_service import create_staff_customer
 from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.seed_service import seed_accounting_defaults
-from app.models.category import Category
-from app.models.product import Product
-from app.models.product_variant import ProductVariant
-from app.models.users import User
 from app.services.supplier_service import create_supplier
 
 
@@ -288,12 +287,16 @@ async def test_pos_sale_debits_terminal_cash_account(db_session) -> None:
         )
     ).scalar_one()
     cash_lines = (
-        await db_session.execute(
-            select(JournalEntryLine).where(
-                JournalEntryLine.journal_entry_id == je.id,
-                JournalEntryLine.account_id == term_cash.id,
+        (
+            await db_session.execute(
+                select(JournalEntryLine).where(
+                    JournalEntryLine.journal_entry_id == je.id,
+                    JournalEntryLine.account_id == term_cash.id,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(cash_lines) == 1
     assert cash_lines[0].debit == Decimal("50.00")

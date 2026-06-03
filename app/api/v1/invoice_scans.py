@@ -12,8 +12,8 @@ from app.models.invoice_scan import InvoiceScan
 from app.models.users import User
 from app.schemas.invoice_scans import (
     InvoiceScanApplyCatalogMatchesRequest,
-    InvoiceScanListResponse,
     InvoiceScanCreate,
+    InvoiceScanListResponse,
     InvoiceScanOverride,
     InvoiceScanRead,
     InvoiceScanValidateRequest,
