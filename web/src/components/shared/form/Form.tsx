@@ -10,6 +10,8 @@ import {
 } from 'react-hook-form';
 import type { ZodType } from 'zod';
 
+import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
+
 /*
  * Thin wrapper around react-hook-form + Zod. Every non-trivial form in the
  * app flows through this component (Plan §7.4) so we get a single place to
@@ -56,6 +58,7 @@ export function Form<TValues extends FieldValues>({
         {...(id !== undefined ? { id } : {})}
         {...(className !== undefined ? { className } : {})}
         noValidate
+        onKeyDown={handleFormEnterSubmit}
         onSubmit={(e) => {
           void form.handleSubmit(onSubmit)(e);
         }}
@@ -66,32 +69,4 @@ export function Form<TValues extends FieldValues>({
       </form>
     </FormProvider>
   );
-}
-
-/**
- * Map a backend `ValidationError.details.errors[]` array into RHF field
- * errors. FastAPI's RequestValidationError shape is:
- *   { loc: [...], msg: string, type: string }
- */
-export function applyBackendFieldErrors<TValues extends FieldValues>(
-  form: UseFormReturn<TValues>,
-  errors:
-    | ReadonlyArray<{
-        loc?: ReadonlyArray<string | number>;
-        msg?: string;
-        type?: string;
-      }>
-    | undefined,
-): void {
-  if (!errors) return;
-  for (const e of errors) {
-    const locPath = (e.loc ?? []).filter((x) => typeof x === 'string');
-    const path = locPath.length >= 2 ? locPath.slice(1).join('.') : locPath[0];
-    if (!path) continue;
-    form.setError(
-      path as Parameters<typeof form.setError>[0],
-      { type: e.type ?? 'server', message: e.msg ?? 'Invalid value' },
-      { shouldFocus: false },
-    );
-  }
 }

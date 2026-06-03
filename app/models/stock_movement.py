@@ -24,10 +24,20 @@ class StockMovement(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     qty_delta: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[str] = mapped_column(String(64), nullable=False)
     ref_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ref_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    movement_kind: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    reserved_delta: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    damaged_delta: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

@@ -1,0 +1,258 @@
+{
+  "currency": {
+    "lyd": "Libyan dinar",
+    "usd": "US dollar"
+  },
+  "suppliers": {
+    "title": "Suppliers",
+    "new": "New supplier",
+    "edit": "Edit supplier",
+    "view": "View",
+    "tabs": {
+      "data": "Supplier details",
+      "statement": "Account statement"
+    },
+    "search_label": "Search suppliers",
+    "search_placeholder": "Name or code…",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "contact": "Contact",
+      "currency": "Currency",
+      "tax_id": "Tax ID",
+      "payment_terms": "Payment terms"
+    },
+    "statement": {
+      "title": "Statement — {{name}}",
+      "subtitle": "Supplier {{code}}",
+      "back": "Suppliers",
+      "profile_title": "Supplier profile",
+      "ledger_title": "Account statement (AP)",
+      "date_from": "From date",
+      "date_to": "To date",
+      "branch": "Branch",
+      "all_branches": "All branches",
+      "apply": "Apply",
+      "opening": "Opening balance",
+      "closing": "Closing balance",
+      "empty": "No activity in this period",
+      "col": {
+        "date": "Date",
+        "reference": "Reference",
+        "description": "Description",
+        "debit": "Debit",
+        "credit": "Credit",
+        "balance": "Balance"
+      },
+      "desc": {
+        "goods_receipt": "Goods receipt #{{id}}",
+        "ap_payment": "Supplier payment #{{id}}",
+        "ap_open_item": "AP open item #{{id}}"
+      },
+      "metric": {
+        "open_balance": "Open balance",
+        "total_purchases": "Total purchases (period)",
+        "total_paid": "Total paid (period)",
+        "receipts_payments": "Receipts & payments",
+        "receipts_payments_value": "{{receipts}} receipts · {{payments}} payments"
+      }
+    },
+    "form": {
+      "code": "Code",
+      "first_name": "First name",
+      "father_name": "Father's name",
+      "family_name": "Family name",
+      "currency_code": "Currency",
+      "code_display": "Supplier code",
+      "tax_id": "Tax ID",
+      "payment_terms": "Payment terms",
+      "contact_phone": "Contact phone",
+      "contact_email": "Contact email",
+      "contact_section": "Contact & accounting",
+      "payables_account_id": "Payables account",
+      "validation_summary": "Please fix the highlighted fields before saving.",
+      "save": "Save",
+      "created": "Supplier saved"
+    }
+  },
+  "orders": {
+    "title": "Purchase orders",
+    "new": "New order",
+    "edit": "Edit order",
+    "detail": "Order detail",
+    "col": {
+      "po_number": "PO #",
+      "supplier": "Supplier",
+      "branch": "Branch",
+      "status": "Status",
+      "created_at": "Created",
+      "expected": "Expected",
+      "total": "Total",
+      "actions": "Actions"
+    },
+    "actions": {
+      "view": "View",
+      "receive": "Receive"
+    },
+    "filter_status": "Status",
+    "all_statuses": "All",
+    "form": {
+      "header_section": "Order details",
+      "supplier": "Supplier",
+      "supplier_name": "Supplier name",
+      "expected_date": "Expected date",
+      "branch": "Branch",
+      "branch_hint": "Receiving branch (optional until receipt)",
+      "supplier_currency": "Supplier currency",
+      "supplier_required": "Select a supplier",
+      "lines_required": "Add at least one line (product and qty)",
+      "notes": "Notes",
+      "lines": "Lines",
+      "product": "Product",
+      "qty": "Qty",
+      "unit": "Unit",
+      "qty_with_uom": "Qty ({{uom}})",
+      "unit_cost": "Unit cost",
+      "line_total": "Line total",
+      "add_line": "Add line",
+      "save_draft": "Save as draft",
+      "send": "Send to supplier",
+      "sent_toast": "Purchase order sent and PDF emailed to the supplier",
+      "footer_total": "Total",
+      "created": "Purchase order saved",
+      "saved_draft": "Draft saved",
+      "not_draft_readonly": "This order can only be edited while it is a draft.",
+      "product_search_placeholder": "Search by product name or SKU",
+      "product_search_empty": "No matches",
+      "lines_variant_hint": "Leave variant empty to choose at receipt, or select a variant to lock this line.",
+      "variant_optional": "Variant (optional)",
+      "variant_optional_placeholder": "Decide at receipt",
+      "variant_clear": "Clear variant",
+      "unit_cost_required": "Enter a unit cost greater than zero for each line"
+    },
+    "detail_page": {
+      "timeline": "Status",
+      "lines": "Lines",
+      "receipts": "Goods receipts",
+      "receive": "Receive goods",
+      "send": "Send",
+      "cancel": "Cancel",
+      "track": "Mark tracked",
+      "close": "Close without full receipt",
+      "partial_receive": "Partial receive",
+      "full_receive_hint": "Set received qty per line",
+      "receipt_ok": "Goods received; inventory and GL updated.",
+      "closed_ok": "Order closed",
+      "remaining": "Remaining",
+      "line_no": "No.",
+      "received_col": "Received",
+      "variant_col": "Variant",
+      "variant_at_receive": "Set at receipt",
+      "unit_cost_col": "Unit cost",
+      "unit_cost_at_receive": "Set at receipt",
+      "receipt_number": "Receipt #{{id}}",
+      "receipt_date": "Date",
+      "receipt_branch": "Branch",
+      "receipt_line_total": "Total",
+      "receipt_total": "Receipt total",
+      "receipt_sku": "SKU / variant",
+      "receipt_po_line": "Line #{{id}}"
+    },
+    "status": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "tracked": "Tracked",
+      "closed": "Closed",
+      "cancelled": "Cancelled"
+    },
+    "receive": {
+      "title": "Receive against PO",
+      "page_title": "Receive PO-{{id}}",
+      "not_available": "Receiving is not available in this status.",
+      "branch": "Branch",
+      "qty": "Qty to receive",
+      "qty_with_uom": "Qty ({{uom}})",
+      "unit_cost": "Unit cost",
+      "unit_cost_required": "Enter a unit cost greater than zero",
+      "submit": "Post receipt",
+      "idempotency_note": "Protected by idempotency — safe to retry.",
+      "workflow_hint": "For lines without a preset variant: split qty across rows and pick SKU/attributes per part.",
+      "deferred_hint": "Assign a variant for each qty split",
+      "variant": "Variant",
+      "variant_search_placeholder": "Search by product name or customer code",
+      "variant_search_empty": "No matches",
+      "add_split": "Add split",
+      "allocated": "Allocated",
+      "variant_required": "Pick a variant and qty for each split",
+      "split_exceeds_remaining": "Split totals exceed remaining qty",
+      "progress_expected": "Expected: {{count}}",
+      "progress_received": "Received: {{count}}",
+      "progress_open": "Remaining: {{count}}",
+      "progress_exceeds": "Exceeds remaining",
+      "no_lines": "Enter qty and unit cost for at least one line"
+    },
+    "notes_section": {
+      "order_title": "Order notes",
+      "receipt_title": "Notes for this receipt",
+      "receipt_on_receipt": "Receipt notes",
+      "empty": "—",
+      "placeholder": "Optional notes for this receipt…"
+    }
+  },
+  "match": {
+    "title": "Invoice match queue",
+    "review": "Review matches",
+    "col": {
+      "id": "Scan",
+      "status": "Status",
+      "provider": "Provider",
+      "created": "Created"
+    },
+    "status": {
+      "pending_match": "Pending match",
+      "matched": "Matched",
+      "rejected": "Rejected"
+    },
+    "map_ui": {
+      "needs_review": "Pending match",
+      "validated": "Matched",
+      "failed": "Rejected"
+    },
+    "review_page": {
+      "parsed": "Parsed lines",
+      "suggestions": "Suggested catalog matches",
+      "confirm": "Confirm",
+      "change": "Change",
+      "skip": "Skip",
+      "create_product": "Create product",
+      "approve_all": "Approve all",
+      "apply_ok": "Catalog matches applied",
+      "load_suggestions": "Load suggestions",
+      "confidence": "Confidence",
+      "no_candidates": "No candidates",
+      "new_product_stub": "Opens catalog in new tab — create product then refresh suggestions.",
+      "line_confirmed": "Confirmed"
+    }
+  },
+  "document_intake": {
+    "upload_document": "Upload document",
+    "dialog_title": "Upload purchase document",
+    "dialog_description": "Upload an image of an invoice or delivery note. It will be analyzed and listed here as pending matching until you complete review.",
+    "uploading": "Uploading…",
+    "upload_success": "Document received — processing started.",
+    "close": "Close",
+    "pending_title": "Documents awaiting matching",
+    "pending_empty": "No documents awaiting matching.",
+    "col_id": "Scan #",
+    "col_created": "Created",
+    "col_status": "Status",
+    "col_actions": "Actions",
+    "review_action": "Review & match",
+    "approve_hint": "Use Review & match to approve catalog matches and post receipt, or Dismiss to hide this row on this page only.",
+    "reject": "Dismiss",
+    "reject_toast": "Hidden on this page. The scan remains under Purchase documents."
+  },
+  "errors": {
+    "generic": "Something went wrong"
+  }
+}

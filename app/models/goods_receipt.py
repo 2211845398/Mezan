@@ -14,6 +14,10 @@ class GoodsReceipt(Base):
     __tablename__ = "goods_receipts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    purchase_order_id: Mapped[int | None] = mapped_column(
+        ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True)
     branch_id: Mapped[int] = mapped_column(
         ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True
     )
@@ -28,6 +32,7 @@ class GoodsReceipt(Base):
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    notes: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

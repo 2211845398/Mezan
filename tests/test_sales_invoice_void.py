@@ -15,6 +15,7 @@ from app.models.journal_entries import JournalEntry
 from app.models.pos_cart import PosCart
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import InvoicePayment, SalesInvoice, SalesInvoiceLine
 from app.models.stock_level import StockLevel
 from app.models.users import User
@@ -37,7 +38,7 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
     )
     user = User(
         email=f"v-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="Void",
+        first_name="Void",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -82,13 +83,25 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
         name="Void SKU",
         sku=f"vk-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)
     await db_session.flush()
 
-    db_session.add(StockLevel(branch_id=branch.id, product_id=product.id, on_hand=10, reserved=0))
+    pv = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv)
+    await db_session.flush()
+
+    db_session.add(
+        StockLevel(
+            branch_id=branch.id, product_id=product.id, variant_id=pv.id, on_hand=10, reserved=0
+        )
+    )
     await db_session.flush()
 
     await apply_stock_movement(
@@ -100,6 +113,7 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
         reason="sale",
         ref_type="sales_invoice",
         ref_id="pending",
+        variant_id=pv.id,
     )
     await db_session.commit()
 
@@ -122,6 +136,7 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
     line = SalesInvoiceLine(
         sales_invoice_id=invoice.id,
         product_id=product.id,
+        variant_id=pv.id,
         qty=1,
         unit_price=Decimal("100.00"),
         line_total=Decimal("100.00"),
@@ -148,6 +163,7 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
             select(StockLevel.on_hand).where(
                 StockLevel.branch_id == branch.id,
                 StockLevel.product_id == product.id,
+                StockLevel.variant_id == pv.id,
             )
         )
     ).scalar_one()
@@ -184,6 +200,7 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
             select(StockLevel.on_hand).where(
                 StockLevel.branch_id == branch.id,
                 StockLevel.product_id == product.id,
+                StockLevel.variant_id == pv.id,
             )
         )
     ).scalar_one()
@@ -202,7 +219,7 @@ async def test_void_is_idempotent(db_session) -> None:
     )
     user = User(
         email=f"v2-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="V2",
+        first_name="V2",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -244,12 +261,23 @@ async def test_void_is_idempotent(db_session) -> None:
         name="V2p",
         sku=f"v2p-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)
     await db_session.flush()
-    db_session.add(StockLevel(branch_id=branch.id, product_id=product.id, on_hand=5, reserved=0))
+    pv2 = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv2)
+    await db_session.flush()
+    db_session.add(
+        StockLevel(
+            branch_id=branch.id, product_id=product.id, variant_id=pv2.id, on_hand=5, reserved=0
+        )
+    )
     await db_session.flush()
     await apply_stock_movement(
         db_session,
@@ -260,6 +288,7 @@ async def test_void_is_idempotent(db_session) -> None:
         reason="sale",
         ref_type="sales_invoice",
         ref_id="x",
+        variant_id=pv2.id,
     )
     await db_session.commit()
 
@@ -281,6 +310,7 @@ async def test_void_is_idempotent(db_session) -> None:
     ln = SalesInvoiceLine(
         sales_invoice_id=invoice.id,
         product_id=product.id,
+        variant_id=pv2.id,
         qty=1,
         unit_price=Decimal("10.00"),
         line_total=Decimal("10.00"),
@@ -331,7 +361,7 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
     )
     user = User(
         email=f"v3-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="V3",
+        first_name="V3",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -373,12 +403,23 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
         name="V3p",
         sku=f"v3p-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)
     await db_session.flush()
-    db_session.add(StockLevel(branch_id=branch.id, product_id=product.id, on_hand=3, reserved=0))
+    pv3 = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv3)
+    await db_session.flush()
+    db_session.add(
+        StockLevel(
+            branch_id=branch.id, product_id=product.id, variant_id=pv3.id, on_hand=3, reserved=0
+        )
+    )
     await db_session.flush()
     await apply_stock_movement(
         db_session,
@@ -389,6 +430,7 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
         reason="sale",
         ref_type="sales_invoice",
         ref_id="y",
+        variant_id=pv3.id,
     )
     await db_session.commit()
 
@@ -411,6 +453,7 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
     ln = SalesInvoiceLine(
         sales_invoice_id=invoice.id,
         product_id=product.id,
+        variant_id=pv3.id,
         qty=1,
         unit_price=Decimal("10.00"),
         line_total=Decimal("10.00"),

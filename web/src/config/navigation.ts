@@ -1,19 +1,42 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  AlertTriangle,
+  ArrowLeftRight,
+  Banknote,
   BarChart3,
+  Bell,
+  BookOpen,
   Boxes,
-  Briefcase,
   Building2,
   Calculator,
+  CalendarCheck,
+  CalendarClock,
+  CalendarX,
+  Coins,
   ClipboardList,
+  FileText,
+  HardDrive,
   Heart,
+  Landmark,
+  ListTree,
   LayoutDashboard,
+  Megaphone,
+  Monitor,
+  Package,
+  Percent,
   Receipt,
-  ShoppingBag,
+  ScanLine,
+  Settings,
+  ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
   Sparkles,
+  Tags,
+  Truck,
+  UserCheck,
   Users,
   Wallet,
+  Warehouse,
 } from 'lucide-react';
 
 /*
@@ -28,13 +51,28 @@ export type Permission = {
   action: string;
 };
 
+export type NavSection = 'ops' | 'finance' | 'people' | 'growth' | 'system';
+
+/** Maps to counts from `useNavBadges()` for sidebar attention indicators. */
+export type NavBadgeKind =
+  | 'leave_pending'
+  | 'onboarding_pending'
+  | 'notifications_unread'
+  | 'hr_attention_rollup';
+
 export type NavItem = {
   key: string;
   labelKey: string;
   icon: LucideIcon;
   href: string;
   permission?: Permission;
+  /** Hide when the user has any of these base role codes. */
+  denyRoleCodes?: readonly string[];
+  /** Optional grouping label in the sidebar (top-level items only). */
+  section?: NavSection;
   children?: NavItem[];
+  /** Sidebar badge count (pending work, unread, etc.). */
+  badge?: NavBadgeKind;
 };
 
 export const navigation: NavItem[] = [
@@ -43,40 +81,51 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.dashboard',
     icon: LayoutDashboard,
     href: '/dashboard',
-    permission: { resource: 'analytics', action: 'read' },
+    section: 'ops',
+  },
+  {
+    key: 'notifications-inbox',
+    labelKey: 'nav.notifications_inbox',
+    icon: Bell,
+    href: '/notifications',
+    section: 'ops',
+    permission: { resource: 'notifications', action: 'read' },
+    badge: 'notifications_unread',
   },
   {
     key: 'pos',
     labelKey: 'nav.pos',
     icon: ShoppingCart,
-    href: '/pos',
-    permission: { resource: 'pos_carts', action: 'create' },
+    href: '/pos/register',
+    section: 'ops',
+    permission: { resource: 'pos_shifts', action: 'read' },
   },
   {
     key: 'catalog',
     labelKey: 'nav.catalog',
-    icon: ShoppingBag,
+    icon: Package,
     href: '/catalog',
+    section: 'ops',
     children: [
       {
         key: 'catalog-products',
         labelKey: 'nav.catalog_products',
-        icon: ShoppingBag,
+        icon: Package,
         href: '/catalog/products',
         permission: { resource: 'catalog', action: 'read' },
       },
       {
         key: 'catalog-categories',
         labelKey: 'nav.catalog_categories',
-        icon: ShoppingBag,
+        icon: Tags,
         href: '/catalog/categories',
         permission: { resource: 'catalog', action: 'read' },
       },
       {
-        key: 'catalog-price-lists',
-        labelKey: 'nav.catalog_price_lists',
-        icon: ShoppingBag,
-        href: '/catalog/price-lists',
+        key: 'catalog-attributes',
+        labelKey: 'nav.catalog_attributes',
+        icon: SlidersHorizontal,
+        href: '/catalog/attributes',
         permission: { resource: 'catalog', action: 'update' },
       },
     ],
@@ -84,8 +133,9 @@ export const navigation: NavItem[] = [
   {
     key: 'inventory',
     labelKey: 'nav.inventory',
-    icon: Boxes,
+    icon: Warehouse,
     href: '/inventory',
+    section: 'ops',
     children: [
       {
         key: 'inventory-stock',
@@ -97,31 +147,32 @@ export const navigation: NavItem[] = [
       {
         key: 'inventory-adjustments',
         labelKey: 'nav.inventory_adjustments',
-        icon: Boxes,
+        icon: SlidersHorizontal,
         href: '/inventory/adjustments',
         permission: { resource: 'stock_adjustments', action: 'read' },
       },
       {
         key: 'inventory-transfers',
         labelKey: 'nav.inventory_transfers',
-        icon: Boxes,
+        icon: ArrowLeftRight,
         href: '/inventory/transfers',
         permission: { resource: 'inventory', action: 'read' },
       },
       {
-        key: 'inventory-scans',
-        labelKey: 'nav.inventory_scans',
-        icon: Boxes,
-        href: '/inventory/scans',
-        permission: { resource: 'invoice_scans', action: 'read' },
+        key: 'inventory-stock-count',
+        labelKey: 'nav.inventory_stock_count',
+        icon: ClipboardList,
+        href: '/inventory/stock-count',
+        permission: { resource: 'stock_adjustments', action: 'create' },
       },
     ],
   },
   {
     key: 'purchasing',
     labelKey: 'nav.purchasing',
-    icon: ClipboardList,
+    icon: Truck,
     href: '/purchasing',
+    section: 'ops',
     children: [
       {
         key: 'purchasing-orders',
@@ -133,16 +184,23 @@ export const navigation: NavItem[] = [
       {
         key: 'purchasing-suppliers',
         labelKey: 'nav.purchasing_suppliers',
-        icon: ClipboardList,
+        icon: Users,
         href: '/purchasing/suppliers',
         permission: { resource: 'suppliers', action: 'read' },
       },
       {
-        key: 'purchasing-goods-receipts',
-        labelKey: 'nav.purchasing_goods_receipts',
-        icon: ClipboardList,
-        href: '/purchasing/goods-receipts',
-        permission: { resource: 'invoice_scans', action: 'validate' },
+        key: 'purchasing-scans',
+        labelKey: 'nav.inventory_scans',
+        icon: ScanLine,
+        href: '/purchasing/invoice-match',
+        permission: { resource: 'invoice_scans', action: 'read' },
+      },
+      {
+        key: 'purchasing-reorder',
+        labelKey: 'nav.ai_purchase_reorder',
+        icon: Package,
+        href: '/ai/purchase-reorder',
+        permission: { resource: 'ai_advisory', action: 'run' },
       },
     ],
   },
@@ -151,27 +209,39 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.hr',
     icon: Users,
     href: '/hr',
+    section: 'people',
+    badge: 'hr_attention_rollup',
     children: [
       {
         key: 'hr-employees',
         labelKey: 'nav.hr_employees',
-        icon: Users,
+        icon: UserCheck,
         href: '/hr/employees',
         permission: { resource: 'employees', action: 'read' },
+        badge: 'onboarding_pending',
       },
       {
         key: 'hr-attendance',
         labelKey: 'nav.hr_attendance',
-        icon: Users,
+        icon: CalendarCheck,
         href: '/hr/attendance',
         permission: { resource: 'employees', action: 'read' },
       },
       {
         key: 'hr-leave',
         labelKey: 'nav.hr_leave',
-        icon: Users,
+        icon: CalendarX,
         href: '/hr/leave',
         permission: { resource: 'employees', action: 'read' },
+        denyRoleCodes: ['OWNER', 'ADMIN'],
+        badge: 'leave_pending',
+      },
+      {
+        key: 'hr-anomalies',
+        labelKey: 'nav.hr_anomalies',
+        icon: AlertTriangle,
+        href: '/hr/anomalies',
+        permission: { resource: 'ai_advisory', action: 'run' },
       },
     ],
   },
@@ -180,18 +250,33 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.payroll',
     icon: Wallet,
     href: '/payroll',
+    section: 'people',
     children: [
+      {
+        key: 'payroll-overview',
+        labelKey: 'nav.payroll_overview',
+        icon: BarChart3,
+        href: '/payroll/overview',
+        permission: { resource: 'payroll', action: 'read' },
+      },
+      {
+        key: 'payroll-policies',
+        labelKey: 'nav.payroll_policies',
+        icon: SlidersHorizontal,
+        href: '/payroll/deduction-policies',
+        permission: { resource: 'payroll', action: 'read' },
+      },
       {
         key: 'payroll-runs',
         labelKey: 'nav.payroll_runs',
-        icon: Wallet,
+        icon: Banknote,
         href: '/payroll/runs',
         permission: { resource: 'payroll', action: 'read' },
       },
       {
         key: 'payroll-approvals',
         labelKey: 'nav.payroll_approvals',
-        icon: Wallet,
+        icon: ShieldCheck,
         href: '/payroll/approvals',
         permission: { resource: 'payroll', action: 'approve' },
       },
@@ -202,11 +287,12 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.accounting',
     icon: Calculator,
     href: '/accounting',
+    section: 'finance',
     children: [
       {
         key: 'accounting-journal',
         labelKey: 'nav.accounting_journal',
-        icon: Calculator,
+        icon: BookOpen,
         href: '/accounting/journal',
         permission: { resource: 'accounting', action: 'read' },
       },
@@ -220,44 +306,79 @@ export const navigation: NavItem[] = [
       {
         key: 'accounting-income-statement',
         labelKey: 'nav.accounting_income_statement',
-        icon: Calculator,
+        icon: BarChart3,
         href: '/accounting/income-statement',
         permission: { resource: 'accounting', action: 'read' },
       },
       {
+        key: 'accounting-catalog-taxes',
+        labelKey: 'nav.catalog_taxes',
+        icon: Percent,
+        href: '/catalog/taxes',
+        permission: { resource: 'catalog', action: 'read' },
+      },
+      {
         key: 'accounting-balance-sheet',
         labelKey: 'nav.accounting_balance_sheet',
-        icon: Calculator,
+        icon: Landmark,
         href: '/accounting/balance-sheet',
         permission: { resource: 'accounting', action: 'read' },
       },
       {
         key: 'accounting-general-ledger',
         labelKey: 'nav.accounting_general_ledger',
-        icon: Calculator,
+        icon: FileText,
         href: '/accounting/general-ledger',
+        permission: { resource: 'accounting', action: 'read' },
+      },
+      {
+        key: 'accounting-chart-accounts',
+        labelKey: 'nav.accounting_chart_accounts',
+        icon: ListTree,
+        href: '/accounting/chart-accounts',
         permission: { resource: 'accounting', action: 'read' },
       },
       {
         key: 'accounting-ar',
         labelKey: 'nav.accounting_ar',
-        icon: Calculator,
+        icon: Receipt,
         href: '/accounting/ar',
         permission: { resource: 'accounting', action: 'read' },
       },
       {
         key: 'accounting-ap',
         labelKey: 'nav.accounting_ap',
-        icon: Calculator,
+        icon: Wallet,
         href: '/accounting/ap',
         permission: { resource: 'accounting', action: 'read' },
       },
       {
         key: 'accounting-fiscal-periods',
         labelKey: 'nav.accounting_fiscal_periods',
-        icon: Calculator,
+        icon: CalendarCheck,
         href: '/accounting/fiscal-periods',
         permission: { resource: 'accounting', action: 'update' },
+      },
+      {
+        key: 'accounting-operations',
+        labelKey: 'nav.accounting_operations',
+        icon: Calculator,
+        href: '/accounting/operations',
+        permission: { resource: 'accounting', action: 'create' },
+      },
+      {
+        key: 'accounting-currencies',
+        labelKey: 'nav.accounting_currencies',
+        icon: Coins,
+        href: '/accounting/currencies',
+        permission: { resource: 'accounting', action: 'read' },
+      },
+      {
+        key: 'accounting-payment-terms',
+        labelKey: 'nav.accounting_payment_terms',
+        icon: CalendarClock,
+        href: '/accounting/payment-terms',
+        permission: { resource: 'accounting', action: 'read' },
       },
     ],
   },
@@ -266,25 +387,27 @@ export const navigation: NavItem[] = [
     labelKey: 'nav.crm',
     icon: Heart,
     href: '/crm',
+    section: 'growth',
     children: [
       {
         key: 'crm-customers',
         labelKey: 'nav.crm_customers',
-        icon: Heart,
+        icon: Users,
         href: '/crm/customers',
-        permission: { resource: 'customers', action: 'create' },
+        permission: { resource: 'customers', action: 'read' },
+        denyRoleCodes: ['MARKETING_MANAGER', 'FLOOR_STAFF'],
       },
       {
-        key: 'crm-loyalty',
-        labelKey: 'nav.crm_loyalty',
-        icon: Heart,
-        href: '/crm/loyalty',
-        permission: { resource: 'loyalty', action: 'read' },
+        key: 'crm-customers-new',
+        labelKey: 'nav.crm_customers_new',
+        icon: UserCheck,
+        href: '/crm/customers/new',
+        permission: { resource: 'customers', action: 'create' },
       },
       {
         key: 'crm-discounts',
         labelKey: 'nav.crm_discounts',
-        icon: Heart,
+        icon: Tags,
         href: '/crm/discounts',
         permission: { resource: 'discounts', action: 'read' },
       },
@@ -293,14 +416,29 @@ export const navigation: NavItem[] = [
   {
     key: 'marketing',
     labelKey: 'nav.marketing',
-    icon: Sparkles,
+    icon: Megaphone,
     href: '/marketing',
+    section: 'growth',
     children: [
       {
         key: 'marketing-analytics',
         labelKey: 'nav.marketing_analytics',
-        icon: Sparkles,
+        icon: BarChart3,
         href: '/marketing/analytics',
+        permission: { resource: 'analytics', action: 'read' },
+      },
+      {
+        key: 'marketing-sales-invoices',
+        labelKey: 'nav.marketing_sales_invoices',
+        icon: Receipt,
+        href: '/marketing/sales-invoices',
+        permission: { resource: 'sales_invoices', action: 'read' },
+      },
+      {
+        key: 'marketing-inventory-insights',
+        labelKey: 'nav.marketing_inventory_insights',
+        icon: Boxes,
+        href: '/marketing/inventory-insights',
         permission: { resource: 'analytics', action: 'read' },
       },
       {
@@ -313,53 +451,18 @@ export const navigation: NavItem[] = [
       {
         key: 'marketing-campaigns',
         labelKey: 'nav.marketing_campaigns',
-        icon: Sparkles,
+        icon: Megaphone,
         href: '/marketing/campaigns',
         permission: { resource: 'ai_advisory', action: 'run' },
       },
     ],
   },
   {
-    key: 'ai',
-    labelKey: 'nav.ai',
-    icon: Sparkles,
-    href: '/ai',
-    children: [
-      {
-        key: 'ai-purchase-reorder',
-        labelKey: 'nav.ai_purchase_reorder',
-        icon: Sparkles,
-        href: '/ai/purchase-reorder',
-        permission: { resource: 'ai_advisory', action: 'run' },
-      },
-      {
-        key: 'ai-hr-anomalies',
-        labelKey: 'nav.ai_hr_anomalies',
-        icon: Sparkles,
-        href: '/ai/hr-anomalies',
-        permission: { resource: 'ai_advisory', action: 'run' },
-      },
-      {
-        key: 'ai-invoice-match',
-        labelKey: 'nav.ai_invoice_match',
-        icon: Sparkles,
-        href: '/ai/invoice-match',
-        permission: { resource: 'ai_advisory', action: 'run' },
-      },
-    ],
-  },
-  {
-    key: 'bi',
-    labelKey: 'nav.bi',
-    icon: BarChart3,
-    href: '/dashboard',
-    permission: { resource: 'analytics', action: 'read' },
-  },
-  {
     key: 'admin',
     labelKey: 'nav.admin',
-    icon: Briefcase,
+    icon: Settings,
     href: '/admin',
+    section: 'system',
     children: [
       {
         key: 'admin-users',
@@ -371,7 +474,7 @@ export const navigation: NavItem[] = [
       {
         key: 'admin-roles',
         labelKey: 'nav.admin_roles',
-        icon: Briefcase,
+        icon: ShieldCheck,
         href: '/admin/roles',
         permission: { resource: 'roles', action: 'read' },
       },
@@ -385,23 +488,23 @@ export const navigation: NavItem[] = [
       {
         key: 'admin-terminals',
         labelKey: 'nav.admin_terminals',
-        icon: Receipt,
+        icon: Monitor,
         href: '/admin/terminals',
         permission: { resource: 'terminals', action: 'read' },
       },
       {
         key: 'admin-backups',
         labelKey: 'nav.admin_backups',
-        icon: Briefcase,
+        icon: HardDrive,
         href: '/admin/backups',
         permission: { resource: 'backups', action: 'read' },
       },
       {
         key: 'admin-notifications',
         labelKey: 'nav.admin_notifications',
-        icon: Briefcase,
+        icon: Bell,
         href: '/admin/notifications',
-        permission: { resource: 'config', action: 'read' },
+        permission: { resource: 'notifications', action: 'read' },
       },
     ],
   },

@@ -25,6 +25,9 @@ class InvoiceScan(Base):
     raw_output: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     parsed_output: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     override_output: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    catalog_match_apply_idempotency_key: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, unique=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

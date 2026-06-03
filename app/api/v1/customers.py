@@ -1,17 +1,39 @@
-"""Hybrid onboarding APIs."""
+"""Customer onboarding and CRM APIs."""
 
-from fastapi import APIRouter, Depends, Request, status
+from __future__ import annotations
+
+from decimal import Decimal
+from typing import Literal
+
+from fastapi import APIRouter, Depends, Query, Request, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
+from app.models.sales_invoice import SalesInvoice
+from app.models.sales_return import CreditNote, SalesReturn
 from app.models.users import User
 from app.schemas.customer_profile import (
     CustomerCompleteOnboardingRequest,
+    CustomerCreateStaff,
     CustomerCreateTemporaryRequest,
+    CustomerDetailRead,
+    CustomerListItemRead,
+    CustomerListResponse,
     CustomerRead,
+    CustomerSalesInvoiceListItem,
+    CustomerSalesInvoiceListResponse,
+    CustomerUpdate,
 )
 from app.services import audit_service
+from app.services.customer_crm_service import (
+    create_staff_customer,
+    get_customer_detail_metrics,
+    list_customer_sales_invoices,
+    list_customers,
+    update_customer_profile,
+)
 from app.services.customer_service import complete_onboarding, create_temporary_customer
 
 router = APIRouter()
@@ -40,6 +62,7 @@ async def create_temporary_customer_endpoint(
     return {
         "customer": CustomerRead.model_validate(customer).model_dump(),
         "onboarding_token": token,
+        "onboarding_path": f"/customer-onboarding?token={token}",
         "qr_url": f"/api/v1/customers/onboarding/complete?token={token}",
     }
 
@@ -51,7 +74,12 @@ async def complete_onboarding_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> CustomerRead:
     customer = await complete_onboarding(
-        db, token=body.token, full_name=body.full_name, email=body.email
+        db,
+        token=body.token,
+        first_name=body.first_name,
+        father_name=body.father_name,
+        family_name=body.family_name,
+        email=body.email,
     )
     await audit_service.log(
         session=db,
@@ -62,3 +90,242 @@ async def complete_onboarding_endpoint(
     )
     await db.commit()
     return CustomerRead.model_validate(customer)
+
+
+@router.get("/customers", response_model=CustomerListResponse)
+async def list_customers_endpoint(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    search: str | None = Query(None, max_length=128),
+    activation: Literal["all", "active", "pending", "suspended"] = Query("all"),
+    pos_ready: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("customers", "read"),
+) -> CustomerListResponse:
+    rows, total = await list_customers(
+        db,
+        limit=limit,
+        offset=offset,
+        search=search,
+        pos_ready=pos_ready,
+        activation=activation,
+    )
+    items = [
+        CustomerListItemRead(
+            id=c.id,
+            phone=c.phone,
+            first_name=c.first_name,
+            father_name=c.father_name,
+            family_name=c.family_name,
+            email=c.email,
+            is_temporary=c.is_temporary,
+            is_active=c.is_active,
+            account_status=c.account_status.value,
+            loyalty_balance=bal,
+            lifetime_spend=spend,
+        )
+        for c, bal, spend in rows
+    ]
+    return CustomerListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.post("/customers", response_model=CustomerDetailRead, status_code=status.HTTP_201_CREATED)
+async def create_customer_staff_endpoint(
+    body: CustomerCreateStaff,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("customers", "create"),
+) -> CustomerDetailRead:
+    c = await create_staff_customer(
+        db,
+        phone=body.phone,
+        first_name=body.first_name,
+        father_name=body.father_name,
+        family_name=body.family_name,
+        email=body.email,
+        is_temporary=body.is_temporary,
+        default_currency_id=body.default_currency_id,
+        receivables_account_id=body.receivables_account_id,
+        created_by_user_id=current_user.id,
+    )
+    await audit_service.log(
+        session=db,
+        action="customer.created",
+        resource_type="customer_profile",
+        resource_id=str(c.id),
+        new_value={"phone": c.phone, "first_name": c.first_name},
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(c)
+    bal = 0
+    spend = Decimal("0")
+    return CustomerDetailRead(
+        id=c.id,
+        phone=c.phone,
+        first_name=c.first_name,
+        father_name=c.father_name,
+        family_name=c.family_name,
+        email=c.email,
+        is_temporary=c.is_temporary,
+        is_active=c.is_active,
+        account_status=c.account_status.value,
+        default_currency_id=c.default_currency_id,
+        receivables_account_id=c.receivables_account_id,
+        created_at=c.created_at,
+        updated_at=c.updated_at,
+        loyalty_balance=bal,
+        lifetime_spend=spend,
+    )
+
+
+@router.get(
+    "/customers/{customer_id}/sales-invoices", response_model=CustomerSalesInvoiceListResponse
+)
+async def list_customer_sales_invoices_endpoint(
+    customer_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("customers", "read"),
+) -> CustomerSalesInvoiceListResponse:
+    invoices, total_inv = await list_customer_sales_invoices(
+        db, customer_id=customer_id, limit=limit, offset=offset
+    )
+    items = [
+        CustomerSalesInvoiceListItem(
+            id=inv.id,
+            invoice_number=inv.invoice_number,
+            invoice_barcode=inv.invoice_barcode,
+            cart_id=inv.cart_id,
+            terminal_id=inv.terminal_id,
+            branch_id=inv.branch_id,
+            subtotal=inv.subtotal,
+            discount_total=inv.discount_total,
+            tax_total=inv.tax_total,
+            total=inv.total,
+            payment_status=inv.payment_status,
+            transaction_type="sale",
+            created_at=inv.created_at,
+        )
+        for inv in invoices
+    ]
+    ret_cnt = int(
+        await db.scalar(
+            select(func.count())
+            .select_from(CreditNote)
+            .join(SalesReturn, CreditNote.sales_return_id == SalesReturn.id)
+            .join(SalesInvoice, SalesReturn.sales_invoice_id == SalesInvoice.id)
+            .where(
+                SalesInvoice.customer_id == customer_id,
+                SalesInvoice.voided_at.is_(None),
+            ),
+        )
+        or 0,
+    )
+    cn_res = await db.execute(
+        select(CreditNote, SalesInvoice)
+        .join(SalesReturn, CreditNote.sales_return_id == SalesReturn.id)
+        .join(SalesInvoice, SalesReturn.sales_invoice_id == SalesInvoice.id)
+        .where(
+            SalesInvoice.customer_id == customer_id,
+            SalesInvoice.voided_at.is_(None),
+        )
+        .order_by(CreditNote.created_at.desc())
+    )
+    for cn, inv in cn_res.all():
+        items.append(
+            CustomerSalesInvoiceListItem(
+                id=cn.id,
+                invoice_number=cn.credit_number,
+                invoice_barcode=cn.credit_number,
+                cart_id=inv.cart_id,
+                terminal_id=inv.terminal_id,
+                branch_id=inv.branch_id,
+                subtotal=cn.total_amount,
+                discount_total=Decimal("0.00"),
+                tax_total=Decimal("0.00"),
+                total=cn.total_amount,
+                payment_status="paid",
+                transaction_type="return",
+                created_at=cn.created_at,
+            )
+        )
+    items.sort(key=lambda row: row.created_at, reverse=True)
+    items = items[offset : offset + limit]
+    return CustomerSalesInvoiceListResponse(
+        items=items, total=total_inv + ret_cnt, limit=limit, offset=offset
+    )
+
+
+@router.get("/customers/{customer_id}", response_model=CustomerDetailRead)
+async def get_customer_endpoint(
+    customer_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("customers", "read"),
+) -> CustomerDetailRead:
+    c, bal, spend = await get_customer_detail_metrics(db, customer_id)
+    return CustomerDetailRead(
+        id=c.id,
+        phone=c.phone,
+        first_name=c.first_name,
+        father_name=c.father_name,
+        family_name=c.family_name,
+        email=c.email,
+        is_temporary=c.is_temporary,
+        is_active=c.is_active,
+        account_status=c.account_status.value,
+        default_currency_id=c.default_currency_id,
+        receivables_account_id=c.receivables_account_id,
+        created_at=c.created_at,
+        updated_at=c.updated_at,
+        loyalty_balance=bal,
+        lifetime_spend=spend,
+    )
+
+
+@router.patch("/customers/{customer_id}", response_model=CustomerDetailRead)
+async def update_customer_endpoint(
+    customer_id: int,
+    body: CustomerUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("customers", "update"),
+) -> CustomerDetailRead:
+    data = body.model_dump(exclude_unset=True)
+    c = await update_customer_profile(db, customer_id=customer_id, data=data)
+    await audit_service.log(
+        session=db,
+        action="customer.updated",
+        resource_type="customer_profile",
+        resource_id=str(customer_id),
+        new_value=data,
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(c)
+    _, bal, spend = await get_customer_detail_metrics(db, customer_id)
+    return CustomerDetailRead(
+        id=c.id,
+        phone=c.phone,
+        first_name=c.first_name,
+        father_name=c.father_name,
+        family_name=c.family_name,
+        email=c.email,
+        is_temporary=c.is_temporary,
+        is_active=c.is_active,
+        account_status=c.account_status.value,
+        default_currency_id=c.default_currency_id,
+        receivables_account_id=c.receivables_account_id,
+        created_at=c.created_at,
+        updated_at=c.updated_at,
+        loyalty_balance=bal,
+        lifetime_spend=spend,
+    )

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
         default=False,
         description="Run idempotent seed routines during application startup",
     )
+    MEZAN_ALLOW_DEV_SEED: bool = Field(
+        default=False,
+        description="Allow app.scripts.dev_seed destructive/bootstrap (requires explicit opt-in in prod)",
+    )
 
     # JWT
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
@@ -84,6 +88,17 @@ class Settings(BaseSettings):
     BACKUP_OUTPUT_DIR: str = Field(default="./backups", description="Local backup output directory")
     BACKUP_S3_BUCKET: str | None = Field(default=None, description="Optional S3 backup bucket")
 
+    # Payroll monthly approval (calendar-month periods)
+    PAYROLL_APPROVAL_OPEN_DAY_OF_MONTH: int = Field(
+        default=26,
+        ge=1,
+        le=31,
+        description=(
+            "For full calendar-month payroll periods, approval and payout actions are allowed "
+            "only on or after this calendar day within the payroll month (clamped to month end)."
+        ),
+    )
+
     # Push notifications (Epic 13)
     NOTIFICATIONS_ENABLED: bool = Field(
         default=False, description="Enable the notification scheduler loop"
@@ -100,6 +115,94 @@ class Settings(BaseSettings):
     )
     FCM_CREDENTIALS_JSON: str | None = Field(
         default=None, description="Inline FCM service-account JSON string"
+    )
+
+    # Outbound email (purchase orders, future password reset, etc.)
+    EMAIL_ENABLED: bool = Field(
+        default=False,
+        description="When false, outbound email is logged only (mock sender)",
+    )
+    EMAIL_PROVIDER: str = Field(
+        default="mock",
+        description="Email provider: mock or smtp",
+    )
+    SMTP_HOST: str | None = Field(default=None, description="SMTP server hostname")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port")
+    SMTP_USER: str | None = Field(default=None, description="SMTP authentication username")
+    SMTP_PASSWORD: str | None = Field(default=None, description="SMTP authentication password")
+    SMTP_USE_TLS: bool = Field(default=True, description="Use STARTTLS on SMTP connection")
+    SMTP_USE_SSL: bool = Field(
+        default=False,
+        description="Use implicit SSL (typically port 465); mutually exclusive with STARTTLS",
+    )
+    EMAIL_FROM: str | None = Field(
+        default=None, description="Default From address for outbound mail"
+    )
+    EMAIL_FROM_NAME: str | None = Field(
+        default=None, description="Display name for the default From address"
+    )
+    COMPANY_DISPLAY_NAME: str = Field(
+        default="Mezan",
+        description="Company name shown on purchase-order PDFs and supplier emails",
+    )
+    FRONTEND_BASE_URL: str = Field(
+        default="http://localhost:5173",
+        description="Base URL of the web SPA (no trailing path); used for password-reset links",
+    )
+
+    # Temporary customer GC (CRM): delete abandoned temp profiles after N days when safe.
+    CUSTOMER_GC_ENABLED: bool = Field(
+        default=True,
+        description="Run daily garbage collection for stale temporary customers",
+    )
+    CUSTOMER_GC_TICK_SECONDS: int = Field(
+        default=3600,
+        description="How often the GC loop wakes to check the once-per-day run (min 60)",
+    )
+    CUSTOMER_GC_RETENTION_DAYS: int = Field(
+        default=30,
+        ge=1,
+        description="Minimum age (days) before a temporary customer may be deleted",
+    )
+
+    # Profile avatars (stored on disk; served via /api/v1/static/avatars)
+    AVATAR_UPLOAD_DIR: str = Field(
+        default="data/uploads/avatars",
+        description="Directory for uploaded user avatar images",
+    )
+    AVATAR_MAX_BYTES: int = Field(
+        default=2_097_152,
+        description="Maximum avatar file size in bytes (default 2 MiB)",
+    )
+
+    # Catalog category images (stored on disk; served via /api/v1/static/catalog-category-images)
+    CATALOG_CATEGORY_IMAGE_UPLOAD_DIR: str = Field(
+        default="data/uploads/catalog-category-images",
+        description="Directory for uploaded category cover images",
+    )
+    CATALOG_CATEGORY_IMAGE_MAX_BYTES: int = Field(
+        default=2_097_152,
+        description="Maximum category image file size in bytes (default 2 MiB)",
+    )
+
+    # Catalog product images (stored on disk; served via /api/v1/static/catalog-product-images)
+    CATALOG_PRODUCT_IMAGE_UPLOAD_DIR: str = Field(
+        default="data/uploads/catalog-product-images",
+        description="Directory for uploaded product cover images",
+    )
+    CATALOG_PRODUCT_IMAGE_MAX_BYTES: int = Field(
+        default=2_097_152,
+        description="Maximum product image file size in bytes (default 2 MiB)",
+    )
+
+    # Employee identity scans (passport / ID card; served via /api/v1/static/employee-identity-documents)
+    EMPLOYEE_IDENTITY_DOCUMENT_UPLOAD_DIR: str = Field(
+        default="data/uploads/employee-identity-documents",
+        description="Directory for uploaded employee identity document images",
+    )
+    EMPLOYEE_IDENTITY_DOCUMENT_MAX_BYTES: int = Field(
+        default=5_242_880,
+        description="Maximum identity scan file size in bytes (default 5 MiB)",
     )
 
     # Database
@@ -140,11 +243,27 @@ class Settings(BaseSettings):
             return [str(item).strip() for item in value if str(item).strip()]
         return value
 
+    @field_validator("FRONTEND_BASE_URL")
+    @classmethod
+    def normalize_frontend_base_url(cls, value: str) -> str:
+        """Strip whitespace and trailing slashes; require http(s) scheme."""
+        raw = value.strip().rstrip("/")
+        if not raw.startswith(("http://", "https://")):
+            raise ValueError("FRONTEND_BASE_URL must start with http:// or https://")
+        return raw
+
+    def build_password_reset_url(self, token: str) -> str:
+        """Absolute SPA URL for the password-reset screen."""
+        return f"{self.FRONTEND_BASE_URL}/reset-password/{token}"
+
     @model_validator(mode="after")
     def validate_security_settings(self) -> Settings:
         """Reject placeholder or weak production secrets."""
         if not self.is_production:
             return self
+
+        if not self.FRONTEND_BASE_URL.strip():
+            raise ValueError("FRONTEND_BASE_URL must be set in production.")
 
         secret = self.SECRET_KEY.strip()
         normalized = secret.lower()

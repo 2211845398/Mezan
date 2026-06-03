@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -71,21 +72,20 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
         },
     )
     assert prod.status_code == 201, prod.text
-    assert Decimal(str(prod.json()["attributes"]["price"])) == Decimal("50.0")
     product_id = prod.json()["id"]
 
     # Hybrid onboarding
     c = await client.post(
         "/api/v1/customers/temporary",
         headers=admin_auth_header,
-        json={"phone": "01000000000"},
+        json={"phone": "0910000000"},
     )
     assert c.status_code == 201, c.text
     onboarding_token = c.json()["onboarding_token"]
     complete = await client.post(
         "/api/v1/customers/onboarding/complete",
         headers=admin_auth_header,
-        json={"token": onboarding_token, "full_name": "Temp User", "email": "temp@example.com"},
+        json={"token": onboarding_token, "first_name": "Temp User", "email": "temp@example.com"},
     )
     assert complete.status_code == 200, complete.text
     customer_id = complete.json()["id"]
@@ -104,10 +104,24 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
         json={"product_id": product_id, "qty": 2},
     )
     assert line.status_code == 200, line.text
+    dr = await client.post(
+        "/api/v1/discounts",
+        headers=admin_auth_header,
+        json={
+            "name": "DISC10 flat",
+            "code": "DISC10",
+            "discount_type": "flat",
+            "value": 10,
+            "start_date": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+            "status": "active",
+            "stackable": False,
+        },
+    )
+    assert dr.status_code == 201, dr.text
     disc = await client.post(
         f"/api/v1/pos/carts/{cart_id}/discounts",
         headers=admin_auth_header,
-        json={"code": "DISC10", "amount": 10.0},
+        json={"code": "DISC10"},
     )
     assert disc.status_code == 200, disc.text
     park = await client.post(

@@ -18,6 +18,18 @@ from app.models.discount import DiscountRule, DiscountStatus
 from app.schemas.ai_discount import AIAutoDiscountRequest
 
 
+async def get_discount_rule_by_code(db: AsyncSession, *, code: str) -> DiscountRule:
+    """Resolve a discount rule by its unique coupon ``code`` (trimmed, exact match)."""
+    c = code.strip()
+    if not c:
+        raise ValidationError("Discount code is required")
+    result = await db.execute(select(DiscountRule).where(DiscountRule.code == c))
+    rule = result.scalar_one_or_none()
+    if rule is None:
+        raise NotFoundError("Unknown discount code", details={"code": c})
+    return rule
+
+
 async def get_discount_rule(db: AsyncSession, rule_id: int) -> DiscountRule:
     result = await db.execute(select(DiscountRule).where(DiscountRule.id == rule_id))
     rule = result.scalar_one_or_none()
@@ -32,13 +44,22 @@ async def list_discount_rules(
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> list[DiscountRule]:
+) -> tuple[list[DiscountRule], int]:
+    from sqlalchemy import func
+
+    from app.schemas.pagination import clamp_pagination
+
+    limit, offset = clamp_pagination(limit, offset)
+    count_stmt = select(func.count()).select_from(DiscountRule)
+    if status is not None:
+        count_stmt = count_stmt.where(DiscountRule.status == status)
+    total = int(await db.scalar(count_stmt) or 0)
     stmt = select(DiscountRule)
     if status is not None:
         stmt = stmt.where(DiscountRule.status == status)
     stmt = stmt.order_by(DiscountRule.id.desc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total
 
 
 async def create_discount_rule(

@@ -4,11 +4,13 @@ import asyncio
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -25,26 +27,38 @@ from app.api.error_handlers import (
 from app.api.v1 import (
     accounting_router,
     ai_advisory_router,
+    attributes_router,
     audit_router,
     auth_router,
     backups_router,
     branches_router,
     carts_router,
     catalog_router,
+    chart_accounts_router,
     config_router,
+    currencies_router,
+    customer_performance_router,
     customers_router,
     discounts_router,
     employees_router,
     executive_bi_router,
+    fx_revaluation_router,
+    goods_receipts_router,
     health_router,
     inventory_adjustments_router,
+    inventory_operations_router,
+    inventory_reporting_router,
     invoice_scans_router,
     loyalty_router,
+    loyalty_rules_router,
     marketing_router,
     notifications_router,
+    payment_terms_router,
     payments_router,
     payroll_router,
     pos_shifts_router,
+    price_lists_router,
+    production_orders_router,
     purchase_orders_router,
     returns_router,
     roles_router,
@@ -53,15 +67,36 @@ from app.api.v1 import (
     terminals_router,
     transfers_router,
     users_router,
+    vouchers_router,
 )
 from app.core.config import settings
 from app.core.errors import AppError
 from app.core.rate_limit import limiter
 from app.db.database import close_db
+from app.db.enum_compat import patch_sqlalchemy_enum_value_compat
 from app.services.backup_service import backup_scheduler_loop
+from app.services.customer_gc_service import customer_gc_scheduler_loop
 from app.services.notifications.service import notification_scheduler_loop
 
+patch_sqlalchemy_enum_value_compat()
+
 logger = logging.getLogger(__name__)
+
+
+def _configure_logging() -> None:
+    """Ensure app loggers are visible in Docker/uvicorn during development."""
+    if not settings.is_development:
+        return
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s %(name)s: %(message)s",
+        force=True,
+    )
+    logging.getLogger("app").setLevel(logging.INFO)
+
+
+_configure_logging()
+
 PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", "/api/v1/health"),
     ("POST", "/api/v1/auth/login"),
@@ -73,15 +108,10 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("POST", "/api/v1/auth/password-reset/confirm"),
     ("GET", "/api/v1/auth/me"),
     ("GET", "/api/v1/auth/me/permissions"),
+    ("GET", "/api/v1/auth/me/roles"),
     ("PATCH", "/api/v1/auth/me"),
+    ("POST", "/api/v1/auth/me/avatar"),
     ("POST", "/api/v1/customers/onboarding/complete"),
-    # Notification self-service: auth-only; a user manages their own device
-    # tokens and reads their own delivery history. No resource permission is
-    # meaningful here because the subject is always the caller (user_id=me).
-    ("POST", "/api/v1/notifications/device-tokens"),
-    ("GET", "/api/v1/notifications/device-tokens"),
-    ("DELETE", "/api/v1/notifications/device-tokens/{token_id}"),
-    ("GET", "/api/v1/notifications/deliveries/me"),
 }
 
 
@@ -132,30 +162,19 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
-    from app.db.database import AsyncSessionLocal
-    from app.services.seed_service import (
-        seed_accounting_defaults,
-        seed_default_admin,
-        seed_notification_templates,
-        seed_permissions_and_roles,
-    )
+    from app.scripts.core_seed import run_core_seed
 
     # Startup (schema: use Alembic only; do not create_all on boot)
     backup_stop_event = asyncio.Event()
     notifications_stop_event = asyncio.Event()
+    customer_gc_stop_event = asyncio.Event()
     backup_task: asyncio.Task | None = None
     notifications_task: asyncio.Task | None = None
+    customer_gc_task: asyncio.Task | None = None
     _audit_route_permissions(app)
     if settings.SEED_ON_STARTUP:
         try:
-            async with AsyncSessionLocal() as db:
-                await seed_permissions_and_roles(db)
-                await seed_accounting_defaults(db)
-                await seed_notification_templates(db)
-                if settings.DEFAULT_ADMIN_EMAIL and settings.DEFAULT_ADMIN_PASSWORD:
-                    await seed_default_admin(
-                        db, settings.DEFAULT_ADMIN_EMAIL, settings.DEFAULT_ADMIN_PASSWORD
-                    )
+            await run_core_seed()
         except (OperationalError, ProgrammingError):
             logger.warning(
                 "Skipping startup seed because the database is not ready or migrations are pending.",
@@ -170,11 +189,14 @@ async def lifespan(app: FastAPI):
         notifications_task = asyncio.create_task(
             notification_scheduler_loop(notifications_stop_event)
         )
+    if settings.CUSTOMER_GC_ENABLED:
+        customer_gc_task = asyncio.create_task(customer_gc_scheduler_loop(customer_gc_stop_event))
     yield
     # Shutdown
     backup_stop_event.set()
     notifications_stop_event.set()
-    for task in (backup_task, notifications_task):
+    customer_gc_stop_event.set()
+    for task in (backup_task, notifications_task, customer_gc_task):
         if task:
             task.cancel()
             try:
@@ -212,6 +234,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_avatar_dir = Path(settings.AVATAR_UPLOAD_DIR)
+_avatar_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/v1/static/avatars",
+    StaticFiles(directory=str(_avatar_dir.resolve())),
+    name="static_avatars",
+)
+
+_catalog_cat_img_dir = Path(settings.CATALOG_CATEGORY_IMAGE_UPLOAD_DIR)
+_catalog_cat_img_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/v1/static/catalog-category-images",
+    StaticFiles(directory=str(_catalog_cat_img_dir.resolve())),
+    name="static_catalog_category_images",
+)
+
+_catalog_prod_img_dir = Path(settings.CATALOG_PRODUCT_IMAGE_UPLOAD_DIR)
+_catalog_prod_img_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/v1/static/catalog-product-images",
+    StaticFiles(directory=str(_catalog_prod_img_dir.resolve())),
+    name="static_catalog_product_images",
+)
+
+_employee_id_doc_dir = Path(settings.EMPLOYEE_IDENTITY_DOCUMENT_UPLOAD_DIR)
+_employee_id_doc_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/v1/static/employee-identity-documents",
+    StaticFiles(directory=str(_employee_id_doc_dir.resolve())),
+    name="static_employee_identity_documents",
+)
+
 # Include v1 routers
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
 app.include_router(backups_router, prefix="/api/v1", tags=["backups"])
@@ -223,11 +277,17 @@ app.include_router(branches_router, prefix="/api/v1", tags=["branches"])
 app.include_router(terminals_router, prefix="/api/v1", tags=["terminals"])
 app.include_router(roles_router, prefix="/api/v1", tags=["roles"])
 app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(attributes_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(price_lists_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["purchase_orders"])
+app.include_router(goods_receipts_router, prefix="/api/v1", tags=["goods_receipts"])
 app.include_router(invoice_scans_router, prefix="/api/v1", tags=["invoice_scans"])
 app.include_router(transfers_router, prefix="/api/v1", tags=["transfers"])
 app.include_router(pos_shifts_router, prefix="/api/v1", tags=["pos_shifts"])
+app.include_router(production_orders_router, prefix="/api/v1", tags=["production_orders"])
 app.include_router(inventory_adjustments_router, prefix="/api/v1", tags=["inventory"])
+app.include_router(inventory_reporting_router, prefix="/api/v1", tags=["inventory"])
+app.include_router(inventory_operations_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(customers_router, prefix="/api/v1", tags=["customers"])
 app.include_router(employees_router, prefix="/api/v1", tags=["employees"])
 app.include_router(carts_router, prefix="/api/v1", tags=["pos_carts"])
@@ -236,12 +296,19 @@ app.include_router(payroll_router, prefix="/api/v1", tags=["payroll"])
 app.include_router(sales_router, prefix="/api/v1", tags=["sales"])
 app.include_router(returns_router, prefix="/api/v1", tags=["returns"])
 app.include_router(loyalty_router, prefix="/api/v1", tags=["loyalty"])
+app.include_router(loyalty_rules_router, prefix="/api/v1", tags=["loyalty"])
 app.include_router(discounts_router, prefix="/api/v1", tags=["discounts"])
 app.include_router(marketing_router, prefix="/api/v1", tags=["marketing"])
 app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])
 app.include_router(ai_advisory_router, prefix="/api/v1", tags=["ai_advisory"])
 app.include_router(accounting_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(executive_bi_router, prefix="/api/v1", tags=["executive_bi"])
+app.include_router(chart_accounts_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(fx_revaluation_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(currencies_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(payment_terms_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(vouchers_router, prefix="/api/v1", tags=["accounting"])
+app.include_router(customer_performance_router, prefix="/api/v1", tags=["customers"])
 app.include_router(suppliers_router, prefix="/api/v1", tags=["suppliers"])
 
 

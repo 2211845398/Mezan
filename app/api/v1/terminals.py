@@ -8,10 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
+from app.models.branch import Branch
 from app.models.pos_terminal import POSTerminal
 from app.models.users import User
-from app.schemas.terminal import TerminalCreate, TerminalCreateResponse, TerminalRead
+from app.schemas.terminal import (
+    TerminalCreate,
+    TerminalCreateResponse,
+    TerminalRead,
+    TerminalUpdate,
+)
 from app.services import audit_service
+from app.services.branch_accounting_service import ensure_terminal_cash_account
 from app.services.branch_scope import require_branch_open_for_operations
 from app.utils.security import hash_token
 
@@ -26,11 +33,20 @@ async def list_terminals(
     __: None = require_permission("terminals", "read"),
 ) -> list[TerminalRead]:
     """List terminals, optionally by branch. Requires terminals:read."""
-    q = select(POSTerminal).order_by(POSTerminal.id)
+    q = (
+        select(POSTerminal, Branch.name.label("branch_name"))
+        .join(Branch, Branch.id == POSTerminal.branch_id)
+        .order_by(POSTerminal.id)
+    )
     if branch_id is not None:
         q = q.where(POSTerminal.branch_id == branch_id)
     result = await db.execute(q)
-    return [TerminalRead.model_validate(t) for t in result.scalars().all()]
+    rows: list[TerminalRead] = []
+    for terminal, branch_name in result.all():
+        payload = TerminalRead.model_validate(terminal).model_dump()
+        payload["branch_name"] = branch_name
+        rows.append(TerminalRead.model_validate(payload))
+    return rows
 
 
 @router.post("/terminals", response_model=TerminalCreateResponse)
@@ -62,6 +78,8 @@ async def create_terminal(
         is_authorized=False,
     )
     db.add(terminal)
+    await db.flush()
+    await ensure_terminal_cash_account(db, terminal.id)
     await db.commit()
     await db.refresh(terminal)
     await audit_service.log(
@@ -82,6 +100,43 @@ async def create_terminal(
         is_authorized=terminal.is_authorized,
         api_key=api_key,
     )
+
+
+@router.patch("/terminals/{terminal_id}", response_model=TerminalRead)
+async def update_terminal(
+    terminal_id: int,
+    body: TerminalUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("terminals", "update"),
+) -> TerminalRead:
+    """Update terminal name and/or branch. Requires terminals:update."""
+    result = await db.execute(select(POSTerminal).where(POSTerminal.id == terminal_id))
+    terminal = result.scalar_one_or_none()
+    if not terminal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Terminal not found")
+    if body.branch_id is not None:
+        await require_branch_open_for_operations(db, body.branch_id)
+    old_value = TerminalRead.model_validate(terminal).model_dump()
+    if body.name is not None:
+        terminal.name = body.name
+    if body.branch_id is not None:
+        terminal.branch_id = body.branch_id
+    await db.commit()
+    await db.refresh(terminal)
+    await audit_service.log(
+        session=db,
+        action="terminal.updated",
+        resource_type="pos_terminal",
+        resource_id=str(terminal.id),
+        old_value=old_value,
+        new_value=TerminalRead.model_validate(terminal).model_dump(),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return TerminalRead.model_validate(terminal)
 
 
 @router.patch("/terminals/{terminal_id}/authorize")

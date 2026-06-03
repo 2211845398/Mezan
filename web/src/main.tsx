@@ -9,6 +9,7 @@ import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
 import { env } from '@/config/env';
+import AppErrorBoundary from '@/providers/AppErrorBoundary';
 import AuthBoundary from '@/providers/AuthBoundary';
 import I18nProvider from '@/providers/I18nProvider';
 import QueryProvider from '@/providers/QueryProvider';
@@ -17,8 +18,17 @@ import { router } from '@/routes/router';
 
 async function bootstrap() {
   if (env.VITE_ENABLE_MOCK_API) {
-    const { registerMockApi } = await import('@/dev/mockApi');
-    await registerMockApi();
+    try {
+      const { registerMockApi } = await import('@/dev/mockApi');
+      await registerMockApi();
+    } catch (err) {
+      // MSW needs `public/mockServiceWorker.js` (run `pnpm exec msw init public` in `web/`).
+      // Never block the app if the worker fails (private mode, bad install, etc.).
+      console.error(
+        '[mezan] Mock API (MSW) failed to start — continuing with the Vite dev proxy. See web/public/mockServiceWorker.js.',
+        err,
+      );
+    }
   }
 
   const rootEl = document.getElementById('root');
@@ -28,18 +38,29 @@ async function bootstrap() {
 
   createRoot(rootEl).render(
     <StrictMode>
-      <I18nProvider>
-        <ThemeProvider>
-          <QueryProvider>
-            <AuthBoundary>
-              <RouterProvider router={router} />
-            </AuthBoundary>
-            <Toaster position="top-center" richColors closeButton />
-          </QueryProvider>
-        </ThemeProvider>
-      </I18nProvider>
+      <div className="h-full min-h-0">
+        <I18nProvider>
+          <ThemeProvider>
+            <QueryProvider>
+              <AppErrorBoundary>
+                <AuthBoundary>
+                  <RouterProvider router={router} />
+                </AuthBoundary>
+              </AppErrorBoundary>
+              <Toaster position="top-center" richColors closeButton />
+            </QueryProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </div>
     </StrictMode>,
   );
 }
 
-void bootstrap();
+void bootstrap().catch((err) => {
+  console.error('[mezan] Bootstrap failed:', err);
+  const root = document.getElementById('root');
+  if (root) {
+    root.textContent = 'Failed to load the app. Open the browser console for details.';
+    root.setAttribute('role', 'alert');
+  }
+});

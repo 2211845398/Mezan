@@ -1,0 +1,149 @@
+{
+  "runs": {
+    "title": "سجل القسائم",
+    "generate_section": "إصدار قسيمة",
+    "filters": {
+      "month": "شهر الراتب",
+      "clear_month": "إزالة الشهر",
+      "status": "الحالة",
+      "status_all": "كل الحالات"
+    }
+  },
+  "run": {
+    "title": "قسيمة راتب #{{id}}",
+    "adjustments_title": "تعديلات المسودة",
+    "save_adjustments": "حفظ التعديلات",
+    "adjust_saved": "تم حفظ التعديلات",
+    "col": {
+      "base_salary": "الراتب الأساسي",
+      "bonus": "مكافأة",
+      "overtime": "عمل إضافي",
+      "auto_deductions": "خصومات تلقائية",
+      "manual_deductions": "خصومات يدوية",
+      "paid_at": "تاريخ الدفع"
+    }
+  },
+  "approvals": {
+    "title": "اعتماد الرواتب"
+  },
+  "form": {
+    "emp_id": "رقم موظف",
+    "period_start": "بداية الفترة",
+    "period_end": "نهاية الفترة",
+    "deductions": "الخصومات",
+    "bonus": "مكافأة"
+  },
+  "col": {
+    "id": "المعرّف",
+    "employee": "الموظف",
+    "period": "الفترة",
+    "status": "الحالة",
+    "hours": "ساعات",
+    "rate": "المعدل",
+    "gross": "الإجمالي",
+    "deductions": "الخصومات",
+    "net": "الصافي"
+  },
+  "status": {
+    "draft": "مسودة",
+    "approved": "معتمدة"
+  },
+  "actions": {
+    "generate": "إصدار",
+    "gen_ok": "تم إصدار القسيمة",
+    "detail": "عرض التفاصيل",
+    "recalculate": "إعادة احتساب",
+    "approve": "اعتماد",
+    "export_csv": "تصدير CSV",
+    "approved_ok": "تم اعتماد القسيمة",
+    "recalc_ok": "تمت إعادة الاحتساب"
+  },
+  "export": {
+    "filename": "payslips_approved.csv"
+  },
+  "overview": {
+    "title": "الرواتب الشهرية",
+    "month_label": "شهر الراتب",
+    "month_placeholder": "اختر الشهر",
+    "month_picker_clear": "مسح",
+    "month_picker_this_month": "الشهر الحالي",
+    "month_picker_prev_year": "السنة السابقة",
+    "month_picker_next_year": "السنة التالية",
+    "prepare": "تحضير الرواتب",
+    "prepare_ok": "تم إنشاء {{created}} مسودة؛ إعادة احتساب {{recalculated}}؛ {{skipped}} معتمدة أو تم تخطيها.",
+    "prepare_partial": "تعذر تحضير {{count}} موظف(ين):\n{{detail}}",
+    "export_excel": "تصدير Excel",
+    "export_excel_ok": "تم تنزيل ملف Excel",
+    "export_pdf": "تصدير PDF",
+    "export_pdf_ok": "تم تنزيل ملف PDF",
+    "approve_pay": "اعتماد وتسجيل الإيداع",
+    "approve_pay_ok": "تم اعتماد الرواتب وإشعار الموظفين",
+    "approve_pay_none": "لا توجد مسودات قسائم للاعتماد لهذا الشهر.",
+    "approve_pay_disabled_no_drafts": "جميع القسائم معتمدة أو لا توجد مسودات.",
+    "gate_title": "الاعتماد غير متاح بعد",
+    "gate_body": "يمكنك المراجعة الآن. يفتح الاعتماد وتسجيل الإيداع في {{date}} (الشهر {{month}}).",
+    "gate_tooltip": "يفتح في {{date}}",
+    "payslip_status": {
+      "no_payslip": "لا قسيمة",
+      "draft": "مسودة",
+      "approved": "معتمدة"
+    },
+    "kpi": {
+      "employees": "الموظفون",
+      "missing": "بدون قسيمة",
+      "missing_hint": "شغّل تحضير الرواتب",
+      "draft": "مسودة",
+      "approved_unpaid": "معتمد (غير مودع)",
+      "paid": "تم الإيداع",
+      "gross": "إجمالي الرواتب",
+      "net": "صافي الرواتب",
+      "bonus": "إجمالي المكافآت"
+    },
+    "col": {
+      "name": "الاسم",
+      "role": "الدور الوظيفي",
+      "status": "الحالة",
+      "base_salary": "الراتب الأساسي",
+      "hourly": "بالساعة",
+      "auto_ded": "خصومات تلقائية",
+      "manual_ded": "خصومات يدوية",
+      "bonus": "مكافأة",
+      "ot": "عمل إضافي",
+      "paid": "تاريخ الدفع"
+    }
+  },
+  "policies": {
+    "title": "سياسات الحضور والخصم",
+    "edit": "تعديل",
+    "edit_title": "سياسة: {{role}}",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "saved": "تم حفظ السياسة",
+    "col": {
+      "role": "الدور",
+      "category": "الفئة",
+      "grace": "السماح (د)",
+      "absence": "الغياب",
+      "late": "التأخير",
+      "early": "إغلاق مبكر",
+      "ot_mult": "مضاعف العمل الإضافي"
+    },
+    "form": {
+      "category": "فئة الحضور",
+      "grace": "دقائق السماح",
+      "absence": "خصم الغياب",
+      "late": "خصم التأخير",
+      "early": "خصم الإغلاق المبكر",
+      "ot_mult": "مضاعف العمل الإضافي"
+    }
+  },
+  "errors": {
+    "generic": "حدث خطأ. حاول مرة أخرى.",
+    "prepare": {
+      "payroll_no_branch": "الموظف غير مربوط بفرع — عيّن الفرع في ملف المستخدم.",
+      "payroll_no_schedule": "لا يوجد جدول عمل أسبوعي — أضفه من صفحة جدول الموظف.",
+      "payroll_no_pay_rate": "يجب تعيين راتب أساسي أو أجر بالساعة في ملف الموظف.",
+      "payroll_negative_net": "الصافي سالب لهذه الفترة — راجع الحضور والغياب والخصومات."
+    }
+  }
+}

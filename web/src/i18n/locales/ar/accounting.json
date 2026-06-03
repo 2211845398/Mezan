@@ -1,0 +1,463 @@
+{
+  "errors": {
+    "generic": "حدث خطأ.",
+    "forbidden": "لا تملك صلاحية لهذا الإجراء.",
+    "forbidden_link": "رجوع"
+  },
+  "actions": {
+    "cancel": "إلغاء"
+  },
+  "toolbar": {
+    "branch": "الفرع",
+    "all_branches": "كل الفروع",
+    "apply": "تطبيق"
+  },
+  "period": {
+    "from": "من",
+    "to": "إلى"
+  },
+  "account_picker": {
+    "placeholder": "اختر حساباً",
+    "search": "بحث",
+    "empty": "لا نتائج"
+  },
+  "journal": {
+    "list_title": "القيود اليومية",
+    "new_manual": "قيد جديد",
+    "detail_title": "قيد #{{id}}",
+    "view": "عرض",
+    "back": "رجوع",
+    "link_original": "الأصل #{{id}}",
+    "link_reversal": "العكس #{{id}}",
+    "reverse": "عكس",
+    "edit": "تعديل",
+    "save": "حفظ",
+    "edit_saved": "تم حفظ القيد",
+    "edit_system_warning": "تعديل هذا القيد يغيّر الترحيل المحاسبي دون تحديث المستند المصدر (فاتورة، نقطة بيع، إلخ).",
+    "detail_meta": "بيانات القيد",
+    "lines_title": "أسطر القيد",
+    "source_ref": "مرجع المصدر",
+    "filter": {
+      "source_prefix": "بادئة المصدر",
+      "source_type": "نوع المصدر",
+      "all_sources": "كل المصادر",
+      "search_source": "بحث في نوع المصدر…"
+    },
+    "total_rows": "الإجمالي: {{total}}",
+    "col": {
+      "id": "رقم القيد",
+      "date": "التاريخ",
+      "source": "المصدر",
+      "memo": "البيان",
+      "debit": "مدين",
+      "credit": "دائن",
+      "balanced": "موازن"
+    },
+    "source": {
+      "manual": "قيد يدوي",
+      "journal_reversal": "عكس قيد",
+      "sales_invoice": "فاتورة مبيعات",
+      "sales_return": "مرتجع مبيعات",
+      "goods_receipt": "استلام بضاعة",
+      "pos_shift": "وردية نقاط البيع",
+      "pos_sale": "بيع نقاط البيع",
+      "payslip": "قسيمة راتب",
+      "payroll": "رواتب",
+      "stock_adjustment": "تسوية مخزون",
+      "inventory_adjustment": "تسوية مخزون",
+      "transfer": "تحويل",
+      "transfer_batch": "دفعة تحويل",
+      "opening_balance": "رصيد افتتاحي",
+      "fx_revaluation": "إعادة تقييم عملة",
+      "ar_payment": "دفعة مدينة",
+      "ar_payment_application": "تطبيق دفعة مدينة",
+      "ap_payment": "دفعة دائنة",
+      "ap_payment_application": "تطبيق دفعة دائنة",
+      "purchase_receipt": "استلام مشتريات",
+      "loyalty_ledger": "دفتر ولاء",
+      "production_order": "أمر إنتاج",
+      "voucher": "سند {{type}}"
+    },
+    "line": {
+      "account": "الحساب",
+      "branch": "الفرع",
+      "memo": "بيان السطر"
+    },
+    "desc": {
+      "goods_receipt": "استلام بضاعة {{id}}",
+      "transfer_batch_received": "استلام دفعة تحويل {{id}}",
+      "reversal": "عكس قيد #{{id}}",
+      "sales_invoice_settlement": "تسوية فاتورة مبيعات {{ref}}",
+      "sales_invoice_accrual": "استحقاق فاتورة مبيعات {{ref}}",
+      "cogs": "تكلفة مبيعات {{ref}}",
+      "cogs_restore": "استعادة تكلفة مبيعات {{ref}}",
+      "sales_return": "مرتجع مبيعات {{id}}",
+      "ar_payment_application": "تحصيل نقدي (تطبيق {{id}})",
+      "ap_payment_application": "دفعة مورد (تطبيق {{id}})",
+      "payslip_approved": "اعتماد قسيمة راتب {{id}}",
+      "pos_shift_variance": "فرق نقد وردية {{id}}",
+      "loyalty_ledger": "قيد ولاء {{id}}",
+      "fx_revaluation_ar": "إعادة تقييم {{currency}} — ذمم مدينة {{sourceType}} {{sourceId}}",
+      "fx_revaluation_ap": "إعادة تقييم {{currency}} — ذمم دائنة {{sourceType}} {{sourceId}}",
+      "inventory_adjustment": "تسوية مخزون — {{reason}} (حركة {{movementId}})",
+      "inventory_adjustment_excess": "تسوية مخزون — فائض (حركة {{movementId}})",
+      "production_material": "أمر إنتاج {{order}} — صرف مواد",
+      "production_finished": "أمر إنتاج {{order}} — منتج تام"
+    }
+  },
+  "manual": {
+    "title": "قيد يدوي",
+    "entry_date": "تاريخ القيد",
+    "description": "الوصف",
+    "account": "الحساب",
+    "branch": "الفرع",
+    "add_line": "إضافة سطر",
+    "submit": "ترحيل",
+    "saved": "تم الترحيل",
+    "totals": "الإجماليات",
+    "difference": "الفرق",
+    "subledger": {
+      "entity": "الجهة",
+      "customer": "اختر عميلاً",
+      "supplier": "اختر مورداً",
+      "employee": "اختر موظفاً"
+    }
+  },
+  "reversal": {
+    "title": "عكس قيد #{{id}}",
+    "posting_date": "تاريخ العكس",
+    "reason": "السبب",
+    "submit": "إنشاء عكس",
+    "ok": "تم إنشاء قيد العكس"
+  },
+  "tb": {
+    "title": "ميزان المراجعة",
+    "as_of": "حتى تاريخ",
+    "export": "تصدير CSV",
+    "export_pdf": "تصدير PDF",
+    "totals": "إجمالي المدين: {{dr}} · إجمالي الدائن: {{cr}}",
+    "totals_row": "الإجماليات",
+    "balanced": "متوازن",
+    "unbalanced": "غير متوازن",
+    "col": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "type": "النوع",
+      "debit": "مدين",
+      "credit": "دائن",
+      "net": "الصافي"
+    }
+  },
+  "is": {
+    "title": "قائمة الدخل",
+    "period_start": "بداية الفترة",
+    "period_end": "نهاية الفترة",
+    "revenue": "إجمالي الإيراد",
+    "expense": "إجمالي المصروف",
+    "net_income": "صافي الدخل",
+    "revenue_lines": "الإيراد حسب الحساب",
+    "expense_lines": "المصروف حسب الحساب",
+    "amount": "المبلغ"
+  },
+  "bs": {
+    "title": "الميزانية العمومية",
+    "as_of": "كما في",
+    "total_assets": "إجمالي الأصول",
+    "total_liabilities": "إجمالي الالتزامات",
+    "total_equity": "إجمالي حقوق الملكية",
+    "imbalance": "الأصول − الالتزامات − حقوق الملكية",
+    "balance_check": "فحص التوازن",
+    "balanced": "متوازن",
+    "difference": "فرق",
+    "section": {
+      "assets": "الأصول",
+      "liabilities": "الالتزامات",
+      "equity": "حقوق الملكية"
+    }
+  },
+  "gl": {
+    "title": "دفتر الأستاذ العام",
+    "account": "الحساب",
+    "subledger_filter": "تصفية الجهة",
+    "all_entities": "كل الجهات",
+    "search_placeholder": "بحث بالوصف أو الجهة…",
+    "col": {
+      "date": "التاريخ",
+      "je": "قيد",
+      "desc": "الوصف",
+      "partner": "الجهة",
+      "balance": "الرصيد"
+    }
+  },
+  "ar": {
+    "title": "الذمم المدينة المفتوحة",
+    "col": {
+      "ref": "المرجع",
+      "description": "البيان",
+      "doc_date": "تاريخ المستند",
+      "due_date": "تاريخ الاستحقاق",
+      "days_overdue": "أيام التأخير",
+      "open": "المبلغ المفتوح",
+      "source": "مرجع",
+      "status": "الحالة"
+    },
+    "filter_status": "الحالة",
+    "status": {
+      "open": "مفتوح",
+      "closed": "مغلق",
+      "all": "الكل"
+    },
+    "selection_summary": "{{count}} بند محدد — الإجمالي: {{total}}",
+    "deselect_all": "إلغاء التحديد",
+    "apply_selected": "تطبيق دفعة",
+    "drawer_title": "تطبيق دفعة (مدين)",
+    "tendered": "المسدد (أقصى إجمالي)",
+    "total_applied": "المطبّق: {{v}}",
+    "reference": "مرجع",
+    "note": "ملاحظة",
+    "submit": "إرسال التطبيقات",
+    "apply_ok": "تم تطبيق الدفعة"
+  },
+  "ap": {
+    "title": "الذمم الدائنة المفتوحة",
+    "col": {
+      "ref": "المرجع",
+      "description": "البيان",
+      "doc_date": "تاريخ المستند",
+      "due_date": "تاريخ الاستحقاق",
+      "days_overdue": "أيام التأخير",
+      "open": "المبلغ المفتوح",
+      "source": "مرجع",
+      "status": "الحالة"
+    },
+    "filter_status": "الحالة",
+    "status": {
+      "open": "مفتوح",
+      "closed": "مغلق",
+      "all": "الكل"
+    },
+    "selection_summary": "{{count}} بند محدد — الإجمالي: {{total}}",
+    "deselect_all": "إلغاء التحديد",
+    "apply_selected": "تطبيق دفعة",
+    "drawer_title": "تطبيق دفعة (دائن)",
+    "submit": "إرسال التطبيقات",
+    "apply_ok": "تم تطبيق الدفعة"
+  },
+  "operations": {
+    "title": "عمليات المحاسبة",
+    "loading": "جارٍ التحميل…",
+    "tab": {
+      "vouchers": "القسائم",
+      "opening": "الأرصدة الافتتاحية",
+      "fx": "إعادة تقييم العملات",
+      "production": "الإنتاج"
+    },
+    "tree": {
+      "title": "دليل الحسابات",
+      "link_hint": "أصبحت إدارة دليل الحسابات في صفحة مخصّصة بتخطيط ثنائي اللوحات (قائمة المركز المالي وقائمة الدخل)."
+    },
+    "voucher": {
+      "title": "سند قبض / دفع",
+      "date": "التاريخ",
+      "amount": "المبلغ",
+      "description": "الوصف",
+      "customer": "العميل",
+      "supplier": "المورد",
+      "no_entity": "بدون عميل/مورد",
+      "receipt_section": "سند قبض (مدين)",
+      "payment_section": "سند دفع (دائن)",
+      "post_receipt": "ترحيل سند قبض",
+      "post_payment": "ترحيل سند دفع",
+      "receipt_ok": "تم ترحيل سند القبض",
+      "payment_ok": "تم ترحيل سند الدفع",
+      "receipt_default_desc": "استلام من عميل",
+      "payment_default_desc": "دفع لمورد"
+    },
+    "opening": {
+      "title": "قيد افتتاحي",
+      "date": "التاريخ",
+      "amount": "المبلغ",
+      "debit_account": "حساب مدين",
+      "credit_account": "حساب دائن",
+      "description": "الوصف",
+      "post": "ترحيل القيد الافتتاحي",
+      "ok": "تم ترحيل القيد الافتتاحي",
+      "default_desc": "رصيد افتتاحي"
+    },
+    "fx": {
+      "title": "إعادة تقييم العملات",
+      "as_of": "حتى تاريخ",
+      "preview": "معاينة",
+      "post": "ترحيل",
+      "preview_ok": "تمت معاينة فروقات العملة",
+      "run_ok": "تم ترحيل فروقات العملة",
+      "no_adjustments": "لا تعديلات لإعادة التقييم في هذا التاريخ.",
+      "col": {
+        "code": "الرمز",
+        "name": "الحساب",
+        "book_amount": "القيمة الدفترية",
+        "revalued_amount": "القيمة المُعادة",
+        "fx_gain_loss": "ربح/خسارة صرف"
+      }
+    },
+    "production": {
+      "title": "أوامر الإنتاج والـ BoM",
+      "product_label": "المنتج النهائي",
+      "version_label": "الإصدار",
+      "empty": "لا توجد قوائم مواد بعد."
+    }
+  },
+  "fiscal": {
+    "title": "الفترات المالية",
+    "search_placeholder": "بحث بالتاريخ…",
+    "col": {
+      "key": "الفترة",
+      "start": "البداية",
+      "end": "النهاية",
+      "status": "الحالة",
+      "closed_at": "تاريخ الإقفال"
+    },
+    "status_label": {
+      "open": "مفتوحة",
+      "soft_closed": "مغلقة جزئياً",
+      "closed": "مغلقة"
+    },
+    "close": "إقفال الفترة",
+    "reopen": "إعادة فتح",
+    "close_confirm_title": "إقفال الفترة المالية؟",
+    "close_confirm_body": "يمنع إقفال الفترة الترحيلات الجديدة. اكتب CLOSE للتأكيد.",
+    "close_confirm_body_simple": "يمنع إقفال الفترة الترحيلات الجديدة. يمكن إعادة فتحها لاحقاً إذا لزم.",
+    "reopen_confirm_title": "إعادة فتح الفترة المالية؟",
+    "reopen_confirm_body": "يسمح بإعادة الترحيل في هذه الفترة.",
+    "closed_ok": "تم الإقفال",
+    "reopened_ok": "تم إعادة الفتح",
+    "transition_error": "لا يمكن تغيير حالة هذه الفترة بهذه الطريقة"
+  },
+  "currencies": {
+    "title": "العملات",
+    "add": "إضافة عملة",
+    "empty": "لا توجد عملات.",
+    "select_placeholder": "اختر العملة",
+    "base_badge": "أساسية",
+    "current_base": "العملة الأساسية للشركة",
+    "link_fx": "إعادة تقييم العملة",
+    "col": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "rate": "سعر الصرف",
+      "base": "أساسية",
+      "active": "نشطة"
+    },
+    "yes": "نعم",
+    "no": "لا",
+    "edit_rate": "تعديل السعر",
+    "edit_rate_title": "سعر {{code}}",
+    "set_base": "تعيين كأساسية",
+    "created": "تمت إضافة العملة",
+    "rate_updated": "تم تحديث سعر الصرف",
+    "base_updated": "تم تحديث العملة الأساسية",
+    "base_confirm_title": "تغيير العملة الأساسية؟",
+    "base_confirm_body": "إجراء إداري نادر. يجب تسوية أو إعادة تقييم الذمم بعملات أجنبية أولاً. سيتم ضبط سعر العملة الجديدة إلى 1.",
+    "base_confirm_action": "تغيير الأساسية",
+    "form": {
+      "code": "رمز العملة (ISO)",
+      "name": "الاسم",
+      "rate": "سعر الصرف مقابل الأساسية",
+      "rate_hint": "وحدات العملة الأساسية لكل 1 وحدة من هذه العملة.",
+      "save": "حفظ"
+    }
+  },
+  "coa": {
+    "account_type": {
+      "asset": "أصل",
+      "liability": "التزام",
+      "equity": "حقوق ملكية",
+      "revenue": "إيراد",
+      "expense": "مصروف"
+    },
+    "title": "دليل الحسابات",
+    "open_page": "فتح دليل الحسابات",
+    "balance_sheet": "قائمة المركز المالي",
+    "income_statement": "قائمة الدخل",
+    "new_group": "مجموعة جديدة",
+    "new_account": "حساب جديد",
+    "edit": "تحرير",
+    "save": "حفظ",
+    "create": "إنشاء",
+    "created": "تم الإنشاء",
+    "saved": "تم الحفظ",
+    "loading": "جاري التحميل…",
+    "empty": "لا توجد حسابات في هذه اللوحة.",
+    "name": "الاسم",
+    "code": "الرمز",
+    "parent": "المجموعة",
+    "parent_placeholder": "اختر مجموعة أب",
+    "parent_required": "اختر مجموعة أب",
+    "parent_none": "بدون أب",
+    "parent_search": "بحث في المجموعات…",
+    "parent_empty": "لا توجد مجموعات",
+    "subledger_kind": "نوع الأستاذ الفرعي",
+    "system_account": "نظامي",
+    "expand": "توسيع",
+    "collapse": "طي",
+    "expand_all": "توسيع الكل",
+    "collapse_all": "طي الكل",
+    "hide_zero": "إخفاء الأرصدة الصفرية",
+    "delete": "حذف",
+    "deleted": "تم حذف الحساب",
+    "delete_title": "حذف حساب",
+    "delete_action": "حذف",
+    "delete_checking": "جاري التحقق من إمكانية الحذف…",
+    "delete_confirm": "حذف {{name}} ({{code}})؟ لا يمكن التراجع.",
+    "delete_blocked": "لا يمكن حذف هذا الحساب: {{reason}}",
+    "name_en": "الاسم (إنجليزي)",
+    "name_ar": "الاسم (عربي)",
+    "as_of": "الأرصدة حتى",
+    "branch_filter": "الفرع",
+    "branch_all": "كل الفروع (هيكل فقط)",
+    "branch_hint": "اختر فرعاً واضغط تطبيق لعرض أرصدة الفرع في الشجرة.",
+    "apply_filters": "تطبيق",
+    "col": {
+      "name": "الاسم",
+      "code": "الرمز",
+      "balance": "رصيد الفرع",
+      "actions": "إجراءات"
+    },
+    "group_new_title": "مجموعة جديدة",
+    "group_edit_title": "تحرير مجموعة",
+    "account_new_title": "حساب جديد",
+    "account_edit_title": "تحرير حساب",
+    "subledger": {
+      "none": "بدون أستاذ فرعي",
+      "customer": "عملاء",
+      "supplier": "موردون",
+      "employee": "موظفون"
+    },
+    "validation": {
+      "name": "الاسم مطلوب",
+      "code": "الرمز مطلوب",
+      "parent": "يجب اختيار مجموعة أب"
+    }
+  },
+  "payment_terms": {
+    "title": "شروط الدفع",
+    "description": "تحديد موعد استحقاق دفعات الموردين (لحساب تاريخ استحقاق الذمم الدائنة).",
+    "add": "إضافة شرط",
+    "edit": "تعديل شرط",
+    "empty": "لا توجد شروط دفع.",
+    "saved": "تم حفظ شرط الدفع",
+    "col": {
+      "code": "الرمز",
+      "name": "الوصف",
+      "days": "أيام",
+      "active": "نشط"
+    },
+    "form": {
+      "code": "الرمز",
+      "name_en": "الاسم (إنجليزي)",
+      "name_ar": "الاسم (عربي)",
+      "days": "أيام الاستحقاق بعد الفاتورة",
+      "save": "حفظ"
+    }
+  }
+}

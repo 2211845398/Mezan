@@ -9,7 +9,8 @@ import * as React from "react"
 import type { DayButton} from "react-day-picker";
 import { DayPicker, getDefaultClassNames } from "react-day-picker"
 
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { formatCalendarMonthShort, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -111,7 +112,7 @@ function Calendar({
         range_middle: cn("rounded-none", defaultClassNames.range_middle),
         range_end: cn("bg-accent rounded-e-md", defaultClassNames.range_end),
         today: cn(
-          "bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none",
+          "bg-muted text-muted-foreground rounded-md data-[selected=true]:rounded-none",
           defaultClassNames.today
         ),
         outside: cn(

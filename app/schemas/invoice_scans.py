@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class InvoiceScanCreate(BaseModel):
     source_type: str = Field(pattern="^(qr|image)$")
@@ -29,6 +31,10 @@ class InvoiceScanRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class InvoiceScanListResponse(PaginatedListResponse[InvoiceScanRead]):
+    """Paginated invoice scan list."""
+
+
 class InvoiceScanOverride(BaseModel):
     override_output: dict[str, Any]
 
@@ -40,3 +46,13 @@ class InvoiceScanValidateRequest(BaseModel):
 class InvoiceScanValidateResponse(BaseModel):
     scan: InvoiceScanRead
     goods_receipt_id: int
+
+
+class CatalogMatchLineApply(BaseModel):
+    line_no: int = Field(gt=0)
+    product_id: int | None = None
+
+
+class InvoiceScanApplyCatalogMatchesRequest(BaseModel):
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    line_matches: list[CatalogMatchLineApply] = Field(default_factory=list)

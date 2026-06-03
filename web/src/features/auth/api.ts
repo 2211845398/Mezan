@@ -44,8 +44,20 @@ export async function logout(body: LogoutRequest): Promise<void> {
   await apiClient.post('/auth/logout', body);
 }
 
+export type BranchBrief = {
+  id: number;
+  name: string;
+  code?: string | null;
+};
+
 export async function getMe(): Promise<UserRead> {
   const { data } = await apiClient.get<UserRead>('/auth/me');
+  return data;
+}
+
+/** Assigned branch label without ``branches:read`` (cashier, etc.). */
+export async function getMyBranch(): Promise<BranchBrief> {
+  const { data } = await apiClient.get<BranchBrief>('/auth/me/branch');
   return data;
 }
 
@@ -58,8 +70,20 @@ export async function updateMe(body: UpdateMeBody, idempotencyKey?: string): Pro
   return data;
 }
 
+export async function uploadMyAvatar(file: File): Promise<UserRead> {
+  const body = new FormData();
+  body.append('file', file);
+  const { data } = await apiClient.post<UserRead>('/auth/me/avatar', body);
+  return data;
+}
+
 export async function getMyPermissions(): Promise<PermissionRead[]> {
   const { data } = await apiClient.get<PermissionRead[]>('/auth/me/permissions');
+  return data;
+}
+
+export async function getMyRoles(): Promise<{ codes: string[] }> {
+  const { data } = await apiClient.get<{ codes: string[] }>('/auth/me/roles');
   return data;
 }
 

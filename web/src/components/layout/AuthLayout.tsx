@@ -1,23 +1,23 @@
 import { cn } from '@/lib/utils';
 
-/*
- * Centred card shell for sign-in / forgot / reset / onboarding screens.
- * Router wiring lands in Epic W-2 (which will pass `<Outlet />` as children);
- * today this component is intentionally standalone so we can smoke-test the
- * styles and fonts without pulling in a router.
- */
-
 export type AuthLayoutProps = {
   logoSlot?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
 };
 
+/**
+ * Centred card shell for sign-in / forgot / reset / onboarding screens.
+ * Matches the floating-form UI reference style:
+ * - Centered white surface with rounded corners
+ * - Muted background
+ * - RTL-safe layout
+ */
 export function AuthLayout({ logoSlot, children, className }: AuthLayoutProps) {
   return (
     <div
       className={cn(
-        'flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12',
+        'flex h-full min-h-0 w-full items-center justify-center overflow-y-auto bg-muted/40 px-4 py-12',
         className,
       )}
     >

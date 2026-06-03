@@ -1,7 +1,8 @@
 import { useSearchParams } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DataTable, defineColumns } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
+import { defineColumns } from '@/components/shared/DataTable/columns';
 import { renderWithProviders, screen, userEvent, waitFor } from '@/test/utils';
 
 // Tiny probe so tests can read router-driven URL state without depending on

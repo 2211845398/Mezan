@@ -14,12 +14,18 @@ type RefreshBody = { refresh_token: string };
 export const DEFAULT_USER = {
   id: 1,
   email: 'admin@example.com',
-  full_name: 'Admin Al-Admin',
+  first_name: 'Admin',
+  father_name: 'Al',
+  family_name: 'Admin',
   status: 'active',
   branch_id: 1,
   phone: null,
+  city: null,
   preferred_language: 'ar',
+  avatar_url: null,
   last_login_at: '2026-04-22T08:00:00Z',
+  employee_profile_id: null as number | null,
+  bootstrap_admin_protected: true,
 };
 
 export const DEFAULT_ADMIN_PERMISSIONS = [
@@ -78,7 +84,18 @@ export const authHandlers = [
 
   http.get(`${BASE}/auth/me`, () => HttpResponse.json(DEFAULT_USER)),
 
+  http.post(`${BASE}/auth/me/avatar`, () =>
+    HttpResponse.json({
+      ...DEFAULT_USER,
+      avatar_url: '/api/v1/static/avatars/1.png',
+    }),
+  ),
+
   http.get(`${BASE}/auth/me/permissions`, () => HttpResponse.json(DEFAULT_ADMIN_PERMISSIONS)),
+
+  http.get(`${BASE}/auth/me/roles`, () => HttpResponse.json({ codes: ['ADMIN'] })),
+
+  http.get(`${BASE}/employees/me/schedules`, () => HttpResponse.json([])),
 
   http.get(`${BASE}/health`, () => HttpResponse.json({ status: 'healthy' })),
 ];

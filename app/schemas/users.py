@@ -6,24 +6,29 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.schemas.pagination import PaginatedListResponse
+
 
 class UserCreate(BaseModel):
     """Schema for creating a new user (staff)."""
 
     email: EmailStr
-    full_name: str | None = None
+    first_name: str | None = None
+    father_name: str | None = None
+    family_name: str | None = None
     password: str | None = None  # optional for SSO-only users
     status: str = "pending_onboarding"  # pending_onboarding, active, deactivated, suspended, banned
     branch_id: int | None = None
     role_code: str | None = Field(default=None, max_length=64)
-    require_onboarding: bool = True
     assigned_hr_user_id: int | None = None
 
 
 class UserUpdate(BaseModel):
     """Update user (status, profile, branch)."""
 
-    full_name: str | None = None
+    first_name: str | None = None
+    father_name: str | None = None
+    family_name: str | None = None
     status: str | None = None  # active, deactivated, suspended, banned
     branch_id: int | None = None
 
@@ -35,12 +40,23 @@ class UserRead(BaseModel):
 
     id: int
     email: EmailStr
-    full_name: str | None = None
+    first_name: str | None = None
+    father_name: str | None = None
+    family_name: str | None = None
     status: str
     branch_id: int | None = None
+    branch_name: str | None = None
     phone: str | None = None
+    city: str | None = None
     preferred_language: str | None = None
+    avatar_url: str | None = None
     last_login_at: datetime | None = None
+    employee_profile_id: int | None = None
+    bootstrap_admin_protected: bool = False
+
+
+class UserListResponse(PaginatedListResponse[UserRead]):
+    """Paginated user list."""
 
 
 class UserOnboardingRead(BaseModel):
@@ -60,6 +76,42 @@ class UserOnboardingRead(BaseModel):
     completed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    # Enriched user details for HR pending requests page
+    user_email: str | None = None
+    user_first_name: str | None = None
+    user_father_name: str | None = None
+    user_family_name: str | None = None
+    user_full_name: str | None = None
+    user_branch_id: int | None = None
+    user_branch_name: str | None = None
+    user_status: str | None = None
+    user_role_code: str | None = None
+    user_role_name: str | None = None
+    requested_by_name: str | None = None
+    assigned_hr_name: str | None = None
+    identity_document_type: str | None = None
+    identity_document_number: str | None = None
+    identity_document_image_url: str | None = None
+
+
+class UserOnboardingSubjectUpdate(BaseModel):
+    """HR edits the subject user while onboarding is still pending (no users:update required)."""
+
+    first_name: str | None = None
+    father_name: str | None = None
+    family_name: str | None = None
+    branch_id: int | None = None
+    role_code: str | None = Field(default=None, max_length=64)
+
+
+class WeeklyScheduleItem(BaseModel):
+    """Schedule block to create during onboarding completion."""
+
+    weekday: int = Field(ge=0, le=6)
+    start_time: str  # HH:MM:SS format
+    end_time: str  # HH:MM:SS format
+    is_day_off: bool = False
+    branch_id: int
 
 
 class UserOnboardingComplete(BaseModel):
@@ -68,8 +120,13 @@ class UserOnboardingComplete(BaseModel):
     contract_start: date | None = None
     contract_end: date | None = None
     salary_amount: Decimal | None = None
+    hourly_rate: Decimal | None = None
     salary_currency: str | None = None
+    bank_account: str | None = None
     notes: str | None = None
+    identity_document_type: str | None = Field(default=None, max_length=32)
+    identity_document_number: str | None = Field(default=None, max_length=128)
+    schedules: list[WeeklyScheduleItem] | None = None
 
 
 class UserPermissionOverrideWrite(BaseModel):
@@ -80,6 +137,8 @@ class UserPermissionOverrideWrite(BaseModel):
 
 
 class UserPermissionOverrideRead(UserPermissionOverrideWrite):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     created_by_user_id: int | None = None

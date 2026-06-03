@@ -47,10 +47,29 @@ class PurchaseReorderResponse(BaseModel):
 
 
 class HrAnomalyRequest(BaseModel):
-    lookback_days: int = Field(default=14, ge=1, le=90)
+    """HR anomaly detection request (Epic 23.5: presets supported).
+
+    Use preset="last_month" for quick last-month analysis,
+    or specify lookback_days manually.
+    """
+
+    preset: Literal["last_month", "last_14_days", "last_7_days", "custom"] = Field(
+        default="last_month"
+    )
+    lookback_days: int = Field(default=30, ge=1, le=90)
     employee_ids: list[int] | None = None
     branch_id: int | None = None
     max_anomalies: int = Field(default=20, ge=1, le=100)
+
+    def get_lookback_days(self) -> int:
+        """Resolve lookback days from preset or explicit value."""
+        if self.preset == "last_month":
+            return 30
+        if self.preset == "last_14_days":
+            return 14
+        if self.preset == "last_7_days":
+            return 7
+        return self.lookback_days
 
 
 class HrAnomaly(BaseModel):
@@ -62,6 +81,8 @@ class HrAnomaly(BaseModel):
         "missing_clock_out",
         "outside_schedule",
         "unusual_pattern",
+        "scheduled_absence",
+        "continuous_shift",
     ]
     period_start: datetime
     period_end: datetime
@@ -111,6 +132,14 @@ class TargetedCampaignResponse(BaseModel):
     generated_at: datetime
     facts_used: dict
     campaigns: list[TargetedCampaign]
+
+
+class CampaignSegmentExportRequest(BaseModel):
+    """Export customer_id rows for a deterministic segment bucket."""
+
+    segment_code: str = Field(min_length=1, max_length=32)
+    lookback_days: int = Field(default=90, ge=14, le=365)
+    min_purchases: int = Field(default=2, ge=1, le=50)
 
 
 # ── Invoice-to-catalog matcher ───────────────────────────────────────────────

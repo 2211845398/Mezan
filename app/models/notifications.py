@@ -31,6 +31,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -148,6 +149,9 @@ class NotificationSchedule(Base):
     branch_id: Mapped[int | None] = mapped_column(
         ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     parameters: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -203,6 +207,7 @@ class NotificationDelivery(Base):
             "idempotency_key",
             name="uq_notification_deliveries_schedule_idem",
         ),
+        Index("ix_notification_deliveries_user_read", "user_id", "read_at"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -243,3 +248,4 @@ class NotificationDelivery(Base):
         nullable=False,
     )
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

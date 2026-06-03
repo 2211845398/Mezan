@@ -1,10 +1,14 @@
+import { useLocation } from 'react-router-dom';
+
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
 /*
- * Admin shell: sidebar + topbar + content slot. In W-2.1 the content slot
- * becomes a `<Outlet />` from React Router; until then App.tsx passes
- * children directly.
+ * Admin shell: sidebar + topbar + content slot. Tooltips power collapsed
+ * sidebar labels (`web/docs/SHELL_CONTRACT.md`).
  */
 
 export type AdminLayoutProps = {
@@ -12,14 +16,29 @@ export type AdminLayoutProps = {
 };
 
 export function AdminLayout({ children }: AdminLayoutProps) {
+  const { pathname } = useLocation();
+  const isPosShell = pathname.startsWith('/pos');
+
   return (
-    <div className="flex h-full min-h-screen bg-background">
-      <Sidebar />
-      <div className="flex min-h-screen flex-1 flex-col">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <TooltipProvider delayDuration={300}>
+      {/* h-[100dvh] + overflow-hidden: document/body must not scroll — only sidebar nav + main scroll */}
+      <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 w-full overflow-hidden bg-background">
+        <Sidebar />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <Topbar />
+          <main
+            className={cn(
+              'mezan-scrollbar min-h-0 flex-1',
+              isPosShell
+                ? 'overflow-hidden p-0'
+                : 'overflow-y-auto p-4 lg:p-6',
+            )}
+          >
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 

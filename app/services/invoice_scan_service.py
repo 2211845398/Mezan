@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
+import copy
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.invoice_scan import InvoiceScan
 from app.models.stock_level import StockLevel
 from app.services.branch_scope import require_branch_open_for_operations
+from app.services.catalog_service import resolve_default_variant_id
 from app.services.document_posting_service import post_goods_receipt_gl
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
@@ -181,6 +184,61 @@ async def override_scan(
     return scan
 
 
+async def apply_catalog_matches(
+    db: AsyncSession,
+    *,
+    scan_id: int,
+    idempotency_key: str,
+    line_matches: list[dict[str, Any]],
+) -> InvoiceScan:
+    if len(idempotency_key) < 8:
+        raise ValidationError(
+            "idempotency_key must be at least 8 characters",
+            details={"field": "idempotency_key"},
+        )
+    scan = await get_scan(db, scan_id)
+    if scan.catalog_match_apply_idempotency_key == idempotency_key:
+        return scan
+    if scan.status == "validated":
+        raise ValidationError("Scan already validated", details={"scan_id": scan_id})
+
+    base_src = (
+        scan.override_output if isinstance(scan.override_output, dict) else scan.parsed_output
+    )
+    if isinstance(base_src, dict):
+        base: dict[str, Any] = copy.deepcopy(base_src)
+    else:
+        base = {}
+    line_items = base.get("line_items")
+    if not isinstance(line_items, list):
+        line_items = []
+
+    for lm in line_matches:
+        line_no = lm.get("line_no")
+        pid = lm.get("product_id")
+        if not isinstance(line_no, int):
+            raise ValidationError("line_no must be int", details={"line": lm})
+        for item in line_items:
+            if isinstance(item, dict) and item.get("line_no") == line_no:
+                if pid is not None:
+                    item["product_id"] = int(pid)
+                else:
+                    item.pop("product_id", None)
+                break
+
+    base["line_items"] = line_items
+    scan.override_output = base
+    scan.status = "needs_review"
+    scan.catalog_match_apply_idempotency_key = idempotency_key
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise ConflictError("Idempotency key already used for another scan") from e
+    await db.refresh(scan)
+    return scan
+
+
 async def validate_scan_and_receive_goods(
     db: AsyncSession,
     *,
@@ -228,17 +286,23 @@ async def validate_scan_and_receive_goods(
                 "Line item must include unit_cost(number>0)",
                 details={"index": i},
             )
+        vid = await resolve_default_variant_id(db, product_id=product_id)
         db.add(
             GoodsReceiptLine(
                 goods_receipt_id=receipt.id,
                 product_id=product_id,
+                variant_id=vid,
                 qty=qty,
                 unit_cost=unit_cost,
             )
         )
         sl_res = await db.execute(
             select(StockLevel.on_hand).where(
-                and_(StockLevel.branch_id == branch_id, StockLevel.product_id == product_id)
+                and_(
+                    StockLevel.branch_id == branch_id,
+                    StockLevel.product_id == product_id,
+                    StockLevel.variant_id == vid,
+                )
             )
         )
         qty_on_hand_before = int(sl_res.scalar_one_or_none() or 0)
@@ -251,6 +315,7 @@ async def validate_scan_and_receive_goods(
             reason="goods_receipt",
             ref_type="goods_receipt",
             ref_id=str(receipt.id),
+            variant_id=vid,
         )
         await apply_receipt_to_weighted_average(
             db,
@@ -259,6 +324,7 @@ async def validate_scan_and_receive_goods(
             qty_in=qty,
             unit_cost=unit_cost,
             qty_on_hand_before=qty_on_hand_before,
+            variant_id=vid,
         )
 
     await post_goods_receipt_gl(db, receipt=receipt)

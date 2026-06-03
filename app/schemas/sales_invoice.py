@@ -24,11 +24,105 @@ class SalesInvoiceRead(BaseModel):
     discount_total: Decimal
     tax_total: Decimal
     total: Decimal
+    payment_status: str = "paid"
     created_at: datetime
     voided_at: datetime | None = None
     void_reason: str | None = None
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class SalesInvoiceLineRead(BaseModel):
+    id: int
+    product_id: int
+    product_name: str
+    product_sku: str
+    barcode: str | None = None
+    qty: int
+    unit_price: Decimal
+    line_total: Decimal
+    tax_rate: Decimal
+    line_tax_amount: Decimal
+
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class SalesInvoicePaymentRead(BaseModel):
+    method: str
+    amount: Decimal
+    reference: str | None = None
+    currency: str | None = None
+
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class SalesInvoiceDetailRead(BaseModel):
+    id: int
+    invoice_number: str
+    invoice_barcode: str
+    cart_id: int
+    terminal_id: int
+    branch_id: int
+    branch_name: str | None = None
+    customer_id: int | None = None
+    customer_display: str | None = None
+    currency_code: str | None = None
+    company_legal_name: str | None = None
+    subtotal: Decimal
+    discount_total: Decimal
+    tax_total: Decimal
+    total: Decimal
+    created_at: datetime
+    voided_at: datetime | None = None
+    void_reason: str | None = None
+    lines: list[SalesInvoiceLineRead] = Field(default_factory=list)
+    payments: list[SalesInvoicePaymentRead] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class SalesInvoiceListItem(BaseModel):
+    id: int
+    invoice_number: str
+    invoice_barcode: str
+    cart_id: int
+    terminal_id: int
+    branch_id: int
+    customer_id: int | None = None
+    """Joined walk-in vs customer sale; ``customer_display`` is the label for lists."""
+    customer_display: str | None = None
+    """Prefer full name, else phone, when ``customer_id`` is set."""
+    subtotal: Decimal
+    discount_total: Decimal
+    tax_total: Decimal
+    total: Decimal
+    payment_status: str = "paid"
+    transaction_type: str = "sale"
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class SalesInvoiceListResponse(BaseModel):
+    """Paginated POS terminal day window invoice list."""
+
+    items: list[SalesInvoiceListItem]
+    total: int
+    limit: int
+    offset: int
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class SalesInvoiceRegisterPageRead(BaseModel):
+    """Paginated branch-period sales invoice register (executive / marketing UI)."""
+
+    items: list[SalesInvoiceListItem]
+    total_count: int
+    sum_subtotal: Decimal
+    sum_total: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
 
 
 class VoidInvoiceRequest(BaseModel):

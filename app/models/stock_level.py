@@ -13,7 +13,9 @@ from app.db.database import Base
 class StockLevel(Base):
     __tablename__ = "stock_levels"
     __table_args__ = (
-        UniqueConstraint("branch_id", "product_id", name="uq_stock_levels_branch_product"),
+        UniqueConstraint(
+            "branch_id", "product_id", "variant_id", name="uq_stock_levels_branch_product_variant"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -23,8 +25,12 @@ class StockLevel(Base):
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     on_hand: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     reserved: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    damaged: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

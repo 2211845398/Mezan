@@ -1,15 +1,21 @@
 """Authentication service: email/password, JWT, refresh, password reset, SSO."""
 
+import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from secrets import token_urlsafe
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.refresh_token import RefreshToken
 from app.models.users import User
+from app.schemas.auth import ProfileUpdate
+from app.services import bootstrap_admin_protection, email_service
+from app.services.password_reset_email import build_password_reset_email, normalize_reset_locale
+from app.utils.image_format import detect_raster_image_extension
 from app.utils.security import (
     create_access_token,
     create_refresh_token,
@@ -20,6 +26,7 @@ from app.utils.security import (
 )
 
 ACTIVE_STATUS = "active"
+logger = logging.getLogger(__name__)
 
 
 def _is_session_idle_expired(last_used_at: datetime | None) -> bool:
@@ -34,6 +41,13 @@ def _is_session_idle_expired(last_used_at: datetime | None) -> bool:
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     """Load user by email."""
     result = await db.execute(select(User).where(User.email == email))
+    return result.scalar_one_or_none()
+
+
+async def get_user_by_email_insensitive(db: AsyncSession, email: str) -> User | None:
+    """Load user by email (case-insensitive, trimmed)."""
+    normalized = bootstrap_admin_protection.normalize_email(email)
+    result = await db.execute(select(User).where(func.lower(User.email) == normalized))
     return result.scalar_one_or_none()
 
 
@@ -141,14 +155,25 @@ async def logout(db: AsyncSession, refresh_token_str: str) -> None:
 
 async def request_password_reset(db: AsyncSession, email: str) -> None:
     """
-    If user exists, create a short-lived reset token and trigger email (no-op sender for now).
+    If user exists, create a short-lived reset token and email a reset link.
     Does not reveal whether email exists.
     """
     from app.models.password_reset_token import PasswordResetToken
 
-    user = await get_user_by_email(db, email)
+    user = await get_user_by_email_insensitive(db, email)
     if not user:
+        if settings.is_development:
+            logger.warning(
+                "Password reset not sent: no user matches email (check spelling / case)."
+            )
         return
+    if bootstrap_admin_protection.is_bootstrap_protected_user(user):
+        if settings.is_production:
+            return
+        logger.warning(
+            "Password reset for bootstrap admin (%s) allowed in development only.",
+            user.email,
+        )
     stale = await db.execute(
         select(PasswordResetToken).where(
             PasswordResetToken.user_id == user.id,
@@ -167,8 +192,27 @@ async def request_password_reset(db: AsyncSession, email: str) -> None:
     )
     db.add(reset)
     await db.commit()
-    # TODO: send email with link containing token_str via pluggable EmailSender
-    # For now no-op (e.g. in dev log the link)
+
+    reset_url = settings.build_password_reset_url(token_str)
+    locale = normalize_reset_locale(user.preferred_language)
+    subject, body_text, body_html = build_password_reset_email(
+        locale=locale,
+        reset_url=reset_url,
+        company_name=settings.COMPANY_DISPLAY_NAME,
+    )
+    try:
+        await email_service.send_email(
+            to=str(user.email),
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+        )
+    except Exception:
+        logger.exception("Password reset email delivery failed for user_id=%s", user.id)
+    else:
+        logger.info("Password reset email queued to=%s subject=%r", user.email, subject)
+    if settings.is_development:
+        logger.warning("Password reset link (dev, also check Mailpit :8025): %s", reset_url)
 
 
 async def reset_password(db: AsyncSession, token_str: str, new_password: str) -> None:
@@ -201,6 +245,82 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     """Load user by id."""
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
+
+
+async def update_own_profile(db: AsyncSession, user: User, body: ProfileUpdate) -> User:
+    """Apply profile fields and optional password change. Raises ValueError with stable codes."""
+    data = body.model_dump(exclude_unset=True)
+
+    if "email" in data:
+        if body.email is None:
+            raise ValueError("email_required")
+        new_email = str(body.email)
+        if new_email != user.email:
+            dup = await db.execute(
+                select(User.id).where(User.email == new_email).where(User.id != user.id)
+            )
+            if dup.scalar_one_or_none() is not None:
+                raise ValueError("email_already_in_use")
+            user.email = new_email
+
+    for field, col in (
+        ("first_name", "first_name"),
+        ("father_name", "father_name"),
+        ("family_name", "family_name"),
+    ):
+        if field in data:
+            v = getattr(body, field)
+            setattr(user, col, v.strip() if isinstance(v, str) and v.strip() else None)
+
+    if "phone" in data:
+        user.phone = body.phone
+
+    if "city" in data:
+        user.city = body.city
+
+    if "preferred_language" in data:
+        user.preferred_language = body.preferred_language
+
+    if "avatar_url" in data:
+        v = body.avatar_url
+        user.avatar_url = v.strip() if v and v.strip() else None
+
+    wants_pw_change = "new_password" in data and body.new_password is not None
+    if wants_pw_change:
+        if not user.password_hash:
+            raise ValueError("password_change_unavailable")
+        assert body.current_password is not None
+        if not verify_password(body.current_password, user.password_hash):
+            raise ValueError("invalid_current_password")
+        user.password_hash = hash_password(body.new_password)
+
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def save_user_avatar_image(db: AsyncSession, user: User, file_body: bytes) -> User:
+    """Persist avatar bytes to disk and set ``user.avatar_url`` to a stable URL path."""
+    if len(file_body) > settings.AVATAR_MAX_BYTES:
+        raise ValueError("avatar_too_large")
+    ext = detect_raster_image_extension(file_body[:64])
+    if ext is None:
+        raise ValueError("avatar_invalid_image")
+
+    root = Path(settings.AVATAR_UPLOAD_DIR)
+    root.mkdir(parents=True, exist_ok=True)
+    for old in root.glob(f"{user.id}.*"):
+        try:
+            old.unlink()
+        except OSError:
+            pass
+
+    dest = root / f"{user.id}.{ext}"
+    dest.write_bytes(file_body)
+    user.avatar_url = f"/api/v1/static/avatars/{user.id}.{ext}"
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 def get_google_authorization_url(state: str | None = None) -> str:
@@ -272,7 +392,9 @@ async def exchange_google_code_and_login(
     if not user:
         user = User(
             email=email,
-            full_name=name,
+            first_name=str(name).strip() if name else None,
+            father_name=None,
+            family_name=None,
             password_hash=None,
             status=ACTIVE_STATUS,
         )

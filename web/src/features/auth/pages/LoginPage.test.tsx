@@ -5,6 +5,10 @@ import LoginPage from '@/features/auth/pages/LoginPage';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { renderWithProviders, screen, userEvent, waitFor } from '@/test/utils';
 
+function HomeStub() {
+  return <div>home-stub</div>;
+}
+
 function DashboardStub() {
   return <div>dashboard-stub</div>;
 }
@@ -15,10 +19,11 @@ describe('LoginPage', () => {
     useAuthStore.setState({ status: 'unauthenticated' });
   });
 
-  it('logs in, stores tokens, and redirects to /dashboard', async () => {
+  it('logs in, stores tokens, and redirects to role-aware home', async () => {
     renderWithProviders(
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<HomeStub />} />
         <Route path="/dashboard" element={<DashboardStub />} />
       </Routes>,
       { initialEntries: ['/login'] },
@@ -28,7 +33,7 @@ describe('LoginPage', () => {
     await userEvent.type(screen.getByLabelText('كلمة المرور'), 'pw12345!');
     await userEvent.click(screen.getByRole('button', { name: 'تسجيل الدخول' }));
 
-    await waitFor(() => expect(screen.getByText('dashboard-stub')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('home-stub')).toBeInTheDocument());
 
     const state = useAuthStore.getState();
     expect(state.accessToken).toBe('access-token-1');
@@ -54,10 +59,11 @@ describe('LoginPage', () => {
     await waitFor(() => expect(screen.getByText('admin-users')).toBeInTheDocument());
   });
 
-  it('falls back to /dashboard when ?next= is off-site', async () => {
+  it('falls back to / when ?next= is off-site', async () => {
     renderWithProviders(
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<HomeStub />} />
         <Route path="/dashboard" element={<DashboardStub />} />
       </Routes>,
       { initialEntries: ['/login?next=https://evil.example/phish'] },
@@ -67,6 +73,6 @@ describe('LoginPage', () => {
     await userEvent.type(screen.getByLabelText('كلمة المرور'), 'pw12345!');
     await userEvent.click(screen.getByRole('button', { name: 'تسجيل الدخول' }));
 
-    await waitFor(() => expect(screen.getByText('dashboard-stub')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('home-stub')).toBeInTheDocument());
   });
 });

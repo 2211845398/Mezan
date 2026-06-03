@@ -1,12 +1,21 @@
 """Authentication API: login, refresh, logout, password reset, SSO, profile."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_current_user_permissions
+from app.api.deps import (
+    STAFF_SELF_SERVICE_ANY,
+    get_current_user,
+    get_current_user_permissions,
+    get_user_role_codes,
+    require_any_permission,
+)
+from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.db.database import get_db
+from app.models.employee_profile import EmployeeProfile
 from app.models.users import User
 from app.schemas.auth import (
     LoginRequest,
@@ -28,8 +37,9 @@ LOGIN_RATE_LIMIT = "5/minute"
 REFRESH_RATE_LIMIT = "20/minute"
 LOGOUT_RATE_LIMIT = "20/minute"
 SSO_RATE_LIMIT = "10/minute"
-PASSWORD_RESET_REQUEST_RATE_LIMIT = "5/hour"
-PASSWORD_RESET_CONFIRM_RATE_LIMIT = "10/hour"
+PASSWORD_RESET_REQUEST_RATE_LIMIT = "100/hour" if settings.is_development else "5/hour"
+PASSWORD_RESET_CONFIRM_RATE_LIMIT = "30/hour" if settings.is_development else "10/hour"
+AVATAR_UPLOAD_RATE_LIMIT = "20/minute"
 
 
 @router.post("/auth/login", response_model=LoginResponse)
@@ -109,7 +119,7 @@ async def password_reset_request(
     body: PasswordResetRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Request password reset; sends email if user exists (no-op sender in default setup)."""
+    """Request password reset; emails a reset link if the account exists."""
     await auth_service.request_password_reset(db, body.email)
     return {"message": "If the email exists, a reset link has been sent."}
 
@@ -129,10 +139,52 @@ async def password_reset_confirm(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+class BranchBrief(BaseModel):
+    """Minimal branch label for the signed-in user (no ``branches:read``)."""
+
+    id: int
+    name: str
+    code: str | None = None
+
+
+@router.get("/auth/me/branch", response_model=BranchBrief)
+async def me_branch(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> BranchBrief:
+    """Return the current user's assigned branch name (for UI labels without ``branches:read``)."""
+    from app.models.branch import Branch
+
+    if user.branch_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No branch assigned to this account",
+        )
+    branch = await db.get(Branch, user.branch_id)
+    if branch is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Branch not found")
+    return BranchBrief(id=branch.id, name=branch.name, code=branch.code)
+
+
 @router.get("/auth/me", response_model=UserRead)
-async def me(user: User = Depends(get_current_user)) -> UserRead:
+async def me(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserRead:
     """Return current authenticated user (profile)."""
-    return UserRead.model_validate(user)
+    from app.models.branch import Branch
+
+    res = await db.execute(select(EmployeeProfile.id).where(EmployeeProfile.user_id == user.id))
+    employee_profile_id = res.scalar_one_or_none()
+    branch_name: str | None = None
+    if user.branch_id is not None:
+        bres = await db.execute(select(Branch.name).where(Branch.id == user.branch_id))
+        branch_name = bres.scalar_one_or_none()
+    payload = UserRead.model_validate(user).model_dump()
+    payload["employee_profile_id"] = employee_profile_id
+    payload["branch_name"] = branch_name
+    return UserRead.model_validate(payload)
 
 
 class PermissionRead(BaseModel):
@@ -140,6 +192,22 @@ class PermissionRead(BaseModel):
 
     resource: str
     action: str
+
+
+class UserRolesResponse(BaseModel):
+    """Assigned role codes for the current user (strings match ``roles.code``)."""
+
+    codes: list[str]
+
+
+@router.get("/auth/me/roles", response_model=UserRolesResponse)
+async def me_roles(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> UserRolesResponse:
+    """Return distinct role codes for UI gates (e.g. org-wide notification admin)."""
+    codes = await get_user_role_codes(db, user.id)
+    return UserRolesResponse(codes=sorted(codes))
 
 
 @router.get("/auth/me/permissions", response_model=list[PermissionRead])
@@ -156,19 +224,69 @@ async def me_permissions(
     return [PermissionRead(resource=r, action=a) for r, a in sorted(permissions)]
 
 
+@router.post("/auth/me/avatar", response_model=UserRead)
+@limiter.limit(AVATAR_UPLOAD_RATE_LIMIT)
+async def upload_my_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> UserRead:
+    """Upload a profile photo (JPEG, PNG, or WebP)."""
+    raw = await file.read(settings.AVATAR_MAX_BYTES + 1)
+    if len(raw) > settings.AVATAR_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Avatar file too large",
+        )
+    try:
+        user = await auth_service.save_user_avatar_image(db, user, raw)
+    except ValueError as exc:
+        code = str(exc)
+        if code == "avatar_too_large":
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Avatar file too large",
+            )
+        if code == "avatar_invalid_image":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Avatar must be JPEG, PNG, or WebP",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=code)
+    return UserRead.model_validate(user)
+
+
 @router.patch("/auth/me", response_model=UserRead)
 async def update_me(
     body: ProfileUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> UserRead:
-    """Update current user profile (full_name, phone, preferred_language)."""
-    if body.full_name is not None:
-        user.full_name = body.full_name
-    if body.phone is not None:
-        user.phone = body.phone
-    if body.preferred_language is not None:
-        user.preferred_language = body.preferred_language
-    await db.commit()
-    await db.refresh(user)
+    """Update current user profile (email, contact, language, avatar URL, optional password)."""
+    try:
+        user = await auth_service.update_own_profile(db, user, body)
+    except ValueError as exc:
+        code = str(exc)
+        if code == "email_already_in_use":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already in use",
+            )
+        if code == "email_required":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required",
+            )
+        if code == "invalid_current_password":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+        if code == "password_change_unavailable":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password change is not available for this account",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=code)
     return UserRead.model_validate(user)

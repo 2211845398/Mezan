@@ -1,16 +1,48 @@
 """Returns and exchanges APIs."""
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
-from app.schemas.sales_return import SalesReturnRequest
+from app.schemas.sales_return import (
+    ExchangeLinkDetailRead,
+    SalesInvoiceReturnLookupRead,
+    SalesReturnRequest,
+)
 from app.services import audit_service
-from app.services.returns_service import create_return_and_credit
+from app.services.returns_service import (
+    create_return_and_credit,
+    get_exchange_link_detail,
+    lookup_sales_invoice_for_return,
+)
 
 router = APIRouter()
+
+
+@router.get("/pos/returns/invoice-lookup", response_model=SalesInvoiceReturnLookupRead)
+async def lookup_return_invoice_endpoint(
+    invoice_barcode: str = Query(
+        ...,
+        min_length=1,
+        description="Invoice barcode or printed invoice number (e.g. INV-…).",
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("returns", "create"),
+) -> SalesInvoiceReturnLookupRead:
+    return await lookup_sales_invoice_for_return(db, invoice_ref=invoice_barcode)
+
+
+@router.get("/pos/returns/{return_id}/exchange-link", response_model=ExchangeLinkDetailRead)
+async def get_return_exchange_link_endpoint(
+    return_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("returns", "create"),
+) -> ExchangeLinkDetailRead:
+    return await get_exchange_link_detail(db, sales_return_id=return_id)
 
 
 @router.post("/pos/returns", status_code=status.HTTP_201_CREATED)

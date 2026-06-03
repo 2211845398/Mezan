@@ -1,11 +1,13 @@
 import { Loader2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { setRefreshFn } from '@/api/interceptors/handle401Refresh';
-import { getMe, getMyPermissions, refresh as refreshTokenApi } from '@/features/auth/api';
+import { getMe, getMyPermissions, getMyRoles, refresh as refreshTokenApi } from '@/features/auth/api';
+import { resetClientSessionState } from '@/features/auth/signOutSession';
 import {
   type AuthUser,
+  getRefreshStorageKey,
   getRefreshTokenSync,
   setRefreshTokenSync,
   useAuthStore,
@@ -14,7 +16,7 @@ import {
 /*
  * Boot-time auth provider:
  *
- *  1. If `sessionStorage` holds a refresh token, call /auth/refresh to mint
+ *  1. If `localStorage` holds a refresh token, call /auth/refresh to mint
  *     a fresh access token, then prefetch /auth/me + /auth/me/permissions.
  *  2. Install a single-flight refresh callback on the Axios 401 interceptor
  *     so future 401s (access token expiry) can mint a new access token once.
@@ -33,9 +35,8 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const setUser = useAuthStore((s) => s.setUser);
   const setPermissions = useAuthStore((s) => s.setPermissions);
-  const clear = useAuthStore((s) => s.clear);
-
-  const bootedRef = useRef(false);
+  const setRoleCodes = useAuthStore((s) => s.setRoleCodes);
+  const setStatusUnauthenticated = useAuthStore((s) => s.setStatus);
 
   useEffect(() => {
     // 2) Plug the refresh callback into the Axios 401 interceptor.
@@ -54,17 +55,32 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
 
     // 3) Wire the auth-expired event so a hard-failed refresh resets state.
     const onAuthExpired = () => {
-      clear();
+      resetClientSessionState();
+      setStatusUnauthenticated('unauthenticated');
     };
     window.addEventListener('mezan:auth-expired', onAuthExpired);
-    return () => window.removeEventListener('mezan:auth-expired', onAuthExpired);
-  }, [clear]);
+
+    const refreshKey = getRefreshStorageKey();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== refreshKey) return;
+      if (e.newValue == null && e.oldValue != null) {
+        resetClientSessionState();
+        setStatusUnauthenticated('unauthenticated');
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener('mezan:auth-expired', onAuthExpired);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [setStatusUnauthenticated]);
 
   useEffect(() => {
-    // 1) Boot sequence runs once. If no refresh token is stashed, we short-
-    //    circuit to `unauthenticated` and the router renders /login.
-    if (bootedRef.current) return;
-    bootedRef.current = true;
+    // 1) Session restore. Must not use a "run once" ref: React 18 Strict Mode
+    //    mounts → unmounts → remounts in dev; skipping the second run leaves
+    //    `status` stuck on `booting` after the first async aborts.
+    let cancelled = false;
 
     const existing = getRefreshTokenSync();
     if (!existing) {
@@ -72,24 +88,24 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let cancelled = false;
     setStatus('booting');
 
-    (async () => {
+    void (async () => {
       try {
         const tokens = await refreshTokenApi({ refresh_token: existing });
         if (cancelled) return;
         setAccessToken(tokens.access_token);
 
-        const [me, perms] = await Promise.all([getMe(), getMyPermissions()]);
+        const [me, perms, roles] = await Promise.all([getMe(), getMyPermissions(), getMyRoles()]);
         if (cancelled) return;
         setUser(me as AuthUser);
         setPermissions(perms);
+        setRoleCodes(roles.codes);
         setStatus('authenticated');
       } catch {
         if (cancelled) return;
         setRefreshTokenSync(null);
-        clear();
+        resetClientSessionState();
         setStatus('unauthenticated');
       }
     })();
@@ -97,14 +113,14 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [clear, setAccessToken, setPermissions, setStatus, setUser]);
+  }, [setAccessToken, setPermissions, setRoleCodes, setStatus, setUser]);
 
   if (status === 'idle' || status === 'booting') {
     return (
       <div
         role="status"
         aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-background"
+        className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background"
       >
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 className="size-8 animate-spin" aria-hidden="true" />

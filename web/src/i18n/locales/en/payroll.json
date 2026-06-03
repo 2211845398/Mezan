@@ -1,0 +1,149 @@
+{
+  "runs": {
+    "title": "Payslip history",
+    "generate_section": "Generate payslip",
+    "filters": {
+      "month": "Payroll month",
+      "clear_month": "Clear month",
+      "status": "Status",
+      "status_all": "All statuses"
+    }
+  },
+  "run": {
+    "title": "Payslip #{{id}}",
+    "adjustments_title": "Draft adjustments",
+    "save_adjustments": "Save adjustments",
+    "adjust_saved": "Adjustments saved",
+    "col": {
+      "base_salary": "Base salary",
+      "bonus": "Bonus",
+      "overtime": "Overtime",
+      "auto_deductions": "Auto deductions",
+      "manual_deductions": "Manual deductions",
+      "paid_at": "Paid at"
+    }
+  },
+  "approvals": {
+    "title": "Payroll approvals"
+  },
+  "form": {
+    "emp_id": "Employee profile ID",
+    "period_start": "Period start",
+    "period_end": "Period end",
+    "deductions": "Deductions",
+    "bonus": "Bonus"
+  },
+  "col": {
+    "id": "ID",
+    "employee": "Employee",
+    "period": "Period",
+    "status": "Status",
+    "hours": "Hours",
+    "rate": "Rate",
+    "gross": "Gross",
+    "deductions": "Deductions",
+    "net": "Net"
+  },
+  "status": {
+    "draft": "Draft",
+    "approved": "Approved"
+  },
+  "actions": {
+    "generate": "Generate",
+    "gen_ok": "Payslip generated",
+    "detail": "View detail",
+    "recalculate": "Recalculate",
+    "approve": "Approve",
+    "export_csv": "Export CSV",
+    "approved_ok": "Payslip approved",
+    "recalc_ok": "Payslip recalculated"
+  },
+  "export": {
+    "filename": "approved_payslips.csv"
+  },
+  "overview": {
+    "title": "Monthly payroll",
+    "month_label": "Payroll month",
+    "month_placeholder": "Select month",
+    "month_picker_clear": "Clear",
+    "month_picker_this_month": "This month",
+    "month_picker_prev_year": "Previous year",
+    "month_picker_next_year": "Next year",
+    "prepare": "Prepare payroll",
+    "prepare_ok": "Created {{created}} draft(s); recalculated {{recalculated}}; {{skipped}} approved or skipped.",
+    "prepare_partial": "{{count}} employee(s) could not be prepared:\n{{detail}}",
+    "export_excel": "Export Excel",
+    "export_excel_ok": "Excel file downloaded",
+    "export_pdf": "Export PDF",
+    "export_pdf_ok": "PDF downloaded",
+    "approve_pay": "Approve & mark deposited",
+    "approve_pay_ok": "Payroll approved and employees notified",
+    "approve_pay_none": "No draft payslips to approve for this month.",
+    "approve_pay_disabled_no_drafts": "All payslips are already approved or there are no drafts.",
+    "gate_title": "Approval not open yet",
+    "gate_body": "You can review this payroll now. Approval and deposit actions open on {{date}} (month {{month}}).",
+    "gate_tooltip": "Opens on {{date}}",
+    "payslip_status": {
+      "no_payslip": "No payslip",
+      "draft": "Draft",
+      "approved": "Approved"
+    },
+    "kpi": {
+      "employees": "Employees",
+      "missing": "Missing payslip",
+      "missing_hint": "Run Prepare payroll",
+      "draft": "Draft",
+      "approved_unpaid": "Approved (not deposited)",
+      "paid": "Deposited",
+      "gross": "Gross total",
+      "net": "Net total",
+      "bonus": "Bonus total"
+    },
+    "col": {
+      "name": "Name",
+      "role": "Role",
+      "status": "Status",
+      "base_salary": "Base salary",
+      "hourly": "Hourly",
+      "auto_ded": "Auto deductions",
+      "manual_ded": "Manual deductions",
+      "bonus": "Bonus",
+      "ot": "Overtime",
+      "paid": "Paid at"
+    }
+  },
+  "policies": {
+    "title": "Attendance & deduction policies",
+    "edit": "Edit",
+    "edit_title": "Policy: {{role}}",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Policy saved",
+    "col": {
+      "role": "Role",
+      "category": "Category",
+      "grace": "Grace (min)",
+      "absence": "Absence",
+      "late": "Late",
+      "early": "Early close",
+      "ot_mult": "OT mult."
+    },
+    "form": {
+      "category": "Attendance category",
+      "grace": "Grace minutes",
+      "absence": "Absence deduction",
+      "late": "Late deduction",
+      "early": "Early close deduction",
+      "ot_mult": "Overtime multiplier"
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "prepare": {
+      "payroll_no_branch": "Employee has no branch — assign a branch on the user profile.",
+      "payroll_no_schedule": "No weekly work schedule — add one on the employee schedule page.",
+      "payroll_no_pay_rate": "Set a base salary or hourly rate on the employee profile.",
+      "payroll_negative_net": "Net pay is negative for this period — review attendance, absences, and deductions."
+    }
+  }
+}

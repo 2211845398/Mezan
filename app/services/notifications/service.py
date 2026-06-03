@@ -30,13 +30,18 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, not_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_user_role_codes
 from app.core.config import settings
 from app.core.errors import ExternalServiceError, NotFoundError, ValidationError
+from app.core.notification_rbac import (
+    ORG_NOTIFICATION_MANAGER_ROLE_CODES,
+)
 from app.db.database import AsyncSessionLocal
 from app.models.notifications import (
     DevicePlatform,
@@ -48,6 +53,9 @@ from app.models.notifications import (
     NotificationStatus,
     NotificationTemplate,
 )
+from app.models.role import Role
+from app.models.user_role import UserRole
+from app.models.users import User
 from app.services.notifications.generators import (
     GeneratedNotification,
     get_generator,
@@ -62,9 +70,18 @@ logger = logging.getLogger(__name__)
 # ── Provider registry ────────────────────────────────────────────────────────
 
 
-def get_provider(provider_name: str | None = None) -> PushProvider:
-    """Return the configured push provider or a named override."""
-    selected = (provider_name or settings.PUSH_PROVIDER).lower()
+def get_provider(
+    provider_name: str | None,
+    *,
+    default_push_provider: str,
+) -> PushProvider:
+    """Resolve a push provider.
+
+    ``provider_name`` overrides the application default (typically from
+    ``Settings.PUSH_PROVIDER``), which callers pass explicitly so this layer
+    stays free of ambient configuration in tests.
+    """
+    selected = (provider_name or default_push_provider).lower()
     if selected == "mock":
         return MockPushProvider()
     if selected == "fcm":
@@ -196,6 +213,26 @@ async def list_templates(db: AsyncSession) -> list[NotificationTemplate]:
     return list(result.scalars().all())
 
 
+def is_org_notification_manager(role_codes: frozenset[str]) -> bool:
+    return bool(role_codes & ORG_NOTIFICATION_MANAGER_ROLE_CODES)
+
+
+async def assert_schedule_mutable(
+    schedule: NotificationSchedule,
+    *,
+    user_id: int,
+    role_codes: frozenset[str],
+) -> None:
+    """Org managers may edit org routines; standard users only their own private rows."""
+    if is_org_notification_manager(role_codes):
+        return
+    if schedule.owner_user_id != user_id:
+        raise ValidationError(
+            "You can only manage your own notification routines",
+            details={"schedule_id": schedule.id},
+        )
+
+
 async def upsert_schedule(
     db: AsyncSession,
     *,
@@ -206,6 +243,7 @@ async def upsert_schedule(
     branch_id: int | None,
     parameters: dict,
     is_active: bool,
+    owner_user_id: int | None = None,
 ) -> NotificationSchedule:
     if get_generator(kind) is None:
         raise ValidationError(
@@ -222,6 +260,7 @@ async def upsert_schedule(
             interval_minutes=interval_minutes,
             target_role_code=target_role_code,
             branch_id=branch_id,
+            owner_user_id=owner_user_id,
             parameters=parameters or {},
             is_active=is_active,
         )
@@ -231,6 +270,7 @@ async def upsert_schedule(
         row.interval_minutes = interval_minutes
         row.target_role_code = target_role_code
         row.branch_id = branch_id
+        row.owner_user_id = owner_user_id
         row.parameters = parameters or {}
         row.is_active = is_active
     await db.commit()
@@ -248,19 +288,144 @@ async def get_schedule(db: AsyncSession, *, schedule_id: int) -> NotificationSch
     return row
 
 
-async def list_schedules(db: AsyncSession) -> list[NotificationSchedule]:
-    result = await db.execute(select(NotificationSchedule).order_by(NotificationSchedule.id.asc()))
+async def list_schedules(
+    db: AsyncSession, *, viewer_user_id: int | None = None
+) -> list[NotificationSchedule]:
+    """Org managers see org routines; standard users only their private schedules."""
+    stmt = select(NotificationSchedule).order_by(NotificationSchedule.id.asc())
+    if viewer_user_id is not None:
+        codes = await get_user_role_codes(db, viewer_user_id)
+        if not is_org_notification_manager(codes):
+            stmt = stmt.where(NotificationSchedule.owner_user_id == viewer_user_id)
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def delete_schedule(db: AsyncSession, *, schedule_id: int) -> dict[str, str | int]:
+    """Remove a notification schedule (runs cascade; deliveries FK may SET NULL).
+
+    Caller must ``commit`` the session (after audit logging, if any).
+    """
+    row = await get_schedule(db, schedule_id=schedule_id)
+    snapshot = {"id": row.id, "name": row.name, "kind": row.kind}
+    await db.delete(row)
+    return snapshot
+
+
+async def list_notification_runs(db: AsyncSession, *, limit: int = 200) -> list[NotificationRun]:
+    """Return recent runs (newest first) for admin audit UI."""
+    result = await db.execute(
+        select(NotificationRun)
+        .order_by(NotificationRun.started_at.desc())
+        .limit(max(1, min(limit, 500)))
+    )
     return list(result.scalars().all())
 
 
 async def list_recent_deliveries(
-    db: AsyncSession, *, user_id: int | None, limit: int
+    db: AsyncSession, *, user_id: int | None, limit: int, unread_only: bool = False
 ) -> list[NotificationDelivery]:
     stmt = select(NotificationDelivery).order_by(NotificationDelivery.id.desc()).limit(limit)
     if user_id is not None:
         stmt = stmt.where(NotificationDelivery.user_id == user_id)
+    if unread_only:
+        stmt = stmt.where(NotificationDelivery.read_at.is_(None))
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+# Per-user 2nd-person notifications: org admin history should not surface other
+# users' copies (avoids "your leave" rows that are not the viewer's).
+_ADMIN_HISTORY_PERSONAL_KINDS: tuple[str, ...] = (
+    "leave_request_review",
+    "leave_request_submitted",
+    "payslip_paid",
+)
+
+
+async def list_admin_deliveries_for_viewer(
+    db: AsyncSession, *, viewer_user_id: int, limit: int
+) -> list[NotificationDelivery]:
+    kinds = _ADMIN_HISTORY_PERSONAL_KINDS
+    stmt = (
+        select(NotificationDelivery)
+        .where(
+            or_(
+                not_(NotificationDelivery.template_kind.in_(kinds)),
+                NotificationDelivery.user_id == viewer_user_id,
+            )
+        )
+        .order_by(NotificationDelivery.id.desc())
+        .limit(max(1, min(limit, 500)))
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def count_unread_deliveries(db: AsyncSession, *, user_id: int) -> int:
+    result = await db.execute(
+        select(func.count())
+        .select_from(NotificationDelivery)
+        .where(NotificationDelivery.user_id == user_id)
+        .where(NotificationDelivery.read_at.is_(None))
+    )
+    return int(result.scalar_one())
+
+
+async def mark_delivery_read(
+    db: AsyncSession, *, user_id: int, delivery_id: int
+) -> NotificationDelivery:
+    result = await db.execute(
+        select(NotificationDelivery)
+        .where(NotificationDelivery.id == delivery_id)
+        .where(NotificationDelivery.user_id == user_id)
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise NotFoundError("Notification delivery not found")
+    if row.read_at is None:
+        row.read_at = datetime.now(UTC)
+        await db.commit()
+        await db.refresh(row)
+    return row
+
+
+async def mark_all_deliveries_read(db: AsyncSession, *, user_id: int) -> int:
+    now = datetime.now(UTC)
+    result = await db.execute(
+        update(NotificationDelivery)
+        .where(NotificationDelivery.user_id == user_id)
+        .where(NotificationDelivery.read_at.is_(None))
+        .values(read_at=now)
+    )
+    await db.commit()
+    return int(result.rowcount or 0)
+
+
+async def delete_read_deliveries(db: AsyncSession, *, user_id: int) -> int:
+    """Delete all read deliveries for a user. Returns the number of rows deleted."""
+    from sqlalchemy import delete
+
+    result = await db.execute(
+        delete(NotificationDelivery)
+        .where(NotificationDelivery.user_id == user_id)
+        .where(NotificationDelivery.read_at.isnot(None))
+    )
+    await db.commit()
+    return int(result.rowcount or 0)
+
+
+async def delete_all_deliveries(db: AsyncSession, *, user_id: int | None = None) -> int:
+    """Delete all deliveries. If user_id is provided, only delete for that user.
+    Returns the number of rows deleted."""
+    from sqlalchemy import delete
+
+    stmt = delete(NotificationDelivery)
+    if user_id is not None:
+        stmt = stmt.where(NotificationDelivery.user_id == user_id)
+    result = await db.execute(stmt)
+    await db.commit()
+    return int(result.rowcount or 0)
 
 
 # ── Rendering ────────────────────────────────────────────────────────────────
@@ -311,13 +476,13 @@ async def _enqueue_deliveries_for_schedule(
                 status=NotificationStatus.PENDING,
                 provider=provider_name,
             )
-            db.add(row)
             try:
-                await db.flush()
+                async with db.begin_nested():
+                    db.add(row)
+                    await db.flush()
             except IntegrityError:
-                await db.rollback()
                 # Duplicate (schedule_id, idempotency_key): another tick already
-                # enqueued this exact alert. Skip and continue.
+                # enqueued this exact alert. Skip without rolling back the outer txn.
                 continue
             created.append(row)
     return created
@@ -381,11 +546,191 @@ async def _dispatch_delivery(
     await db.commit()
 
 
+async def _resolve_broadcast_recipients(
+    db: AsyncSession,
+    *,
+    target_type: str,
+    role_codes: list[str],
+    branch_ids: list[int],
+) -> list[int]:
+    """Resolve active users for a manual admin broadcast.
+
+    ``branch_ids`` empty means all branches. ``role_codes`` must be non-empty
+    when ``target_type`` is ``role`` (union of users holding any listed role).
+    """
+    stmt = select(User.id).where(User.status == "active")
+    if branch_ids:
+        stmt = stmt.where(User.branch_id.in_(branch_ids))
+
+    if target_type == "role":
+        codes = [c.strip() for c in role_codes if c and str(c).strip()]
+        if not codes:
+            raise ValidationError(
+                "role_codes must be non-empty when target_type is role",
+                details={"role_codes": role_codes},
+            )
+        stmt = (
+            stmt.join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(Role.code.in_(codes))
+        )
+        if branch_ids:
+            stmt = stmt.where(or_(UserRole.branch_id.is_(None), UserRole.branch_id.in_(branch_ids)))
+    elif target_type != "all":
+        raise ValidationError(
+            "Unsupported notification target",
+            details={"target_type": target_type, "allowed": ["all", "role"]},
+        )
+
+    result = await db.execute(stmt.distinct().order_by(User.id.asc()))
+    return [row[0] for row in result.all()]
+
+
+async def _delivery_status_counts(
+    db: AsyncSession, *, delivery_ids: list[int]
+) -> dict[NotificationStatus | str, int]:
+    if not delivery_ids:
+        return {}
+    result = await db.execute(
+        select(NotificationDelivery.status, func.count())
+        .where(NotificationDelivery.id.in_(delivery_ids))
+        .group_by(NotificationDelivery.status)
+    )
+    return {row[0]: int(row[1]) for row in result.all()}
+
+
+async def enqueue_direct_notification(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    title: str,
+    body: str,
+    template_kind: str,
+    idempotency_key: str,
+    data: dict | None,
+    provider_name: str | None,
+    default_push_provider: str,
+) -> int | None:
+    """Insert a single in-app/push delivery row. Returns delivery id or None on duplicate."""
+    provider = get_provider(provider_name, default_push_provider=default_push_provider)
+    row = NotificationDelivery(
+        schedule_id=None,
+        run_id=None,
+        user_id=user_id,
+        template_kind=template_kind,
+        idempotency_key=idempotency_key,
+        title=title,
+        body=body,
+        data=data or {},
+        status=NotificationStatus.PENDING,
+        provider=provider.name,
+    )
+    try:
+        async with db.begin_nested():
+            db.add(row)
+            await db.flush()
+    except IntegrityError:
+        return None
+    return row.id
+
+
+async def dispatch_delivery_after_commit(
+    delivery_id: int, *, default_push_provider: str, provider_name: str | None = None
+) -> None:
+    """Dispatch using a fresh session (call after the inserting transaction commits)."""
+    provider = get_provider(provider_name, default_push_provider=default_push_provider)
+    async with AsyncSessionLocal() as db:
+        res = await db.execute(
+            select(NotificationDelivery).where(NotificationDelivery.id == delivery_id)
+        )
+        delivery_row = res.scalar_one_or_none()
+        if delivery_row is None:
+            return
+        await _dispatch_delivery(db, delivery=delivery_row, provider=provider)
+
+
+async def broadcast_notification(
+    db: AsyncSession,
+    *,
+    title: str,
+    body: str,
+    target_type: str,
+    role_codes: list[str],
+    branch_ids: list[int],
+    data: dict,
+    provider_name: str | None = None,
+    default_push_provider: str,
+) -> dict[str, int]:
+    """Create in-app notifications for a simple admin broadcast and try push delivery."""
+    recipients = await _resolve_broadcast_recipients(
+        db,
+        target_type=target_type,
+        role_codes=role_codes,
+        branch_ids=branch_ids,
+    )
+    provider = get_provider(provider_name, default_push_provider=default_push_provider)
+    batch_key = f"manual:{uuid4().hex}"
+    created: list[NotificationDelivery] = []
+    now_iso = datetime.now(UTC).isoformat()
+
+    for user_id in recipients:
+        row = NotificationDelivery(
+            schedule_id=None,
+            run_id=None,
+            user_id=user_id,
+            template_kind="manual",
+            idempotency_key=f"{batch_key}:{user_id}",
+            title=title,
+            body=body,
+            data={
+                **(data or {}),
+                "target_type": target_type,
+                "role_codes": role_codes,
+                "branch_ids": branch_ids,
+                "broadcasted_at": now_iso,
+            },
+            status=NotificationStatus.PENDING,
+            provider=provider.name,
+        )
+        db.add(row)
+        await db.flush()
+        created.append(row)
+
+    await db.commit()
+
+    delivery_ids = [row.id for row in created]
+    for delivery_id in delivery_ids:
+        async with AsyncSessionLocal() as dispatch_db:
+            reloaded = await dispatch_db.execute(
+                select(NotificationDelivery).where(NotificationDelivery.id == delivery_id)
+            )
+            delivery_row = reloaded.scalar_one_or_none()
+            if delivery_row is None:
+                continue
+            await _dispatch_delivery(dispatch_db, delivery=delivery_row, provider=provider)
+
+    counts = await _delivery_status_counts(db, delivery_ids=delivery_ids)
+    sent = counts.get(NotificationStatus.SENT, 0) + counts.get(NotificationStatus.SENT.value, 0)
+    failed = counts.get(NotificationStatus.FAILED, 0) + counts.get(
+        NotificationStatus.FAILED.value, 0
+    )
+    skipped = counts.get(NotificationStatus.SKIPPED, 0) + counts.get(
+        NotificationStatus.SKIPPED.value, 0
+    )
+    return {
+        "deliveries_created": len(delivery_ids),
+        "deliveries_sent": sent,
+        "deliveries_failed": failed,
+        "deliveries_skipped": skipped,
+    }
+
+
 async def run_schedule_once(
     db: AsyncSession,
     *,
     schedule_id: int,
     provider_name: str | None = None,
+    default_push_provider: str,
 ) -> NotificationRun:
     """Execute a single schedule right now (admin trigger or scheduler tick)."""
     schedule = await get_schedule(db, schedule_id=schedule_id)
@@ -400,13 +745,25 @@ async def run_schedule_once(
         )
 
     template = await get_template(db, kind=schedule.kind)
+    if template is None and schedule.kind == "manual_broadcast":
+        template = NotificationTemplate(
+            kind="manual_broadcast",
+            title_template="{title}",
+            body_template="{body}",
+            default_data={},
+            is_active=True,
+        )
     if template is None or not template.is_active:
         raise ValidationError(
             "No active template for kind",
             details={"kind": schedule.kind},
         )
 
-    provider = get_provider(provider_name)
+    # Snapshot scalars before any nested flush/rollback path so we never rely on
+    # lazy loads after a savepoint rollback (async MissingGreenlet).
+    interval_minutes = schedule.interval_minutes
+
+    provider = get_provider(provider_name, default_push_provider=default_push_provider)
 
     run = NotificationRun(
         schedule_id=schedule.id,
@@ -441,8 +798,9 @@ async def run_schedule_once(
     )
 
     run.deliveries_enqueued = len(deliveries)
-    schedule.last_run_at = datetime.now(UTC)
-    schedule.next_run_at = schedule.last_run_at + timedelta(minutes=schedule.interval_minutes)
+    last_run_at = datetime.now(UTC)
+    schedule.last_run_at = last_run_at
+    schedule.next_run_at = last_run_at + timedelta(minutes=interval_minutes)
     run.status = NotificationRunStatus.COMPLETED
     run.finished_at = datetime.now(UTC)
     await db.commit()
@@ -482,7 +840,11 @@ async def run_due_schedules(db: AsyncSession) -> list[NotificationRun]:
         if not due:
             continue
         try:
-            run = await run_schedule_once(db, schedule_id=sched.id)
+            run = await run_schedule_once(
+                db,
+                schedule_id=sched.id,
+                default_push_provider=settings.PUSH_PROVIDER,
+            )
         except Exception as exc:  # noqa: BLE001
             logger.exception(
                 "notification_schedule_run_failed",

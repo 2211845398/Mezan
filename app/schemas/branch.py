@@ -21,6 +21,7 @@ class BranchUpdate(BaseModel):
     address: str | None = None
     timezone: str | None = None
     is_active: bool | None = None
+    unarchive: bool | None = None
 
 
 class BranchRead(BaseModel):
@@ -35,3 +36,4 @@ class BranchRead(BaseModel):
     timezone: str
     is_active: bool
     archived_at: datetime | None
+    accounting_chart_provisioned_at: datetime | None = None

@@ -26,6 +26,14 @@ if (!window.PointerEvent) {
   (window as unknown as { PointerEvent: typeof PointerEventPolyfill }).PointerEvent =
     PointerEventPolyfill as unknown as typeof PointerEvent;
 }
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 if (!window.matchMedia) {
   window.matchMedia = (query: string) =>
     ({

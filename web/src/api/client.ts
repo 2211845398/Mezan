@@ -1,4 +1,10 @@
-import axios, { type AxiosError, type AxiosInstance, isAxiosError as _isAxiosError } from 'axios';
+import axios, {
+  type AxiosError,
+  AxiosHeaders,
+  type AxiosInstance,
+  type InternalAxiosRequestConfig,
+  isAxiosError as _isAxiosError,
+} from 'axios';
 
 import { env } from '@/config/env';
 
@@ -22,6 +28,18 @@ import { installMapErrorEnvelope } from './interceptors/mapErrorEnvelope';
  * else; feature `api.ts` files import this instance.
  */
 
+function clearJsonContentTypeForFormData(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const { headers } = config;
+    if (headers instanceof AxiosHeaders) {
+      headers.delete('Content-Type');
+    } else if (headers && typeof headers === 'object') {
+      delete (headers as Record<string, unknown>)['Content-Type'];
+    }
+  }
+  return config;
+}
+
 export function createApiClient(): AxiosInstance {
   const instance = axios.create({
     baseURL: env.VITE_API_BASE_URL,
@@ -32,6 +50,7 @@ export function createApiClient(): AxiosInstance {
     },
   });
 
+  instance.interceptors.request.use(clearJsonContentTypeForFormData);
   instance.interceptors.request.use(attachAccessToken);
   instance.interceptors.request.use(attachRequestId);
   instance.interceptors.request.use(attachLocale);

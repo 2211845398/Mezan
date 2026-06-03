@@ -16,8 +16,10 @@ const envSchema = z.object({
   VITE_POSTHOG_KEY: z.string().optional().default(''),
   VITE_ENABLE_MOCK_API: booleanString.optional().default('false'),
   VITE_LOCALE_NUMBERS: z.enum(['ar-EG', 'ar-SA', 'en-US']).optional().default('ar-EG'),
-  // Refresh token is stored in sessionStorage under this key. See
-  // `web/SECURITY.md` for the v1 trade-off vs the planned httpOnly cookie.
+  /** POS offline queue driver: `local` (localStorage) or `indexeddb` (stub until W-9). */
+  VITE_POS_OFFLINE_DRIVER: z.enum(['local', 'indexeddb']).optional().default('local'),
+  // Refresh token is stored in localStorage under this key (shared across tabs).
+  // See `web/SECURITY.md` for the v1 trade-off vs the planned httpOnly cookie.
   VITE_SESSION_STORAGE_KEY_REFRESH: z.string().min(1).optional().default('mezan.auth.refresh'),
 });
 

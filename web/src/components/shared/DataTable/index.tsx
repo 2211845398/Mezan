@@ -24,7 +24,8 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-import { DENSITY_CELL_CLASS, DENSITY_ROW_CLASS } from './density';
+import { columnAlignClass } from './columns';
+import { DENSITY_CELL_CLASS, DENSITY_ROW_CLASS } from './densityClasses';
 import { Pagination } from './pagination';
 import { TableEmpty, TableError, TableSkeleton } from './states';
 import { Toolbar } from './toolbar';
@@ -67,12 +68,32 @@ export type DataTableProps<TData> = {
   /** Export button in the toolbar. The body is the consumer's responsibility. */
   onExport?: ((table: ReturnType<typeof useReactTable<TData>>) => void) | undefined;
   toolbarExtras?: ReactNode;
+  /** Content on the toolbar start side when built-in search is hidden. */
+  toolbarLeading?: ReactNode;
+  /** Hide built-in pagination (e.g. when the parent drives offset/limit via API). */
+  showPagination?: boolean;
+  /** Hide the global search field (short static lists). */
+  showSearch?: boolean;
   /** Optional footer action bar slot (rendered when rows are selected). */
   renderActionBar?: ((selectedRows: TData[]) => ReactNode) | undefined;
   /** Defaults for URL state when no query is present. */
   defaultUrlQuery?: Partial<UrlQuery>;
   /** Estimated row height in px for the virtualizer. */
   estimatedRowHeight?: number;
+  /** Merged onto the root wrapper (e.g. `max-w-4xl` for compact tables). */
+  className?: string;
+  /** Merged onto the inner `<table>` (e.g. `table-fixed` with explicit column sizes). */
+  tableClassName?: string;
+  /** Sets `dir` on the bordered table wrapper (e.g. `rtl` for Arabic list columns). */
+  tableDir?: 'rtl' | 'ltr';
+  /** Stable row id for client tables (e.g. variant-level stock rows). */
+  getRowId?: (row: TData) => string;
+  /** Plain-text empty state when `emptyState` is not provided. */
+  emptyMessage?: string | undefined;
+  /** Overrides the default toolbar search placeholder. */
+  searchPlaceholder?: string | undefined;
+  /** Extra class names merged onto each body row. */
+  getRowClassName?: (row: TData) => string | undefined;
 };
 
 export function DataTable<TData>({
@@ -89,9 +110,19 @@ export function DataTable<TData>({
   onRowSelectionChange,
   onExport,
   toolbarExtras,
+  toolbarLeading,
+  showSearch = true,
+  showPagination = true,
   renderActionBar,
   defaultUrlQuery,
   estimatedRowHeight = 40,
+  className,
+  tableClassName,
+  tableDir,
+  getRowId,
+  emptyMessage,
+  searchPlaceholder,
+  getRowClassName,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
 
@@ -109,6 +140,7 @@ export function DataTable<TData>({
   const table = useReactTable<TData>({
     data,
     columns,
+    ...(getRowId ? { getRowId: (row, _index) => getRowId(row as TData) } : {}),
     state: {
       sorting,
       globalFilter: q,
@@ -186,22 +218,27 @@ export function DataTable<TData>({
   ) : isError ? (
     <TableError onRetry={onRetry} />
   ) : rows.length === 0 ? (
-    (emptyState ?? <TableEmpty />)
+    (emptyState ?? (emptyMessage ? <TableEmpty description={emptyMessage} /> : <TableEmpty />))
   ) : (
     <div ref={scrollRef} className="relative w-full overflow-auto">
-      <Table>
+      <Table className={tableClassName}>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id}>
               {group.headers.map((header) => {
                 const canSort = header.column.getCanSort();
                 const sorted = header.column.getIsSorted();
+                const headAlign = columnAlignClass(header.column.columnDef.meta?.align);
                 return (
                   <TableHead
                     key={header.id}
                     scope="col"
-                    className={cn('text-start align-middle', cellClass)}
-                    style={header.column.getSize() ? { width: header.column.getSize() } : undefined}
+                    className={cn('align-middle', headAlign, cellClass)}
+                    style={
+                      header.column.columnDef.size != null
+                        ? { width: header.column.getSize(), minWidth: header.column.getSize() }
+                        : undefined
+                    }
                     aria-sort={
                       sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
                     }
@@ -241,13 +278,24 @@ export function DataTable<TData>({
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? 'selected' : undefined}
-                    className={rowClass}
+                    className={cn(rowClass, getRowClassName?.(row.original))}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className={cn('align-middle', cellClass)}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
+                    {row.getVisibleCells().map((cell) => {
+                      const cellAlign = columnAlignClass(cell.column.columnDef.meta?.align);
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={cn('align-middle', cellAlign, cellClass)}
+                          style={
+                            cell.column.columnDef.size != null
+                              ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
+                              : undefined
+                          }
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 );
               })}
@@ -266,13 +314,24 @@ export function DataTable<TData>({
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() ? 'selected' : undefined}
-                className={rowClass}
+                className={cn(rowClass, getRowClassName?.(row.original))}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className={cn('align-middle', cellClass)}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const cellAlign = columnAlignClass(cell.column.columnDef.meta?.align);
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      className={cn('align-middle', cellAlign, cellClass)}
+                      style={
+                        cell.column.columnDef.size != null
+                          ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
+                          : undefined
+                      }
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))
           )}
@@ -282,7 +341,7 @@ export function DataTable<TData>({
   );
 
   return (
-    <div className="w-full" aria-label={t('table.label')}>
+    <div className={cn('w-full', className)} aria-label={t('table.label')}>
       <Toolbar
         table={table}
         searchValue={q}
@@ -291,17 +350,24 @@ export function DataTable<TData>({
         onDensityChange={setDensity}
         onExport={onExport}
         toolbarExtras={toolbarExtras}
+        toolbarLeading={toolbarLeading}
+        showSearch={showSearch}
+        searchPlaceholder={searchPlaceholder}
       />
 
-      <div className="rounded-md border">{body}</div>
+      <div className="rounded-md border" dir={tableDir}>
+        {body}
+      </div>
 
-      <Pagination
-        page={page}
-        pageSize={pageSize}
-        totalRows={totalForPagination}
-        onPageChange={urlActions.setPage}
-        onPageSizeChange={urlActions.setPageSize}
-      />
+      {showPagination ? (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalRows={totalForPagination}
+          onPageChange={urlActions.setPage}
+          onPageSizeChange={urlActions.setPageSize}
+        />
+      ) : null}
 
       {renderActionBar && selectedRows.length > 0 ? (
         <div className="sticky bottom-2 mt-3 rounded-md border bg-popover p-3 shadow-lg">
@@ -312,5 +378,4 @@ export function DataTable<TData>({
   );
 }
 
-export { defineColumns } from './columns';
 export type { DataTableColumn } from './types';

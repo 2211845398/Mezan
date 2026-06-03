@@ -33,6 +33,9 @@ class UserOnboarding(Base):
     salary_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     salary_currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    identity_document_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    identity_document_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    identity_document_image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False

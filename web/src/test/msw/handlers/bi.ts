@@ -10,6 +10,14 @@ const MOCK_KPIS: ExecutiveKpiRead = {
   period_start: null,
   period_end: null,
   branch_id: null,
+  avg_ticket: '0',
+  estimated_cogs: '0',
+  gross_margin_ratio: null,
+  loyalty_points_accrued: 0,
+  revenue_trend: [],
+  category_mix: [],
+  top_products: [],
+  recent_purchase_orders: [],
 };
 
 export const biHandlers = [http.get(`${BASE}/bi/executive-kpis`, () => HttpResponse.json(MOCK_KPIS))];

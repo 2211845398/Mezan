@@ -14,6 +14,12 @@ const badgeVariants = cva(
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+        /** Soft alert (light surface + destructive text). */
+        attention:
+          "border-transparent bg-destructive/10 text-destructive shadow-none hover:bg-destructive/15",
+        /** Soft success (nav / notification counts). */
+        successSoft:
+          "border-transparent bg-emerald-100 text-emerald-800 shadow-none hover:bg-emerald-200/70 dark:bg-emerald-300/35 dark:text-emerald-950 dark:hover:bg-emerald-300/45",
         outline: "text-foreground",
       },
     },
@@ -33,4 +39,4 @@ function Badge({ className, variant, ...props }: BadgeProps) {
   )
 }
 
-export { Badge, badgeVariants }
+export { Badge }

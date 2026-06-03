@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getMe, getMyPermissions, type PermissionRead, type UserRead } from './api';
+import { getMe, getMyBranch, getMyPermissions, type PermissionRead, type UserRead } from './api';
 import { useAuthStore } from './stores/authStore';
 
 /*
@@ -12,6 +12,7 @@ import { useAuthStore } from './stores/authStore';
 export const authKeys = {
   all: ['auth'] as const,
   me: () => [...authKeys.all, 'me'] as const,
+  myBranch: () => [...authKeys.all, 'me', 'branch'] as const,
   myPermissions: () => [...authKeys.all, 'me', 'permissions'] as const,
 };
 
@@ -22,6 +23,18 @@ export function useMe(options?: { enabled?: boolean }) {
     queryFn: getMe,
     enabled: (options?.enabled ?? true) && status === 'authenticated',
     staleTime: 60_000,
+  });
+}
+
+export function useMyBranch(options?: { enabled?: boolean }) {
+  const status = useAuthStore((s) => s.status);
+  const branchId = useAuthStore((s) => s.user?.branch_id ?? s.activeBranchId);
+  return useQuery({
+    queryKey: authKeys.myBranch(),
+    queryFn: getMyBranch,
+    enabled: (options?.enabled ?? true) && status === 'authenticated' && branchId != null,
+    staleTime: 300_000,
+    retry: false,
   });
 }
 

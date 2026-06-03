@@ -8,6 +8,26 @@ function numberFormatOptions(base: Intl.NumberFormatOptions): Intl.NumberFormatO
   return { ...base, numberingSystem: 'latn' };
 }
 
+export function formatCompactCurrency(
+  value: number | string,
+  currency: string,
+  { locale, fractionDigits = 1 }: { locale?: NumericLocale; fractionDigits?: number } = {},
+): string {
+  const n = typeof value === 'string' ? Number.parseFloat(value) : value;
+  if (!Number.isFinite(n)) return '';
+  const loc = locale ?? getNumericLocale();
+  return new Intl.NumberFormat(
+    loc,
+    numberFormatOptions({
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: 0,
+    }),
+  ).format(n);
+}
+
 export function formatNumber(
   value: number,
   options?: Intl.NumberFormatOptions,
@@ -17,6 +37,23 @@ export function formatNumber(
   return new Intl.NumberFormat(
     loc,
     numberFormatOptions({ style: 'decimal', ...(options ?? {}) }),
+  ).format(value);
+}
+
+/** Compact notation (e.g. 1.2K) with Western digits. */
+export function formatCompactNumber(
+  value: number,
+  options?: Intl.NumberFormatOptions,
+  locale?: NumericLocale,
+): string {
+  const loc = locale ?? getNumericLocale();
+  return new Intl.NumberFormat(
+    loc,
+    numberFormatOptions({
+      notation: 'compact',
+      maximumFractionDigits: 1,
+      ...(options ?? {}),
+    }),
   ).format(value);
 }
 
@@ -59,6 +96,44 @@ export function formatCurrency(
   ).format(n);
 }
 
+/**
+ * When `Intl` places the currency symbol after the amount (common for some
+ * Arabic locales), move it before the numeric part so an LTR span shows
+ * `US$ 1,234.56` instead of `1,234.56 US$`.
+ */
+export function formatCurrencyWithLeadingSymbol(
+  value: number | string,
+  currency: string,
+  options: { locale?: NumericLocale; fractionDigits?: number } = {},
+): string {
+  const n = typeof value === 'string' ? Number.parseFloat(value) : value;
+  if (!Number.isFinite(n)) return '';
+  const { locale, fractionDigits = 2 } = options;
+  const loc = locale ?? getNumericLocale();
+  const nf = new Intl.NumberFormat(
+    loc,
+    numberFormatOptions({
+      style: 'currency',
+      currency,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }),
+  );
+  const parts = nf.formatToParts(n);
+  const curIdx = parts.findIndex((p) => p.type === 'currency');
+  const intIdx = parts.findIndex((p) => p.type === 'integer');
+  if (curIdx === -1 || intIdx === -1 || curIdx < intIdx) {
+    return nf.format(n);
+  }
+  const sym = parts[curIdx]?.value ?? '';
+  const rest = parts
+    .filter((p) => p.type !== 'currency')
+    .map((p) => p.value)
+    .join('')
+    .replace(/^\s+|\s+$/g, '');
+  return `${sym}\u00A0${rest}`;
+}
+
 export function formatPercent(
   value: number,
   { fractionDigits = 1, locale }: { fractionDigits?: number; locale?: NumericLocale } = {},
@@ -92,6 +167,21 @@ export function formatDate(value: Date | string, pattern = 'yyyy-MM-dd'): string
 export function formatDateTime(value: Date | string, pattern = 'yyyy-MM-dd HH:mm'): string {
   const d = typeof value === 'string' ? fromISO(value) : value;
   return dateFormatDateTime(d, pattern);
+}
+
+/**
+ * Format a monetary value for display in tables and reports.
+ * Uses Western digits (latn), 2 decimal places, thousands grouping.
+ * Falls back gracefully for null/undefined/NaN.
+ */
+export function formatMoney(
+  value: string | number | null | undefined,
+  fractionDigits = 2,
+  locale?: NumericLocale,
+): string {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return '—';
+  return formatFixedDecimal(n, fractionDigits, locale);
 }
 
 /** MoneyInput: format canonical decimal string for display. */

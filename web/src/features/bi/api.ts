@@ -1,10 +1,13 @@
 import { apiClient } from '@/api/client';
-import type { paths } from '@/api/generated/schema';
+import type { components } from '@/api/generated/schema';
 
-type ExecutiveKpisResponse =
-  paths['/api/v1/bi/executive-kpis']['get']['responses']['200']['content']['application/json'];
+export type ExecutiveKpiRead = components['schemas']['ExecutiveKpiRead'];
 
-export async function getExecutiveKpis(): Promise<ExecutiveKpisResponse> {
-  const { data } = await apiClient.get<ExecutiveKpisResponse>('/bi/executive-kpis');
+export async function getExecutiveKpis(params?: {
+  period_start?: string;
+  period_end?: string;
+  branch_id?: number;
+}): Promise<ExecutiveKpiRead> {
+  const { data } = await apiClient.get<ExecutiveKpiRead>('/bi/executive-kpis', { params });
   return data;
 }

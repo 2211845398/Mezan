@@ -7,6 +7,7 @@ from decimal import Decimal
 from enum import StrEnum as PyEnum
 
 from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, Numeric, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -39,6 +40,25 @@ class Payslip(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    generate_idempotency_key: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, unique=True, index=True
+    )
+    approve_idempotency_key: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, unique=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    # SRS extended payroll breakdown
+    base_salary_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    bonus_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    overtime_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    automatic_deductions_amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+    manual_deductions_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    calculation_details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    paid_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

@@ -1,0 +1,63 @@
+{
+  "errors": {
+    "generic": "Something went wrong"
+  },
+  "queue": {
+    "title": "Purchase documents",
+    "new_document": "New document",
+    "upload_hint": "Upload an image (creates a new scan)",
+    "review": "Review",
+    "filter_status": "Status",
+    "all_statuses": "All",
+    "col": {
+      "id": "Scan",
+      "status": "Status",
+      "source": "Source",
+      "provider": "Provider",
+      "created": "Created"
+    }
+  },
+  "map_ui": {
+    "needs_review": "Pending match",
+    "validated": "Matched",
+    "failed": "Rejected"
+  },
+  "status": {
+    "received": "Received",
+    "parsed": "Parsed",
+    "needs_review": "Review",
+    "validated": "Validated",
+    "failed": "Failed"
+  },
+  "detail": {
+    "review_title": "Document",
+    "back_queue": "Back to list",
+    "no_preview": "No image URL on this scan.",
+    "parsed_json": "Parsed / override JSON",
+    "save_override": "Save override",
+    "override_ok": "Override saved",
+    "json_invalid": "Invalid JSON",
+    "validated": "Validated",
+    "validate_branch": "Receive at branch",
+    "approve_validate": "Validate & post goods receipt",
+    "validate_gl_note": "GL posts on the server when validation succeeds.",
+    "reupload": "Upload a new image (creates a new scan record)",
+    "reuploaded": "New scan created",
+    "section_document": "Document",
+    "section_catalog": "Catalog matching",
+    "section_finalize": "Finalize receipt",
+    "parsed": "Parsed lines",
+    "suggestions": "Suggested catalog matches",
+    "confirm": "Confirm",
+    "change": "Change",
+    "skip": "Skip",
+    "create_product": "Create product",
+    "approve_all": "Approve all",
+    "apply_ok": "Catalog matches applied",
+    "load_suggestions": "Load suggestions",
+    "confidence": "Confidence",
+    "no_candidates": "No candidates",
+    "line_confirmed": "Confirmed",
+    "desc_col": "Description"
+  }
+}

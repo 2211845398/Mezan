@@ -1,0 +1,258 @@
+{
+  "currency": {
+    "lyd": "دينار ليبي",
+    "usd": "دولار أمريكي"
+  },
+  "suppliers": {
+    "title": "الموردون",
+    "search_label": "بحث الموردين",
+    "search_placeholder": "الاسم أو الرمز…",
+    "new": "مورد جديد",
+    "edit": "تعديل مورد",
+    "view": "عرض",
+    "tabs": {
+      "data": "بيانات المورد",
+      "statement": "كشف الحساب"
+    },
+    "col": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "contact": "التواصل",
+      "currency": "العملة",
+      "tax_id": "الرقم الضريبي",
+      "payment_terms": "شروط الدفع"
+    },
+    "statement": {
+      "title": "كشف حساب — {{name}}",
+      "subtitle": "المورد {{code}}",
+      "back": "الموردون",
+      "profile_title": "بيانات المورد",
+      "ledger_title": "كشف الحساب (ذمم دائنة)",
+      "date_from": "من تاريخ",
+      "date_to": "إلى تاريخ",
+      "branch": "الفرع",
+      "all_branches": "كل الفروع",
+      "apply": "تطبيق",
+      "opening": "رصيد افتتاحي",
+      "closing": "رصيد ختامي",
+      "empty": "لا توجد حركات في هذه الفترة",
+      "col": {
+        "date": "التاريخ",
+        "reference": "المرجع",
+        "description": "البيان",
+        "debit": "مدين",
+        "credit": "دائن",
+        "balance": "الرصيد"
+      },
+      "desc": {
+        "goods_receipt": "استلام بضاعة رقم {{id}}",
+        "ap_payment": "دفعة للمورد رقم {{id}}",
+        "ap_open_item": "بند ذمم دائنة رقم {{id}}"
+      },
+      "metric": {
+        "open_balance": "الرصيد المفتوح",
+        "total_purchases": "إجمالي المشتريات (الفترة)",
+        "total_paid": "إجمالي المدفوعات (الفترة)",
+        "receipts_payments": "الاستلامات والمدفوعات",
+        "receipts_payments_value": "{{receipts}} استلام · {{payments}} دفعة"
+      }
+    },
+    "form": {
+      "code": "الرمز",
+      "first_name": "الاسم الأول",
+      "father_name": "اسم الأب",
+      "family_name": "اللقب",
+      "currency_code": "العملة",
+      "code_display": "رمز المورد",
+      "tax_id": "الرقم الضريبي",
+      "payment_terms": "شروط الدفع",
+      "contact_phone": "هاتف الاتصال",
+      "contact_email": "البريد الإلكتروني",
+      "contact_section": "التواصل والمحاسبة",
+      "payables_account_id": "حساب الذمم الدائنة",
+      "validation_summary": "راجع الحقول المميزة وأصلح الأخطاء قبل الحفظ.",
+      "save": "حفظ",
+      "created": "تم حفظ المورد"
+    }
+  },
+  "orders": {
+    "title": "أوامر الشراء",
+    "new": "أمر جديد",
+    "edit": "تعديل أمر",
+    "detail": "تفاصيل الأمر",
+    "col": {
+      "po_number": "رقم أمر الشراء",
+      "supplier": "المورد",
+      "branch": "الفرع",
+      "status": "الحالة",
+      "created_at": "تاريخ الإنشاء",
+      "expected": "متوقع",
+      "total": "الإجمالي",
+      "actions": "إجراءات"
+    },
+    "actions": {
+      "view": "عرض",
+      "receive": "استلام"
+    },
+    "filter_status": "الحالة",
+    "all_statuses": "الكل",
+    "form": {
+      "header_section": "بيانات الأمر",
+      "supplier": "المورد",
+      "supplier_name": "اسم المورد",
+      "expected_date": "التاريخ المتوقع",
+      "branch": "الفرع",
+      "branch_hint": "فرع الاستلام (اختياري حتى الاستلام)",
+      "supplier_currency": "عملة المورد",
+      "supplier_required": "اختر المورد",
+      "lines_required": "أضف بنداً واحداً على الأقل (منتج وكمية)",
+      "notes": "ملاحظات",
+      "lines": "البنود",
+      "product": "المنتج",
+      "qty": "الكمية",
+      "unit": "الوحدة",
+      "qty_with_uom": "الكمية ({{uom}})",
+      "unit_cost": "تكلفة الوحدة",
+      "line_total": "إجمالي السطر",
+      "add_line": "إضافة سطر",
+      "save_draft": "حفظ كمسودة",
+      "send": "إرسال للمورد",
+      "sent_toast": "تم إرسال أمر الشراء وإرسال نسخة PDF إلى بريد المورد",
+      "footer_total": "الإجمالي",
+      "created": "تم حفظ أمر الشراء",
+      "saved_draft": "تم حفظ المسودة",
+      "not_draft_readonly": "لا يمكن تعديل هذا الأمر إلا وهو في حالة مسودة.",
+      "product_search_placeholder": "ابحث باسم المنتج أو SKU",
+      "product_search_empty": "لا نتائج",
+      "lines_variant_hint": "اترك المتغير فارغاً لتحديده عند الاستلام، أو اختر متغيراً لتثبيته على هذا البند.",
+      "variant_optional": "المتغير (اختياري)",
+      "variant_optional_placeholder": "يُحدَّد عند الاستلام",
+      "variant_clear": "إزالة المتغير",
+      "unit_cost_required": "أدخل تكلفة وحدة أكبر من صفر لكل سطر"
+    },
+    "detail_page": {
+      "timeline": "الحالة",
+      "lines": "البنود",
+      "receipts": "إيصالات الاستلام",
+      "receive": "استلام بضائع",
+      "send": "إرسال",
+      "cancel": "إلغاء",
+      "track": "تعليم كمتابَع",
+      "close": "إغلاق دون استلام كامل",
+      "partial_receive": "استلام جزئي",
+      "full_receive_hint": "حدد الكمية المستلمة لكل سطر",
+      "receipt_ok": "تم الاستلام وتحديث المخزون والقيود.",
+      "closed_ok": "تم إغلاق الأمر",
+      "remaining": "المتبقي",
+      "line_no": "رقم",
+      "received_col": "المستلم",
+      "variant_col": "المتغير",
+      "variant_at_receive": "يُحدَّد عند الاستلام",
+      "unit_cost_col": "تكلفة الوحدة",
+      "unit_cost_at_receive": "تُحدَّد عند الاستلام",
+      "receipt_number": "إيصال #{{id}}",
+      "receipt_date": "التاريخ",
+      "receipt_branch": "الفرع",
+      "receipt_line_total": "الإجمالي",
+      "receipt_total": "إجمالي الإيصال",
+      "receipt_sku": "SKU / المتغير",
+      "receipt_po_line": "بند #{{id}}"
+    },
+    "status": {
+      "draft": "مسودة",
+      "sent": "مرسل",
+      "tracked": "قيد التنفيذ",
+      "closed": "مغلق",
+      "cancelled": "ملغى"
+    },
+    "receive": {
+      "title": "الاستلام على أمر الشراء",
+      "page_title": "استلام أمر PO-{{id}}",
+      "not_available": "لا يمكن الاستلام في هذه الحالة.",
+      "branch": "الفرع",
+      "qty": "الكمية للاستلام",
+      "qty_with_uom": "الكمية ({{uom}})",
+      "unit_cost": "تكلفة الوحدة",
+      "unit_cost_required": "أدخل تكلفة وحدة أكبر من صفر",
+      "submit": "ترحيل الاستلام",
+      "idempotency_note": "محمي بتكرار آمن — يمكن إعادة المحاولة.",
+      "workflow_hint": "للبنود بدون متغير محدد: وزّع الكمية على صفوف واختر SKU/خصائص كل جزء.",
+      "deferred_hint": "حدد المتغير لكل جزء من الكمية",
+      "variant": "المتغير",
+      "variant_search_placeholder": "ابحث باسم المنتج أو رمز العميل",
+      "variant_search_empty": "لا نتائج",
+      "add_split": "إضافة جزء",
+      "allocated": "المُوزَّع",
+      "variant_required": "اختر متغيراً وكمية لكل جزء",
+      "split_exceeds_remaining": "مجموع الأجزاء يتجاوز الكمية المتبقية",
+      "progress_expected": "المتوقع: {{count}}",
+      "progress_received": "المستلم: {{count}}",
+      "progress_open": "المتبقي: {{count}}",
+      "progress_exceeds": "يتجاوز المتبقي",
+      "no_lines": "أدخل كمية وتكلفة لبند واحد على الأقل"
+    },
+    "notes_section": {
+      "order_title": "ملاحظات الأمر",
+      "receipt_title": "ملاحظات هذا الاستلام",
+      "receipt_on_receipt": "ملاحظات الاستلام",
+      "empty": "—",
+      "placeholder": "ملاحظات اختيارية لهذا الاستلام…"
+    }
+  },
+  "match": {
+    "title": "طابور مطابقة الفواتير",
+    "review": "مراجعة المطابقة",
+    "col": {
+      "id": "المسح",
+      "status": "الحالة",
+      "provider": "المزوّد",
+      "created": "أُنشئ"
+    },
+    "status": {
+      "pending_match": "بانتظار المطابقة",
+      "matched": "مطابَق",
+      "rejected": "مرفوض"
+    },
+    "map_ui": {
+      "needs_review": "بانتظار المطابقة",
+      "validated": "مطابَق",
+      "failed": "مرفوض"
+    },
+    "review_page": {
+      "parsed": "بنود مستخرجة",
+      "suggestions": "اقتراحات التصنيف",
+      "confirm": "تأكيد",
+      "change": "تغيير",
+      "skip": "تخطّي",
+      "create_product": "إنشاء منتج",
+      "approve_all": "اعتماد الكل",
+      "apply_ok": "تم تطبيق مطابقة التصنيف",
+      "load_suggestions": "تحميل الاقتراحات",
+      "confidence": "الثقة",
+      "no_candidates": "لا مرشحين",
+      "new_product_stub": "يفتح التصنيف في تبويب جديد — أنشئ المنتج ثم حدّث الاقتراحات.",
+      "line_confirmed": "مؤكّد"
+    }
+  },
+  "document_intake": {
+    "upload_document": "رفع مستند",
+    "dialog_title": "رفع مستند شراء",
+    "dialog_description": "ارفع صورة فاتورة أو إيصال تسليم. سيتم تحليلها وإدراجها أدناه بحالة بانتظار المطابقة حتى تكمل المراجعة.",
+    "uploading": "جاري الرفع…",
+    "upload_success": "تم استلام المستند وبدء المعالجة.",
+    "close": "إغلاق",
+    "pending_title": "مستندات بانتظار المطابقة",
+    "pending_empty": "لا توجد مستندات بانتظار المطابقة.",
+    "col_id": "رقم المسح",
+    "col_created": "تاريخ الإنشاء",
+    "col_status": "الحالة",
+    "col_actions": "إجراءات",
+    "review_action": "معاينة ومطابقة",
+    "approve_hint": "استخدم «معاينة ومطابقة» لاعتماد مطابقة التصنيف وتسجيل الاستلام، أو «إخفاء» لإزالة الصف من هذه الصفحة فقط.",
+    "reject": "إخفاء",
+    "reject_toast": "تم الإخفاء من هذه الصفحة. المسح ما زال موجوداً ضمن مستندات الشراء."
+  },
+  "errors": {
+    "generic": "حدث خطأ"
+  }
+}

@@ -25,6 +25,13 @@ ENV PATH="/app/.venv/bin:$PATH"
 # ---------------------------------------------------------------------------
 WORKDIR /app
 
+# DejaVu for payroll PDF (fpdf2 does not bundle TTFs; Arabic needs a Unicode font).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        fonts-dejavu-core \
+        postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
 # ---------------------------------------------------------------------------
 # 4. Install dependencies — layer-optimized
 #    Copy ONLY the lockfile + project manifest first.  This layer is cached

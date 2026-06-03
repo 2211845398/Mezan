@@ -80,17 +80,22 @@ async def _get_frequent_cobought_pairs(
 def _build_fallback_suggestions(
     facts: dict[str, Any], max_suggestions: int
 ) -> list[MarketingSuggestion]:
+    """Rule-based suggestions in Arabic; product names stay as stored (often English)."""
     suggestions: list[MarketingSuggestion] = []
     expiring = facts.get("expiring_inventory") or []
     if expiring:
         top = expiring[0]
+        pname = str(top.get("product_name") or "")
         suggestions.append(
             MarketingSuggestion(
-                title=f"Promote expiring stock: {top.get('product_name')}",
-                rationale="Inventory alert indicates upcoming expiry with on-hand quantity.",
+                title=f"ترويج لمخزون قارب الانتهاء: {pname}",
+                rationale=(
+                    "يُنبه المخزون على صلاحية قريبة مع وجود كمية متوفرة؛ "
+                    "يُفضّل تسريع البيع قبل الضياع."
+                ),
                 action_items=[
-                    "Create a limited-time discount on expiring items",
-                    "Place the product in high-visibility channels",
+                    "عرض خصم لفترة محدودة على الأصناف قاربة الانتهاء.",
+                    "وضع المنتج في أماكن عرض أو قنوات واضحة للزبائن.",
                 ],
                 priority="high",
                 confidence=0.82,
@@ -100,13 +105,17 @@ def _build_fallback_suggestions(
     slow_items = facts.get("slow_moving_products") or []
     if slow_items:
         top = slow_items[0]
+        pname = str(top.get("product_name") or "")
         suggestions.append(
             MarketingSuggestion(
-                title=f"Bundle slow mover: {top.get('product_name')}",
-                rationale="Low velocity item is suitable for bundle or upsell strategy.",
+                title=f"تجميع مع منتج بطيء الحركة: {pname}",
+                rationale=(
+                    "هذا المنتج ذو دوران منخفض؛ يمكن ربطه بأفضل المبيعات "
+                    "أو تغليفه في عرض ترويجي قصير لرفع الاهتمام."
+                ),
                 action_items=[
-                    "Bundle with top seller for cross-sell",
-                    "Run short trial promotion and monitor conversion",
+                    "تجميعه مع أحد الأصناف الأكثر مبيعاً للبيع المشترك.",
+                    "تجربة عرض ترويجي قصير مع مراقبة معدل التحويل.",
                 ],
                 priority="medium",
                 confidence=0.75,
@@ -116,13 +125,17 @@ def _build_fallback_suggestions(
     top_products = facts.get("top_selling_products") or []
     if top_products:
         top = top_products[0]
+        pname = str(top.get("product_name") or "")
         suggestions.append(
             MarketingSuggestion(
-                title=f"Upsell around bestseller: {top.get('product_name')}",
-                rationale="Top-selling products are anchors for campaign uplift.",
+                title=f"بيع إضافي حول الأكثر مبيعاً: {pname}",
+                rationale=(
+                    "الأصناف الأكثر مبيعاً تجذب الزيارات؛ الربط بتوصيات مكملة "
+                    "أو عروض جانبية يرفع متوسط قيمة السلة."
+                ),
                 action_items=[
-                    "Launch complementary product recommendations",
-                    "Allocate extra display budget for this category",
+                    "إطلاق توصيات بمنتجات مكملة عند السلة أو الصفحة.",
+                    "زيادة مساحة العرض أو ميزانية الإبراز لهذه الفئة قليلاً.",
                 ],
                 priority="medium",
                 confidence=0.73,
@@ -132,13 +145,18 @@ def _build_fallback_suggestions(
     co_bought = facts.get("co_bought_pairs") or []
     if co_bought:
         pair = co_bought[0]
+        a = str(pair.get("product_a_name") or "")
+        b = str(pair.get("product_b_name") or "")
         suggestions.append(
             MarketingSuggestion(
-                title=f"Bundle pair: {pair.get('product_a_name')} + {pair.get('product_b_name')}",
-                rationale="Frequent co-purchase pattern supports bundle conversion uplift.",
+                title=f"عرض تجميعي: {a} + {b}",
+                rationale=(
+                    "يظهر النمط أن الزبائن يشترون هذين المنتجين معاً بشكل متكرر؛ "
+                    "مناسب لعرض «كمبو» أو خصم على الشراء المزدوج."
+                ),
                 action_items=[
-                    "Create a combo offer for the top co-bought pair",
-                    "A/B test bundle pricing versus separate discounts",
+                    "إنشاء عرض تجميعي للزوج الأكثر شراءً معاً.",
+                    "مقارنة تسعير التجميعة مقابل خصومات منفصلة (اختبار بسيط).",
                 ],
                 priority="medium",
                 confidence=0.78,
@@ -154,6 +172,7 @@ def _build_messages(facts: dict[str, Any], max_suggestions: int) -> list[dict[st
         "Use only the provided facts and return strict JSON matching this schema: "
         '{"suggestions":[{"title":"...","rationale":"...","action_items":["..."],'
         '"priority":"high|medium|low","confidence":0.0}]} '
+        "Each suggestion object must contain only those six keys. "
         "Do not include any text outside JSON."
     )
     user_prompt = (
@@ -166,7 +185,9 @@ def _build_messages(facts: dict[str, Any], max_suggestions: int) -> list[dict[st
     ]
 
 
-async def _call_llm(messages: list[dict[str, str]]) -> _LLMAdvisoryEnvelope:
+async def _call_llm(
+    messages: list[dict[str, str]],
+) -> tuple[_LLMAdvisoryEnvelope, dict[str, int] | None]:
     if not settings.OPENAI_API_KEY:
         raise ExternalServiceError("OPENAI_API_KEY is not configured", http_status=503)
 
@@ -192,7 +213,17 @@ async def _call_llm(messages: list[dict[str, str]]) -> _LLMAdvisoryEnvelope:
         body = response.json()
         content = body["choices"][0]["message"]["content"]
         parsed = json.loads(content)
-        return _LLMAdvisoryEnvelope.model_validate(parsed)
+        usage_raw = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+        usage_out: dict[str, int] | None = None
+        if usage_raw:
+            pt = usage_raw.get("prompt_tokens")
+            ct = usage_raw.get("completion_tokens")
+            if isinstance(pt, int) or isinstance(ct, int):
+                usage_out = {
+                    "prompt_tokens": int(pt) if isinstance(pt, int) else 0,
+                    "completion_tokens": int(ct) if isinstance(ct, int) else 0,
+                }
+        return _LLMAdvisoryEnvelope.model_validate(parsed), usage_out
     except PydanticValidationError as exc:
         raise ExternalServiceError(
             "AI response schema validation failed",
@@ -209,7 +240,7 @@ async def _call_llm(messages: list[dict[str, str]]) -> _LLMAdvisoryEnvelope:
 
 async def generate_marketing_advisory(
     db: AsyncSession, *, payload: MarketingAdvisoryRequest
-) -> MarketingAdvisoryResponse:
+) -> tuple[MarketingAdvisoryResponse, dict[str, int] | None]:
     top_products = await get_top_selling_products(db, limit=payload.top_products_limit)
     slow_products = await get_slow_moving_products(
         db, threshold_qty=5, limit=payload.top_products_limit
@@ -230,15 +261,22 @@ async def generate_marketing_advisory(
         "co_bought_pairs": co_bought_pairs,
         "generated_at": datetime.now(UTC).isoformat(),
     }
+    llm_usage: dict[str, int] | None = None
+    used_llm = False
     try:
-        envelope = await _call_llm(_build_messages(facts, payload.max_suggestions))
+        envelope, llm_usage = await _call_llm(_build_messages(facts, payload.max_suggestions))
         suggestions = envelope.suggestions[: payload.max_suggestions]
+        used_llm = True
     except ExternalServiceError:
         suggestions = _build_fallback_suggestions(facts, payload.max_suggestions)
+        llm_usage = None
 
-    return MarketingAdvisoryResponse(
-        model=settings.OPENAI_MODEL if settings.OPENAI_API_KEY else "deterministic_fallback",
-        generated_at=datetime.now(UTC),
-        facts_used=facts,
-        suggestions=suggestions,
+    return (
+        MarketingAdvisoryResponse(
+            model=settings.OPENAI_MODEL if used_llm else "deterministic_fallback",
+            generated_at=datetime.now(UTC),
+            facts_used=facts,
+            suggestions=suggestions,
+        ),
+        llm_usage,
     )

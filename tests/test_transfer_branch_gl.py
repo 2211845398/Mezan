@@ -13,7 +13,9 @@ from app.models.branch_product_costs import BranchProductCost
 from app.models.category import Category
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.services.accounting_service import get_accounting_settings
+from app.services.catalog_service import resolve_default_variant_id
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
 from app.services.seed_service import seed_accounting_defaults
@@ -56,11 +58,18 @@ async def test_transfer_receive_posts_inter_branch_inventory_journal(db_session)
         name="Xfer SKU",
         sku=f"xk-{uuid.uuid4().hex[:8]}",
         status="active",
-        attributes={},
         standard_cost=Decimal("4.0000"),
         output_vat_rate=Decimal("0"),
     )
     db_session.add(product)
+    await db_session.flush()
+    pv = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv)
     await db_session.flush()
 
     # Source branch: 40 units @ 7.50 WAVG
@@ -123,10 +132,12 @@ async def test_transfer_receive_posts_inter_branch_inventory_journal(db_session)
     assert dr.debit == ext
     assert cr.credit == ext
 
+    vid = await resolve_default_variant_id(db_session, product_id=product.id)
     cost_res = await db_session.execute(
         select(BranchProductCost).where(
             BranchProductCost.branch_id == b_to.id,
             BranchProductCost.product_id == product.id,
+            BranchProductCost.variant_id == vid,
         )
     )
     row = cost_res.scalar_one_or_none()

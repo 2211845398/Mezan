@@ -31,7 +31,7 @@ async def test_close_shift_posts_variance_journal(db_session) -> None:
     )
     user = User(
         email=f"s5-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="Shift",
+        first_name="Shift",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -90,12 +90,12 @@ async def test_loyalty_manual_credit_posts_expense_and_liability(db_session) -> 
     db_session.add(branch)
     cust = CustomerProfile(
         phone=f"+1555{uuid.uuid4().int % 10_000_000:07d}",
-        full_name="Loyalty GL",
+        first_name="Loyalty GL",
         is_temporary=False,
     )
     user = User(
         email=f"l5-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="Aud",
+        first_name="Aud",
         password_hash="x",
         status="active",
         branch_id=None,
@@ -140,12 +140,12 @@ async def test_loyalty_redemption_debit_posts_liability_and_revenue(db_session) 
     db_session.add(branch)
     cust = CustomerProfile(
         phone=f"+1666{uuid.uuid4().int % 10_000_000:07d}",
-        full_name="Redeem",
+        first_name="Redeem",
         is_temporary=False,
     )
     user = User(
         email=f"r5-{uuid.uuid4().hex[:8]}@example.com",
-        full_name="Aud",
+        first_name="Aud",
         password_hash="x",
         status="active",
         branch_id=None,

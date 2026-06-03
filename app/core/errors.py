@@ -6,9 +6,26 @@ These errors are safe to surface to clients via the global exception handlers.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NoReturn
 
 JsonObject = dict[str, Any]
+
+# Top-level AppError.code values that are not business-specific i18n keys.
+_GENERIC_ERROR_CODES = frozenset(
+    {
+        "validation_error",
+        "conflict",
+        "resource_not_found",
+        "invalid_state_transition",
+        "permission_denied",
+        "not_authenticated",
+        "external_service_error",
+        "bad_request",
+        "http_error",
+        "rate_limited",
+        "internal_error",
+    }
+)
 
 
 @dataclass(eq=False)
@@ -68,3 +85,70 @@ class ExternalServiceError(AppError):
         http_status: int = 502,
     ):
         super().__init__("external_service_error", message, http_status, details)
+
+
+def _details_with_code(code: str, details: JsonObject | None = None, **extra: Any) -> JsonObject:
+    merged: JsonObject = dict(details or {})
+    merged.update(extra)
+    merged["code"] = code
+    return merged
+
+
+def _default_message(code: str, message: str) -> str:
+    return message or code.replace("_", " ")
+
+
+def validation_error(
+    code: str,
+    message: str = "",
+    *,
+    details: JsonObject | None = None,
+    **extra: Any,
+) -> NoReturn:
+    """Raise ValidationError with a stable ``details.code`` for UI i18n."""
+    raise ValidationError(
+        _default_message(code, message),
+        details=_details_with_code(code, details, **extra),
+    )
+
+
+def state_transition_error(
+    code: str,
+    message: str = "",
+    *,
+    details: JsonObject | None = None,
+    **extra: Any,
+) -> NoReturn:
+    """Raise StateTransitionError with a stable ``details.code`` for UI i18n."""
+    raise StateTransitionError(
+        _default_message(code, message),
+        details=_details_with_code(code, details, **extra),
+    )
+
+
+def conflict_error(
+    code: str,
+    message: str = "",
+    *,
+    details: JsonObject | None = None,
+    **extra: Any,
+) -> NoReturn:
+    """Raise ConflictError with a stable ``details.code`` for UI i18n."""
+    raise ConflictError(
+        _default_message(code, message),
+        details=_details_with_code(code, details, **extra),
+    )
+
+
+def not_found_error(
+    code: str,
+    message: str = "",
+    *,
+    details: JsonObject | None = None,
+    **extra: Any,
+) -> NoReturn:
+    """Raise NotFoundError with a stable ``details.code`` for UI i18n."""
+    raise NotFoundError(
+        _default_message(code, message),
+        details=_details_with_code(code, details, **extra),
+    )

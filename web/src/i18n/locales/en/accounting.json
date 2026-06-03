@@ -1,0 +1,463 @@
+{
+  "errors": {
+    "generic": "Something went wrong.",
+    "forbidden": "You do not have permission for this action.",
+    "forbidden_link": "Back"
+  },
+  "actions": {
+    "cancel": "Cancel"
+  },
+  "toolbar": {
+    "branch": "Branch",
+    "all_branches": "All branches",
+    "apply": "Apply"
+  },
+  "period": {
+    "from": "From",
+    "to": "To"
+  },
+  "account_picker": {
+    "placeholder": "Select account",
+    "search": "Search account",
+    "empty": "No accounts"
+  },
+  "journal": {
+    "list_title": "Journal entries",
+    "new_manual": "New journal entry",
+    "detail_title": "Journal #{{id}}",
+    "view": "View",
+    "back": "Back",
+    "link_original": "Original #{{id}}",
+    "link_reversal": "Reversal #{{id}}",
+    "reverse": "Reverse",
+    "edit": "Edit",
+    "save": "Save",
+    "edit_saved": "Journal entry saved",
+    "edit_system_warning": "Editing this entry changes the GL posting without updating the source document (invoice, POS, etc.).",
+    "detail_meta": "Entry details",
+    "lines_title": "Journal lines",
+    "source_ref": "Source reference",
+    "filter": {
+      "source_prefix": "Source prefix",
+      "source_type": "Source type",
+      "all_sources": "All sources",
+      "search_source": "Search source type…"
+    },
+    "total_rows": "Total: {{total}}",
+    "col": {
+      "id": "JE #",
+      "date": "Date",
+      "source": "Source",
+      "memo": "Description",
+      "debit": "Debit",
+      "credit": "Credit",
+      "balanced": "OK"
+    },
+    "source": {
+      "manual": "Manual entry",
+      "journal_reversal": "Journal reversal",
+      "sales_invoice": "Sales invoice",
+      "sales_return": "Sales return",
+      "goods_receipt": "Goods receipt",
+      "pos_shift": "POS shift",
+      "pos_sale": "POS sale",
+      "payslip": "Payslip",
+      "payroll": "Payroll",
+      "stock_adjustment": "Stock adjustment",
+      "inventory_adjustment": "Inventory adjustment",
+      "transfer": "Transfer",
+      "transfer_batch": "Transfer batch",
+      "opening_balance": "Opening balance",
+      "fx_revaluation": "FX revaluation",
+      "ar_payment": "AR payment",
+      "ar_payment_application": "AR payment application",
+      "ap_payment": "AP payment",
+      "ap_payment_application": "AP payment application",
+      "purchase_receipt": "Purchase receipt",
+      "loyalty_ledger": "Loyalty ledger",
+      "production_order": "Production order",
+      "voucher": "Voucher {{type}}"
+    },
+    "line": {
+      "account": "Account",
+      "branch": "Branch",
+      "memo": "Line memo"
+    },
+    "desc": {
+      "goods_receipt": "Goods receipt {{id}}",
+      "transfer_batch_received": "Transfer batch {{id}} received",
+      "reversal": "Reversal of JE #{{id}}",
+      "sales_invoice_settlement": "Sales invoice {{ref}} (settlement)",
+      "sales_invoice_accrual": "Sales invoice {{ref}} accrual",
+      "cogs": "COGS {{ref}}",
+      "cogs_restore": "COGS restore {{ref}}",
+      "sales_return": "Sales return {{id}}",
+      "ar_payment_application": "AR cash receipt (application {{id}})",
+      "ap_payment_application": "AP supplier payment (application {{id}})",
+      "payslip_approved": "Payslip {{id}} approved",
+      "pos_shift_variance": "POS shift {{id}} cash variance",
+      "loyalty_ledger": "Loyalty ledger {{id}}",
+      "fx_revaluation_ar": "FX revaluation {{currency}} AR — {{sourceType}} {{sourceId}}",
+      "fx_revaluation_ap": "FX revaluation {{currency}} AP — {{sourceType}} {{sourceId}}",
+      "inventory_adjustment": "Inventory adjustment — {{reason}} (mv {{movementId}})",
+      "inventory_adjustment_excess": "Inventory adjustment — excess found (mv {{movementId}})",
+      "production_material": "Production order {{order}} — material issue",
+      "production_finished": "Production order {{order}} — finished goods"
+    }
+  },
+  "manual": {
+    "title": "Manual journal entry",
+    "entry_date": "Entry date",
+    "description": "Description",
+    "account": "Account",
+    "branch": "Branch",
+    "add_line": "Add line",
+    "submit": "Post",
+    "saved": "Journal posted",
+    "totals": "Totals",
+    "difference": "Difference",
+    "subledger": {
+      "entity": "Entity",
+      "customer": "Select customer",
+      "supplier": "Select supplier",
+      "employee": "Select employee"
+    }
+  },
+  "reversal": {
+    "title": "Reverse journal #{{id}}",
+    "posting_date": "Reversal date",
+    "reason": "Reason",
+    "submit": "Create reversal",
+    "ok": "Reversal created"
+  },
+  "tb": {
+    "title": "Trial balance",
+    "as_of": "As of date",
+    "export": "Export CSV",
+    "export_pdf": "Export PDF",
+    "totals": "Total debit: {{dr}} · Total credit: {{cr}}",
+    "totals_row": "Totals",
+    "balanced": "Balanced",
+    "unbalanced": "Unbalanced",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "type": "Type",
+      "debit": "Debit",
+      "credit": "Credit",
+      "net": "Net"
+    }
+  },
+  "is": {
+    "title": "Income statement",
+    "period_start": "Period start",
+    "period_end": "Period end",
+    "revenue": "Total revenue",
+    "expense": "Total expense",
+    "net_income": "Net income",
+    "revenue_lines": "Revenue by account",
+    "expense_lines": "Expense by account",
+    "amount": "Amount"
+  },
+  "bs": {
+    "title": "Balance sheet",
+    "as_of": "As of",
+    "total_assets": "Total assets",
+    "total_liabilities": "Total liabilities",
+    "total_equity": "Total equity",
+    "imbalance": "Assets − Liabilities − Equity",
+    "balance_check": "Balance check",
+    "balanced": "Balanced",
+    "difference": "Difference",
+    "section": {
+      "assets": "Assets",
+      "liabilities": "Liabilities",
+      "equity": "Equity"
+    }
+  },
+  "gl": {
+    "title": "General ledger",
+    "account": "Account",
+    "subledger_filter": "Entity filter",
+    "all_entities": "All entities",
+    "search_placeholder": "Search description or entity…",
+    "col": {
+      "date": "Date",
+      "je": "JE #",
+      "desc": "Description",
+      "partner": "Entity",
+      "balance": "Running balance"
+    }
+  },
+  "ar": {
+    "title": "AR open items",
+    "col": {
+      "ref": "Reference",
+      "description": "Description",
+      "doc_date": "Document date",
+      "due_date": "Due date",
+      "days_overdue": "Days overdue",
+      "open": "Open amount",
+      "source": "Source",
+      "status": "Status"
+    },
+    "filter_status": "Status",
+    "status": {
+      "open": "Open",
+      "closed": "Closed",
+      "all": "All"
+    },
+    "selection_summary": "{{count}} items selected — Total: {{total}}",
+    "deselect_all": "Clear selection",
+    "apply_selected": "Apply payment",
+    "drawer_title": "Apply AR payment",
+    "tendered": "Tendered (max total)",
+    "total_applied": "Applied: {{v}}",
+    "reference": "Reference",
+    "note": "Note",
+    "submit": "Submit applications",
+    "apply_ok": "Payment applied"
+  },
+  "ap": {
+    "title": "AP open items",
+    "col": {
+      "ref": "Reference",
+      "description": "Description",
+      "doc_date": "Document date",
+      "due_date": "Due date",
+      "days_overdue": "Days overdue",
+      "open": "Open amount",
+      "source": "Source",
+      "status": "Status"
+    },
+    "filter_status": "Status",
+    "status": {
+      "open": "Open",
+      "closed": "Closed",
+      "all": "All"
+    },
+    "selection_summary": "{{count}} items selected — Total: {{total}}",
+    "deselect_all": "Clear selection",
+    "apply_selected": "Apply payment",
+    "drawer_title": "Apply AP payment",
+    "submit": "Submit applications",
+    "apply_ok": "Payment applied"
+  },
+  "operations": {
+    "title": "Accounting operations",
+    "loading": "Loading…",
+    "tab": {
+      "vouchers": "Vouchers",
+      "opening": "Opening balances",
+      "fx": "FX revaluation",
+      "production": "Production"
+    },
+    "tree": {
+      "title": "Chart of accounts",
+      "link_hint": "Chart of accounts management now lives on a dedicated dual-panel page (balance sheet and income statement)."
+    },
+    "voucher": {
+      "title": "Receipt / Payment voucher",
+      "date": "Date",
+      "amount": "Amount",
+      "description": "Description",
+      "customer": "Customer",
+      "supplier": "Supplier",
+      "no_entity": "No entity (unlinked)",
+      "receipt_section": "Receipt voucher (AR)",
+      "payment_section": "Payment voucher (AP)",
+      "post_receipt": "Post receipt",
+      "post_payment": "Post payment",
+      "receipt_ok": "Receipt voucher posted",
+      "payment_ok": "Payment voucher posted",
+      "receipt_default_desc": "Customer receipt",
+      "payment_default_desc": "Supplier payment"
+    },
+    "opening": {
+      "title": "Opening balance entry",
+      "date": "Date",
+      "amount": "Amount",
+      "debit_account": "Debit account",
+      "credit_account": "Credit account",
+      "description": "Description",
+      "post": "Post opening balance",
+      "ok": "Opening balance posted",
+      "default_desc": "Opening balance"
+    },
+    "fx": {
+      "title": "Currency revaluation",
+      "as_of": "As of date",
+      "preview": "Preview",
+      "post": "Post revaluation",
+      "preview_ok": "FX preview ready",
+      "run_ok": "FX revaluation posted",
+      "no_adjustments": "No revaluation adjustments for this date.",
+      "col": {
+        "code": "Code",
+        "name": "Account",
+        "book_amount": "Book amount",
+        "revalued_amount": "Revalued",
+        "fx_gain_loss": "FX Gain / Loss"
+      }
+    },
+    "production": {
+      "title": "Production orders & BoMs",
+      "product_label": "Finished product",
+      "version_label": "Version",
+      "empty": "No bill of materials yet."
+    }
+  },
+  "fiscal": {
+    "title": "Fiscal periods",
+    "search_placeholder": "Search by date…",
+    "col": {
+      "key": "Period",
+      "start": "Start",
+      "end": "End",
+      "status": "Status",
+      "closed_at": "Closed on"
+    },
+    "status_label": {
+      "open": "Open",
+      "soft_closed": "Soft closed",
+      "closed": "Closed"
+    },
+    "close": "Close period",
+    "reopen": "Reopen",
+    "close_confirm_title": "Close fiscal period?",
+    "close_confirm_body": "Closing prevents new postings in this period. Type CLOSE to confirm.",
+    "close_confirm_body_simple": "Closing prevents new postings in this period. You can reopen it later if needed.",
+    "reopen_confirm_title": "Reopen fiscal period?",
+    "reopen_confirm_body": "Reopening allows posting again in this period.",
+    "closed_ok": "Period closed",
+    "reopened_ok": "Period reopened",
+    "transition_error": "This period status change is not allowed"
+  },
+  "currencies": {
+    "title": "Currencies",
+    "add": "Add currency",
+    "empty": "No currencies yet.",
+    "select_placeholder": "Select currency",
+    "base_badge": "Base",
+    "current_base": "Company base currency",
+    "link_fx": "FX revaluation",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "rate": "Rate to base",
+      "base": "Base",
+      "active": "Active"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "edit_rate": "Edit rate",
+    "edit_rate_title": "Rate for {{code}}",
+    "set_base": "Set as base",
+    "created": "Currency added",
+    "rate_updated": "Exchange rate updated",
+    "base_updated": "Base currency updated",
+    "base_confirm_title": "Change base currency?",
+    "base_confirm_body": "This is a rare administrative action. Open foreign-currency AR/AP must be settled or revalued first. The new base currency rate will be set to 1.",
+    "base_confirm_action": "Change base",
+    "form": {
+      "code": "Currency code (ISO)",
+      "name": "Name",
+      "rate": "Exchange rate to base",
+      "rate_hint": "Units of base currency per 1 unit of this currency. Leave empty for base-like setup.",
+      "save": "Save"
+    }
+  },
+  "coa": {
+    "account_type": {
+      "asset": "Asset",
+      "liability": "Liability",
+      "equity": "Equity",
+      "revenue": "Revenue",
+      "expense": "Expense"
+    },
+    "title": "Chart of accounts",
+    "open_page": "Open chart of accounts",
+    "balance_sheet": "Balance sheet",
+    "income_statement": "Income statement",
+    "new_group": "New group",
+    "new_account": "New account",
+    "edit": "Edit",
+    "save": "Save",
+    "create": "Create",
+    "created": "Created",
+    "saved": "Saved",
+    "loading": "Loading…",
+    "empty": "No accounts in this panel.",
+    "name": "Name",
+    "code": "Code",
+    "parent": "Parent group",
+    "parent_placeholder": "Select parent group",
+    "parent_required": "Select parent group",
+    "parent_none": "No parent",
+    "parent_search": "Search groups…",
+    "parent_empty": "No groups found",
+    "subledger_kind": "Sub-ledger kind",
+    "system_account": "System",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "expand_all": "Expand all",
+    "collapse_all": "Collapse all",
+    "hide_zero": "Hide zero balances",
+    "delete": "Delete",
+    "deleted": "Account deleted",
+    "delete_title": "Delete account",
+    "delete_action": "Delete",
+    "delete_checking": "Checking whether this account can be deleted…",
+    "delete_confirm": "Delete {{name}} ({{code}})? This cannot be undone.",
+    "delete_blocked": "This account cannot be deleted: {{reason}}",
+    "name_en": "Name (English)",
+    "name_ar": "Name (Arabic)",
+    "as_of": "Balances as of",
+    "branch_filter": "Branch",
+    "branch_all": "All branches (structure only)",
+    "branch_hint": "Select a branch and apply to show per-branch balances in the tree.",
+    "apply_filters": "Apply",
+    "col": {
+      "name": "Name",
+      "code": "Code",
+      "balance": "Branch balance",
+      "actions": "Actions"
+    },
+    "group_new_title": "New group",
+    "group_edit_title": "Edit group",
+    "account_new_title": "New account",
+    "account_edit_title": "Edit account",
+    "subledger": {
+      "none": "None",
+      "customer": "Customers",
+      "supplier": "Suppliers",
+      "employee": "Employees"
+    },
+    "validation": {
+      "name": "Name is required",
+      "code": "Code is required",
+      "parent": "Parent group is required"
+    }
+  },
+  "payment_terms": {
+    "title": "Payment terms",
+    "description": "Define when supplier payments are due (used for AP due dates).",
+    "add": "Add term",
+    "edit": "Edit term",
+    "empty": "No payment terms.",
+    "saved": "Payment term saved",
+    "col": {
+      "code": "Code",
+      "name": "Label",
+      "days": "Days",
+      "active": "Active"
+    },
+    "form": {
+      "code": "Code",
+      "name_en": "Name (English)",
+      "name_ar": "Name (Arabic)",
+      "days": "Due days after invoice",
+      "save": "Save"
+    }
+  }
+}

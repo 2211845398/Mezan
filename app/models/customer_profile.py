@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from enum import StrEnum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
+
+
+class CustomerAccountStatus(StrEnum):
+    """Lifecycle state for CRM/POS eligibility (kept in sync with ``is_active``)."""
+
+    ACTIVE = "active"
+    PENDING_ACTIVATION = "pending_activation"
+    SUSPENDED = "suspended"
 
 
 class CustomerProfile(Base):
@@ -15,9 +24,17 @@ class CustomerProfile(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     phone: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    father_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    family_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_temporary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    account_status: Mapped[CustomerAccountStatus] = mapped_column(
+        Enum(CustomerAccountStatus, native_enum=False, length=32),
+        nullable=False,
+        default=CustomerAccountStatus.ACTIVE,
+    )
     default_currency_id: Mapped[int | None] = mapped_column(
         ForeignKey("currencies.id", ondelete="SET NULL"), nullable=True, index=True
     )

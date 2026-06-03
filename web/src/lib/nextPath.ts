@@ -7,6 +7,7 @@
 
 const SAFE_PREFIXES = [
   '/dashboard',
+  '/notifications',
   '/pos',
   '/catalog',
   '/inventory',
@@ -20,7 +21,13 @@ const SAFE_PREFIXES = [
   '/admin',
 ];
 
-const DEFAULT_NEXT = '/dashboard';
+/** Role-aware home: `/` redirects executives to BI and shows shortcuts for others. */
+const DEFAULT_NEXT = '/';
+
+function isAllowedInternalPath(path: string): boolean {
+  if (path === '/' || path === '') return true;
+  return SAFE_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+}
 
 export function sanitizeNextPath(raw: string | null | undefined): string {
   if (!raw) return DEFAULT_NEXT;
@@ -32,7 +39,7 @@ export function sanitizeNextPath(raw: string | null | undefined): string {
   if (raw.includes('@')) return DEFAULT_NEXT;
 
   const path = raw.split('?')[0] ?? '';
-  if (!SAFE_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) {
+  if (!isAllowedInternalPath(path)) {
     return DEFAULT_NEXT;
   }
   return raw;

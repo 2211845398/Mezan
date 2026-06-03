@@ -54,14 +54,57 @@ async def get_or_create_period(db: AsyncSession, *, entry_date: date) -> FiscalP
     return period
 
 
-async def ensure_period_open(db: AsyncSession, *, entry_date: date) -> FiscalPeriod:
+async def ensure_period_open(
+    db: AsyncSession, *, entry_date: date, allow_in_soft_close: bool = False
+) -> FiscalPeriod:
+    """Ensure period allows GL posting.
+
+    - ``closed``: never postable.
+    - ``soft_closed``: only reversal workflows should pass ``allow_in_soft_close=True``.
+    - ``open``: always postable.
+
+    Raises:
+        ValidationError: If the period is closed or soft-closed without override.
+    """
     period = await get_or_create_period(db, entry_date=entry_date)
     if period.status == "closed":
         raise ValidationError(
             "Cannot post journal entry to a closed fiscal period",
             details={"period_key": period.period_key},
         )
+    if period.status == "soft_closed" and not allow_in_soft_close:
+        raise ValidationError(
+            "Cannot post to a soft-closed fiscal period (only journal reversals may post)",
+            details={"period_key": period.period_key, "status": "soft_closed"},
+        )
     return period
+
+
+async def ensure_period_not_hard_closed(db: AsyncSession, *, entry_date: date) -> FiscalPeriod:
+    """Ensure period is not hard-closed. Allows open and soft_closed.
+
+    Used for operations that should be blocked only after hard-close.
+    """
+    period = await get_or_create_period(db, entry_date=entry_date)
+    if period.status == "closed":
+        raise ValidationError(
+            "Period is permanently closed",
+            details={"period_key": period.period_key, "status": "closed"},
+        )
+    return period
+
+
+async def can_post_to_period(db: AsyncSession, *, entry_date: date) -> tuple[bool, str]:
+    """Check if posting is allowed and provide reason.
+
+    Returns (allowed: bool, reason: str).
+    """
+    period = await get_or_create_period(db, entry_date=entry_date)
+    if period.status == "open":
+        return True, "Period is open"
+    if period.status == "soft_closed":
+        return False, "Period is soft-closed (only reversing journal entries may post)"
+    return False, f"Period {period.period_key} is permanently closed"
 
 
 async def list_periods(db: AsyncSession) -> list[FiscalPeriod]:
@@ -80,8 +123,27 @@ async def set_period_status(
     period = result.scalar_one_or_none()
     if not period:
         raise NotFoundError("Fiscal period not found", details={"period_key": period_key})
-    if status not in {"open", "closed"}:
+    valid = {"open", "soft_closed", "closed"}
+    if status not in valid:
         raise ValidationError("Invalid period status", details={"status": status})
+
+    old = period.status
+    if old == status:
+        await db.flush()
+        await db.refresh(period)
+        return period
+
+    transitions: dict[str, set[str]] = {
+        "open": {"soft_closed", "closed"},
+        "soft_closed": {"open", "closed"},
+        "closed": {"open", "soft_closed"},
+    }
+    if status not in transitions.get(old, set()):
+        raise ValidationError(
+            "Invalid fiscal period transition",
+            details={"from": old, "to": status, "period_key": period_key},
+        )
+
     period.status = status
     if status == "closed":
         period.closed_at = datetime.now(UTC)
@@ -138,7 +200,7 @@ async def reverse_journal_entry(
         )
 
     posting_date = reversal_date or date.today()
-    period = await ensure_period_open(db, entry_date=posting_date)
+    period = await ensure_period_open(db, entry_date=posting_date, allow_in_soft_close=True)
 
     description = f"Reversal of JE #{original.id}"
     if reason:
@@ -158,17 +220,22 @@ async def reverse_journal_entry(
     await db.flush()
 
     for line in original.lines:
-        db.add(
-            JournalEntryLine(
-                journal_entry_id=reversal.id,
-                line_no=line.line_no,
-                account_id=line.account_id,
-                branch_id=line.branch_id,
-                debit=line.credit,
-                credit=line.debit,
-                memo=f"Reversal of line {line.line_no}",
-            )
-        )
+        line_kw: dict = {
+            "journal_entry_id": reversal.id,
+            "line_no": line.line_no,
+            "account_id": line.account_id,
+            "branch_id": line.branch_id,
+            "debit": line.credit,
+            "credit": line.debit,
+            "memo": f"Reversal of line {line.line_no}",
+        }
+        if getattr(line, "currency_code", None):
+            line_kw["currency_code"] = line.currency_code[:3]
+        if getattr(line, "transaction_amount", None) is not None:
+            line_kw["transaction_amount"] = line.transaction_amount
+        if getattr(line, "fx_rate", None) is not None:
+            line_kw["fx_rate"] = line.fx_rate
+        db.add(JournalEntryLine(**line_kw))
 
     await db.flush()
     await db.refresh(reversal)

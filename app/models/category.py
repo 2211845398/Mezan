@@ -22,6 +22,7 @@ class Category(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -38,7 +39,5 @@ class Category(Base):
 
     parent = relationship("Category", remote_side="Category.id", back_populates="children")
     children = relationship("Category", back_populates="parent")
-    attribute_defs = relationship(
-        "CategoryAttributeDef", back_populates="category", cascade="all, delete-orphan"
-    )
     products = relationship("Product", back_populates="category")
+    product_tag_links = relationship("ProductCategory", back_populates="category")

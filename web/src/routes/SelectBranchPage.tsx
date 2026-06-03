@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 export default function SelectBranchPage() {
   const { t } = useTranslation();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <div className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background px-4 py-12">
       <div className="max-w-md space-y-4 text-center">
         <Building2 className="mx-auto size-12 text-muted-foreground" aria-hidden="true" />
         <h1 className="text-2xl font-bold tracking-tight">{t('auth:branch.title')}</h1>

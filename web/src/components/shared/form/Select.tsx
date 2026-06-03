@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { MEZ_FIELD_BORDER_CLASS } from '@/lib/fieldFocus';
 
 export {
   SelectContent,
@@ -96,7 +97,7 @@ export function Select({
  * component renders shadcn's `Command` inside a popover.
  */
 
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, X } from 'lucide-react';
 
 import {
   Command,
@@ -117,11 +118,19 @@ export type AsyncSelectProps = {
   onChange: (next: string) => void;
   options: ReadonlyArray<SelectOption>;
   onSearch: (query: string) => void;
-  placeholder?: string;
-  searchPlaceholder?: string;
-  emptyLabel?: string;
-  isLoading?: boolean;
-  className?: string;
+  placeholder?: string | undefined;
+  searchPlaceholder?: string | undefined;
+  emptyLabel?: string | undefined;
+  isLoading?: boolean | undefined;
+  className?: string | undefined;
+  disabled?: boolean | undefined;
+  /** Shown when value is set but the option is not in the current options list. */
+  displayLabel?: string | undefined;
+  /** Show clear (X) control when a value is selected. */
+  clearable?: boolean | undefined;
+  clearAriaLabel?: string | undefined;
+  /** When false (default), rely on server-side search; do not filter Command items locally. */
+  filterLocally?: boolean | undefined;
 };
 
 export function AsyncSelect({
@@ -134,30 +143,75 @@ export function AsyncSelect({
   emptyLabel = 'No results',
   isLoading = false,
   className,
+  disabled = false,
+  displayLabel,
+  clearable = false,
+  clearAriaLabel = 'Clear',
+  filterLocally = false,
 }: AsyncSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
 
   const selected = options.find((o) => o.value === value);
+  const hasValue = value != null && value !== '';
+  const triggerLabel =
+    (displayLabel?.trim() ? displayLabel : selected?.label) ??
+    (hasValue ? value : undefined) ??
+    placeholder;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (!disabled) setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           className={cn(
-            'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring',
+            'flex h-10 w-full items-center gap-1 rounded-md bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50',
+            MEZ_FIELD_BORDER_CLASS,
             className,
           )}
           aria-haspopup="listbox"
           aria-expanded={open}
         >
-          <span className="truncate">{selected?.label ?? placeholder}</span>
-          <ChevronDown className="ms-2 size-4 opacity-50" aria-hidden="true" />
+          <span className={cn('min-w-0 flex-1 truncate text-start', !hasValue && 'text-muted-foreground')}>
+            {triggerLabel}
+          </span>
+          {clearable && hasValue && !disabled ? (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={clearAriaLabel}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onChange('');
+                setQuery('');
+                onSearch('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange('');
+                  setQuery('');
+                  onSearch('');
+                }
+              }}
+            >
+              <X className="size-3.5" aria-hidden />
+            </span>
+          ) : null}
+          <ChevronDown className="size-4 shrink-0 opacity-50" aria-hidden="true" />
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
+        <Command shouldFilter={filterLocally}>
           <CommandInput
             placeholder={searchPlaceholder}
             value={query}

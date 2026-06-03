@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class StockAdjustmentRequest(BaseModel):
     branch_id: int
     product_id: int
+    variant_id: int | None = None
     qty_delta: int
     reason: str = Field(min_length=2, max_length=64)
     idempotency_key: str = Field(min_length=8, max_length=128)

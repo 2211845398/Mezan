@@ -1,5 +1,6 @@
 import type { AxiosError, AxiosInstance } from 'axios';
 
+import { getLocalizedApiErrorMessage } from '@/api/errorMessages';
 import { ApiError, ConflictError, ExternalServiceError, ServerError, ValidationError } from '@/api/errors';
 import { type BackendEnvelope, mapResponseToApiError } from '@/api/mapError';
 import i18n from '@/i18n';
@@ -40,8 +41,10 @@ export function installMapErrorEnvelope(instance: AxiosInstance): void {
       if (mapped instanceof ValidationError) {
         throw mapped;
       }
+      const tc = i18n.getFixedT(i18n.language, 'common');
+
       if (mapped instanceof ConflictError) {
-        notify.warning(mapped.message);
+        notify.warning(getLocalizedApiErrorMessage(mapped, tc, tc('errors.generic')));
         throw mapped;
       }
       if (mapped instanceof ExternalServiceError || mapped instanceof ServerError) {
@@ -49,10 +52,10 @@ export function installMapErrorEnvelope(instance: AxiosInstance): void {
         throw mapped;
       }
       if (mapped instanceof ApiError && mapped.status >= 400 && mapped.status < 500) {
-        notify.error(mapped.message);
+        notify.error(getLocalizedApiErrorMessage(mapped, tc, tc('errors.generic')));
         throw mapped;
       }
-      notify.error(mapped.message);
+      notify.error(getLocalizedApiErrorMessage(mapped, tc, tc('errors.generic')));
       throw mapped;
     },
   );

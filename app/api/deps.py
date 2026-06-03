@@ -8,17 +8,22 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
+from app.core.config import settings as app_settings
 from app.db.database import get_db
-from app.models.permission import Permission
 from app.models.role import Role
-from app.models.role_permission import RolePermission
-from app.models.user_permission_override import UserPermissionOverride
 from app.models.user_role import UserRole
 from app.models.users import User
+from app.services.effective_permissions import load_user_effective_permissions
 from app.utils.security import decode_token
 
 security = HTTPBearer(auto_error=False)
 PERMISSION_DEPENDENCY_MARKER = "__mezan_required_permission__"
+
+
+def get_settings() -> Settings:
+    """Inject the application settings singleton (env-backed)."""
+    return app_settings
 
 
 async def get_current_user_optional(
@@ -66,31 +71,7 @@ async def get_current_user_permissions(
     user: User = Depends(get_current_user),
 ) -> set[tuple[str, str]]:
     """Load effective permissions from roles plus explicit per-user overrides."""
-    role_result = await db.execute(
-        select(Permission.resource, Permission.action)
-        .join(RolePermission, RolePermission.permission_id == Permission.id)
-        .join(Role, Role.id == RolePermission.role_id)
-        .join(UserRole, UserRole.role_id == Role.id)
-        .where(UserRole.user_id == user.id)
-        .distinct()
-    )
-    effective = set(role_result.all())
-
-    override_result = await db.execute(
-        select(Permission.resource, Permission.action, UserPermissionOverride.effect)
-        .join(
-            UserPermissionOverride,
-            UserPermissionOverride.permission_id == Permission.id,
-        )
-        .where(UserPermissionOverride.user_id == user.id)
-    )
-    for resource, action, effect in override_result.all():
-        key = (resource, action)
-        if effect == "deny":
-            effective.discard(key)
-        elif effect == "allow":
-            effective.add(key)
-    return effective
+    return await load_user_effective_permissions(db, user.id)
 
 
 def require_permission(resource: str, action: str) -> Callable:
@@ -106,4 +87,80 @@ def require_permission(resource: str, action: str) -> Callable:
             )
 
     setattr(_check, PERMISSION_DEPENDENCY_MARKER, (resource, action))
+    return Depends(_check)
+
+
+# Staff self-service (schedule, leave, branch label): any authenticated role with
+# routine operational access — includes CASHIER without ``employees:read``.
+POS_CATALOG_READ_ANY: tuple[tuple[str, str], ...] = (
+    ("catalog", "read"),
+    ("pos_shifts", "read"),
+    ("pos_carts", "read"),
+)
+
+
+STAFF_SELF_SERVICE_ANY: tuple[tuple[str, str], ...] = (
+    ("employees", "read"),
+    ("pos_shifts", "read"),
+    ("catalog", "read"),
+    ("customers", "read"),
+    ("accounting", "read"),
+    ("users", "read"),
+    ("sales_invoices", "read"),
+)
+
+
+def require_any_permission(*pairs: tuple[str, str]) -> Callable:
+    """Require at least one of the given (resource, action) permissions."""
+
+    async def _check(
+        perms: Annotated[set[tuple[str, str]], Depends(get_current_user_permissions)],
+    ) -> None:
+        if not any(pair in perms for pair in pairs):
+            needed = ", ".join(f"{r}:{a}" for r, a in pairs)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"One of these permissions required: {needed}",
+            )
+
+    setattr(_check, PERMISSION_DEPENDENCY_MARKER, pairs[0])
+    return Depends(_check)
+
+
+async def get_user_role_codes(db: AsyncSession, user_id: int) -> frozenset[str]:
+    """Distinct role codes assigned to the user (all branches)."""
+    result = await db.execute(
+        select(Role.code)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == user_id)
+        .distinct()
+    )
+    return frozenset(row[0] for row in result.all())
+
+
+async def get_current_user_role_codes(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> frozenset[str]:
+    """Role codes for the authenticated user (for scoped UI / admin gates)."""
+    return await get_user_role_codes(db, user.id)
+
+
+def require_any_role(*allowed_codes: str):
+    """Require the user to hold at least one of the given role codes."""
+
+    allowed = frozenset(allowed_codes)
+
+    async def _check(
+        db: AsyncSession = Depends(get_db),
+        user: User = Depends(get_current_user),
+    ) -> None:
+        have = await get_user_role_codes(db, user.id)
+        if not (have & allowed):
+            need = ", ".join(sorted(allowed))
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"One of these roles required: {need}",
+            )
+
     return Depends(_check)
