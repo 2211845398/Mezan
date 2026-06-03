@@ -268,9 +268,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
         stem = item.path.stem
         if stem in _SKIP_LEGACY:
-            item.add_marker(
-                pytest.mark.skip(reason="Legacy workflow, pending redesign")
-            )
+            item.add_marker(pytest.mark.skip(reason="Legacy workflow, pending redesign"))
             continue
         if stem in _SKIP_VOLATILE:
             item.add_marker(

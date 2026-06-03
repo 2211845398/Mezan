@@ -48,8 +48,8 @@ The fixture `admin_auth_header` already creates a fresh schema, an Admin user,
 the system permissions/roles and a default Cash/AR/AP/Inventory/Revenue chart
 of accounts (see `tests/conftest.py`), so this test starts from a clean slate.
 """
-from __future__ import annotations
 
+from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime, timedelta

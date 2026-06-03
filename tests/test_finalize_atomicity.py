@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
 from decimal import Decimal
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select

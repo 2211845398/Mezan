@@ -141,4 +141,6 @@ async def test_api_blocks_remove_admin_role_when_config_matches(
         json={"role_id": role.id, "branch_id": None},
     )
     assert resp.status_code == 403
-    assert resp.json()["error"]["details"]["detail"] == "bootstrap_admin_admin_role_cannot_be_removed"
+    assert (
+        resp.json()["error"]["details"]["detail"] == "bootstrap_admin_admin_role_cannot_be_removed"
+    )
