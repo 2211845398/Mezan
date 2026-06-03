@@ -24,7 +24,7 @@ export function useNavBadges(): NavBadgeCounts {
   const canNotificationsRead = usePermission('notifications', 'read');
 
   const pendingLeave = useQuery({
-    ...leaveListQueryOptions({ status: 'pending', limit: 500 }),
+    ...leaveListQueryOptions({ status: 'pending', limit: 100 }),
     enabled: canEmployeesRead,
     staleTime: STALE_MS,
     refetchInterval: POLL_MS,

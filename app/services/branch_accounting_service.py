@@ -224,8 +224,13 @@ async def provision_branch_accounting(db: AsyncSession, *, branch_id: int) -> Ch
 
 
 async def provision_all_branches(db: AsyncSession) -> None:
-    """Backfill branch cash accounts for existing branches (idempotent)."""
-    res = await db.execute(select(Branch.id).where(Branch.archived_at.is_(None)))
+    """Backfill branch cash accounts for branches not yet marked provisioned (idempotent)."""
+    res = await db.execute(
+        select(Branch.id).where(
+            Branch.archived_at.is_(None),
+            Branch.accounting_chart_provisioned_at.is_(None),
+        )
+    )
     for (bid,) in res.all():
         await provision_branch_accounting(db, branch_id=int(bid))
 

@@ -632,9 +632,10 @@ async def list_leave_requests_global(
     __: None = require_permission("employees", "read"),
     status: str | None = None,
     employee_profile_id: int | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[LeaveRequestRead]:
+    limit, offset = clamp_pagination(limit, offset, max_limit=100)
     rows = await list_leave_requests_filtered(
         db,
         status=status,

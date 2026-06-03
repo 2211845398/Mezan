@@ -33,7 +33,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import func, not_, or_, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_user_role_codes
@@ -43,6 +43,7 @@ from app.core.notification_rbac import (
     ORG_NOTIFICATION_MANAGER_ROLE_CODES,
 )
 from app.db.database import AsyncSessionLocal
+from app.db.schema_check import notifications_schema_ready
 from app.models.notifications import (
     DevicePlatform,
     DeviceToken,
@@ -866,11 +867,28 @@ async def notification_scheduler_loop(stop_event: asyncio.Event) -> None:
     long-lived open transaction cannot leak across ticks.
     """
     interval_seconds = max(settings.NOTIFICATIONS_TICK_SECONDS, 10)
+    schema_missing_logged = False
     while not stop_event.is_set():
         if settings.NOTIFICATIONS_ENABLED:
             try:
                 async with AsyncSessionLocal() as db:
+                    if not await notifications_schema_ready(db):
+                        if not schema_missing_logged:
+                            logger.warning(
+                                "notification_scheduler_tick_skipped: "
+                                "notification tables missing; run alembic upgrade head"
+                            )
+                            schema_missing_logged = True
+                        continue
+                    schema_missing_logged = False
                     await run_due_schedules(db)
+            except ProgrammingError:
+                if not schema_missing_logged:
+                    logger.warning(
+                        "notification_scheduler_tick_failed: schema not migrated",
+                        exc_info=True,
+                    )
+                    schema_missing_logged = True
             except Exception:  # noqa: BLE001 — loop must never die silently
                 logger.exception("notification_scheduler_tick_failed")
         try:

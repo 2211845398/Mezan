@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from enum import StrEnum as PyEnum
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -58,3 +58,7 @@ class LeaveRequest(Base):
     )
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_leave_requests_perf", "is_deleted", "status", text("created_at DESC")),
+    )

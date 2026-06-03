@@ -17,8 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.database import AsyncSessionLocal, close_db
+from app.models.accounting_settings import AccountingSettings
+from app.models.permission import Permission
+from app.models.role import Role
 from app.models.unit_of_measure import UnitOfMeasure
 from app.services.seed_service import (
+    ADMIN_ROLE_CODE,
+    accounting_bootstrap_complete,
     seed_accounting_defaults,
     seed_default_admin,
     seed_notification_templates,
@@ -35,6 +40,7 @@ _DEFAULT_UOMS: tuple[tuple[str, str, str, str], ...] = (
     ("LITER", "Liter", "L", "volume"),
     ("METER", "Meter", "m", "length"),
 )
+_DEFAULT_UOM_CODES: frozenset[str] = frozenset(code for code, *_ in _DEFAULT_UOMS)
 
 
 async def _sync_units_of_measure_id_sequence(db: AsyncSession) -> None:
@@ -59,8 +65,40 @@ async def _sync_units_of_measure_id_sequence(db: AsyncSession) -> None:
     )
 
 
+async def _core_bootstrap_complete(db: AsyncSession) -> bool:
+    """Fast path when roles, CoA, UoMs, and notification templates are already present."""
+    piece = await db.execute(select(UnitOfMeasure.id).where(UnitOfMeasure.code == "PIECE").limit(1))
+    if piece.scalar_one_or_none() is None:
+        return False
+    admin = await db.execute(select(Role.id).where(Role.code == ADMIN_ROLE_CODE).limit(1))
+    if admin.scalar_one_or_none() is None:
+        return False
+    settings = await db.execute(select(AccountingSettings.id).where(AccountingSettings.id == 1).limit(1))
+    if settings.scalar_one_or_none() is None:
+        return False
+    perm_count = await db.execute(select(Permission.id).limit(1))
+    if perm_count.scalar_one_or_none() is None:
+        return False
+    from app.models.notifications import NotificationTemplate
+
+    template = await db.execute(select(NotificationTemplate.id).limit(1))
+    if template.scalar_one_or_none() is None:
+        return False
+    return await accounting_bootstrap_complete(db)
+
+
 async def seed_default_uoms(db: AsyncSession) -> int:
     """Ensure base units of measure exist; return the PIECE uom id (typically 1 after reset)."""
+    existing_res = await db.execute(
+        select(UnitOfMeasure.code).where(UnitOfMeasure.code.in_(_DEFAULT_UOM_CODES))
+    )
+    if set(existing_res.scalars().all()) == _DEFAULT_UOM_CODES:
+        res = await db.execute(select(UnitOfMeasure.id).where(UnitOfMeasure.code == "PIECE").limit(1))
+        piece_id = res.scalar_one_or_none()
+        if piece_id is None:
+            raise RuntimeError("PIECE unit of measure was not seeded")
+        return int(piece_id)
+
     await _sync_units_of_measure_id_sequence(db)
 
     for code, name, symbol, category in _DEFAULT_UOMS:
@@ -90,6 +128,9 @@ async def seed_default_uoms(db: AsyncSession) -> int:
 async def run_core_seed() -> None:
     """Idempotent bootstrap: roles, CoA, notification templates, optional admin."""
     async with AsyncSessionLocal() as db:
+        if await _core_bootstrap_complete(db):
+            logger.info("Core seed skipped: bootstrap already complete.")
+            return
         await seed_default_uoms(db)
         await seed_permissions_and_roles(db)
         await seed_accounting_defaults(db)
