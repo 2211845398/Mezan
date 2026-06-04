@@ -12,12 +12,19 @@ function isRoleDenied(item: NavItem, roleCodes: readonly string[]): boolean {
   return item.denyRoleCodes.some((c) => have.has(String(c).toUpperCase()));
 }
 
+function isRoleAllowed(item: NavItem, roleCodes: readonly string[]): boolean {
+  if (!item.allowRoleCodes?.length) return true;
+  const have = new Set(roleCodes.map((c) => String(c).toUpperCase()));
+  return item.allowRoleCodes.some((c) => have.has(String(c).toUpperCase()));
+}
+
 export function canAccess(
   item: NavItem,
   has: (resource: string, action: string) => boolean,
   roleCodes: readonly string[] = [],
 ): boolean {
   if (isRoleDenied(item, roleCodes)) return false;
+  if (!isRoleAllowed(item, roleCodes)) return false;
   if (item.anyPermission?.length) {
     if (!item.anyPermission.some((p) => has(p.resource, p.action))) {
       return false;

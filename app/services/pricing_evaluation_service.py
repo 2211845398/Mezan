@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.core.errors import ValidationError
+from app.models.branch import Branch
 from app.models.catalog_attribute import CatalogAttribute
 from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.category import Category
@@ -52,6 +53,13 @@ async def _base_currency_code(db: AsyncSession) -> tuple[int, str]:
     res = await db.execute(select(Currency.code).where(Currency.id == settings.base_currency_id))
     code = res.scalar_one_or_none() or "USD"
     return settings.base_currency_id, str(code)
+
+
+async def _active_branch_ids(db: AsyncSession) -> list[int]:
+    res = await db.execute(
+        select(Branch.id).where(Branch.is_active.is_(True), Branch.archived_at.is_(None))
+    )
+    return [int(row[0]) for row in res.all()]
 
 
 async def _qty_on_hand(
@@ -252,10 +260,64 @@ async def _build_evaluation_row(
     )
 
 
+async def _build_evaluation_row_all_branches(
+    db: AsyncSession,
+    *,
+    product: Product,
+    variant: ProductVariant,
+    policy: str,
+    currency_id: int,
+    as_of: datetime,
+    label_map: dict[int, list[str]],
+) -> PricingEvaluationRowRead:
+    """One row per variant using highest valuation cost across active branches."""
+    branch_ids = await _active_branch_ids(db)
+    if not branch_ids:
+        raise ValidationError("No active branches", details={})
+
+    best_row: PricingEvaluationRowRead | None = None
+    best_cost = Decimal("-1")
+    total_qty = 0
+
+    for bid in branch_ids:
+        on_hand = await _qty_on_hand(
+            db, branch_id=bid, product_id=product.id, variant_id=variant.id
+        )
+        total_qty += on_hand
+        row = await _build_evaluation_row(
+            db,
+            product=product,
+            variant=variant,
+            branch_id=bid,
+            policy=policy,
+            currency_id=currency_id,
+            as_of=as_of,
+            label_map=label_map,
+        )
+        cost = q2(row.valuation_cost)
+        if cost > best_cost:
+            best_cost = cost
+            best_row = row
+
+    if best_row is None:
+        best_row = await _build_evaluation_row(
+            db,
+            product=product,
+            variant=variant,
+            branch_id=branch_ids[0],
+            policy=policy,
+            currency_id=currency_id,
+            as_of=as_of,
+            label_map=label_map,
+        )
+
+    return best_row.model_copy(update={"qty_on_hand": total_qty})
+
+
 async def get_pricing_evaluation_matrix(
     db: AsyncSession,
     *,
-    branch_id: int,
+    branch_id: int | None,
     q: str | None = None,
     needs_pricing_only: bool = True,
     product_id: int | None = None,
@@ -304,23 +366,40 @@ async def get_pricing_evaluation_matrix(
                 ProductPrice.valid_from <= as_of,
             )
         )
-        in_stock = exists(
-            select(StockLevel.id).where(
-                StockLevel.product_id == ProductVariant.product_id,
-                StockLevel.variant_id == ProductVariant.id,
-                StockLevel.branch_id == branch_id,
-                StockLevel.on_hand > 0,
+        if branch_id is not None:
+            in_stock = exists(
+                select(StockLevel.id).where(
+                    StockLevel.product_id == ProductVariant.product_id,
+                    StockLevel.variant_id == ProductVariant.id,
+                    StockLevel.branch_id == branch_id,
+                    StockLevel.on_hand > 0,
+                )
             )
-        )
-        recent_receipt = exists(
-            select(GoodsReceiptLine.id)
-            .join(GoodsReceipt, GoodsReceiptLine.goods_receipt_id == GoodsReceipt.id)
-            .where(
-                GoodsReceiptLine.product_id == ProductVariant.product_id,
-                GoodsReceiptLine.variant_id == ProductVariant.id,
-                GoodsReceipt.branch_id == branch_id,
+            recent_receipt = exists(
+                select(GoodsReceiptLine.id)
+                .join(GoodsReceipt, GoodsReceiptLine.goods_receipt_id == GoodsReceipt.id)
+                .where(
+                    GoodsReceiptLine.product_id == ProductVariant.product_id,
+                    GoodsReceiptLine.variant_id == ProductVariant.id,
+                    GoodsReceipt.branch_id == branch_id,
+                )
             )
-        )
+        else:
+            in_stock = exists(
+                select(StockLevel.id).where(
+                    StockLevel.product_id == ProductVariant.product_id,
+                    StockLevel.variant_id == ProductVariant.id,
+                    StockLevel.on_hand > 0,
+                )
+            )
+            recent_receipt = exists(
+                select(GoodsReceiptLine.id)
+                .join(GoodsReceipt, GoodsReceiptLine.goods_receipt_id == GoodsReceipt.id)
+                .where(
+                    GoodsReceiptLine.product_id == ProductVariant.product_id,
+                    GoodsReceiptLine.variant_id == ProductVariant.id,
+                )
+            )
         variant_stmt = variant_stmt.where(
             or_(
                 and_(~has_variant_price, ~has_product_price),
@@ -343,18 +422,31 @@ async def get_pricing_evaluation_matrix(
 
     items: list[PricingEvaluationRowRead] = []
     for variant, product in rows:
-        items.append(
-            await _build_evaluation_row(
-                db,
-                product=product,
-                variant=variant,
-                branch_id=branch_id,
-                policy=policy,
-                currency_id=currency_id,
-                as_of=as_of,
-                label_map=label_map,
+        if branch_id is not None:
+            items.append(
+                await _build_evaluation_row(
+                    db,
+                    product=product,
+                    variant=variant,
+                    branch_id=branch_id,
+                    policy=policy,
+                    currency_id=currency_id,
+                    as_of=as_of,
+                    label_map=label_map,
+                )
             )
-        )
+        else:
+            items.append(
+                await _build_evaluation_row_all_branches(
+                    db,
+                    product=product,
+                    variant=variant,
+                    policy=policy,
+                    currency_id=currency_id,
+                    as_of=as_of,
+                    label_map=label_map,
+                )
+            )
 
     return PricingEvaluationResponse(
         valuation_policy=policy,

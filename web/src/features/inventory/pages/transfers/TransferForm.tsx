@@ -106,6 +106,21 @@ function totalQtyBaseForVariant(lines: DraftTransferLine[], variantId: number): 
     .reduce((s, l) => s + l.qty_base, 0);
 }
 
+async function fetchVariantStockRows(
+  qc: ReturnType<typeof useQueryClient>,
+  branchId: string,
+  variantId: number,
+): Promise<StockOnHandRow[]> {
+  return qc.fetchQuery(
+    stockOnHandQueryOptions({
+      branch_id: branchId,
+      variant_id: variantId,
+      limit: 1,
+      offset: 0,
+    }),
+  );
+}
+
 async function loadUomForProduct(
   tCatalog: ReturnType<typeof useTranslation<'catalog'>>['t'],
   productId: number,
@@ -200,13 +215,14 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
 
   const fromBranchId = from ? Number(from) : NaN;
   const stockQueryEnabled = Boolean(from) && Number.isFinite(fromBranchId);
-  const { data: stockRows = [], isLoading: stockLoading } = useQuery({
+  const { data: lineVariantStockRows = [], isLoading: lineVariantStockLoading } = useQuery({
     ...stockOnHandQueryOptions({
       branch_id: from,
-      limit: 2000,
+      variant_id: lineVariantId ?? '',
+      limit: 1,
       offset: 0,
     }),
-    enabled: stockQueryEnabled,
+    enabled: stockQueryEnabled && lineVariantId != null && lineVariantId > 0,
   });
 
   const buildPayloadLines = () =>
@@ -334,21 +350,8 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
     draftLines: DraftTransferLine[],
     serverBatchLines?: TransferLineRead[],
   ): Promise<boolean> => {
-    if (!from || stockQueryEnabled && stockLoading) {
-      if (stockQueryEnabled && stockLoading) {
-        toast.error(t('transfers.errors.stock_loading'));
-      }
+    if (!from) {
       return false;
-    }
-    let rows = stockRows;
-    if (stockQueryEnabled) {
-      rows = await qc.fetchQuery(
-        stockOnHandQueryOptions({
-          branch_id: from,
-          limit: 2000,
-          offset: 0,
-        }),
-      );
     }
     const totals = new Map<number, number>();
     for (const l of draftLines) {
@@ -356,6 +359,9 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
       totals.set(l.variant_id, (totals.get(l.variant_id) ?? 0) + l.qty_base);
     }
     for (const [variantId, totalBase] of totals) {
+      const rows = stockQueryEnabled
+        ? await fetchVariantStockRows(qc, from, variantId)
+        : [];
       const avail = maxAvailableAtSource(rows, variantId, serverBatchLines);
       if (totalBase > avail) {
         const sample = draftLines.find((l) => l.variant_id === variantId);
@@ -390,16 +396,9 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
         const draftWithNew = lines.map((l, i) =>
           i === index ? { ...l, qty: q, qty_base } : l,
         );
-        let rows = stockRows;
-        if (stockQueryEnabled) {
-          rows = await qc.fetchQuery(
-            stockOnHandQueryOptions({
-              branch_id: from,
-              limit: 2000,
-              offset: 0,
-            }),
-          );
-        }
+        const rows = stockQueryEnabled
+          ? await fetchVariantStockRows(qc, from, vid)
+          : [];
         const totalBase = totalQtyBaseForVariant(draftWithNew, vid);
         const availBase = maxAvailableAtSource(rows, vid, batch?.lines);
         if (totalBase > availBase) {
@@ -436,7 +435,11 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   };
 
   const disp = useMutation({
-    mutationFn: () => postDispatchTransfer(viewBatchId!),
+    mutationFn: () =>
+      postDispatchTransfer(
+        viewBatchId!,
+        actorBranchId != null ? { branch_id: actorBranchId } : {},
+      ),
     onSuccess: () => {
       void refetch();
       toast.success(t('transfers.dispatched'));
@@ -444,7 +447,11 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
   const recv = useMutation({
-    mutationFn: () => postReceiveTransfer(viewBatchId!),
+    mutationFn: () =>
+      postReceiveTransfer(
+        viewBatchId!,
+        actorBranchId != null ? { branch_id: actorBranchId } : {},
+      ),
     onSuccess: () => {
       void refetch();
       toast.success(t('transfers.received_ok'));
@@ -544,7 +551,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
           <div className="min-w-0 md:col-span-5">
             <Label>{t('transfers.line.product')}</Label>
             <PoLineProductPicker
-              disabled={!from || (stockQueryEnabled && stockLoading)}
+              disabled={!from}
               pickLabel={lineProductPickLabel}
               onPick={(row) => {
                 setLineProductId(row.product_id);
@@ -568,14 +575,14 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
               productId={lineProductId}
               variantId={lineVariantId}
               variantPickLabel={lineVariantPickLabel}
-              disabled={!from || lineProductId <= 0 || (stockQueryEnabled && stockLoading)}
+              disabled={!from || lineProductId <= 0}
               onVariantPick={(variantId, label) => {
                 setLineVariantId(variantId);
                 setLineVariantPickLabel(label);
               }}
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <Label>{t('transfers.line.qty')}</Label>
             <Input
               value={lineQty}
@@ -586,7 +593,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
               disabled={lineVariantId == null || lineVariantId <= 0}
             />
           </div>
-          <div className="md:col-span-1">
+          <div className="md:col-span-2">
             <Label>{t('transfers.line.uom')}</Label>
             <PoLineUomSelect
               fullWidth
@@ -608,10 +615,6 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                 void (async () => {
                   if (!from) {
                     toast.error(t('transfers.errors.select_from_branch'));
-                    return;
-                  }
-                  if (stockQueryEnabled && stockLoading) {
-                    toast.error(t('transfers.errors.stock_loading'));
                     return;
                   }
                   if (lineProductId <= 0) {
@@ -655,6 +658,9 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                     },
                   ];
                   const totalBase = totalQtyBaseForVariant(draftWithNew, vid);
+                  const stockRows = stockQueryEnabled
+                    ? await fetchVariantStockRows(qc, from, vid)
+                    : [];
                   const availBase = maxAvailableAtSource(stockRows, vid, batch?.lines);
                   if (totalBase > availBase) {
                     const sample = draftWithNew.find((l) => l.variant_id === vid)!;
@@ -692,11 +698,11 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
         <p className="text-xs text-muted-foreground">
           {!from
             ? t('transfers.errors.select_from_branch')
-            : stockQueryEnabled && stockLoading
-              ? t('transfers.errors.stock_loading')
-              : lineVariantId != null && lineVariantId > 0 && lineUomId > 0
-                ? (() => {
-                    const row = stockRowForVariant(stockRows, lineVariantId);
+            : lineVariantId != null && lineVariantId > 0 && lineUomId > 0
+              ? lineVariantStockLoading
+                ? t('transfers.errors.stock_loading')
+                : (() => {
+                    const row = lineVariantStockRows[0];
                     const uomOpt = lineUomOptions.find((o) => o.id === lineUomId);
                     const uomSym = uomOpt?.label ?? '';
                     if (!row) {
@@ -727,8 +733,8 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                 <TableHead className="w-[22%] align-middle text-start">{t('transfers.line.variant_name')}</TableHead>
                 <TableHead className="w-[14%] align-middle text-center">{t('stock.col.reference_code')}</TableHead>
                 <TableHead className="w-[10%] align-middle text-end tabular-nums">{t('transfers.line.qty')}</TableHead>
-                <TableHead className="w-[14%] align-middle text-start">{t('transfers.line.uom')}</TableHead>
-                <TableHead className="w-[18%] align-middle text-end">{t('transfers.line.actions')}</TableHead>
+                <TableHead className="w-[16%] align-middle text-start">{t('transfers.line.uom')}</TableHead>
+                <TableHead className="w-[16%] align-middle text-end">{t('transfers.line.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

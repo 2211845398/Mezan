@@ -139,6 +139,13 @@
       "transfer_cancel": "Transfer cancel"
     },
     "reason": {
+      "goods_receipt": "Goods receipt",
+      "adhoc_receipt": "Ad-hoc receipt",
+      "transfer_update_release": "Transfer reservation release",
+      "return": "Return",
+      "void_invoice": "Void invoice",
+      "production_issue": "Production issue",
+      "production_receipt": "Production receipt",
       "transfer_receive": "Transfer received",
       "transfer_dispatch": "Transfer dispatched",
       "transfer_cancel": "Transfer cancelled",

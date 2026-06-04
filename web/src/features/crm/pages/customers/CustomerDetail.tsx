@@ -166,13 +166,19 @@ export default function CustomerDetail() {
             const tt = row.original.transaction_type ?? 'sale';
             if (tt === 'return') {
               return (
-                <Badge variant="secondary" className="bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-100">
+                <Badge
+                  variant="outline"
+                  className="border-red-200 bg-red-100 text-red-900 hover:bg-red-200 dark:border-red-900 dark:bg-red-950 dark:text-red-100 dark:hover:bg-red-900"
+                >
                   {t('customers.txn_return')}
                 </Badge>
               );
             }
             return (
-              <Badge variant="secondary" className="bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+              <Badge
+                variant="outline"
+                className="border-emerald-200 bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+              >
                 {t('customers.txn_sale')}
               </Badge>
             );
@@ -189,13 +195,19 @@ export default function CustomerDetail() {
             const ps = row.original.payment_status ?? 'paid';
             if (ps === 'partially_paid') {
               return (
-                <Badge variant="secondary" className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                <Badge
+                  variant="outline"
+                  className="border-amber-200 bg-amber-100 text-amber-900 hover:bg-amber-200 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 dark:hover:bg-amber-900"
+                >
                   {t('customers.payment_partial')}
                 </Badge>
               );
             }
             return (
-              <Badge variant="secondary" className="bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+              <Badge
+                variant="outline"
+                className="border-emerald-200 bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+              >
                 {t('customers.payment_paid')}
               </Badge>
             );

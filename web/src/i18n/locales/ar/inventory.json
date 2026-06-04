@@ -139,6 +139,13 @@
       "transfer_cancel": "إلغاء تحويل"
     },
     "reason": {
+      "goods_receipt": "استلام بضاعة",
+      "adhoc_receipt": "استلام مباشر",
+      "transfer_update_release": "إطلاق حجز تحويل",
+      "return": "مرتجع",
+      "void_invoice": "إلغاء فاتورة",
+      "production_issue": "صرف إنتاج",
+      "production_receipt": "استلام إنتاج",
       "transfer_receive": "استلام تحويل",
       "transfer_dispatch": "إرسال تحويل",
       "transfer_cancel": "إلغاء تحويل",

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { isOrgNotificationManager } from '@/config/notificationOrgRoles';
-import { isPersonalLeaveBlocked } from '@/config/roleNavAccess';
+import { hasPricingEvaluationRole, isPersonalLeaveBlocked } from '@/config/roleNavAccess';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 
 /*
@@ -116,6 +116,24 @@ export function RequirePersonalLeaveAccess({ children }: { children?: ReactNode 
   }
 
   if (!hasEmployeesRead || isPersonalLeaveBlocked(roleCodes)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children ?? <Outlet />}</>;
+}
+
+/** Pricing evaluation: permission plus OWNER / ADMIN / ACCOUNTANT role. */
+export function RequirePricingEvaluationAccess({ children }: { children?: ReactNode }) {
+  const permissionsLoaded = useAuthStore((s) => s.permissionsLoaded);
+  const permissions = useAuthStore((s) => s.permissions);
+  const roleCodes = useAuthStore((s) => s.roleCodes);
+  const hasPerm =
+    permissions.has('catalog:update') || permissions.has('accounting:update');
+
+  if (!permissionsLoaded) {
+    return <FullScreenSpinner />;
+  }
+
+  if (!hasPerm || !hasPricingEvaluationRole(roleCodes)) {
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children ?? <Outlet />}</>;

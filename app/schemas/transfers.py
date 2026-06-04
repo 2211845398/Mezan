@@ -45,6 +45,18 @@ class TransferBatchUpdate(BaseModel):
     lines: list[TransferLineCreate] = Field(default_factory=list)
 
 
+class TransferDispatchRequest(BaseModel):
+    """Optional dispatch context; empty body is valid for simple dispatch."""
+
+    branch_id: int | None = None
+
+
+class TransferReceiveRequest(BaseModel):
+    """Optional receive context; empty body is valid for simple receive."""
+
+    branch_id: int | None = None
+
+
 class TransferBatchRead(BaseModel):
     id: int
     from_branch_id: int

@@ -17,7 +17,9 @@ from app.schemas.transfers import (
     TransferBatchCreate,
     TransferBatchRead,
     TransferBatchUpdate,
+    TransferDispatchRequest,
     TransferLineRead,
+    TransferReceiveRequest,
 )
 from app.services import audit_service
 from app.services.product_uom_service import uom_map_for_ids
@@ -34,6 +36,13 @@ from app.utils.person_name import person_name_sql_expr
 from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 
 router = APIRouter()
+
+
+def _actor_branch_id(user: User, body_branch_id: int | None) -> int | None:
+    """Prefer UI active branch when provided; otherwise fall back to the user's home branch."""
+    if body_branch_id is not None:
+        return body_branch_id
+    return user.branch_id
 
 
 async def _transfer_batches_to_read(
@@ -224,7 +233,11 @@ async def cancel_transfer_batch_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_permission("inventory", "update"),
 ) -> None:
-    await cancel_pending_batch(db, batch_id=batch_id, actor_branch_id=current_user.branch_id)
+    await cancel_pending_batch(
+        db,
+        batch_id=batch_id,
+        actor_branch_id=_actor_branch_id(current_user, None),
+    )
     await audit_service.log(
         session=db,
         action="transfer_batch.cancelled",
@@ -244,8 +257,13 @@ async def dispatch_transfer_batch_endpoint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("inventory", "update"),
+    body: TransferDispatchRequest = TransferDispatchRequest(),
 ) -> TransferBatchRead:
-    batch = await dispatch_batch(db, batch_id=batch_id, actor_branch_id=current_user.branch_id)
+    batch = await dispatch_batch(
+        db,
+        batch_id=batch_id,
+        actor_branch_id=_actor_branch_id(current_user, body.branch_id),
+    )
     await audit_service.log(
         session=db,
         action="transfer_batch.dispatched",
@@ -267,8 +285,13 @@ async def receive_transfer_batch_endpoint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("inventory", "update"),
+    body: TransferReceiveRequest = TransferReceiveRequest(),
 ) -> TransferBatchRead:
-    batch = await receive_batch(db, batch_id=batch_id, actor_branch_id=current_user.branch_id)
+    batch = await receive_batch(
+        db,
+        batch_id=batch_id,
+        actor_branch_id=_actor_branch_id(current_user, body.branch_id),
+    )
     await audit_service.log(
         session=db,
         action="transfer_batch.received",

@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.models.accounting_settings import AccountingSettings
 from app.models.chart_accounts import ChartAccount, SubledgerKind
+from app.services.chart_account_service import list_postable_chart_accounts
 from app.services.coa_seed_data import iter_seed_nodes
 from app.services.coa_seed_service import upgrade_coa_skeleton
 from app.services.seed_service import seed_accounting_defaults
@@ -84,6 +85,16 @@ async def test_upgrade_coa_skeleton_idempotent(db_session) -> None:
     await db_session.commit()
     after2 = (await db_session.execute(select(ChartAccount))).scalars().all()
     assert len(after2) == len(after)
+
+
+@pytest.mark.asyncio
+async def test_postable_accounts_after_seed(db_session) -> None:
+    """Journal pickers must see leaf accounts after CoA seed."""
+    await seed_accounting_defaults(db_session)
+    rows = await list_postable_chart_accounts(db_session)
+    assert len(rows) > 0
+    codes = {r["code"] for r in rows}
+    assert "1000" in codes
 
 
 def test_seed_forest_covers_required_posting_codes() -> None:

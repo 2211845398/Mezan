@@ -169,6 +169,21 @@
     "balance_check": "Balance check",
     "balanced": "Balanced",
     "difference": "Difference",
+    "diagnostics": {
+      "title": "Balance sheet imbalance",
+      "imbalance_heading": "Imbalance (assets − liabilities − equity)",
+      "imbalance_hint": "Review the checklist below, then use the links to investigate likely sources.",
+      "checklist_title": "Checklist",
+      "check_opening": "Confirm opening balances for equity and key balance-sheet accounts.",
+      "check_equity": "Verify active equity accounts exist and are posted in the chart of accounts.",
+      "check_unposted": "Look for draft journals or vouchers that affect balances but are not posted.",
+      "check_branch": "Compare all branches vs a single branch — the gap may only appear when consolidated.",
+      "check_period": "Ensure the as-of date includes all posted entries through that day.",
+      "action_opening": "Opening balances",
+      "action_journal": "Journal entries",
+      "action_trial_balance": "Trial balance",
+      "action_coa": "Chart of accounts"
+    },
     "section": {
       "assets": "Assets",
       "liabilities": "Liabilities",

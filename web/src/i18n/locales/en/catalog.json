@@ -350,6 +350,8 @@
   "pricingEvaluation": {
     "title": "Pricing & valuation evaluation",
     "branch": "Branch",
+    "all_branches": "All branches",
+    "commit_all_branches_hint": "Published sell price applies to all branches (one price per product).",
     "search": "Search",
     "search_product": "Search product…",
     "search_ph": "Name, user code, or variant code…",
@@ -366,6 +368,7 @@
     "view_history": "Purchase history",
     "history_title": "Valuation & purchase history",
     "no_history": "No goods receipts recorded for this variant at this branch.",
+    "history_all_branches": "Select a specific branch in the matrix to view purchase history by branch.",
     "history_date": "Date",
     "history_qty": "Qty",
     "history_cost": "Unit cost",

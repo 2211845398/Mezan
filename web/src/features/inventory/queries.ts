@@ -30,11 +30,14 @@ export function stockOnHandQueryOptions(params: Record<string, unknown>) {
         ...(params.category_id != null && params.category_id !== ''
           ? { category_id: Number(params.category_id) }
           : {}),
+        ...(params.variant_id != null && params.variant_id !== ''
+          ? { variant_id: Number(params.variant_id) }
+          : {}),
         ...(params.q ? { q: String(params.q) } : {}),
         ...(params.reorder_only ? { reorder_only: true } : {}),
         ...(params.status && params.status !== 'all' ? { status: String(params.status) } : {}),
         ...(params.sort ? { sort: String(params.sort) } : {}),
-        limit: params.limit != null ? Number(params.limit) : 100,
+        limit: Math.min(params.limit != null ? Number(params.limit) : 100, 2000),
         offset: params.offset != null ? Number(params.offset) : 0,
       }),
   });

@@ -143,9 +143,9 @@ export default function PricingEvaluationDetailPage() {
 
   const productId = Number(productIdRaw);
   const variantId = Number(variantIdRaw);
-  const branchId = useMemo(() => {
+  const branchId = useMemo((): number | null => {
     const raw = searchParams.get('branch_id');
-    if (!raw) return null;
+    if (!raw || raw === 'all') return null;
     const n = Number(raw);
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [searchParams]);
@@ -155,7 +155,7 @@ export default function PricingEvaluationDetailPage() {
 
   const evaluation = useQuery({
     queryKey: catalogKeys.pricingEvaluation({
-      branch_id: branchId ?? 0,
+      ...(branchId != null ? { branch_id: branchId } : {}),
       product_id: productId,
       variant_id: variantId,
       needs_pricing_only: false,
@@ -163,14 +163,13 @@ export default function PricingEvaluationDetailPage() {
     }),
     queryFn: () =>
       evaluatePricingMatrix({
-        branch_id: branchId!,
+        ...(branchId != null ? { branch_id: branchId } : {}),
         product_id: productId,
         variant_id: variantId,
         needs_pricing_only: false,
         limit: 1,
       }),
     enabled:
-      branchId != null &&
       Number.isFinite(productId) &&
       productId > 0 &&
       Number.isFinite(variantId) &&
@@ -189,9 +188,7 @@ export default function PricingEvaluationDetailPage() {
         actions={<BackButton to={listPath} label={t('pricingEvaluation.back_to_list')} />}
       />
 
-      {branchId == null ? (
-        <p className="text-sm text-muted-foreground">{t('pricingEvaluation.select_branch')}</p>
-      ) : evaluation.isLoading ? (
+      {evaluation.isLoading ? (
         <div className="flex min-h-[12rem] items-center justify-center">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
@@ -242,11 +239,15 @@ export default function PricingEvaluationDetailPage() {
           ) : null}
 
           <ValuationBreakdownSection row={row} policy={policy} />
-          <PurchaseHistorySection
-            branchId={branchId}
-            productId={productId}
-            variantId={variantId}
-          />
+          {branchId != null ? (
+            <PurchaseHistorySection
+              branchId={branchId}
+              productId={productId}
+              variantId={variantId}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('pricingEvaluation.history_all_branches')}</p>
+          )}
         </>
       )}
     </div>

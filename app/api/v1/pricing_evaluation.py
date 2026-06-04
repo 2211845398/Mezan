@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_any_permission
+from app.api.deps import get_current_user, require_any_permission, require_any_role
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.pricing_evaluation import (
@@ -23,10 +23,12 @@ from app.services.pricing_evaluation_service import (
 
 router = APIRouter()
 
+_PRICING_ROLES = require_any_role("OWNER", "ADMIN", "ACCOUNTANT")
+
 
 @router.get("/catalog/pricing/evaluate", response_model=PricingEvaluationResponse)
 async def evaluate_pricing_matrix(
-    branch_id: int = Query(..., gt=0),
+    branch_id: int | None = Query(None, gt=0),
     q: str | None = Query(None, max_length=128),
     needs_pricing_only: bool = Query(True),
     product_id: int | None = Query(None, gt=0),
@@ -41,6 +43,7 @@ async def evaluate_pricing_matrix(
         ("accounting", "read"),
         ("accounting", "update"),
     ),
+    ___: None = _PRICING_ROLES,
 ) -> PricingEvaluationResponse:
     return await get_pricing_evaluation_matrix(
         db,
@@ -68,6 +71,7 @@ async def commit_pricing_endpoint(
         ("catalog", "update"),
         ("accounting", "update"),
     ),
+    __: None = _PRICING_ROLES,
 ) -> PricingCommitResponse:
     result = await commit_product_sell_price(
         db,
@@ -109,6 +113,7 @@ async def purchase_history_endpoint(
         ("accounting", "read"),
         ("accounting", "update"),
     ),
+    ___: None = _PRICING_ROLES,
 ) -> list[PurchaseHistoryLineRead]:
     return await list_purchase_history(
         db,

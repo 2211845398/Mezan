@@ -24,6 +24,8 @@ from app.schemas.inventory_stock import StockOnHandRowRead
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
 from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 
+STOCK_ON_HAND_MAX_LIMIT = 2000
+
 COST_Q = Decimal("0.0001")
 OPEN_PO_STATUSES: tuple[str, ...] = ("sent", "tracked")
 
@@ -147,6 +149,7 @@ async def list_stock_on_hand(
     branch_id: int | None = None,
     category_id: int | None = None,
     category_ids: set[int] | None = None,
+    variant_id: int | None = None,
     q: str | None = None,
     reorder_only: bool = False,
     status: str | None = None,
@@ -175,6 +178,8 @@ async def list_stock_on_hand(
     )
     if branch_id is not None:
         stmt = stmt.where(StockLevel.branch_id == branch_id)
+    if variant_id is not None:
+        stmt = stmt.where(StockLevel.variant_id == variant_id)
     if category_ids is not None:
         stmt = stmt.where(Product.category_id.in_(category_ids))
     elif category_id is not None:
@@ -200,7 +205,7 @@ async def list_stock_on_hand(
     else:
         stmt = stmt.order_by(Branch.name.asc(), ProductVariant.sku.asc())
 
-    stmt = stmt.limit(min(max(limit, 1), 100)).offset(max(offset, 0))
+    stmt = stmt.limit(min(max(limit, 1), STOCK_ON_HAND_MAX_LIMIT)).offset(max(offset, 0))
     res = await db.execute(stmt)
     rows = res.all()
     if not rows:

@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { cn } from '@/lib/utils';
+
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
@@ -36,7 +38,7 @@ import { now, utcCalendarDayKey } from '@/lib/date';
 import { formatMoney } from '@/lib/format';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
-import AccountPicker from '../../components/AccountPicker';
+import PostableAccountPicker from '../../components/PostableAccountPicker';
 import {
   listBoms,
   postOpeningBalance,
@@ -256,7 +258,10 @@ export default function AccountingOperations() {
               </div>
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
+                className={cn(
+                  'border-secondary bg-background text-secondary hover:border-secondary hover:bg-secondary/10 hover:text-secondary',
+                )}
                 onClick={() => payment.mutate()}
                 disabled={!amount || payment.isPending}
               >
@@ -281,11 +286,17 @@ export default function AccountingOperations() {
               </div>
               <div className="grid gap-1">
                 <Label>{t('operations.opening.debit_account')}</Label>
-                <AccountPicker value={debitAccountId} onChange={setDebitAccountId} />
+                <PostableAccountPicker
+                  value={debitAccountId}
+                  onChange={(a) => setDebitAccountId(a?.id ?? null)}
+                />
               </div>
               <div className="grid gap-1">
                 <Label>{t('operations.opening.credit_account')}</Label>
-                <AccountPicker value={creditAccountId} onChange={setCreditAccountId} />
+                <PostableAccountPicker
+                  value={creditAccountId}
+                  onChange={(a) => setCreditAccountId(a?.id ?? null)}
+                />
               </div>
               <div className="grid gap-1 md:col-span-2">
                 <Label>{t('operations.opening.description')}</Label>

@@ -497,14 +497,14 @@ export type PricingEvaluationRow = {
 export type PricingEvaluationResponse = {
   valuation_policy: string;
   valuation_policy_label: string;
-  branch_id: number;
+  branch_id: number | null;
   currency_code: string;
   total: number;
   items: PricingEvaluationRow[];
 };
 
 export async function evaluatePricingMatrix(params: {
-  branch_id: number;
+  branch_id?: number;
   q?: string;
   needs_pricing_only?: boolean;
   product_id?: number;
@@ -512,8 +512,11 @@ export async function evaluatePricingMatrix(params: {
   limit?: number;
   offset?: number;
 }): Promise<PricingEvaluationResponse> {
+  const { branch_id, ...rest } = params;
+  const query =
+    branch_id != null && branch_id > 0 ? { branch_id, ...rest } : { ...rest };
   const { data } = await apiClient.get<PricingEvaluationResponse>('/catalog/pricing/evaluate', {
-    params,
+    params: query,
   });
   return data;
 }

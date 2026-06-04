@@ -205,6 +205,7 @@
     "control_account_posting": "Cannot post to a summary (control) account; use a leaf posting account (e.g. 2010 Trade Payables).",
     "variant_inventory_activity": "Cannot remove variant \"{{label}}\" because it is linked to inventory activity.",
     "insufficient_transfer_stock": "Insufficient available stock at the sending branch.",
+    "insufficient_transfer_reserved": "Insufficient reserved stock for this transfer — stock may have changed after the transfer was created.",
     "transfer_qty_positive": "Transfer quantity must be greater than zero.",
     "transfer_same_branch": "Source and destination branches must be different.",
     "transfer_no_lines": "Add at least one line to the transfer.",
