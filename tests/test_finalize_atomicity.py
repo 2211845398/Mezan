@@ -20,6 +20,7 @@ from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import SalesInvoice
 from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
+from app.models.unit_of_measure import UnitOfMeasure
 from app.models.users import User
 from app.services import invoice_service
 
@@ -50,6 +51,16 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
     )
     db_session.add_all([branch, user, category])
     await db_session.flush()
+
+    uom = UnitOfMeasure(
+        code=f"unit-{uuid.uuid4().hex[:8]}",
+        name="Unit",
+        symbol="pcs",
+        measurement_category="discrete",
+    )
+    db_session.add(uom)
+    await db_session.flush()
+    uom_id = uom.id
 
     product_one = Product(
         category_id=category.id,
@@ -124,6 +135,7 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
                 cart_id=cart_id,
                 product_id=product_one_id,
                 variant_id=v_one.id,
+                uom_id=uom_id,
                 qty=2,
                 unit_price=Decimal("25.00"),
                 line_total=Decimal("50.00"),
@@ -132,6 +144,7 @@ async def test_finalize_rolls_back_partial_work_when_gl_posting_fails(
                 cart_id=cart_id,
                 product_id=product_two_id,
                 variant_id=v_two.id,
+                uom_id=uom_id,
                 qty=1,
                 unit_price=Decimal("30.00"),
                 line_total=Decimal("30.00"),
@@ -242,6 +255,16 @@ async def test_finalize_cash_sale_updates_shift_expected_cash(db_session, monkey
     db_session.add_all([branch, user, category])
     await db_session.flush()
 
+    uom = UnitOfMeasure(
+        code=f"unit-{uuid.uuid4().hex[:8]}",
+        name="Unit",
+        symbol="pcs",
+        measurement_category="discrete",
+    )
+    db_session.add(uom)
+    await db_session.flush()
+    uom_id = uom.id
+
     product = Product(
         category_id=category.id,
         name="ECash Product",
@@ -322,6 +345,7 @@ async def test_finalize_cash_sale_updates_shift_expected_cash(db_session, monkey
                 cart_id=cart_id,
                 product_id=product.id,
                 variant_id=variant.id,
+                uom_id=uom_id,
                 qty=2,
                 unit_price=Decimal("40.00"),
                 line_total=sale_total,
