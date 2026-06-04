@@ -1,84 +1,13 @@
 @import './tokens.css';
 
+/*
+ * Typography: @fontsource sheets are imported in main.tsx for Vite pre-bundling.
+ * WEB_FRONTEND_PLAN §6.5 (no runtime Google Fonts CDN).
+ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/*
- * Self-hosted fonts. Actual font files should be placed under
- * public/fonts/{tajawal,ibm-plex-arabic,inter}/. Google Fonts CDN at
- * runtime is explicitly forbidden (WEB_FRONTEND_PLAN §6.5).
- */
-
-@font-face {
-  font-family: 'Tajawal';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src:
-    local('Tajawal'),
-    url('/fonts/tajawal/tajawal-400.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Tajawal';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src:
-    local('Tajawal Medium'),
-    url('/fonts/tajawal/tajawal-500.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Tajawal';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src:
-    local('Tajawal Bold'),
-    url('/fonts/tajawal/tajawal-700.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'IBM Plex Sans Arabic';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src:
-    local('IBM Plex Sans Arabic'),
-    url('/fonts/ibm-plex-arabic/ibm-plex-arabic-400.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'IBM Plex Sans Arabic';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src:
-    local('IBM Plex Sans Arabic Medium'),
-    url('/fonts/ibm-plex-arabic/ibm-plex-arabic-500.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'IBM Plex Sans Arabic';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src:
-    local('IBM Plex Sans Arabic Bold'),
-    url('/fonts/ibm-plex-arabic/ibm-plex-arabic-700.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src:
-    local('Inter'),
-    url('/fonts/inter/inter-var.woff2') format('woff2-variations');
-}
 
 @layer base {
   * {

@@ -146,3 +146,11 @@ docker compose -f docker-compose.yml -f docker-compose.web.yml up
 Anything shipped to the browser is public. Sentry DSNs and PostHog keys are
 rate-limited per project; they are intentionally public. Never place a DB
 password or a server secret behind `VITE_*`.
+
+### Font OTS errors / very slow LCP
+
+Typography is bundled via `@fontsource/*` in `src/styles/index.css` (hashed
+files under `dist/assets/`). If DevTools shows `invalid sfntVersion` with
+`<!DO`, the server returned `index.html` for a missing font URL — rebuild and
+use `web/nginx.conf` for production (`docker build -f web/Dockerfile .`).
+See `docs/SPA_REFRESH_TROUBLESHOOTING.md`.

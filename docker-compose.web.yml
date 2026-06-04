@@ -42,6 +42,20 @@ services:
         && pnpm install --prefer-offline \
         && pnpm dev --host 0.0.0.0 --port 5173
 
+  # Production static host (built dist + hardened nginx). Opt-in:
+  #   docker compose -f docker-compose.web.yml --profile prod up web-static
+  web-static:
+    profiles: [prod]
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    container_name: mezan_web_static
+    ports:
+      - "8080:80"
+    networks:
+      - mezan_network
+    restart: unless-stopped
+
 volumes:
   web_node_modules:
 

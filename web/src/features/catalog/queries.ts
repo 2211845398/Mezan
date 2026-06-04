@@ -20,6 +20,8 @@ export const catalogKeys = {
   productWithVariants: (id: number) => [...catalogKeys.root, 'productWithVariants', id] as const,
   taxDefinitions: (includeInactive: boolean) =>
     [...catalogKeys.root, 'taxDefinitions', includeInactive] as const,
+  pricingEvaluation: (q: Record<string, unknown>) =>
+    [...catalogKeys.root, 'pricingEvaluation', q] as const,
 };
 
 export type ListProductsParams = {

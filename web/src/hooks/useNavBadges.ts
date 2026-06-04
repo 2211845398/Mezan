@@ -1,11 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import type { NavBadgeKind } from '@/config/navigation';
 import { listPendingOnboarding } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { getMyUnreadNotificationCount } from '@/features/notifications/api';
+
+import type { NavBadgeKind } from '@/config/navigation';
 import { leaveListQueryOptions } from '@/features/hr/queries';
-import { useUnreadNotificationCount } from '@/features/notifications/queries';
+import { notificationKeys } from '@/features/notifications/queries';
 
 import { usePermission } from './usePermission';
 
@@ -23,22 +25,30 @@ export function useNavBadges(): NavBadgeCounts {
   const canOnboardingRead = usePermission('onboarding', 'read');
   const canNotificationsRead = usePermission('notifications', 'read');
 
-  const pendingLeave = useQuery({
-    ...leaveListQueryOptions({ status: 'pending', limit: 100 }),
-    enabled: canEmployeesRead,
-    staleTime: STALE_MS,
-    refetchInterval: POLL_MS,
+  const [pendingLeave, pendingOnboarding, unread] = useQueries({
+    queries: [
+      {
+        ...leaveListQueryOptions({ status: 'pending', limit: 100 }),
+        enabled: canEmployeesRead,
+        staleTime: STALE_MS,
+        refetchInterval: POLL_MS,
+      },
+      {
+        queryKey: adminKeys.onboardingList(null),
+        queryFn: listPendingOnboarding,
+        enabled: canOnboardingRead,
+        staleTime: STALE_MS,
+        refetchInterval: POLL_MS,
+      },
+      {
+        queryKey: notificationKeys.unreadCount(),
+        queryFn: async () => (await getMyUnreadNotificationCount()).unread_count,
+        enabled: canNotificationsRead,
+        staleTime: STALE_MS,
+        refetchInterval: POLL_MS,
+      },
+    ],
   });
-
-  const pendingOnboarding = useQuery({
-    queryKey: adminKeys.onboardingList(null),
-    queryFn: listPendingOnboarding,
-    enabled: canOnboardingRead,
-    staleTime: STALE_MS,
-    refetchInterval: POLL_MS,
-  });
-
-  const unread = useUnreadNotificationCount({ enabled: canNotificationsRead });
 
   return useMemo(() => {
     const leaveN = canEmployeesRead ? (pendingLeave.data?.length ?? 0) : 0;

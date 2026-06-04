@@ -58,6 +58,7 @@ from app.api.v1 import (
     payroll_router,
     pos_shifts_router,
     price_lists_router,
+    pricing_evaluation_router,
     production_orders_router,
     purchase_orders_router,
     returns_router,
@@ -288,6 +289,7 @@ app.include_router(roles_router, prefix="/api/v1", tags=["roles"])
 app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(attributes_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(price_lists_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(pricing_evaluation_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["purchase_orders"])
 app.include_router(goods_receipts_router, prefix="/api/v1", tags=["goods_receipts"])
 app.include_router(invoice_scans_router, prefix="/api/v1", tags=["invoice_scans"])

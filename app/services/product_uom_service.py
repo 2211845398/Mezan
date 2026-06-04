@@ -121,3 +121,54 @@ async def uom_map_for_ids(db: AsyncSession, uom_ids: set[int]) -> dict[int, Unit
         return {}
     res = await db.execute(select(UnitOfMeasure).where(UnitOfMeasure.id.in_(uom_ids)))
     return {int(r.id): r for r in res.scalars().all()}
+
+
+async def get_uom_factor_to_base(db: AsyncSession, *, product_id: int, uom_id: int) -> Decimal:
+    """Return how many base units one unit of ``uom_id`` represents."""
+    await validate_po_line_uom(db, product_id=product_id, uom_id=uom_id)
+    base_id = await get_product_base_uom_id(db, product_id)
+    if int(uom_id) == base_id:
+        return Decimal("1")
+    res = await db.execute(
+        select(ProductUnitConversion.factor_to_base).where(
+            ProductUnitConversion.product_id == int(product_id),
+            ProductUnitConversion.uom_id == int(uom_id),
+        )
+    )
+    factor = res.scalar_one_or_none()
+    if factor is None:
+        raise ValidationError(
+            "Missing conversion factor for product unit",
+            details={"product_id": product_id, "uom_id": uom_id},
+        )
+    return Decimal(str(factor))
+
+
+async def list_product_uom_options(
+    db: AsyncSession, *, product_id: int
+) -> list[dict[str, object]]:
+    """Return base + alternative UoM options for POS/catalog UI."""
+    base_id = await get_product_base_uom_id(db, product_id)
+    uom_ids = await get_allowed_uom_ids_for_product(db, product_id)
+    umap = await uom_map_for_ids(db, uom_ids)
+    conv_res = await db.execute(
+        select(ProductUnitConversion).where(ProductUnitConversion.product_id == int(product_id))
+    )
+    factors = {int(c.uom_id): Decimal(str(c.factor_to_base)) for c in conv_res.scalars().all()}
+    options: list[dict[str, object]] = []
+    for uid in sorted(uom_ids, key=lambda x: (x != base_id, x)):
+        uom = umap.get(uid)
+        if uom is None:
+            continue
+        factor = Decimal("1") if uid == base_id else factors.get(uid, Decimal("1"))
+        options.append(
+            {
+                "uom_id": uid,
+                "code": uom.code,
+                "symbol": uom.symbol,
+                "name": uom.name,
+                "factor_to_base": str(factor),
+                "is_base": uid == base_id,
+            }
+        )
+    return options

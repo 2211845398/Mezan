@@ -322,6 +322,27 @@ export function useAddLine(cartId: number) {
 
 type LineQtyVars = { line_id: number; product_id: number; variant_id: number; qty: number };
 
+export function useChangeLineUom(cartId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (variables: {
+      product_id: number;
+      variant_id: number;
+      qty: number;
+      uom_id: number;
+    }) =>
+      addCartLine(cartId, {
+        product_id: variables.product_id,
+        variant_id: variables.variant_id,
+        qty: variables.qty,
+        uom_id: variables.uom_id,
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(cartKeys.detail(cartId), data);
+    },
+  });
+}
+
 export function useUpdateLineQty(cartId: number) {
   const qc = useQueryClient();
   return createOptimisticMutation<CartRead, LineQtyVars, CartRead | undefined>({

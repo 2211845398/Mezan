@@ -5,6 +5,9 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => ({
+  base: '/',
+  publicDir: 'public',
+  assetsInclude: ['**/*.woff', '**/*.woff2', '**/*.ttf', '**/*.otf'],
   plugins: [
     react(),
     ...(mode === 'analyze'
@@ -45,10 +48,6 @@ export default defineConfig(({ mode }) => ({
     host: true,
     port: 5173,
     strictPort: true,
-    watch: {
-      usePolling: true,
-      interval: 300,
-    },
     hmr: {
       clientPort: 5173,
     },

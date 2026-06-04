@@ -10,9 +10,12 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import asyncio
+
 from sqlalchemy import Select, and_, case, delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -687,11 +690,13 @@ async def products_to_reads(db: AsyncSession, products: list[Product]) -> list[P
     if not products:
         return []
     ids = [p.id for p in products]
-    tag_map = await _product_tag_map(db, ids)
-    tax_fields = await _tax_effective_rates_and_ids(db, products)
-    variant_counts = await _variant_counts_for_products(db, ids)
-    uom_map = await _uom_map_for_ids(db, [p.uom_id for p in products])
-    alt_map = await _alternative_uoms_for_products(db, ids)
+    tag_map, tax_fields, variant_counts, uom_map, alt_map = await asyncio.gather(
+        _product_tag_map(db, ids),
+        _tax_effective_rates_and_ids(db, products),
+        _variant_counts_for_products(db, ids),
+        _uom_map_for_ids(db, [p.uom_id for p in products]),
+        _alternative_uoms_for_products(db, ids),
+    )
     out: list[ProductRead] = []
     for p in products:
         merged = {p.category_id, *tag_map.get(p.id, [])}
@@ -820,6 +825,16 @@ async def count_products(
     return int(result.scalar_one())
 
 
+def _product_list_load_options() -> tuple:
+    """Eager-load catalog relations used when building list reads (avoids per-row lazy IO)."""
+    return (
+        selectinload(Product.category_links),
+        selectinload(Product.tax_definition_links),
+        selectinload(Product.unit_of_measure),
+        selectinload(Product.unit_conversions),
+    )
+
+
 async def list_products(
     db: AsyncSession,
     *,
@@ -833,7 +848,7 @@ async def list_products(
     offset: int = 0,
 ) -> list[Product]:
     """List products with category, stock, and text filters."""
-    stmt = select(Product)
+    stmt = select(Product).options(*_product_list_load_options())
     stmt = await _apply_product_list_filters(
         db,
         stmt,

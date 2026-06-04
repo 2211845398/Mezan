@@ -34,6 +34,7 @@ from app.api.v1.payments import router as payments_router
 from app.api.v1.payroll import router as payroll_router
 from app.api.v1.pos_shifts import router as pos_shifts_router
 from app.api.v1.price_lists import router as price_lists_router
+from app.api.v1.pricing_evaluation import router as pricing_evaluation_router
 from app.api.v1.production_orders import router as production_orders_router
 from app.api.v1.purchase_orders import router as purchase_orders_router
 from app.api.v1.returns import router as returns_router
@@ -77,6 +78,7 @@ __all__ = [
     "payment_terms_router",
     "payments_router",
     "price_lists_router",
+    "pricing_evaluation_router",
     "pos_shifts_router",
     "production_orders_router",
     "purchase_orders_router",

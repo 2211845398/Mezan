@@ -30,7 +30,9 @@ export type SidebarProfileProps = {
  */
 export function SidebarProfile({ collapsed }: SidebarProfileProps) {
   const { t } = useTranslation();
-  const { data: me, isLoading } = useMe();
+  const storeUser = useAuthStore((s) => s.user);
+  const { data: queryMe, isLoading } = useMe();
+  const me = queryMe ?? storeUser;
   const avatarCacheBust = useAuthStore((s) => s.avatarCacheBust);
 
   if (isLoading && !me) {

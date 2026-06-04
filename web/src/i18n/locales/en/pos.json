@@ -27,6 +27,7 @@
     "need_shift": "Open a shift from the shift screen first.",
     "cart": "Cart",
     "cart_hint": "Items selected for the current sale",
+    "change_uom": "Change unit",
     "cart_empty": "The cart is empty",
     "loading_cart": "Loading the cart…",
     "loading_cart_hint": "The cart is the current list of items before checkout. This step may take longer if the server is slow or unreachable.",

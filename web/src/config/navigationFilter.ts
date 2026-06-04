@@ -18,7 +18,11 @@ export function canAccess(
   roleCodes: readonly string[] = [],
 ): boolean {
   if (isRoleDenied(item, roleCodes)) return false;
-  if (item.permission && !has(item.permission.resource, item.permission.action)) {
+  if (item.anyPermission?.length) {
+    if (!item.anyPermission.some((p) => has(p.resource, p.action))) {
+      return false;
+    }
+  } else if (item.permission && !has(item.permission.resource, item.permission.action)) {
     return false;
   }
   if (item.children && item.children.length > 0) {

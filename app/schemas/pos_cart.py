@@ -20,7 +20,22 @@ class CartCreateRequest(BaseModel):
 class CartLineUpsertRequest(BaseModel):
     product_id: int
     variant_id: int | None = None
+    uom_id: int | None = None
     qty: int = Field(ge=0)  # 0 removes the line for this product+variant (Epic 21.8)
+
+
+class CartLineUomOptionRead(BaseModel):
+    uom_id: int
+    code: str
+    symbol: str
+    name: str
+    factor_to_base: str
+    is_base: bool
+
+
+class VariantAttributeTagRead(BaseModel):
+    attribute_name: str
+    value_label: str
 
 
 class CartDiscountRequest(BaseModel):
@@ -55,7 +70,12 @@ class CartLineRead(BaseModel):
     product_sku: str
     barcode: str | None = None
     product_image_url: str | None = None
+    variant_label: str | None = None
+    variant_attribute_tags: list[VariantAttributeTagRead] = Field(default_factory=list)
+    uom_id: int
     uom_symbol: str = "pcs"
+    uom_code: str = "PIECE"
+    available_uoms: list[CartLineUomOptionRead] = Field(default_factory=list)
     qty: int
     unit_price: Decimal
     line_total: Decimal

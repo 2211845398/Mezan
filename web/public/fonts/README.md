@@ -1,9 +1,16 @@
-# Self-hosted font assets
+# Font assets (legacy `/fonts/` URLs)
 
-The SPA references three font families in `src/styles/index.css`; the browser
-loads them from `/fonts/<family>/...`. Drop the actual `.woff2` files into the
-layout below (filenames are fixed — update the `@font-face` rules if you
-change them):
+The SPA loads typography through **`@fontsource/*` packages** imported in
+`src/styles/index.css`. Vite bundles `.woff2` files into `/assets/` with
+content hashes — this is the supported path for dev, Docker, and nginx
+production.
+
+You do **not** need to copy files into this directory for normal builds.
+
+## Optional manual drops
+
+If you maintain custom font binaries or need stable `/fonts/...` URLs (e.g.
+external PDF tooling), you may still place files here:
 
 ```
 public/fonts/
@@ -19,14 +26,13 @@ public/fonts/
     └── inter-var.woff2
 ```
 
-Sources (all permissively licensed):
+`web/nginx.conf` serves `/fonts/` with `try_files $uri =404` (no SPA fallback).
 
-- **Tajawal** — Google Fonts (OFL 1.1). Convert the TTFs to `woff2` once at
-  repo setup time; do NOT fetch from the Google Fonts CDN at runtime (privacy
-  + offline rule, see `WEB_FRONTEND_PLAN.md` §6.5).
-- **IBM Plex Sans Arabic** — GitHub (OFL 1.1).
-- **Inter** — GitHub releases — variable axis `.woff2`.
+## Production Docker
 
-While these files are absent, the browser falls back to the `system-ui` stack
-defined by the `@font-face` `local(...)` hints; Vite will warn on build about
-unresolved URLs, which is expected until real font files land.
+```bash
+docker build -f web/Dockerfile -t mezan-web .
+docker run --rm -p 8080:80 mezan-web
+```
+
+See `web/Dockerfile` and `web/nginx.conf`.

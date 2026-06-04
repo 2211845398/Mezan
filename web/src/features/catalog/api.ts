@@ -453,3 +453,97 @@ export async function exportVariantBarcodesCsvBlob(
   });
   return data;
 }
+
+export type FifoLayerRead = {
+  layer_index: number;
+  qty_remaining: string;
+  unit_cost: string;
+  received_at: string;
+  source_type?: string | null;
+};
+
+export type WavgBreakdownRead = {
+  old_qty: string;
+  old_cost: string;
+  new_qty: string;
+  new_cost: string;
+  total_qty: string;
+  blended_cost: string;
+  formula: string;
+};
+
+export type PricingEvaluationRow = {
+  product_id: number;
+  variant_id: number;
+  variant_label: string | null;
+  variant_sku: string | null;
+  variant_barcode: string | null;
+  name: string;
+  sku: string;
+  category_id: number;
+  category_name: string;
+  qty_on_hand: number;
+  current_system_cost: string;
+  last_received_cost: string | null;
+  last_received_qty: number | null;
+  last_received_at: string | null;
+  current_sell_price: string | null;
+  has_sell_price: boolean;
+  valuation_cost: string;
+  fifo_layers: FifoLayerRead[] | null;
+  wavg_breakdown: WavgBreakdownRead | null;
+};
+
+export type PricingEvaluationResponse = {
+  valuation_policy: string;
+  valuation_policy_label: string;
+  branch_id: number;
+  currency_code: string;
+  total: number;
+  items: PricingEvaluationRow[];
+};
+
+export async function evaluatePricingMatrix(params: {
+  branch_id: number;
+  q?: string;
+  needs_pricing_only?: boolean;
+  product_id?: number;
+  variant_id?: number;
+  limit?: number;
+  offset?: number;
+}): Promise<PricingEvaluationResponse> {
+  const { data } = await apiClient.get<PricingEvaluationResponse>('/catalog/pricing/evaluate', {
+    params,
+  });
+  return data;
+}
+
+export async function commitProductSellPrice(body: {
+  product_id: number;
+  variant_id?: number | null;
+  sell_price: string;
+}): Promise<{ product_id: number; variant_id: number | null; sell_price: string; currency_id: number }> {
+  const { data } = await apiClient.post('/catalog/pricing/commit', body);
+  return data;
+}
+
+export type PurchaseHistoryLine = {
+  receipt_id: number;
+  received_at: string;
+  qty: number;
+  unit_cost: string;
+  supplier_name: string | null;
+  invoice_number: string | null;
+};
+
+export async function fetchPricingPurchaseHistory(params: {
+  branch_id: number;
+  product_id: number;
+  variant_id: number;
+  limit?: number;
+}): Promise<PurchaseHistoryLine[]> {
+  const { data } = await apiClient.get<PurchaseHistoryLine[]>('/catalog/pricing/purchase-history', {
+    params,
+  });
+  return data;
+}

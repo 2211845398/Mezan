@@ -7,6 +7,7 @@
     "catalog_taxes": "Taxes",
     "catalog_categories": "Categories",
     "catalog_attributes": "Product attributes",
+    "catalog_pricing_evaluation": "Pricing & valuation",
     "admin_catalog_attributes": "Product attributes (catalog dictionary)",
     "inventory": "Inventory",
     "inventory_stock": "Stock & balances",

@@ -43,6 +43,7 @@ import {
   useParkedCarts,
   useSubmitReturnMutation,
   useUpdateCartCustomer,
+  useChangeLineUom,
   useUpdateLineQty,
 } from '../queries';
 import { usePosRegisterStore } from '../stores/posRegisterStore';
@@ -137,6 +138,7 @@ function RegisterSession({
     setNumpadBuffer('');
   }, [cartId]);
   const updateQty = useUpdateLineQty(cartId);
+  const changeLineUom = useChangeLineUom(cartId);
   const applyDisc = useApplyDiscount(cartId);
   const lock = useLockCart(cartId);
   const parkCart = useParkCart(cartId);
@@ -391,6 +393,11 @@ function RegisterSession({
             if (selectedLineId === lineId) {
               setNumpadBuffer(String(qty));
             }
+          }}
+          onUomChange={(_lineId, productId, variantId, uomId, qty) => {
+            void changeLineUom
+              .mutateAsync({ product_id: productId, variant_id: variantId, uom_id: uomId, qty })
+              .catch((error) => notifyApiError(error));
           }}
           currency={POS_CURRENCY}
           returnSession={returnExchangeSession?.loads ?? null}

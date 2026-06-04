@@ -5,6 +5,7 @@ import AdminLayoutOutlet from '@/components/layout/AdminLayoutOutlet';
 import AuthLayoutOutlet from '@/components/layout/AuthLayoutOutlet';
 
 import {
+  RequireAnyPermission,
   RequireAuth,
   RequireBranchContext,
   RequireOrgNotificationManager,
@@ -78,6 +79,12 @@ const CatalogCategoriesTree = lazy(() => import('@/features/catalog/pages/catego
 const CatalogAttributesPage = lazy(() => import('@/features/catalog/pages/attributes/AttributesPage'));
 const CatalogCategoryProperties = lazy(
   () => import('@/features/catalog/pages/categories/CategoryPropertiesPage'),
+);
+const CatalogPricingEvaluationPage = lazy(
+  () => import('@/features/catalog/pages/pricing/PricingEvaluationPage'),
+);
+const CatalogPricingEvaluationDetailPage = lazy(
+  () => import('@/features/catalog/pages/pricing/PricingEvaluationDetailPage'),
 );
 const InventoryStockOnHand = lazy(() => import('@/features/inventory/pages/stock/StockOnHand'));
 const InventoryProductStockCard = lazy(() => import('@/features/inventory/pages/stock/ProductStockCard'));
@@ -392,6 +399,32 @@ export const router = createBrowserRouter([
               {
                 path: 'price-lists/*',
                 element: <Navigate to="/catalog/products" replace />,
+              },
+              {
+                path: 'pricing',
+                element: (
+                  <RequireAnyPermission
+                    pairs={[
+                      { resource: 'catalog', action: 'update' },
+                      { resource: 'accounting', action: 'update' },
+                    ]}
+                  >
+                    {withSuspense(CatalogPricingEvaluationPage)}
+                  </RequireAnyPermission>
+                ),
+              },
+              {
+                path: 'pricing/:productId/:variantId',
+                element: (
+                  <RequireAnyPermission
+                    pairs={[
+                      { resource: 'catalog', action: 'update' },
+                      { resource: 'accounting', action: 'update' },
+                    ]}
+                  >
+                    {withSuspense(CatalogPricingEvaluationDetailPage)}
+                  </RequireAnyPermission>
+                ),
               },
             ],
           },
@@ -1032,6 +1065,32 @@ export const router = createBrowserRouter([
                   <RequirePermission resource="accounting" action="read">
                     {withSuspense(AccountingPaymentTerms)}
                   </RequirePermission>
+                ),
+              },
+              {
+                path: 'pricing-evaluation',
+                element: (
+                  <RequireAnyPermission
+                    pairs={[
+                      { resource: 'catalog', action: 'update' },
+                      { resource: 'accounting', action: 'update' },
+                    ]}
+                  >
+                    {withSuspense(CatalogPricingEvaluationPage)}
+                  </RequireAnyPermission>
+                ),
+              },
+              {
+                path: 'pricing-evaluation/:productId/:variantId',
+                element: (
+                  <RequireAnyPermission
+                    pairs={[
+                      { resource: 'catalog', action: 'update' },
+                      { resource: 'accounting', action: 'update' },
+                    ]}
+                  >
+                    {withSuspense(CatalogPricingEvaluationDetailPage)}
+                  </RequireAnyPermission>
                 ),
               },
             ],

@@ -22,7 +22,7 @@ This note complements [SECURITY.md](../SECURITY.md) and is intended for develope
 
 4. **Font OTS / `invalid sfntVersion`**  
    Usually means the browser received HTML (often `index.html`) for a font URL instead of binary font data—common when static files are missing or the server fallback rewrites all paths to the SPA shell.  
-   **Fix:** Place real `.woff2` files under `public/fonts/` as described in `public/fonts/README.md`. Paths in `src/styles/index.css` are absolute (`/fonts/...`).
+   **Fix:** Fonts ship via `@fontsource/*` in `src/styles/index.css` (Vite bundles them under `/assets/`). For nginx production use `web/nginx.conf` (`try_files $uri =404` for `.woff2`). Rebuild after font changes: `pnpm build`.
 
 5. **Vite transform cache**  
    After fixing broken modules, stale cache can still serve bad output.  

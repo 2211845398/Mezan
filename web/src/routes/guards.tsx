@@ -44,6 +44,27 @@ export function RequireAuth({ children }: { children?: ReactNode }) {
   return <Navigate to={`/login${search}`} replace />;
 }
 
+export function RequireAnyPermission({
+  pairs,
+  children,
+}: {
+  pairs: readonly { resource: string; action: string }[];
+  children?: ReactNode;
+}) {
+  const permissionsLoaded = useAuthStore((s) => s.permissionsLoaded);
+  const permissions = useAuthStore((s) => s.permissions);
+  const hasAny = pairs.some(({ resource, action }) => permissions.has(`${resource}:${action}`));
+
+  if (!permissionsLoaded) {
+    return <FullScreenSpinner />;
+  }
+
+  if (!hasAny) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children ?? <Outlet />}</>;
+}
+
 export function RequirePermission({
   resource,
   action,

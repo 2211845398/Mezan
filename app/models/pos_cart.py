@@ -68,6 +68,9 @@ class PosCartLine(Base):
     variant_id: Mapped[int] = mapped_column(
         ForeignKey("product_variants.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    uom_id: Mapped[int] = mapped_column(
+        ForeignKey("units_of_measure.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
     qty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     line_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)

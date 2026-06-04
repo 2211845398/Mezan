@@ -18,7 +18,9 @@ type CloseShiftBody =
 type CartRead = paths['/api/v1/pos/carts/{cart_id}']['get']['responses']['200']['content']['application/json'];
 type CreateCartBody = paths['/api/v1/pos/carts']['post']['requestBody']['content']['application/json'];
 type CartLineBody =
-  paths['/api/v1/pos/carts/{cart_id}/lines']['post']['requestBody']['content']['application/json'];
+  paths['/api/v1/pos/carts/{cart_id}/lines']['post']['requestBody']['content']['application/json'] & {
+    uom_id?: number | null;
+  };
 export type CartDiscountBody =
   paths['/api/v1/pos/carts/{cart_id}/discounts']['post']['requestBody']['content']['application/json'];
 type CartStateBody =
