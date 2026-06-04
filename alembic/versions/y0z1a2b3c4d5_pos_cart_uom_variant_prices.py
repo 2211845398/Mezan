@@ -55,7 +55,9 @@ def upgrade() -> None:
         ["variant_id"],
         unique=False,
     )
-    op.drop_constraint("uq_product_prices_product_currency_valid_from", "product_prices", type_="unique")
+    op.drop_constraint(
+        "uq_product_prices_product_currency_valid_from", "product_prices", type_="unique"
+    )
     op.create_unique_constraint(
         "uq_product_prices_product_variant_currency_valid_from",
         "product_prices",

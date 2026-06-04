@@ -73,7 +73,9 @@ async def _core_bootstrap_complete(db: AsyncSession) -> bool:
     admin = await db.execute(select(Role.id).where(Role.code == ADMIN_ROLE_CODE).limit(1))
     if admin.scalar_one_or_none() is None:
         return False
-    settings = await db.execute(select(AccountingSettings.id).where(AccountingSettings.id == 1).limit(1))
+    settings = await db.execute(
+        select(AccountingSettings.id).where(AccountingSettings.id == 1).limit(1)
+    )
     if settings.scalar_one_or_none() is None:
         return False
     perm_count = await db.execute(select(Permission.id).limit(1))
@@ -93,7 +95,9 @@ async def seed_default_uoms(db: AsyncSession) -> int:
         select(UnitOfMeasure.code).where(UnitOfMeasure.code.in_(_DEFAULT_UOM_CODES))
     )
     if set(existing_res.scalars().all()) == _DEFAULT_UOM_CODES:
-        res = await db.execute(select(UnitOfMeasure.id).where(UnitOfMeasure.code == "PIECE").limit(1))
+        res = await db.execute(
+            select(UnitOfMeasure.id).where(UnitOfMeasure.code == "PIECE").limit(1)
+        )
         piece_id = res.scalar_one_or_none()
         if piece_id is None:
             raise RuntimeError("PIECE unit of measure was not seeded")

@@ -144,9 +144,7 @@ async def get_uom_factor_to_base(db: AsyncSession, *, product_id: int, uom_id: i
     return Decimal(str(factor))
 
 
-async def list_product_uom_options(
-    db: AsyncSession, *, product_id: int
-) -> list[dict[str, object]]:
+async def list_product_uom_options(db: AsyncSession, *, product_id: int) -> list[dict[str, object]]:
     """Return base + alternative UoM options for POS/catalog UI."""
     base_id = await get_product_base_uom_id(db, product_id)
     uom_ids = await get_allowed_uom_ids_for_product(db, product_id)

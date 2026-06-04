@@ -14,12 +14,15 @@ from app.core.errors import (
     ValidationError,
     validation_error,
 )
+from app.models.catalog_attribute import CatalogAttribute
+from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.discount import DiscountRule, DiscountType, DiscountUsageLog
 from app.models.pos_cart import CartDaySequence, PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_shift import PosShift
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
+from app.models.product_variant_attribute import ProductVariantAttribute
 from app.models.unit_of_measure import UnitOfMeasure
 from app.schemas.pos_cart import (
     CartDiscountRead,
@@ -41,9 +44,6 @@ from app.services.product_uom_service import (
     list_product_uom_options,
     validate_po_line_uom,
 )
-from app.models.catalog_attribute import CatalogAttribute
-from app.models.catalog_attribute_value import CatalogAttributeValue
-from app.models.product_variant_attribute import ProductVariantAttribute
 from app.services.variant_attribute_service import variant_display_label
 from app.utils.money import q2
 
@@ -308,14 +308,10 @@ async def upsert_line(
         return cart
 
     if line is not None:
-        resolved_uom_id = (
-            uom_id if uom_id is not None else line.uom_id
-        )
+        resolved_uom_id = uom_id if uom_id is not None else line.uom_id
     else:
         resolved_uom_id = (
-            uom_id
-            if uom_id is not None
-            else await get_product_base_uom_id(db, product_id)
+            uom_id if uom_id is not None else await get_product_base_uom_id(db, product_id)
         )
     await validate_po_line_uom(db, product_id=product_id, uom_id=resolved_uom_id)
 
@@ -332,9 +328,7 @@ async def upsert_line(
     base_unit_price = await get_active_sell_price(
         db, product_id=product.id, variant_id=resolved_variant_id
     )
-    factor = await get_uom_factor_to_base(
-        db, product_id=product_id, uom_id=resolved_uom_id
-    )
+    factor = await get_uom_factor_to_base(db, product_id=product_id, uom_id=resolved_uom_id)
     unit_price = q2(base_unit_price * factor)
     rates = await map_effective_output_tax_rates(db, products_by_id={product.id: product})
     rate = rates.get(product.id, Decimal("0"))

@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload
 
 from app.core.errors import ValidationError
 from app.models.catalog_attribute import CatalogAttribute
+from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.category import Category
 from app.models.currency import Currency
 from app.models.goods_receipt import GoodsReceipt
@@ -19,7 +20,6 @@ from app.models.product import Product
 from app.models.product_price import ProductPrice
 from app.models.product_variant import ProductVariant
 from app.models.product_variant_attribute import ProductVariantAttribute
-from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.stock_level import StockLevel
 from app.schemas.pricing_evaluation import (
     FifoLayerRead,
@@ -88,9 +88,7 @@ async def _last_receipt_line(
     return row[0], row[1]
 
 
-async def _variant_labels_map(
-    db: AsyncSession, variant_ids: list[int]
-) -> dict[int, list[str]]:
+async def _variant_labels_map(db: AsyncSession, variant_ids: list[int]) -> dict[int, list[str]]:
     if not variant_ids:
         return {}
     res = await db.execute(
@@ -412,7 +410,9 @@ async def commit_product_sell_price(
 ) -> PricingCommitResponse:
     """Persist a new sell price row for the product or a specific variant."""
     if sell_price <= 0:
-        raise ValidationError("sell_price must be positive", details={"sell_price": str(sell_price)})
+        raise ValidationError(
+            "sell_price must be positive", details={"sell_price": str(sell_price)}
+        )
 
     await get_product(db, product_id)
     currency_id, _ = await _base_currency_code(db)

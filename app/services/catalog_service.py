@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 import uuid
 from collections.abc import Iterable
@@ -9,8 +10,6 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-
-import asyncio
 
 from sqlalchemy import Select, and_, case, delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
