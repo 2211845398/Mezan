@@ -51,7 +51,6 @@ async def _seed_transfer_batch(
         name="Dispatch Product",
         sku=f"dp-{uuid.uuid4().hex[:6]}",
         status="active",
-        attributes={},
     )
     db_session.add(product)
     await db_session.flush()
