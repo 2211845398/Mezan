@@ -6,12 +6,14 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.branch import Branch
 from app.models.category import Category
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
+from app.models.unit_of_measure import UnitOfMeasure
 from app.services.inventory_service import apply_stock_movement
 
 
@@ -63,6 +65,10 @@ async def _seed_transfer_batch(
     db_session.add(pv)
     await db_session.flush()
 
+    piece = (
+        await db_session.execute(select(UnitOfMeasure).where(UnitOfMeasure.code == "PIECE"))
+    ).scalar_one()
+
     await apply_stock_movement(
         db_session,
         idempotency_key=f"seed-dispatch:{product.id}",
@@ -80,7 +86,9 @@ async def _seed_transfer_batch(
         json={
             "from_branch_id": b_from.id,
             "to_branch_id": b_to.id,
-            "lines": [{"product_id": product.id, "variant_id": pv.id, "qty": 3}],
+            "lines": [
+                {"product_id": product.id, "variant_id": pv.id, "qty": 3, "uom_id": piece.id}
+            ],
         },
     )
     assert created.status_code == 201, created.text
