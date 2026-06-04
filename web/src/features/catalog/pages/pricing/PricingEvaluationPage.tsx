@@ -73,11 +73,12 @@ export default function PricingEvaluationPage() {
   const defaultBranchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const branchId = useMemo(() => {
+  const branchId = useMemo((): number | null => {
     const raw = searchParams.get('branch_id');
+    if (raw === 'all') return null;
     if (raw) {
       const n = Number(raw);
-      if (Number.isFinite(n)) return n;
+      if (Number.isFinite(n) && n > 0) return n;
     }
     return defaultBranchId;
   }, [defaultBranchId, searchParams]);
@@ -95,11 +96,13 @@ export default function PricingEvaluationPage() {
   }, [qText]);
 
   useEffect(() => {
-    if (branchId != null && searchParams.get('branch_id') !== String(branchId)) {
+    const raw = searchParams.get('branch_id');
+    const expected = branchId == null ? 'all' : String(branchId);
+    if (raw !== expected) {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
-          next.set('branch_id', String(branchId));
+          next.set('branch_id', expected);
           return next;
         },
         { replace: true },
@@ -109,11 +112,13 @@ export default function PricingEvaluationPage() {
 
   const queryParams = useMemo((): Parameters<typeof evaluatePricingMatrix>[0] => {
     const p: Parameters<typeof evaluatePricingMatrix>[0] = {
-      branch_id: branchId ?? 0,
       needs_pricing_only: needsPricingOnly,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
+    if (branchId != null && branchId > 0) {
+      p.branch_id = branchId;
+    }
     if (qText) {
       p.q = qText;
     }
@@ -123,7 +128,6 @@ export default function PricingEvaluationPage() {
   const evaluation = useQuery({
     queryKey: catalogKeys.pricingEvaluation(queryParams as unknown as Record<string, unknown>),
     queryFn: () => evaluatePricingMatrix(queryParams),
-    enabled: branchId != null && branchId > 0,
   });
 
   useEffect(() => {
@@ -208,8 +212,9 @@ export default function PricingEvaluationPage() {
           </Label>
           <AccountingBranchFilter
             value={branchId}
-            onChange={(id) => setParam('branch_id', id != null ? String(id) : null)}
-            allowClear={false}
+            onChange={(id) => setParam('branch_id', id != null ? String(id) : 'all')}
+            allowClear
+            clearLabel={t('pricingEvaluation.all_branches')}
             namesOnly
           />
         </div>
@@ -244,9 +249,7 @@ export default function PricingEvaluationPage() {
         ) : null}
       </div>
 
-      {branchId == null ? (
-        <p className="text-sm text-muted-foreground">{t('pricingEvaluation.select_branch')}</p>
-      ) : evaluation.isLoading ? (
+      {evaluation.isLoading ? (
         <div className="flex min-h-[12rem] items-center justify-center">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>

@@ -6,8 +6,9 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.core.errors import ValidationError
 from app.models.chart_accounts import AccountType, ChartAccount, SubledgerKind
@@ -797,18 +798,43 @@ async def delete_chart_account(db: AsyncSession, *, account_id: int) -> bool:
     return True
 
 
+async def reconcile_chart_account_leaf_flags(db: AsyncSession) -> None:
+    """Recompute is_leaf / is_control from parent-child links (fixes stale flags)."""
+    res = await db.execute(select(ChartAccount))
+    accounts = list(res.scalars().all())
+    children_by_parent: dict[int | None, list[ChartAccount]] = {}
+    for acc in accounts:
+        children_by_parent.setdefault(acc.parent_id, []).append(acc)
+    for acc in accounts:
+        kids = children_by_parent.get(acc.id, [])
+        has_children = len(kids) > 0
+        if has_children:
+            acc.is_control = True
+            acc.is_leaf = False
+        elif not acc.is_control:
+            acc.is_leaf = True
+    await db.flush()
+
+
 async def list_postable_chart_accounts(
     db: AsyncSession,
     *,
     active_only: bool = True,
 ) -> list[dict]:
     """Flat list of leaf posting accounts for journal/voucher pickers."""
+    child = aliased(ChartAccount)
+    has_active_child = exists(
+        select(1).where(
+            child.parent_id == ChartAccount.id,
+            child.active.is_(True),
+        )
+    )
     stmt = select(ChartAccount).where(
-        ChartAccount.is_leaf,
-        not ChartAccount.is_control,
+        ChartAccount.is_control.is_(False),
+        ~has_active_child,
     )
     if active_only:
-        stmt = stmt.where(ChartAccount.active)
+        stmt = stmt.where(ChartAccount.active.is_(True))
     stmt = stmt.order_by(ChartAccount.code)
     res = await db.execute(stmt)
     accounts = list(res.scalars().all())

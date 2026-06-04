@@ -151,6 +151,59 @@ async def test_transfer_reserve_and_in_transit_flow(db_session) -> None:
 
 
 @pytest.mark.asyncio
+async def test_dispatch_uses_reserved_not_available(db_session) -> None:
+    """After reserve, available drops below line qty but dispatch must still succeed."""
+    b_from = Branch(
+        name="Xfer From",
+        code=f"XR-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    b_to = Branch(
+        name="Xfer To",
+        code=f"XS-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add_all([b_from, b_to])
+    await db_session.flush()
+
+    on_hand = 9
+    xfer_qty = 5
+    product, pv = await _seed_product_with_stock(db_session, branch_id=b_from.id, qty=on_hand)
+    batch = await create_batch(
+        db_session,
+        created_by_user_id=None,
+        data={
+            "from_branch_id": b_from.id,
+            "to_branch_id": b_to.id,
+            "lines": [{"product_id": product.id, "variant_id": pv.id, "qty": xfer_qty}],
+        },
+    )
+
+    sl = (
+        await db_session.execute(
+            select(StockLevel).where(
+                StockLevel.branch_id == b_from.id,
+                StockLevel.product_id == product.id,
+                StockLevel.variant_id == pv.id,
+            )
+        )
+    ).scalar_one()
+    assert sl.reserved == xfer_qty
+    assert sl.on_hand - sl.reserved - sl.damaged == on_hand - xfer_qty
+
+    dispatched = await dispatch_batch(db_session, batch_id=batch.id)
+    assert dispatched.status == "in_transit"
+
+    await db_session.refresh(sl)
+    assert sl.on_hand == on_hand - xfer_qty
+    assert sl.reserved == 0
+
+
+@pytest.mark.asyncio
 async def test_transfer_update_pending_changes_reserve(db_session) -> None:
     b_from = Branch(
         name="Xfer From",

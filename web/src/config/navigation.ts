@@ -70,6 +70,8 @@ export type NavItem = {
   anyPermission?: readonly Permission[];
   /** Hide when the user has any of these base role codes. */
   denyRoleCodes?: readonly string[];
+  /** Show only when the user has at least one of these role codes (after permission checks). */
+  allowRoleCodes?: readonly string[];
   /** Optional grouping label in the sidebar (top-level items only). */
   section?: NavSection;
   children?: NavItem[];
@@ -129,16 +131,6 @@ export const navigation: NavItem[] = [
         icon: SlidersHorizontal,
         href: '/catalog/attributes',
         permission: { resource: 'catalog', action: 'update' },
-      },
-      {
-        key: 'catalog-pricing',
-        labelKey: 'nav.catalog_pricing_evaluation',
-        icon: Calculator,
-        href: '/catalog/pricing',
-        anyPermission: [
-          { resource: 'catalog', action: 'update' },
-          { resource: 'accounting', action: 'update' },
-        ],
       },
     ],
   },
@@ -285,13 +277,6 @@ export const navigation: NavItem[] = [
         href: '/payroll/runs',
         permission: { resource: 'payroll', action: 'read' },
       },
-      {
-        key: 'payroll-approvals',
-        labelKey: 'nav.payroll_approvals',
-        icon: ShieldCheck,
-        href: '/payroll/approvals',
-        permission: { resource: 'payroll', action: 'approve' },
-      },
     ],
   },
   {
@@ -338,6 +323,7 @@ export const navigation: NavItem[] = [
           { resource: 'catalog', action: 'update' },
           { resource: 'accounting', action: 'update' },
         ],
+        allowRoleCodes: ['OWNER', 'ADMIN', 'ACCOUNTANT'],
       },
       {
         key: 'accounting-balance-sheet',
@@ -418,13 +404,6 @@ export const navigation: NavItem[] = [
         href: '/crm/customers',
         permission: { resource: 'customers', action: 'read' },
         denyRoleCodes: ['MARKETING_MANAGER', 'FLOOR_STAFF'],
-      },
-      {
-        key: 'crm-customers-new',
-        labelKey: 'nav.crm_customers_new',
-        icon: UserCheck,
-        href: '/crm/customers/new',
-        permission: { resource: 'customers', action: 'create' },
       },
       {
         key: 'crm-discounts',

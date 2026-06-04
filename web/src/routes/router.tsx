@@ -11,6 +11,7 @@ import {
   RequireOrgNotificationManager,
   RequirePermission,
   RequirePersonalLeaveAccess,
+  RequirePricingEvaluationAccess,
 } from './guards';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import RouteLoader from './RouteLoader';
@@ -153,6 +154,9 @@ const AccountingIncomeStatement = lazy(
   () => import('@/features/accounting/pages/income-statement/IncomeStatement'),
 );
 const AccountingBalanceSheet = lazy(() => import('@/features/accounting/pages/balance-sheet/BalanceSheet'));
+const AccountingBalanceDiagnostics = lazy(
+  () => import('@/features/accounting/pages/balance-sheet/BalanceDiagnostics'),
+);
 const AccountingGeneralLedger = lazy(() => import('@/features/accounting/pages/general-ledger/GeneralLedger'));
 const AccountingAROpenItems = lazy(() => import('@/features/accounting/pages/ar/AROpenItems'));
 const AccountingApOpenItems = lazy(() => import('@/features/accounting/pages/ap/ApOpenItems'));
@@ -402,29 +406,11 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'pricing',
-                element: (
-                  <RequireAnyPermission
-                    pairs={[
-                      { resource: 'catalog', action: 'update' },
-                      { resource: 'accounting', action: 'update' },
-                    ]}
-                  >
-                    {withSuspense(CatalogPricingEvaluationPage)}
-                  </RequireAnyPermission>
-                ),
+                element: <Navigate to="/accounting/pricing-evaluation" replace />,
               },
               {
                 path: 'pricing/:productId/:variantId',
-                element: (
-                  <RequireAnyPermission
-                    pairs={[
-                      { resource: 'catalog', action: 'update' },
-                      { resource: 'accounting', action: 'update' },
-                    ]}
-                  >
-                    {withSuspense(CatalogPricingEvaluationDetailPage)}
-                  </RequireAnyPermission>
-                ),
+                element: <Navigate to="/accounting/pricing-evaluation" replace />,
               },
             ],
           },
@@ -928,11 +914,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'approvals',
-                element: (
-                  <RequirePermission resource="payroll" action="approve">
-                    {withSuspense(PayrollApprovalsQueue)}
-                  </RequirePermission>
-                ),
+                element: <Navigate to="/payroll/overview" replace />,
               },
             ],
           },
@@ -1004,6 +986,14 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: 'balance-diagnostics',
+                element: (
+                  <RequirePermission resource="accounting" action="read">
+                    {withSuspense(AccountingBalanceDiagnostics)}
+                  </RequirePermission>
+                ),
+              },
+              {
                 path: 'general-ledger',
                 element: (
                   <RequirePermission resource="accounting" action="read">
@@ -1070,27 +1060,17 @@ export const router = createBrowserRouter([
               {
                 path: 'pricing-evaluation',
                 element: (
-                  <RequireAnyPermission
-                    pairs={[
-                      { resource: 'catalog', action: 'update' },
-                      { resource: 'accounting', action: 'update' },
-                    ]}
-                  >
+                  <RequirePricingEvaluationAccess>
                     {withSuspense(CatalogPricingEvaluationPage)}
-                  </RequireAnyPermission>
+                  </RequirePricingEvaluationAccess>
                 ),
               },
               {
                 path: 'pricing-evaluation/:productId/:variantId',
                 element: (
-                  <RequireAnyPermission
-                    pairs={[
-                      { resource: 'catalog', action: 'update' },
-                      { resource: 'accounting', action: 'update' },
-                    ]}
-                  >
+                  <RequirePricingEvaluationAccess>
                     {withSuspense(CatalogPricingEvaluationDetailPage)}
-                  </RequireAnyPermission>
+                  </RequirePricingEvaluationAccess>
                 ),
               },
             ],

@@ -16,13 +16,14 @@ describe('navigationFilter', () => {
     expect(canAccess(leave!, has, ['ACCOUNTANT'])).toBe(true);
   });
 
-  it('shows register-customer nav without customers:read', () => {
-    const hasCreate = (resource: string, action: string) =>
-      resource === 'customers' && action === 'create';
-    const filtered = filterNav(navigation, hasCreate, []);
-    const crm = filtered.find((n) => n.key === 'crm');
-    expect(crm?.children?.some((c) => c.key === 'crm-customers-new')).toBe(true);
-    expect(crm?.children?.some((c) => c.key === 'crm-customers')).toBe(false);
+  it('hides pricing evaluation for roles outside owner/admin/accountant', () => {
+    const hasPricing = (resource: string, action: string) =>
+      resource === 'accounting' && action === 'update';
+    const accounting = navigation.find((n) => n.key === 'accounting');
+    const pricing = accounting?.children?.find((c) => c.key === 'accounting-pricing-evaluation');
+    expect(pricing).toBeDefined();
+    expect(canAccess(pricing!, hasPricing, ['HR_MANAGER'])).toBe(false);
+    expect(canAccess(pricing!, hasPricing, ['ACCOUNTANT'])).toBe(true);
   });
 
   it('hides customer directory for marketing and floor staff role codes', () => {

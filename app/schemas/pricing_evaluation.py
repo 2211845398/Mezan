@@ -64,7 +64,7 @@ class PricingEvaluationRowRead(BaseModel):
 class PricingEvaluationResponse(BaseModel):
     valuation_policy: str
     valuation_policy_label: str
-    branch_id: int
+    branch_id: int | None = None
     currency_code: str
     total: int
     items: list[PricingEvaluationRowRead]

@@ -1,8 +1,7 @@
-const CATALOG_BASE = '/catalog/pricing';
 const ACCOUNTING_BASE = '/accounting/pricing-evaluation';
 
-export function pricingListBasePath(pathname: string): string {
-  return pathname.startsWith('/accounting') ? ACCOUNTING_BASE : CATALOG_BASE;
+export function pricingListBasePath(_pathname: string): string {
+  return ACCOUNTING_BASE;
 }
 
 export function buildPricingDetailPath(
@@ -13,7 +12,7 @@ export function buildPricingDetailPath(
 ): string {
   const qs = new URLSearchParams();
   const branchId = listParams.get('branch_id');
-  if (branchId) qs.set('branch_id', branchId);
+  if (branchId) qs.set('branch_id', branchId === 'all' ? 'all' : branchId);
   const q = listParams.get('q');
   if (q) qs.set('return_q', q);
   const page = listParams.get('page');

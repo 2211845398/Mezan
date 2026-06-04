@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { DateField } from '@/components/shared/form/DateField';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -79,6 +80,7 @@ function IndentedLinesTable({
 
 export default function BalanceSheet() {
   const { t, i18n } = useTranslation('accounting');
+  const navigate = useNavigate();
   const d0 = utcCalendarDayKey(now());
   const [asOf, setAsOf] = useState(d0);
   const [branch, setBranch] = useState('__all');
@@ -162,12 +164,37 @@ export default function BalanceSheet() {
               </p>
             </div>
             <div
+              role={balanced ? undefined : 'button'}
+              tabIndex={balanced ? undefined : 0}
               className={cn(
-                'rounded-lg border p-4',
+                'rounded-lg border p-4 text-start',
                 balanced
                   ? 'border-emerald-500/40 bg-emerald-500/10'
-                  : 'border-destructive/40 bg-destructive/10',
+                  : 'cursor-pointer border-destructive/40 bg-destructive/10 transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               )}
+              onClick={
+                balanced
+                  ? undefined
+                  : () => {
+                      const qs = new URLSearchParams({ as_of: applied.as_of });
+                      if (applied.branch_id != null) {
+                        qs.set('branch_id', String(applied.branch_id));
+                      } else {
+                        qs.set('branch_id', '__all');
+                      }
+                      navigate(`/accounting/balance-diagnostics?${qs.toString()}`);
+                    }
+              }
+              onKeyDown={
+                balanced
+                  ? undefined
+                  : (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        (e.currentTarget as HTMLDivElement).click();
+                      }
+                    }
+              }
             >
               <p className={cn('text-xs', balanced ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive')}>
                 {t('bs.balance_check')}

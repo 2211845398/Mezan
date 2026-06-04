@@ -27,6 +27,7 @@ export type { StockMovement, TransferRead };
 export async function listStockOnHand(params: {
   branch_id?: number;
   category_id?: number;
+  variant_id?: number;
   q?: string;
   reorder_only?: boolean;
   status?: string;
@@ -393,13 +394,19 @@ export async function updateTransferBatch(id: number, body: TransferCreate): Pro
   return data;
 }
 
-export async function postDispatchTransfer(id: number): Promise<TransferRead> {
-  const { data } = await apiClient.post<TransferRead>(`/transfers/${id}/dispatch`);
+export async function postDispatchTransfer(
+  id: number,
+  body?: { branch_id?: number },
+): Promise<TransferRead> {
+  const { data } = await apiClient.post<TransferRead>(`/transfers/${id}/dispatch`, body ?? {});
   return data;
 }
 
-export async function postReceiveTransfer(id: number): Promise<TransferRead> {
-  const { data } = await apiClient.post<TransferRead>(`/transfers/${id}/receive`);
+export async function postReceiveTransfer(
+  id: number,
+  body?: { branch_id?: number },
+): Promise<TransferRead> {
+  const { data } = await apiClient.post<TransferRead>(`/transfers/${id}/receive`, body ?? {});
   return data;
 }
 

@@ -83,6 +83,37 @@ async def _assert_transfer_qty_available(
         )
 
 
+async def _assert_transfer_qty_reserved(
+    db: AsyncSession,
+    *,
+    branch_id: int,
+    product_id: int,
+    variant_id: int,
+    qty: int,
+) -> None:
+    """Dispatch consumes reserved stock, not free available qty."""
+    if qty <= 0:
+        validation_error(
+            "transfer_qty_positive",
+            "Transfer line qty must be positive",
+            qty=qty,
+        )
+    level = await _stock_level(
+        db, branch_id=branch_id, product_id=product_id, variant_id=variant_id
+    )
+    reserved = int(level.reserved) if level is not None else 0
+    if reserved < qty:
+        validation_error(
+            "insufficient_transfer_reserved",
+            "Insufficient reserved stock for transfer dispatch",
+            branch_id=branch_id,
+            product_id=product_id,
+            variant_id=variant_id,
+            requested=qty,
+            reserved=reserved,
+        )
+
+
 async def _get_batch(db: AsyncSession, batch_id: int) -> TransferBatch:
     res = await db.execute(
         select(TransferBatch)
@@ -329,7 +360,7 @@ async def dispatch_batch(
         validation_error("transfer_no_lines", "Batch has no lines")
 
     for i, ln in enumerate(batch.lines):
-        await _assert_transfer_qty_available(
+        await _assert_transfer_qty_reserved(
             db,
             branch_id=batch.from_branch_id,
             product_id=ln.product_id,

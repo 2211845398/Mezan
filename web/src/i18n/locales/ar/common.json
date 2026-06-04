@@ -205,6 +205,7 @@
     "control_account_posting": "لا يمكن الترحيل على حساب ملخص؛ استخدم حسابًا ورقيًّا (مثل 2010 ذمم دائنة تجارية).",
     "variant_inventory_activity": "لا يمكن حذف المتغير «{{label}}» لارتباطه بحركات مخزنية.",
     "insufficient_transfer_stock": "رصيد غير كافٍ في فرع الإرسال.",
+    "insufficient_transfer_reserved": "الكمية المحجوزة للتحويل غير كافية — ربما تغيّر المخزون بعد إنشاء التحويل.",
     "transfer_qty_positive": "كمية التحويل يجب أن تكون أكبر من صفر.",
     "transfer_same_branch": "فرع المصدر والوجهة يجب أن يختلفا.",
     "transfer_no_lines": "أضف بنداً واحداً على الأقل للتحويل.",
