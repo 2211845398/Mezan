@@ -77,10 +77,10 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
     const display = focused ? draft : formatDisplay(draft || value, locale, fractionDigits);
 
     return (
-      <div className="relative w-full">
+      <div className="relative w-full" {...(currency ? { dir: 'ltr' as const } : {})}>
         {currency ? (
           <span
-            className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+            className="pointer-events-none absolute start-2 top-1/2 min-w-[2.25rem] -translate-y-1/2 text-start text-[10px] font-medium tabular-nums text-muted-foreground"
             aria-hidden="true"
           >
             {currency}
@@ -94,7 +94,7 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
           value={display}
           disabled={disabled}
           aria-invalid={invalid || rest['aria-invalid'] || undefined}
-          className={cn(currency ? 'pe-12 text-end' : 'text-end', className)}
+          className={cn(currency ? 'ps-[3.5rem] pe-2 text-end' : 'text-end', className)}
           onFocus={() => {
             setFocused(true);
             setDraft(value);

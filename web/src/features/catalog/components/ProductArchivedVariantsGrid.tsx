@@ -59,7 +59,6 @@ export function ProductArchivedVariantsGrid({ rows, disabled, onReactivate }: Pr
               <TableHead className={variantGridTh}>{t('products.variants.col.system_sku')}</TableHead>
               <TableHead className={variantGridTh}>{t('products.variants.col.reference_code')}</TableHead>
               <TableHead className={variantGridTh}>{t('products.variants.col.barcode')}</TableHead>
-              <TableHead className={variantGridTh}>{t('products.variants.col.price_extra')}</TableHead>
               <TableHead className={variantGridTh} />
             </TableRow>
           </TableHeader>
@@ -94,15 +93,6 @@ export function ProductArchivedVariantsGrid({ rows, disabled, onReactivate }: Pr
                     className={`${variantGridReadOnlyCls} font-mono`}
                     dir="ltr"
                     value={row.barcode || '—'}
-                    readOnly
-                    disabled
-                  />
-                </TableCell>
-                <TableCell className={variantGridTd}>
-                  <Input
-                    className={`${variantGridReadOnlyCls} num-latin`}
-                    dir="ltr"
-                    value={row.price_extra}
                     readOnly
                     disabled
                   />

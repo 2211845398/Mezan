@@ -36,6 +36,8 @@ export type BranchComboboxProps = {
   includeArchived?: boolean;
   /** Show branch code under name in the dropdown (default true). */
   showCode?: boolean;
+  /** Branch list shows names only (no secondary code line). */
+  namesOnly?: boolean;
   /** Highlight trigger when validation failed. */
   invalid?: boolean;
 };
@@ -51,6 +53,7 @@ export function BranchCombobox({
   clearLabel,
   includeArchived = false,
   showCode = true,
+  namesOnly = false,
   invalid = false,
 }: BranchComboboxProps) {
   const { t } = useTranslation('admin');
@@ -66,9 +69,9 @@ export function BranchCombobox({
         : t('branches.picker_placeholder');
     }
     const branch = branches.find((b) => b.id === value);
-    if (!branch) return `#${value}`;
-    return showCode ? getBranchLabel(branches, value) : branch.name;
-  }, [allowClear, branches, clearLabel, showCode, t, value]);
+    if (!branch) return namesOnly ? clearLabel ?? t('branches.picker_placeholder') : `#${value}`;
+    return branch.name;
+  }, [allowClear, branches, clearLabel, namesOnly, showCode, t, value]);
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -126,7 +129,7 @@ export function BranchCombobox({
                   </CommandItem>
                 ) : null}
                 {branches.map((b: BranchRead) => {
-                  const blob = `${b.id} ${b.code ?? ''} ${b.name} ${getBranchLabel(branches, b.id)}`;
+                  const blob = namesOnly ? b.name : `${b.id} ${b.code ?? ''} ${b.name} ${getBranchLabel(branches, b.id)}`;
                   return (
                     <CommandItem
                       key={b.id}
@@ -143,12 +146,7 @@ export function BranchCombobox({
                           value === b.id ? 'opacity-100' : 'opacity-0',
                         )}
                       />
-                      <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-start">
-                        <span className="leading-tight">{b.name}</span>
-                        {showCode && b.code ? (
-                          <span className="text-xs text-muted-foreground">{b.code}</span>
-                        ) : null}
-                      </div>
+                      <span className="min-w-0 flex-1 text-start leading-tight">{b.name}</span>
                     </CommandItem>
                   );
                 })}

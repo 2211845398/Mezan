@@ -137,7 +137,7 @@ export default function StockOnHand() {
       q: qText,
       reorder_only: reorderOnly,
       status: statusParam !== 'all' ? statusParam : '',
-      limit: 500,
+      limit: 100,
       offset: 0,
     }),
     [branchId, categoryId, qText, reorderOnly, statusParam],

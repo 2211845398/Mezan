@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.accounting_settings import AccountingSettings
+from app.models.branch import Branch
+from app.models.chart_accounts import ChartAccount
 from app.models.currency import Currency
 from app.models.permission import Permission
 from app.models.role import Role
@@ -354,6 +356,22 @@ async def seed_permissions_and_roles(db: AsyncSession) -> None:
     await db.commit()
 
 
+async def accounting_bootstrap_complete(db: AsyncSession) -> bool:
+    """True when hierarchical CoA exists and every active branch is cash-provisioned."""
+    root = await db.execute(select(ChartAccount.id).where(ChartAccount.code == "1000").limit(1))
+    if root.scalar_one_or_none() is None:
+        return False
+    pending = await db.execute(
+        select(Branch.id)
+        .where(
+            Branch.archived_at.is_(None),
+            Branch.accounting_chart_provisioned_at.is_(None),
+        )
+        .limit(1)
+    )
+    return pending.scalar_one_or_none() is None
+
+
 async def seed_accounting_defaults(db: AsyncSession) -> None:
     """Idempotent: currencies, hierarchical CoA, and default GL mapping."""
     from app.services.coa_seed_service import (
@@ -364,6 +382,8 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
 
     res = await db.execute(select(AccountingSettings).where(AccountingSettings.id == 1))
     if res.scalar_one_or_none():
+        if await accounting_bootstrap_complete(db):
+            return
         await upgrade_coa_skeleton(db)
         await db.commit()
         return

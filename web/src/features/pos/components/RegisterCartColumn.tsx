@@ -12,6 +12,7 @@ export type RegisterCartColumnProps = {
   editable: boolean;
   isLocked: boolean;
   onQtyChange: (lineId: number, productId: number, variantId: number, qty: number) => void;
+  onUomChange?: (lineId: number, productId: number, variantId: number, uomId: number, qty: number) => void;
   currency: string;
   /** Paid carts this shift: completed sales invoices from `/pos/shifts/current` (`transactions_in_shift`). */
   transactionsInShift: number;
@@ -30,6 +31,7 @@ export function RegisterCartColumn({
   editable,
   isLocked,
   onQtyChange,
+  onUomChange,
   currency,
   transactionsInShift,
   returnSession = null,
@@ -125,6 +127,13 @@ export function RegisterCartColumn({
                     onQtyChange={(lineId, productId, variantId, qty) => {
                       onQtyChange(lineId, productId, variantId, qty);
                     }}
+                    {...(onUomChange
+                      ? {
+                          onUomChange: (lineId, productId, variantId, uomId) => {
+                            onUomChange(lineId, productId, variantId, uomId, Number(ln.qty));
+                          },
+                        }
+                      : {})}
                   />
                 </div>
               );

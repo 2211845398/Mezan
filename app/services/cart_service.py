@@ -14,14 +14,23 @@ from app.core.errors import (
     ValidationError,
     validation_error,
 )
+from app.models.catalog_attribute import CatalogAttribute
+from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.discount import DiscountRule, DiscountType, DiscountUsageLog
 from app.models.pos_cart import CartDaySequence, PosCart, PosCartDiscount, PosCartEvent, PosCartLine
 from app.models.pos_shift import PosShift
 from app.models.pos_terminal import POSTerminal
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
+from app.models.product_variant_attribute import ProductVariantAttribute
 from app.models.unit_of_measure import UnitOfMeasure
-from app.schemas.pos_cart import CartDiscountRead, CartLineRead, CartRead
+from app.schemas.pos_cart import (
+    CartDiscountRead,
+    CartLineRead,
+    CartLineUomOptionRead,
+    CartRead,
+    VariantAttributeTagRead,
+)
 from app.services.accounting_service import get_accounting_settings
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.catalog_service import map_effective_output_tax_rates, resolve_default_variant_id
@@ -29,6 +38,13 @@ from app.services.discount_service import get_discount_rule_by_code, validate_di
 from app.services.loyalty_service import get_customer_balance
 from app.services.pos_customer_guard import assert_customer_active_for_pos
 from app.services.pricing_service import get_active_sell_price
+from app.services.product_uom_service import (
+    get_product_base_uom_id,
+    get_uom_factor_to_base,
+    list_product_uom_options,
+    validate_po_line_uom,
+)
+from app.services.variant_attribute_service import variant_display_label
 from app.utils.money import q2
 
 # Reserved POS cart discount code for loyalty redemption (not a CRM promotion code).
@@ -236,6 +252,7 @@ async def upsert_line(
     qty: int,
     created_by_user_id: int,
     variant_id: int | None = None,
+    uom_id: int | None = None,
 ) -> PosCart:
     """Add, update, or delete cart line. qty=0 deletes the line (Epic 21.8).
 
@@ -290,7 +307,29 @@ async def upsert_line(
         await db.refresh(cart)
         return cart
 
-    unit_price = await get_active_sell_price(db, product_id=product.id)
+    if line is not None:
+        resolved_uom_id = uom_id if uom_id is not None else line.uom_id
+    else:
+        resolved_uom_id = (
+            uom_id if uom_id is not None else await get_product_base_uom_id(db, product_id)
+        )
+    await validate_po_line_uom(db, product_id=product_id, uom_id=resolved_uom_id)
+
+    if line is not None and uom_id is not None and int(line.uom_id) != int(resolved_uom_id):
+        old_factor = await get_uom_factor_to_base(
+            db, product_id=product_id, uom_id=int(line.uom_id)
+        )
+        new_factor = await get_uom_factor_to_base(
+            db, product_id=product_id, uom_id=int(resolved_uom_id)
+        )
+        base_units = int(Decimal(line.qty) * old_factor)
+        qty = max(1, int(base_units / new_factor)) if new_factor > 0 else qty
+
+    base_unit_price = await get_active_sell_price(
+        db, product_id=product.id, variant_id=resolved_variant_id
+    )
+    factor = await get_uom_factor_to_base(db, product_id=product_id, uom_id=resolved_uom_id)
+    unit_price = q2(base_unit_price * factor)
     rates = await map_effective_output_tax_rates(db, products_by_id={product.id: product})
     rate = rates.get(product.id, Decimal("0"))
     if rate < 0:
@@ -299,6 +338,7 @@ async def upsert_line(
         rate = Decimal("1")
     if line:
         line.qty = qty
+        line.uom_id = resolved_uom_id
         line.unit_price = unit_price
         line.tax_rate = rate
         line.line_total = q2(unit_price * qty)
@@ -309,6 +349,7 @@ async def upsert_line(
                 cart_id=cart.id,
                 product_id=product_id,
                 variant_id=resolved_variant_id,
+                uom_id=resolved_uom_id,
                 qty=qty,
                 unit_price=unit_price,
                 line_total=q2(unit_price * qty),
@@ -323,6 +364,7 @@ async def upsert_line(
             payload={
                 "product_id": product_id,
                 "variant_id": resolved_variant_id,
+                "uom_id": resolved_uom_id,
                 "qty": qty,
             },
             created_by_user_id=created_by_user_id,
@@ -579,6 +621,47 @@ async def change_state(db: AsyncSession, *, cart_id: int, action: str, user_id: 
     return cart
 
 
+async def _variant_tags_map(
+    db: AsyncSession, variant_ids: set[int]
+) -> dict[int, tuple[list[VariantAttributeTagRead], str | None]]:
+    if not variant_ids:
+        return {}
+    res = await db.execute(
+        select(
+            ProductVariantAttribute.variant_id,
+            CatalogAttribute.name,
+            CatalogAttributeValue.label,
+            Product.name,
+        )
+        .join(
+            CatalogAttributeValue,
+            CatalogAttributeValue.id == ProductVariantAttribute.attribute_value_id,
+        )
+        .join(CatalogAttribute, CatalogAttribute.id == ProductVariantAttribute.attribute_id)
+        .join(ProductVariant, ProductVariant.id == ProductVariantAttribute.variant_id)
+        .join(Product, Product.id == ProductVariant.product_id)
+        .where(ProductVariantAttribute.variant_id.in_(variant_ids))
+        .order_by(CatalogAttribute.sort_order.asc(), CatalogAttribute.code.asc())
+    )
+    tags: dict[int, list[VariantAttributeTagRead]] = {vid: [] for vid in variant_ids}
+    labels_only: dict[int, list[str]] = {vid: [] for vid in variant_ids}
+    product_names: dict[int, str] = {}
+    for vid, attr_name, value_label, product_name in res.all():
+        vid = int(vid)
+        tags[vid].append(
+            VariantAttributeTagRead(attribute_name=str(attr_name), value_label=str(value_label))
+        )
+        labels_only[vid].append(str(value_label))
+        product_names[vid] = str(product_name)
+    out: dict[int, tuple[list[VariantAttributeTagRead], str | None]] = {}
+    for vid in variant_ids:
+        lbls = labels_only.get(vid, [])
+        pname = product_names.get(vid, "")
+        variant_label = variant_display_label(pname, lbls) if lbls else None
+        out[vid] = (tags.get(vid, []), variant_label)
+    return out
+
+
 def _cart_to_read(
     cart: PosCart,
     *,
@@ -587,12 +670,16 @@ def _cart_to_read(
     prods: dict[int, Product],
     variants: dict[int, ProductVariant],
     uom_by_id: dict[int, UnitOfMeasure],
+    variant_tags: dict[int, tuple[list[VariantAttributeTagRead], str | None]],
+    uom_options_by_product: dict[int, list[CartLineUomOptionRead]],
 ) -> CartRead:
     line_reads: list[CartLineRead] = []
     for ln in lines:
         p = prods.get(ln.product_id)
         pv = variants.get(ln.variant_id) if ln.variant_id is not None else None
-        uom = uom_by_id.get(p.uom_id) if p else None
+        uom = uom_by_id.get(ln.uom_id) if ln.uom_id else (uom_by_id.get(p.uom_id) if p else None)
+        tags, variant_label = variant_tags.get(ln.variant_id, ([], None))
+        uom_opts = uom_options_by_product.get(ln.product_id, [])
         line_reads.append(
             CartLineRead(
                 id=ln.id,
@@ -602,7 +689,12 @@ def _cart_to_read(
                 product_sku=(pv.sku if pv else None) or (p.sku if p else ""),
                 barcode=pv.barcode if pv else None,
                 product_image_url=p.image_url if p else None,
+                variant_label=variant_label,
+                variant_attribute_tags=tags,
+                uom_id=int(ln.uom_id),
                 uom_symbol=uom.symbol if uom else "pcs",
+                uom_code=uom.code if uom else "PIECE",
+                available_uoms=uom_opts,
                 qty=ln.qty,
                 unit_price=ln.unit_price,
                 line_total=ln.line_total,
@@ -642,13 +734,14 @@ async def _load_cart_catalog_maps(
     *,
     product_ids: set[int],
     variant_ids: set[int],
+    line_uom_ids: set[int],
 ) -> tuple[dict[int, Product], dict[int, ProductVariant], dict[int, UnitOfMeasure]]:
     prods: dict[int, Product] = {}
     uom_by_id: dict[int, UnitOfMeasure] = {}
     if product_ids:
         pres = await db.execute(select(Product).where(Product.id.in_(product_ids)))
         prods = {p.id: p for p in pres.scalars().all()}
-        uom_ids = {p.uom_id for p in prods.values()}
+        uom_ids = {p.uom_id for p in prods.values()} | line_uom_ids
         if uom_ids:
             ures = await db.execute(select(UnitOfMeasure).where(UnitOfMeasure.id.in_(uom_ids)))
             uom_by_id = {int(u.id): u for u in ures.scalars().all()}
@@ -657,6 +750,27 @@ async def _load_cart_catalog_maps(
         vres = await db.execute(select(ProductVariant).where(ProductVariant.id.in_(variant_ids)))
         variants = {v.id: v for v in vres.scalars().all()}
     return prods, variants, uom_by_id
+
+
+async def _uom_options_for_products(
+    db: AsyncSession, product_ids: set[int]
+) -> dict[int, list[CartLineUomOptionRead]]:
+    out: dict[int, list[CartLineUomOptionRead]] = {}
+    for pid in product_ids:
+        raw = await list_product_uom_options(db, product_id=pid)
+        opts = [
+            CartLineUomOptionRead(
+                uom_id=int(o["uom_id"]),
+                code=str(o["code"]),
+                symbol=str(o["symbol"]),
+                name=str(o["name"]),
+                factor_to_base=str(o["factor_to_base"]),
+                is_base=bool(o["is_base"]),
+            )
+            for o in raw
+        ]
+        out[pid] = opts
+    return out
 
 
 async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
@@ -673,9 +787,12 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
 
     product_ids = {ln.product_id for ln in lines}
     variant_ids = {ln.variant_id for ln in lines if ln.variant_id is not None}
+    line_uom_ids = {ln.uom_id for ln in lines}
     prods, variants, uom_by_id = await _load_cart_catalog_maps(
-        db, product_ids=product_ids, variant_ids=variant_ids
+        db, product_ids=product_ids, variant_ids=variant_ids, line_uom_ids=line_uom_ids
     )
+    variant_tags = await _variant_tags_map(db, variant_ids)
+    uom_options = await _uom_options_for_products(db, product_ids)
     return _cart_to_read(
         cart,
         lines=lines,
@@ -683,6 +800,8 @@ async def read_cart_as_schema(db: AsyncSession, *, cart_id: int) -> CartRead:
         prods=prods,
         variants=variants,
         uom_by_id=uom_by_id,
+        variant_tags=variant_tags,
+        uom_options_by_product=uom_options,
     )
 
 
@@ -736,9 +855,12 @@ async def list_carts_read(
 
     product_ids = {ln.product_id for ln in all_lines}
     variant_ids = {ln.variant_id for ln in all_lines if ln.variant_id is not None}
+    line_uom_ids = {ln.uom_id for ln in all_lines}
     prods, variants, uom_by_id = await _load_cart_catalog_maps(
-        db, product_ids=product_ids, variant_ids=variant_ids
+        db, product_ids=product_ids, variant_ids=variant_ids, line_uom_ids=line_uom_ids
     )
+    variant_tags = await _variant_tags_map(db, variant_ids)
+    uom_options = await _uom_options_for_products(db, product_ids)
 
     items = [
         _cart_to_read(
@@ -748,6 +870,8 @@ async def list_carts_read(
             prods=prods,
             variants=variants,
             uom_by_id=uom_by_id,
+            variant_tags=variant_tags,
+            uom_options_by_product=uom_options,
         )
         for cart in carts
     ]

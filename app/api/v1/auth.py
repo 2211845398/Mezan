@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import (
     STAFF_SELF_SERVICE_ANY,
     get_current_user,
-    get_current_user_permissions,
+    get_current_user_permissions_cached,
     get_user_role_codes,
     require_any_permission,
 )
@@ -173,14 +173,21 @@ async def me(
     db: AsyncSession = Depends(get_db),
 ) -> UserRead:
     """Return current authenticated user (profile)."""
+    import asyncio
+
     from app.models.branch import Branch
 
-    res = await db.execute(select(EmployeeProfile.id).where(EmployeeProfile.user_id == user.id))
-    employee_profile_id = res.scalar_one_or_none()
-    branch_name: str | None = None
-    if user.branch_id is not None:
+    async def _employee_profile_id() -> int | None:
+        res = await db.execute(select(EmployeeProfile.id).where(EmployeeProfile.user_id == user.id))
+        return res.scalar_one_or_none()
+
+    async def _branch_name() -> str | None:
+        if user.branch_id is None:
+            return None
         bres = await db.execute(select(Branch.name).where(Branch.id == user.branch_id))
-        branch_name = bres.scalar_one_or_none()
+        return bres.scalar_one_or_none()
+
+    employee_profile_id, branch_name = await asyncio.gather(_employee_profile_id(), _branch_name())
     payload = UserRead.model_validate(user).model_dump()
     payload["employee_profile_id"] = employee_profile_id
     payload["branch_name"] = branch_name
@@ -212,11 +219,11 @@ async def me_roles(
 
 @router.get("/auth/me/permissions", response_model=list[PermissionRead])
 async def me_permissions(
-    permissions: set[tuple[str, str]] = Depends(get_current_user_permissions),
+    permissions: set[tuple[str, str]] = Depends(get_current_user_permissions_cached),
 ) -> list[PermissionRead]:
     """Return the current user's effective permissions (roles ∪ overrides).
 
-    Mirrors `get_current_user_permissions` from `app/api/deps.py`: each item is
+    Mirrors `get_current_user_permissions_cached` from `app/api/deps.py`: each item is
     a `(resource, action)` tuple already resolved with role membership and
     per-user allow/deny overrides. Used by the frontend `<Can />` guard and
     RBAC-driven sidebar trimming (`WEB_FRONTEND_PLAN.md` §4.3, §4.4).

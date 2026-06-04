@@ -34,7 +34,7 @@ export function stockOnHandQueryOptions(params: Record<string, unknown>) {
         ...(params.reorder_only ? { reorder_only: true } : {}),
         ...(params.status && params.status !== 'all' ? { status: String(params.status) } : {}),
         ...(params.sort ? { sort: String(params.sort) } : {}),
-        limit: params.limit != null ? Number(params.limit) : 500,
+        limit: params.limit != null ? Number(params.limit) : 100,
         offset: params.offset != null ? Number(params.offset) : 0,
       }),
   });

@@ -58,6 +58,7 @@ from app.api.v1 import (
     payroll_router,
     pos_shifts_router,
     price_lists_router,
+    pricing_evaluation_router,
     production_orders_router,
     purchase_orders_router,
     returns_router,
@@ -72,8 +73,9 @@ from app.api.v1 import (
 from app.core.config import settings
 from app.core.errors import AppError
 from app.core.rate_limit import limiter
-from app.db.database import close_db
+from app.db.database import AsyncSessionLocal, close_db
 from app.db.enum_compat import patch_sqlalchemy_enum_value_compat
+from app.db.schema_check import notifications_schema_ready
 from app.services.backup_service import backup_scheduler_loop
 from app.services.customer_gc_service import customer_gc_scheduler_loop
 from app.services.notifications.service import notification_scheduler_loop
@@ -186,9 +188,17 @@ async def lifespan(app: FastAPI):
     if settings.BACKUP_ENABLED:
         backup_task = asyncio.create_task(backup_scheduler_loop(backup_stop_event))
     if settings.NOTIFICATIONS_ENABLED:
-        notifications_task = asyncio.create_task(
-            notification_scheduler_loop(notifications_stop_event)
-        )
+        async with AsyncSessionLocal() as db:
+            schema_ready = await notifications_schema_ready(db)
+        if schema_ready:
+            notifications_task = asyncio.create_task(
+                notification_scheduler_loop(notifications_stop_event)
+            )
+        else:
+            logger.warning(
+                "Notification scheduler disabled: missing notification tables. "
+                "Run `uv run alembic upgrade head`."
+            )
     if settings.CUSTOMER_GC_ENABLED:
         customer_gc_task = asyncio.create_task(customer_gc_scheduler_loop(customer_gc_stop_event))
     yield
@@ -279,6 +289,7 @@ app.include_router(roles_router, prefix="/api/v1", tags=["roles"])
 app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(attributes_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(price_lists_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(pricing_evaluation_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["purchase_orders"])
 app.include_router(goods_receipts_router, prefix="/api/v1", tags=["goods_receipts"])
 app.include_router(invoice_scans_router, prefix="/api/v1", tags=["invoice_scans"])

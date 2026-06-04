@@ -58,6 +58,7 @@
     "variant_picker_stock": "المتوفر: {{count}}",
     "variant_picker_cancel": "إلغاء",
     "product_unlabeled": "منتج",
+    "change_uom": "تغيير الوحدة",
     "select_line_hint": "اختر سطراً في السلة لتعديل الكمية من لوحة الأرقام",
     "park": "إيقاف مؤقت",
     "resume": "استئناف",

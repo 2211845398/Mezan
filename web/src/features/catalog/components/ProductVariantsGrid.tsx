@@ -70,7 +70,6 @@ export function ProductVariantsGrid({ rows, productName, disabled, onRowsChange 
               <TableHead className={variantGridTh}>{t('products.variants.col.system_sku')}</TableHead>
               <TableHead className={variantGridTh}>{t('products.variants.col.reference_code')}</TableHead>
               <TableHead className={variantGridTh}>{t('products.variants.col.barcode')}</TableHead>
-              <TableHead className={variantGridTh}>{t('products.variants.col.price_extra')}</TableHead>
               <TableHead className={variantGridTh} />
             </TableRow>
           </TableHeader>
@@ -108,18 +107,6 @@ export function ProductVariantsGrid({ rows, productName, disabled, onRowsChange 
                       readOnly
                       disabled={disabled}
                       placeholder="—"
-                    />
-                  </TableCell>
-                  <TableCell className={variantGridTd}>
-                    <Input
-                      className={`${variantGridInputCls} num-latin`}
-                      dir="ltr"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={row.price_extra}
-                      disabled={disabled}
-                      onChange={(e) => patchRow(idx, { price_extra: e.target.value })}
                     />
                   </TableCell>
                   <TableCell className={variantGridTd}>

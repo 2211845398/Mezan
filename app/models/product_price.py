@@ -18,15 +18,19 @@ class ProductPrice(Base):
     __table_args__ = (
         UniqueConstraint(
             "product_id",
+            "variant_id",
             "currency_id",
             "valid_from",
-            name="uq_product_prices_product_currency_valid_from",
+            name="uq_product_prices_product_variant_currency_valid_from",
         ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=True, index=True
     )
     currency_id: Mapped[int] = mapped_column(
         ForeignKey("currencies.id", ondelete="RESTRICT"), nullable=False, index=True

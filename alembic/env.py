@@ -7,56 +7,13 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+# Register every ORM table (including notifications) on Base.metadata for autogenerate.
+import app.models  # noqa: F401
 from alembic import context
 
 # Import app config and database base; load all models for autogenerate
 from app.core.config import settings
 from app.db.database import Base
-from app.models import (  # noqa: F401
-    AccountingSettings,
-    ApOpenItem,
-    ApPaymentApplication,
-    ArOpenItem,
-    ArPaymentApplication,
-    AuditLog,
-    Branch,
-    BranchProductCost,
-    BranchSequence,
-    Category,
-    ChartAccount,
-    Currency,
-    DiscountRule,
-    DiscountUsageLog,
-    Example,
-    FiscalPeriod,
-    GlobalConfig,
-    GoodsReceipt,
-    GoodsReceiptLine,
-    InvoiceScan,
-    JournalEntry,
-    JournalEntryLine,
-    LoyaltyAccrualRule,
-    LoyaltyLedger,
-    PasswordResetToken,
-    Permission,
-    POSTerminal,
-    Product,
-    ProductPrice,
-    PurchaseOrder,
-    PurchaseOrderLine,
-    RefreshToken,
-    Role,
-    RolePermission,
-    StockLevel,
-    StockMovement,
-    Supplier,
-    TransferBatch,
-    TransferLine,
-    User,
-    UserOnboarding,
-    UserPermissionOverride,
-    UserRole,
-)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -66,6 +66,8 @@ export type NavItem = {
   icon: LucideIcon;
   href: string;
   permission?: Permission;
+  /** Visible when the user has any listed permission (overrides `permission` when set). */
+  anyPermission?: readonly Permission[];
   /** Hide when the user has any of these base role codes. */
   denyRoleCodes?: readonly string[];
   /** Optional grouping label in the sidebar (top-level items only). */
@@ -127,6 +129,16 @@ export const navigation: NavItem[] = [
         icon: SlidersHorizontal,
         href: '/catalog/attributes',
         permission: { resource: 'catalog', action: 'update' },
+      },
+      {
+        key: 'catalog-pricing',
+        labelKey: 'nav.catalog_pricing_evaluation',
+        icon: Calculator,
+        href: '/catalog/pricing',
+        anyPermission: [
+          { resource: 'catalog', action: 'update' },
+          { resource: 'accounting', action: 'update' },
+        ],
       },
     ],
   },
@@ -316,6 +328,16 @@ export const navigation: NavItem[] = [
         icon: Percent,
         href: '/catalog/taxes',
         permission: { resource: 'catalog', action: 'read' },
+      },
+      {
+        key: 'accounting-pricing-evaluation',
+        labelKey: 'nav.catalog_pricing_evaluation',
+        icon: Coins,
+        href: '/accounting/pricing-evaluation',
+        anyPermission: [
+          { resource: 'catalog', action: 'update' },
+          { resource: 'accounting', action: 'update' },
+        ],
       },
       {
         key: 'accounting-balance-sheet',

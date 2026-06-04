@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,11 +74,29 @@ async def get_current_user_permissions(
     return await load_user_effective_permissions(db, user.id)
 
 
+_PERMISSIONS_STATE_PREFIX = "_mezan_user_permissions_"
+
+
+async def get_current_user_permissions_cached(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> set[tuple[str, str]]:
+    """Load effective permissions once per HTTP request (request.state memoization)."""
+    cache_key = f"{_PERMISSIONS_STATE_PREFIX}{user.id}"
+    cached = getattr(request.state, cache_key, None)
+    if cached is not None:
+        return cached
+    perms = await load_user_effective_permissions(db, user.id)
+    setattr(request.state, cache_key, perms)
+    return perms
+
+
 def require_permission(resource: str, action: str) -> Callable:
     """Dependency factory: require the current user to have (resource, action) permission."""
 
     async def _check(
-        perms: Annotated[set[tuple[str, str]], Depends(get_current_user_permissions)],
+        perms: Annotated[set[tuple[str, str]], Depends(get_current_user_permissions_cached)],
     ) -> None:
         if (resource, action) not in perms:
             raise HTTPException(
@@ -114,7 +132,7 @@ def require_any_permission(*pairs: tuple[str, str]) -> Callable:
     """Require at least one of the given (resource, action) permissions."""
 
     async def _check(
-        perms: Annotated[set[tuple[str, str]], Depends(get_current_user_permissions)],
+        perms: Annotated[set[tuple[str, str]], Depends(get_current_user_permissions_cached)],
     ) -> None:
         if not any(pair in perms for pair in pairs):
             needed = ", ".join(f"{r}:{a}" for r, a in pairs)

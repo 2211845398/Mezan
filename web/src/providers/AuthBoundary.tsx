@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { setRefreshFn } from '@/api/interceptors/handle401Refresh';
 import { getMe, getMyPermissions, getMyRoles, refresh as refreshTokenApi } from '@/features/auth/api';
+import { hydrateAuthAndPrefetchShell } from '@/lib/shellPrefetch';
 import { resetClientSessionState } from '@/features/auth/signOutSession';
 import {
   type AuthUser,
@@ -97,6 +98,8 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
         setAccessToken(tokens.access_token);
 
         const [me, perms, roles] = await Promise.all([getMe(), getMyPermissions(), getMyRoles()]);
+        if (cancelled) return;
+        await hydrateAuthAndPrefetchShell(me, perms);
         if (cancelled) return;
         setUser(me as AuthUser);
         setPermissions(perms);

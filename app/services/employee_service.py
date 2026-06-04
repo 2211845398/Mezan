@@ -654,7 +654,7 @@ async def list_leave_requests_filtered(
         q = q.where(LeaveRequest.employee_profile_id == employee_profile_id)
     q = (
         q.order_by(LeaveRequest.created_at.desc())
-        .limit(min(max(limit, 1), 500))
+        .limit(min(max(limit, 1), 100))
         .offset(max(offset, 0))
     )
     result = await db.execute(q)

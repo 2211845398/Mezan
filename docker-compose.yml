@@ -37,7 +37,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       DEBUG: "true"
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-["*"]}
-      SEED_ON_STARTUP: "true"
+      # Set true only when you need lifespan seed after code changes (heavy on reload).
+      SEED_ON_STARTUP: "false"
       # Background tick for due notification routines (admin "Run now" works without this).
       NOTIFICATIONS_ENABLED: "true"
       API_HOST: 0.0.0.0
@@ -70,7 +71,12 @@ services:
         condition: service_started
     networks:
       - mezan_network
-    command: ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: >
+      uv run uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-exclude "tests/*"
 
     # Compose Watch (>= 2.22.0): syncs host files into the container on save,
     # enabling hot-reload without a full rebuild. The .venv/ ignore rule is

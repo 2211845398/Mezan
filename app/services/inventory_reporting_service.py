@@ -200,7 +200,7 @@ async def list_stock_on_hand(
     else:
         stmt = stmt.order_by(Branch.name.asc(), ProductVariant.sku.asc())
 
-    stmt = stmt.limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    stmt = stmt.limit(min(max(limit, 1), 100)).offset(max(offset, 0))
     res = await db.execute(stmt)
     rows = res.all()
     if not rows:

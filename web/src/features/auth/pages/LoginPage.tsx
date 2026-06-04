@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { getMe, getMyPermissions, getMyRoles, login as loginApi } from '@/features/auth/api';
+import { hydrateAuthAndPrefetchShell } from '@/lib/shellPrefetch';
 import {
   type AuthUser,
   useAuthStore,
@@ -61,6 +62,7 @@ export default function LoginPage() {
       // guards never see a half-resolved permission set on the first render
       // after login (W-2 bug 2).
       const [me, perms, roles] = await Promise.all([getMe(), getMyPermissions(), getMyRoles()]);
+      await hydrateAuthAndPrefetchShell(me, perms);
       setUser(me as AuthUser);
       setPermissions(perms);
       setRoleCodes(roles.codes);
