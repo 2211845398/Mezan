@@ -38,9 +38,9 @@ export default function ReceiveUnitCostHint({ productId, uomId, unitCost }: Prop
   if (!baseCost) return null;
 
   return (
-    <p className="mt-1 text-xs text-muted-foreground">
+    <span className="text-xs text-muted-foreground">
       {t('movement.receipt.unit_cost_base_hint', { amount: formatMoney(baseCost) })}
-    </p>
+    </span>
   );
 }
 

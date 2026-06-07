@@ -42,7 +42,7 @@ export function PosVariantPickerDialog({
   onOpenChange,
   onSelectVariant,
 }: Props) {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
 
   const { data, isLoading } = useQuery({
     queryKey: ['pos', 'variant-picker', productId, branchId ?? null],
@@ -55,7 +55,7 @@ export function PosVariantPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-hidden sm:max-w-xl">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-hidden sm:max-w-xl" dir={i18n.dir()}>
         <DialogHeader>
           <DialogTitle>{t('register.variant_picker_title', { name: productName })}</DialogTitle>
         </DialogHeader>

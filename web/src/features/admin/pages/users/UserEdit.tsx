@@ -52,7 +52,14 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const statusOptions = ['active', 'deactivated', 'suspended', 'banned', 'pending_onboarding'] as const;
+const statusOptions = [
+  'active',
+  'awaiting_verification',
+  'deactivated',
+  'suspended',
+  'banned',
+  'pending_onboarding',
+] as const;
 
 export default function UserEdit() {
   const { t, i18n } = useTranslation('admin');

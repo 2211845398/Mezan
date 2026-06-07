@@ -9,7 +9,10 @@ export type WeeklyScheduleRead = components['schemas']['WeeklyScheduleRead'];
 export type WeeklyScheduleCreate = components['schemas']['WeeklyScheduleCreate'];
 export type WeeklyScheduleUpdate = components['schemas']['WeeklyScheduleUpdate'];
 export type AttendanceLogRead = components['schemas']['AttendanceLogRead'];
-export type LeaveRequestRead = components['schemas']['LeaveRequestRead'];
+export type LeaveRequestRead = components['schemas']['LeaveRequestRead'] & {
+  reviewed_by_user_full_name?: string | null;
+  reviewed_by_user_email?: string | null;
+};
 export type LeaveRequestCreate = components['schemas']['LeaveRequestCreate'];
 export type LeaveRequestReview = components['schemas']['LeaveRequestReview'];
 export type VacationLeaveBalanceRead = components['schemas']['VacationLeaveBalanceRead'];
@@ -132,6 +135,54 @@ export async function getAttendanceSummary(params: {
   return data;
 }
 
+export async function exportAttendancePdfBlob(params: {
+  branch_id?: number;
+  employee_profile_id?: number;
+  date_from?: string;
+  date_to?: string;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/attendance/export.pdf', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportAttendanceXlsxBlob(params: {
+  branch_id?: number;
+  employee_profile_id?: number;
+  date_from?: string;
+  date_to?: string;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/attendance/export.xlsx', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportLeaveSummaryPdfBlob(params?: {
+  status?: string;
+  employee_profile_id?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/leave-requests/export.pdf', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportLeaveSummaryXlsxBlob(params?: {
+  status?: string;
+  employee_profile_id?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/leave-requests/export.xlsx', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
 export async function listAttendanceForEmployee(employeeProfileId: number): Promise<AttendanceLogRead[]> {
   const { data } = await apiClient.get<AttendanceLogRead[]>(
     `/employees/${employeeProfileId}/attendance`,
@@ -168,6 +219,17 @@ export async function createMyLeaveRequest(body: LeaveRequestCreate): Promise<Le
 
 export async function getMyLeaveBalance(): Promise<VacationLeaveBalanceRead> {
   const { data } = await apiClient.get<VacationLeaveBalanceRead>('/employees/me/leave-balance');
+  return data;
+}
+
+export async function listMyLeaveRequests(params?: {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<LeaveRequestRead[]> {
+  const { data } = await apiClient.get<LeaveRequestRead[]>('/employees/me/leave-requests', {
+    params,
+  });
   return data;
 }
 

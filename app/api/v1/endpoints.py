@@ -41,8 +41,6 @@ from app.services.user_lifecycle_service import (
     update_pending_onboarding_subject,
     upsert_user_permission_override,
 )
-from app.utils.security import hash_password
-
 router = APIRouter()
 
 
@@ -73,9 +71,10 @@ async def create_user(
         first_name=user_in.first_name,
         father_name=user_in.father_name,
         family_name=user_in.family_name,
-        password_hash=hash_password(user_in.password) if user_in.password else None,
-        status="pending_onboarding",
+        password_hash=None,
+        status="suspended",
         branch_id=user_in.branch_id,
+        must_change_password=False,
     )
     db.add(user)
     await db.flush()

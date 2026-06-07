@@ -30,6 +30,33 @@ export type BalanceSheetRead = components['schemas']['BalanceSheetRead'];
 export type GeneralLedgerLineRead = components['schemas']['GeneralLedgerLineRead'];
 export type OpenItemRead = components['schemas']['OpenItemRead'];
 export type FiscalPeriodRead = components['schemas']['FiscalPeriodRead'];
+export type FiscalPeriodDetailRead = {
+  id: number;
+  period_key: string;
+  period_start: string;
+  period_end: string;
+  status: 'open' | 'soft_closed' | 'closed';
+  closed_at?: string | null;
+  closed_by_user_id?: number | null;
+  closed_by_name?: string | null;
+  can_post: boolean;
+  posting_reason: string;
+  trial_balance: TrialBalanceRow[];
+  subledger_activity: Array<{
+    account_id: number;
+    code: string;
+    name: string;
+    subledger_kind: string;
+    line_count: number;
+    total_debit: string | number;
+    total_credit: string | number;
+    net: string | number;
+  }>;
+  ar_open_items_count: number;
+  ar_open_amount: string | number;
+  ap_open_items_count: number;
+  ap_open_amount: string | number;
+};
 export type FiscalPeriodStatusUpdate = components['schemas']['FiscalPeriodStatusUpdate'];
 export type JournalReversalRequest = components['schemas']['JournalReversalRequest'];
 export type JournalReversalResponse = components['schemas']['JournalReversalResponse'];
@@ -341,6 +368,17 @@ export async function listFiscalPeriods(): Promise<FiscalPeriodRead[]> {
   return data;
 }
 
+export async function getFiscalPeriodDetail(
+  periodKey: string,
+  branchId?: number | null,
+): Promise<FiscalPeriodDetailRead> {
+  const { data } = await apiClient.get<FiscalPeriodDetailRead>(
+    `/accounting/fiscal-periods/${encodeURIComponent(periodKey)}`,
+    { params: branchId != null ? { branch_id: branchId } : undefined },
+  );
+  return data;
+}
+
 export async function updateFiscalPeriod(periodKey: string, body: FiscalPeriodStatusUpdate): Promise<FiscalPeriodRead> {
   const { data } = await apiClient.put<FiscalPeriodRead>(`/accounting/fiscal-periods/${periodKey}`, body);
   return data;
@@ -394,26 +432,6 @@ export async function postOpeningBalance(
   const { data } = await apiClient.post<AccountingPostResult>('/accounting/opening-balance', body, {
     headers: { 'Idempotency-Key': idempotencyKey },
   });
-  return data;
-}
-
-export async function previewFxRevaluation(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const { data } = await apiClient.post<Record<string, unknown>>('/accounting/fx-revaluation/preview', body);
-  return data;
-}
-
-export async function runFxRevaluation(
-  body: Record<string, unknown>,
-  idempotencyKey: string,
-): Promise<Record<string, unknown>> {
-  const { data } = await apiClient.post<Record<string, unknown>>('/accounting/fx-revaluation/run', body, {
-    headers: { 'Idempotency-Key': idempotencyKey },
-  });
-  return data;
-}
-
-export async function listBoms(): Promise<Array<Record<string, unknown>>> {
-  const { data } = await apiClient.get<Array<Record<string, unknown>>>('/production/boms');
   return data;
 }
 

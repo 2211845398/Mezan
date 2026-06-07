@@ -118,14 +118,32 @@ async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
     warehouse_result = await db_session.execute(select(Branch).where(Branch.code == "WH1"))
     wh = warehouse_result.scalar_one_or_none()
     if wh is None:
-        wh = Branch(name="Main Warehouse", code="WH1", address=None, timezone="UTC", is_active=True)
+        wh = Branch(
+            name="Main Warehouse",
+            code="WH1",
+            address=None,
+            timezone="UTC",
+            is_active=True,
+            kind="warehouse",
+        )
         db_session.add(wh)
+    else:
+        wh.kind = "warehouse"
 
     store_result = await db_session.execute(select(Branch).where(Branch.code == "ST1"))
     store = store_result.scalar_one_or_none()
     if store is None:
-        store = Branch(name="Store A", code="ST1", address=None, timezone="UTC", is_active=True)
+        store = Branch(
+            name="Store A",
+            code="ST1",
+            address=None,
+            timezone="UTC",
+            is_active=True,
+            kind="commercial",
+        )
         db_session.add(store)
+    else:
+        store.kind = "commercial"
 
     user_result = await db_session.execute(select(User).where(User.email == "admin@example.com"))
     user = user_result.scalar_one_or_none()
@@ -169,6 +187,18 @@ async def admin_auth_header(db_session: AsyncSession) -> dict[str, str]:
 
     token = create_access_token(user.id)
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
+async def commercial_branch_id(db_session: AsyncSession) -> int:
+    res = await db_session.execute(select(Branch).where(Branch.code == "ST1"))
+    return int(res.scalar_one().id)
+
+
+@pytest.fixture()
+async def warehouse_branch_id(db_session: AsyncSession) -> int:
+    res = await db_session.execute(select(Branch).where(Branch.code == "WH1"))
+    return int(res.scalar_one().id)
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +290,7 @@ _SECURITY_MODULES = frozenset(
         "test_auth_permissions_endpoint",
         "test_password_reset_flow",
         "test_date_filter_hardening",
+        "test_branch_kind_rules",
     }
 )
 

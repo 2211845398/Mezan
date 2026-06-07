@@ -8,9 +8,10 @@ import {
   RequireAnyPermission,
   RequireAuth,
   RequireBranchContext,
+  RequireCorrespondenceInboxAccess,
+  RequireMarketingCampaignAccess,
   RequireOrgNotificationManager,
   RequirePermission,
-  RequirePersonalLeaveAccess,
   RequirePricingEvaluationAccess,
 } from './guards';
 import RouteErrorBoundary from './RouteErrorBoundary';
@@ -26,11 +27,25 @@ import RouteLoader from './RouteLoader';
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'));
 const ForgotPasswordPage = lazy(() => import('@/features/auth/pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPasswordPage'));
+const RequiredPasswordChangePage = lazy(
+  () => import('@/features/auth/pages/RequiredPasswordChangePage'),
+);
+const TwoFactorVerifyPage = lazy(() => import('@/features/auth/pages/TwoFactorVerifyPage'));
 const OnboardingCompletePage = lazy(
   () => import('@/features/auth/pages/OnboardingCompletePage'),
 );
 const CustomerOnboardingPage = lazy(() => import('@/features/crm/pages/customers/CustomerOnboardingPage'));
 const ProfilePage = lazy(() => import('@/features/auth/pages/ProfilePage'));
+const MyLeavesPage = lazy(() => import('@/features/hr/pages/leave/MyLeavesPage'));
+const CorrespondenceInboxPage = lazy(
+  () => import('@/features/correspondence/pages/CorrespondenceInboxPage'),
+);
+const CorrespondenceThreadPage = lazy(
+  () => import('@/features/correspondence/pages/CorrespondenceThreadPage'),
+);
+const CorrespondenceComposePage = lazy(
+  () => import('@/features/correspondence/pages/CorrespondenceComposePage'),
+);
 const NotificationsInboxPage = lazy(() => import('@/features/notifications/pages/NotificationsInboxPage'));
 
 const DashboardPage = lazy(() => import('@/features/bi/pages/DashboardPage'));
@@ -45,6 +60,7 @@ const ShiftGatePage = lazy(() => import('@/features/pos/pages/ShiftGate'));
 const PosRegisterPage = lazy(() => import('@/features/pos/pages/PosRegister'));
 const ShiftClosePage = lazy(() => import('@/features/pos/pages/ShiftClose'));
 const InvoiceLookupPage = lazy(() => import('@/features/pos/pages/InvoiceLookup'));
+const ProformaInvoicePage = lazy(() => import('@/features/pos/pages/ProformaInvoicePage'));
 
 const AdminUsersList = lazy(() => import('@/features/admin/pages/users/UsersList'));
 const AdminUserCreate = lazy(() => import('@/features/admin/pages/users/UserCreate'));
@@ -115,6 +131,17 @@ const InventoryDamageMovementPage = lazy(
 const InventoryStockCountPage = lazy(
   () => import('@/features/inventory/pages/stock-count/StockCountPage'),
 );
+const InventoryProductionHome = lazy(
+  () => import('@/features/inventory/pages/production/ProductionHomePage'),
+);
+const InventoryBomForm = lazy(() => import('@/features/inventory/pages/production/BomFormPage'));
+const InventoryBomDetail = lazy(() => import('@/features/inventory/pages/production/BomDetailPage'));
+const InventoryProductionOrderForm = lazy(
+  () => import('@/features/inventory/pages/production/ProductionOrderFormPage'),
+);
+const InventoryProductionOrderDetail = lazy(
+  () => import('@/features/inventory/pages/production/ProductionOrderDetailPage'),
+);
 const InventoryStockCountFillPage = lazy(
   () => import('@/features/inventory/pages/stock-count/StockCountFillPage'),
 );
@@ -163,6 +190,9 @@ const AccountingApOpenItems = lazy(() => import('@/features/accounting/pages/ap/
 const AccountingFiscalPeriodsList = lazy(
   () => import('@/features/accounting/pages/fiscal-periods/FiscalPeriodsList'),
 );
+const AccountingFiscalPeriodDetail = lazy(
+  () => import('@/features/accounting/pages/fiscal-periods/FiscalPeriodDetailPage'),
+);
 const AccountingOperations = lazy(() => import('@/features/accounting/pages/operations/AccountingOperations'));
 const ChartOfAccountsPage = lazy(
   () => import('@/features/accounting/pages/chart-accounts/ChartOfAccountsPage'),
@@ -201,6 +231,12 @@ const HrEmployeeLeave = lazy(() => import('@/features/hr/pages/employees/Employe
 const HrEmployeeSchedule = lazy(() => import('@/features/hr/pages/employees/EmployeeSchedule'));
 const HrEmployeeData = lazy(() => import('@/features/hr/pages/employees/EmployeeData'));
 const HrAttendanceList = lazy(() => import('@/features/hr/pages/attendance/AttendanceList'));
+const HrAttendanceDevicesList = lazy(
+  () => import('@/features/hr/pages/attendance/AttendanceDevicesList'),
+);
+const AttendanceKioskSelfPage = lazy(
+  () => import('@/features/hr/pages/attendance/AttendanceKioskSelfPage'),
+);
 const HrTimesheetDetail = lazy(() => import('@/features/hr/pages/attendance/TimesheetDetail'));
 const HrLeaveList = lazy(() => import('@/features/hr/pages/leave/LeaveList'));
 const HrAnomaliesDashboard = lazy(() => import('@/features/hr/pages/anomalies/AnomaliesDashboard'));
@@ -232,6 +268,7 @@ export const router = createBrowserRouter([
       { path: '/login', element: withSuspense(LoginPage) },
       { path: '/forgot-password', element: withSuspense(ForgotPasswordPage) },
       { path: '/reset-password/:token', element: withSuspense(ResetPasswordPage) },
+      { path: '/two-factor-verify', element: withSuspense(TwoFactorVerifyPage) },
       {
         path: '/onboarding/complete/:token',
         element: withSuspense(OnboardingCompletePage),
@@ -239,6 +276,21 @@ export const router = createBrowserRouter([
       {
         path: '/customer-onboarding',
         element: withSuspense(CustomerOnboardingPage),
+      },
+    ],
+  },
+
+  {
+    element: (
+      <RequireAuth>
+        <AuthLayoutOutlet />
+      </RequireAuth>
+    ),
+    errorElement: <RouteErrorBoundary />,
+    children: [
+      {
+        path: '/change-password-required',
+        element: withSuspense(RequiredPasswordChangePage),
       },
     ],
   },
@@ -256,6 +308,19 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
   },
 
+  // Attendance kiosk fullscreen (no admin chrome)
+  {
+    path: '/attendance-kiosk',
+    element: (
+      <RequireAuth>
+        <RequirePermission resource="attendance_kiosk" action="read">
+          {withSuspense(AttendanceKioskSelfPage)}
+        </RequirePermission>
+      </RequireAuth>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+
   // Admin shell — everything authenticated that is not POS
   {
     element: <RequireAuth />,
@@ -268,6 +333,34 @@ export const router = createBrowserRouter([
           {
             path: '/profile',
             element: withSuspense(ProfilePage),
+          },
+          {
+            path: '/my-leaves',
+            element: withSuspense(MyLeavesPage),
+          },
+          {
+            path: '/correspondence',
+            element: (
+              <RequireCorrespondenceInboxAccess>
+                {withSuspense(CorrespondenceInboxPage)}
+              </RequireCorrespondenceInboxAccess>
+            ),
+          },
+          {
+            path: '/correspondence/compose',
+            element: (
+              <RequireCorrespondenceInboxAccess>
+                {withSuspense(CorrespondenceComposePage)}
+              </RequireCorrespondenceInboxAccess>
+            ),
+          },
+          {
+            path: '/correspondence/:id',
+            element: (
+              <RequireCorrespondenceInboxAccess>
+                {withSuspense(CorrespondenceThreadPage)}
+              </RequireCorrespondenceInboxAccess>
+            ),
           },
           {
             path: '/notifications',
@@ -322,6 +415,16 @@ export const router = createBrowserRouter([
                   <RequireBranchContext>
                     <RequirePermission resource="sales_invoices" action="read">
                       {withSuspense(InvoiceLookupPage)}
+                    </RequirePermission>
+                  </RequireBranchContext>
+                ),
+              },
+              {
+                path: 'proforma',
+                element: (
+                  <RequireBranchContext>
+                    <RequirePermission resource="pos_carts" action="read">
+                      {withSuspense(ProformaInvoicePage)}
                     </RequirePermission>
                   </RequireBranchContext>
                 ),
@@ -565,6 +668,51 @@ export const router = createBrowserRouter([
                     element: (
                       <RequirePermission resource="inventory" action="read">
                         {withSuspense(InventoryStockCountFillPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
+              },
+              {
+                path: 'production',
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="production_orders" action="read">
+                        {withSuspense(InventoryProductionHome)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'boms/new',
+                    element: (
+                      <RequirePermission resource="production_orders" action="create">
+                        {withSuspense(InventoryBomForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'boms/:id',
+                    element: (
+                      <RequirePermission resource="production_orders" action="read">
+                        {withSuspense(InventoryBomDetail)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'orders/new',
+                    element: (
+                      <RequirePermission resource="production_orders" action="create">
+                        {withSuspense(InventoryProductionOrderForm)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: 'orders/:id',
+                    element: (
+                      <RequirePermission resource="production_orders" action="read">
+                        {withSuspense(InventoryProductionOrderDetail)}
                       </RequirePermission>
                     ),
                   },
@@ -844,6 +992,19 @@ export const router = createBrowserRouter([
                       </RequirePermission>
                     ),
                   },
+                  {
+                    path: 'devices',
+                    children: [
+                      {
+                        index: true,
+                        element: (
+                          <RequirePermission resource="attendance_devices" action="read">
+                            {withSuspense(HrAttendanceDevicesList)}
+                          </RequirePermission>
+                        ),
+                      },
+                    ],
+                  },
                 ],
               },
               {
@@ -852,9 +1013,9 @@ export const router = createBrowserRouter([
                   {
                     index: true,
                     element: (
-                      <RequirePersonalLeaveAccess>
+                      <RequirePermission resource="employees" action="read">
                         {withSuspense(HrLeaveList)}
-                      </RequirePersonalLeaveAccess>
+                      </RequirePermission>
                     ),
                   },
                 ],
@@ -1020,8 +1181,16 @@ export const router = createBrowserRouter([
               {
                 path: 'fiscal-periods',
                 element: (
-                  <RequirePermission resource="accounting" action="update">
+                  <RequirePermission resource="accounting" action="read">
                     {withSuspense(AccountingFiscalPeriodsList)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'fiscal-periods/:periodKey',
+                element: (
+                  <RequirePermission resource="accounting" action="read">
+                    {withSuspense(AccountingFiscalPeriodDetail)}
                   </RequirePermission>
                 ),
               },
@@ -1219,9 +1388,9 @@ export const router = createBrowserRouter([
               {
                 path: 'campaigns',
                 element: (
-                  <RequirePermission resource="ai_advisory" action="run">
+                  <RequireMarketingCampaignAccess>
                     {withSuspense(MarketingCampaignAdvisor)}
-                  </RequirePermission>
+                  </RequireMarketingCampaignAccess>
                 ),
               },
             ],

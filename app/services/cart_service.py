@@ -47,8 +47,9 @@ from app.services.product_uom_service import (
 from app.services.variant_attribute_service import variant_display_label
 from app.utils.money import q2
 
-# Reserved POS cart discount code for loyalty redemption (not a CRM promotion code).
+# Reserved POS cart discount codes (not CRM promotion codes).
 LOYALTY_CART_DISCOUNT_CODE = "__POS_LOYALTY__"
+FLAT_CART_DISCOUNT_CODE = "__POS_FLAT__"
 
 
 def _discount_amount_from_rule(*, rule: DiscountRule, eligible_subtotal: Decimal) -> Decimal:
@@ -387,10 +388,10 @@ async def apply_discount(
         raise StateTransitionError("Cart is not active")
 
     trimmed = code.strip()
-    if trimmed == LOYALTY_CART_DISCOUNT_CODE:
+    if trimmed in (LOYALTY_CART_DISCOUNT_CODE, FLAT_CART_DISCOUNT_CODE):
         validation_error(
             "pos_discount_reserved",
-            "This discount code is reserved for loyalty redemption",
+            "This discount code is reserved for POS cart discounts",
             code=trimmed,
         )
     dup = await db.execute(
@@ -568,6 +569,82 @@ async def apply_loyalty_discount(
                 "amount": str(discount_amount),
                 "per_point": str(per_point),
             },
+            created_by_user_id=created_by_user_id,
+        )
+    )
+    await db.flush()
+    await _recalc_totals(db, cart)
+    await db.commit()
+    await db.refresh(cart)
+    return cart
+
+
+async def apply_flat_discount(
+    db: AsyncSession, *, cart_id: int, amount: Decimal, created_by_user_id: int
+) -> PosCart:
+    """Apply a direct flat currency discount to the active cart."""
+    res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
+    cart = res.scalar_one_or_none()
+    if not cart:
+        raise NotFoundError("Cart not found")
+    if cart.status != "active":
+        raise StateTransitionError("Cart is not active")
+
+    discount_amount = q2(amount)
+    if discount_amount <= 0:
+        raise ValidationError("Flat discount amount must be positive")
+
+    lines_res = await db.execute(select(PosCartLine).where(PosCartLine.cart_id == cart.id))
+    lines = list(lines_res.scalars().all())
+    positive_lines = [ln for ln in lines if int(ln.qty or 0) > 0]
+    subtotal_net = q2(sum(q2(ln.unit_price * Decimal(int(ln.qty))) for ln in positive_lines))
+    if subtotal_net <= 0:
+        raise ValidationError(
+            "Cart has no positive line subtotal for flat discount",
+            details={"cart_id": cart_id},
+        )
+
+    disc_res = await db.execute(select(PosCartDiscount).where(PosCartDiscount.cart_id == cart.id))
+    discounts = list(disc_res.scalars().all())
+    other_discount_total = q2(
+        sum(
+            (
+                d.amount
+                for d in discounts
+                if d.code not in (FLAT_CART_DISCOUNT_CODE, LOYALTY_CART_DISCOUNT_CODE)
+                and d.loyalty_points_redeemed is None
+            ),
+            Decimal("0.00"),
+        )
+    )
+    eligible = q2(subtotal_net - other_discount_total)
+    if eligible <= 0:
+        raise ValidationError(
+            "No remaining subtotal available for flat discount after other discounts",
+            details={"eligible_subtotal": str(eligible)},
+        )
+    if discount_amount > eligible:
+        raise ValidationError(
+            "Flat discount exceeds eligible cart subtotal",
+            details={"amount": str(discount_amount), "eligible_subtotal": str(eligible)},
+        )
+
+    for d in discounts:
+        if d.code == FLAT_CART_DISCOUNT_CODE:
+            await db.delete(d)
+
+    db.add(
+        PosCartDiscount(
+            cart_id=cart.id,
+            code=FLAT_CART_DISCOUNT_CODE,
+            amount=discount_amount,
+        )
+    )
+    db.add(
+        PosCartEvent(
+            cart_id=cart.id,
+            event_type="discount_applied",
+            payload={"mode": "flat", "amount": str(discount_amount)},
             created_by_user_id=created_by_user_id,
         )
     )

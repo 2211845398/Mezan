@@ -484,15 +484,33 @@ async def clock_out(
 
 
 async def list_attendance_logs(
-    db: AsyncSession, *, employee_profile_id: int
+    db: AsyncSession, *, employee_profile_id: int, limit: int | None = None
 ) -> list[AttendanceLog]:
     await _get_employee_profile(db, employee_profile_id)
-    result = await db.execute(
+    q = (
         select(AttendanceLog)
         .where(AttendanceLog.employee_profile_id == employee_profile_id)
         .order_by(AttendanceLog.clock_in_at.desc())
     )
+    if limit is not None:
+        q = q.limit(limit)
+    result = await db.execute(q)
     return list(result.scalars().all())
+
+
+async def get_open_attendance_log(
+    db: AsyncSession, *, employee_profile_id: int
+) -> AttendanceLog | None:
+    result = await db.execute(
+        select(AttendanceLog)
+        .where(
+            AttendanceLog.employee_profile_id == employee_profile_id,
+            AttendanceLog.clock_out_at.is_(None),
+        )
+        .order_by(AttendanceLog.clock_in_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 def _vacation_overlap_days_in_year(req_start: date, req_end: date, year: int) -> int:
@@ -599,12 +617,48 @@ async def enrich_leave_request_reads(
         db,
         employee_profile_ids=[r.employee_profile_id for r in rows],
     )
+    reviewer_ids = {r.reviewed_by_user_id for r in rows if r.reviewed_by_user_id is not None}
+    reviewer_map: dict[int, tuple[str | None, str | None]] = {}
+    if reviewer_ids:
+        reviewer_name = person_name_sql_expr(
+            User.first_name, User.father_name, User.family_name
+        )
+        reviewer_res = await db.execute(
+            select(User.id, reviewer_name.label("full_name"), User.email).where(
+                User.id.in_(reviewer_ids)
+            )
+        )
+        for uid, full_name, email in reviewer_res.all():
+            reviewer_map[int(uid)] = (full_name, email)
+
     out: list[LeaveRequestRead] = []
     for r in rows:
         payload = LeaveRequestRead.model_validate(r).model_dump()
         payload["vacation_balance_remaining"] = balance_map.get(r.employee_profile_id)
+        if r.reviewed_by_user_id is not None:
+            full_name, email = reviewer_map.get(r.reviewed_by_user_id, (None, None))
+            payload["reviewed_by_user_full_name"] = full_name
+            payload["reviewed_by_user_email"] = email
         out.append(LeaveRequestRead.model_validate(payload))
     return out
+
+
+MAX_PENDING_SELF_SERVICE_REQUESTS = 2
+
+
+async def count_pending_leave_requests(
+    db: AsyncSession, *, employee_profile_id: int
+) -> int:
+    result = await db.execute(
+        select(func.count())
+        .select_from(LeaveRequest)
+        .where(
+            LeaveRequest.employee_profile_id == employee_profile_id,
+            LeaveRequest.is_deleted.is_(False),
+            LeaveRequest.status == LeaveStatus.PENDING,
+        )
+    )
+    return int(result.scalar_one())
 
 
 async def create_leave_request(
@@ -613,6 +667,12 @@ async def create_leave_request(
     await _get_employee_profile(db, employee_profile_id)
     if data["end_date"] < data["start_date"]:
         raise ValidationError("end_date must be on or after start_date")
+    pending = await count_pending_leave_requests(db, employee_profile_id=employee_profile_id)
+    if pending >= MAX_PENDING_SELF_SERVICE_REQUESTS:
+        raise ValidationError(
+            "You already have two leave requests awaiting HR review. "
+            "Please wait until they are reviewed before submitting another."
+        )
     leave = LeaveRequest(
         employee_profile_id=employee_profile_id,
         leave_type=LeaveType(data["leave_type"]),
@@ -843,6 +903,11 @@ async def soft_delete_leave_request(db: AsyncSession, *, leave_request_id: int) 
         )
     if leave.is_deleted:
         return leave
+    if leave.status != LeaveStatus.PENDING:
+        raise ValidationError(
+            "Only pending leave requests can be deleted",
+            details={"leave_request_id": leave_request_id, "status": leave.status},
+        )
     leave.is_deleted = True
     leave.deleted_at = datetime.now(UTC)
     await db.flush()

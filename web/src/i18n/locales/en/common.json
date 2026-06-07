@@ -14,6 +14,7 @@
     "inventory_adjustments": "Inventory adjustments",
     "inventory_transfers": "Transfers",
     "inventory_stock_count": "Stock count",
+    "inventory_production": "Production",
     "inventory_scans": "Purchase documents",
     "purchasing": "Purchasing",
     "purchasing_orders": "Purchase orders",
@@ -23,6 +24,7 @@
     "hr": "HR",
     "hr_employees": "Employees",
     "hr_attendance": "Attendance",
+    "hr_attendance_devices": "Attendance kiosks",
     "hr_leave": "Leave",
     "hr_pending": "Pending onboarding",
     "hr_anomalies": "Anomalies",
@@ -64,10 +66,11 @@
     "admin_users": "Users",
     "admin_roles": "Roles",
     "admin_branches": "Branches",
-    "admin_terminals": "Terminals",
+    "admin_terminals": "POS devices",
     "admin_backups": "Backups",
     "admin_notifications": "Notifications",
-    "notifications_inbox": "My notifications"
+    "notifications_inbox": "My notifications",
+    "correspondence": "Correspondence"
   },
   "layout": {
     "app_name": "Mezan",
@@ -199,6 +202,19 @@
     "request_timeout": "The server took too long to respond. Check your connection and try again.",
     "try_again": "Please try again."
   },
+  "clientValidation": {
+    "branch_required": "Select a branch before continuing.",
+    "lines_required": "Add at least one line (product, quantity, unit).",
+    "unit_cost_required": "Enter a unit cost greater than zero.",
+    "branch_and_product_required": "Select branch and product.",
+    "reason_required": "Enter a damage reason.",
+    "qty_required": "Enter a quantity greater than zero.",
+    "missing_po_branch": "Purchase order has no branch — cannot receive.",
+    "receive_lines_required": "Enter quantity and cost for at least one line.",
+    "unresolved_variant": "Complete variant selection for every line.",
+    "session_unavailable": "Stock count session is unavailable.",
+    "missing_batch": "Transfer not found."
+  },
   "apiErrors": {
     "email_already_exists": "This email is already registered.",
     "onboarding_assignee_ineligible": "The selected reviewer must be an active user with permission to manage onboarding and employee records.",
@@ -268,9 +284,11 @@
     "stock_reserved_exceeds_on_hand": "Reserved plus damaged cannot exceed on-hand quantity.",
     "cart_not_found": "Cart not found.",
     "cart_not_active": "Cart is not active.",
-    "terminal_not_found": "Terminal not found.",
-    "shift_not_found": "Shift not found, does not belong to terminal, or is not open.",
+    "terminal_not_found": "POS device not found.",
+    "shift_not_found": "Shift not found, does not belong to this device, or is not open.",
     "product_not_found": "Product not found.",
+    "product_no_sellable_price": "This product has no sellable price.",
+    "product_invalid_sellable_price": "This product has an invalid sellable price.",
     "pos_discount_reserved": "This discount code is reserved for loyalty redemption.",
     "pos_discount_already_applied": "This discount code is already applied to the cart.",
     "checkout_empty_cart": "Cannot lock checkout for an empty cart.",
@@ -288,6 +306,12 @@
     "retry": "Retry",
     "close": "Close",
     "clear": "Clear"
+  },
+  "export": {
+    "export_pdf": "Export PDF",
+    "export_excel": "Export Excel",
+    "pdf_ok": "PDF exported",
+    "excel_ok": "Excel exported"
   },
   "file_drop": {
     "select_file": "Upload file"

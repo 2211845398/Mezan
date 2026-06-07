@@ -5149,6 +5149,12 @@ export interface components {
              * @default UTC
              */
             timezone: string;
+            /**
+             * @description commercial = retail/POS; warehouse = inventory/purchasing
+             * @default commercial
+             * @enum {string}
+             */
+            kind: "commercial" | "warehouse";
         };
         /**
          * BranchFinancialSnapshotRead
@@ -5201,6 +5207,8 @@ export interface components {
             address: string | null;
             /** Timezone */
             timezone: string;
+            /** @enum {string} */
+            kind: "commercial" | "warehouse";
             /** Is Active */
             is_active: boolean;
             /** Archived At */
@@ -5219,6 +5227,8 @@ export interface components {
             address?: string | null;
             /** Timezone */
             timezone?: string | null;
+            /** @enum {string} */
+            kind?: "commercial" | "warehouse" | null;
             /** Is Active */
             is_active?: boolean | null;
             /** Unarchive */

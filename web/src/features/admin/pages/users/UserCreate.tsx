@@ -28,7 +28,6 @@ const schema = z.object({
   father_name: z.string().optional().nullable(),
   family_name: z.string().optional().nullable(),
   email: z.string().trim().email(),
-  password: z.string().optional(),
   branch_id: z.coerce.number().nullable().optional(),
   role_code: z.string().optional().nullable(),
   assigned_hr_user_id: z.coerce.number().nullable().optional(),
@@ -49,7 +48,6 @@ export default function UserCreate() {
       father_name: '',
       family_name: '',
       email: '',
-      password: '',
       branch_id: null,
       role_code: null,
       assigned_hr_user_id: null,
@@ -81,11 +79,10 @@ export default function UserCreate() {
                   father_name: v.father_name?.trim() ? v.father_name.trim() : null,
                   family_name: v.family_name?.trim() ? v.family_name.trim() : null,
                   email: v.email,
-                  password: v.password != null && v.password !== '' ? v.password : null,
                   branch_id: v.branch_id == null ? null : v.branch_id,
                   role_code: v.role_code && v.role_code !== '' ? v.role_code : null,
                   assigned_hr_user_id: v.assigned_hr_user_id == null ? null : v.assigned_hr_user_id,
-                  status: 'pending_onboarding',
+                  status: 'suspended',
                 });
                 setCreatedId(u.id);
                 notify.success(tc('toasts.saved'));
@@ -142,19 +139,6 @@ export default function UserCreate() {
                   <FormLabel>{t('users.col.email')}</FormLabel>
                   <FormControl>
                     <Input type="email" autoComplete="off" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              name="password"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('users.password')}</FormLabel>
-                  <FormControl>
-                    <Input type="password" autoComplete="new-password" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

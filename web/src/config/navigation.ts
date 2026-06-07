@@ -1,5 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  CORRESPONDENCE_INBOX_ROLE_CODES,
+  CORRESPONDENCE_SELF_SERVICE_PERMISSIONS,
+} from '@/config/roleNavAccess';
+import {
   AlertTriangle,
   ArrowLeftRight,
   Banknote,
@@ -15,11 +19,13 @@ import {
   Coins,
   ClipboardList,
   FileText,
+  Factory,
   HardDrive,
   Heart,
   Landmark,
   ListTree,
   LayoutDashboard,
+  Mail,
   Megaphone,
   Monitor,
   Package,
@@ -97,6 +103,15 @@ export const navigation: NavItem[] = [
     badge: 'notifications_unread',
   },
   {
+    key: 'correspondence',
+    labelKey: 'nav.correspondence',
+    icon: Mail,
+    href: '/correspondence',
+    section: 'ops',
+    allowRoleCodes: [...CORRESPONDENCE_INBOX_ROLE_CODES],
+    anyPermission: [...CORRESPONDENCE_SELF_SERVICE_PERMISSIONS],
+  },
+  {
     key: 'pos',
     labelKey: 'nav.pos',
     icon: ShoppingCart,
@@ -169,6 +184,13 @@ export const navigation: NavItem[] = [
         href: '/inventory/stock-count',
         permission: { resource: 'stock_adjustments', action: 'create' },
       },
+      {
+        key: 'inventory-production',
+        labelKey: 'nav.inventory_production',
+        icon: Factory,
+        href: '/inventory/production',
+        permission: { resource: 'production_orders', action: 'read' },
+      },
     ],
   },
   {
@@ -232,12 +254,18 @@ export const navigation: NavItem[] = [
         permission: { resource: 'employees', action: 'read' },
       },
       {
+        key: 'hr-attendance-devices',
+        labelKey: 'nav.hr_attendance_devices',
+        icon: Monitor,
+        href: '/hr/attendance/devices',
+        permission: { resource: 'attendance_devices', action: 'read' },
+      },
+      {
         key: 'hr-leave',
         labelKey: 'nav.hr_leave',
         icon: CalendarX,
         href: '/hr/leave',
         permission: { resource: 'employees', action: 'read' },
-        denyRoleCodes: ['OWNER', 'ADMIN'],
         badge: 'leave_pending',
       },
       {
@@ -365,7 +393,7 @@ export const navigation: NavItem[] = [
         labelKey: 'nav.accounting_fiscal_periods',
         icon: CalendarCheck,
         href: '/accounting/fiscal-periods',
-        permission: { resource: 'accounting', action: 'update' },
+        permission: { resource: 'accounting', action: 'read' },
       },
       {
         key: 'accounting-operations',
@@ -455,6 +483,8 @@ export const navigation: NavItem[] = [
         icon: Megaphone,
         href: '/marketing/campaigns',
         permission: { resource: 'ai_advisory', action: 'run' },
+        allowRoleCodes: ['OWNER', 'ADMIN', 'MARKETING_ADMIN', 'MARKETING_MANAGER'],
+        denyRoleCodes: ['HR_MANAGER'],
       },
     ],
   },

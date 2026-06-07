@@ -18,7 +18,9 @@ from app.schemas.accounting import (
     BalanceSheetRead,
     BranchFinancialSnapshotRead,
     ChartAccountRead,
+    FiscalPeriodDetailRead,
     FiscalPeriodRead,
+    FiscalPeriodSubledgerRow,
     FiscalPeriodStatusUpdate,
     GeneralLedgerLineRead,
     IncomeStatementRead,
@@ -44,6 +46,7 @@ from app.schemas.opening_balance import (
 )
 from app.services import audit_service
 from app.services.accounting_governance_service import (
+    get_fiscal_period_detail,
     list_periods,
     reverse_journal_entry,
     set_period_status,
@@ -211,6 +214,38 @@ async def list_fiscal_periods_endpoint(
 ) -> list[FiscalPeriodRead]:
     rows = await list_periods(db)
     return [FiscalPeriodRead.model_validate(r) for r in rows]
+
+
+@router.get("/accounting/fiscal-periods/{period_key}", response_model=FiscalPeriodDetailRead)
+async def get_fiscal_period_detail_endpoint(
+    period_key: str,
+    branch_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> FiscalPeriodDetailRead:
+    detail = await get_fiscal_period_detail(db, period_key=period_key, branch_id=branch_id)
+    period = detail["period"]
+    return FiscalPeriodDetailRead(
+        id=period.id,
+        period_key=period.period_key,
+        period_start=period.period_start,
+        period_end=period.period_end,
+        status=period.status,
+        closed_at=period.closed_at,
+        closed_by_user_id=period.closed_by_user_id,
+        closed_by_name=detail["closed_by_name"],
+        can_post=detail["can_post"],
+        posting_reason=detail["posting_reason"],
+        trial_balance=[TrialBalanceRow.model_validate(r) for r in detail["trial_balance"]],
+        subledger_activity=[
+            FiscalPeriodSubledgerRow.model_validate(r) for r in detail["subledger_activity"]
+        ],
+        ar_open_items_count=detail["ar_open_items_count"],
+        ar_open_amount=detail["ar_open_amount"],
+        ap_open_items_count=detail["ap_open_items_count"],
+        ap_open_amount=detail["ap_open_amount"],
+    )
 
 
 @router.put("/accounting/fiscal-periods/{period_key}", response_model=FiscalPeriodRead)

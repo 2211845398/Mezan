@@ -113,6 +113,7 @@ async def test_receive_increases_stock_by_qty_base(db_session) -> None:
         address=None,
         timezone="UTC",
         is_active=True,
+        kind="warehouse",
     )
     db_session.add(branch)
     await db_session.flush()

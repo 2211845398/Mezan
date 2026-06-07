@@ -5,12 +5,10 @@ import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { getMe, getMyPermissions, getMyRoles, login as loginApi } from '@/features/auth/api';
-import { hydrateAuthAndPrefetchShell } from '@/lib/shellPrefetch';
-import {
-  type AuthUser,
-  useAuthStore,
-} from '@/features/auth/stores/authStore';
+import { login as loginApi } from '@/features/auth/api';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import { finalizeAuthSession } from '@/lib/finalizeAuthSession';
+import { PasswordInput } from '@/components/ui/password-input';
 import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { canAccessPath } from '@/lib/canAccessPath';
@@ -20,10 +18,17 @@ import { notify } from '@/lib/toast';
 import { classifyLoginError } from './loginErrors';
 import { type LoginFormValues, loginSchema } from './loginSchema';
 
-function resolvePostLoginPath(nextRaw: string | null, permissions: Set<string>): string {
+function resolvePostLoginPath(
+  nextRaw: string | null,
+  permissions: Set<string>,
+  roleCodes: readonly string[],
+): string {
+  if (roleCodes.includes('ATTENDANCE_KIOSK')) {
+    return '/attendance-kiosk';
+  }
   const target = sanitizeNextPath(nextRaw);
   if (target === '/') return '/dashboard';
-  return canAccessPath(target, permissions) ? target : '/dashboard';
+  return canAccessPath(target, permissions, roleCodes) ? target : '/dashboard';
 }
 
 export default function LoginPage() {
@@ -32,12 +37,6 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const nextRaw = searchParams.get('next');
   const status = useAuthStore((s) => s.status);
-  const setStatus = useAuthStore((s) => s.setStatus);
-  const setAccessToken = useAuthStore((s) => s.setAccessToken);
-  const setRefreshToken = useAuthStore((s) => s.setRefreshToken);
-  const setUser = useAuthStore((s) => s.setUser);
-  const setPermissions = useAuthStore((s) => s.setPermissions);
-  const setRoleCodes = useAuthStore((s) => s.setRoleCodes);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -45,36 +44,46 @@ export default function LoginPage() {
   });
 
   const permissions = useAuthStore((s) => s.permissions);
+  const roleCodes = useAuthStore((s) => s.roleCodes);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
-    if (status === 'authenticated' && useAuthStore.getState().permissionsLoaded) {
-      navigate(resolvePostLoginPath(nextRaw, permissions), { replace: true });
+    if (status !== 'authenticated' || !useAuthStore.getState().permissionsLoaded) {
+      return;
     }
-  }, [status, navigate, nextRaw, permissions]);
+    if (user?.must_change_password) {
+      navigate('/change-password-required', { replace: true });
+      return;
+    }
+    navigate(resolvePostLoginPath(nextRaw, permissions, roleCodes), { replace: true });
+  }, [status, navigate, nextRaw, permissions, roleCodes, user?.must_change_password]);
 
   async function onSubmit(values: LoginFormValues) {
     try {
       const tokens = await loginApi({ email: values.email, password: values.password });
-      setAccessToken(tokens.access_token);
-      setRefreshToken(tokens.refresh_token);
 
-      // Fetch user + permissions BEFORE flipping status to 'authenticated' so
-      // guards never see a half-resolved permission set on the first render
-      // after login (W-2 bug 2).
-      const [me, perms, roles] = await Promise.all([getMe(), getMyPermissions(), getMyRoles()]);
-      await hydrateAuthAndPrefetchShell(me, perms);
-      setUser(me as AuthUser);
-      setPermissions(perms);
-      setRoleCodes(roles.codes);
-      const permSet = new Set(
-        perms.map((p) => `${p.resource}:${p.action}`),
-      );
-      setStatus('authenticated');
+      if (tokens.requires_2fa && tokens.challenge_token) {
+        const next = nextRaw ? `?next=${encodeURIComponent(nextRaw)}` : '';
+        navigate(`/two-factor-verify${next}`, {
+          replace: true,
+          state: { challengeToken: tokens.challenge_token },
+        });
+        return;
+      }
 
-      navigate(resolvePostLoginPath(nextRaw, permSet), { replace: true });
+      const { me, permSet, roleCodes } = await finalizeAuthSession(tokens);
+
+      if (me.must_change_password) {
+        navigate('/change-password-required', { replace: true });
+        return;
+      }
+
+      navigate(resolvePostLoginPath(nextRaw, permSet, roleCodes), { replace: true });
     } catch (err) {
       const key = classifyLoginError(err);
-      notify.error(t(key));
+      if (key) {
+        notify.error(t(key));
+      }
     }
   }
 
@@ -128,11 +137,9 @@ export default function LoginPage() {
           <label className="text-sm font-medium" htmlFor="login-password">
             {t('auth:login.password')}
           </label>
-          <input
+          <PasswordInput
             id="login-password"
-            type="password"
             autoComplete="current-password"
-            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.password ? true : undefined}
             {...form.register('password')}
           />

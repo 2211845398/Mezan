@@ -27,9 +27,40 @@ class TokenResponse(BaseModel):
 class LoginResponse(TokenResponse):
     """Login response with refresh token."""
 
-    refresh_token: str
-    user_id: int
-    email: str
+    access_token: str | None = None
+    refresh_token: str | None = None
+    user_id: int | None = None
+    email: str | None = None
+    must_change_password: bool = False
+    requires_2fa: bool = False
+    challenge_token: str | None = None
+
+
+class RequiredPasswordChangeRequest(BaseModel):
+    """Set a new password when must_change_password is true."""
+
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8)
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    """Complete login after email OTP."""
+
+    challenge_token: str
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class TwoFactorToggleRequest(BaseModel):
+    """Enable or disable email 2FA."""
+
+    enabled: bool
+    current_password: str | None = None
+
+    @model_validator(mode="after")
+    def password_required_when_enabling(self) -> Self:
+        if self.enabled and not (self.current_password and self.current_password.strip()):
+            raise ValueError("current_password is required when enabling two-factor authentication")
+        return self
 
 
 class RefreshRequest(BaseModel):

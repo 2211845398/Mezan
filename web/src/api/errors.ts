@@ -49,6 +49,14 @@ export class PermissionDeniedError extends ApiError {
   }
 }
 
+/** User must change password before accessing the rest of the ERP. */
+export class PasswordChangeRequiredError extends ApiError {
+  constructor(init: ApiErrorInit) {
+    super(init.payload?.message ?? 'Password change required', init);
+    this.name = 'PasswordChangeRequiredError';
+  }
+}
+
 export class ValidationError extends ApiError {
   constructor(init: ApiErrorInit) {
     super(init.payload?.message ?? 'Validation failed', init);

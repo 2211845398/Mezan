@@ -122,7 +122,8 @@
     "repay_no_balance": "لا يوجد رصيد مفتوح لهذه الفاتورة",
     "page_range": "{{from}}–{{to}} من {{total}}",
     "prev": "السابق",
-    "next": "التالي"
+    "next": "التالي",
+    "daily_summary_export": "ملخص المبيعات اليومي"
   },
   "inventoryInsights": {
     "title": "رؤية المخزون والعروض",

@@ -19,6 +19,13 @@ import { checkChartAccountDeletable, deleteChartAccount } from '../../api';
 import { resolveCoaDisplayName } from '../../lib/coaDisplayName';
 import { accountingKeys } from '../../queries';
 
+const DELETE_REASON_I18N: Record<string, string> = {
+  'Account balance must be zero': 'coa.delete_reason.balance_not_zero',
+  'Account has posted journal entries': 'coa.delete_reason.has_journal_entries',
+  'System accounts cannot be deleted': 'coa.delete_reason.system_account',
+  'Account not found': 'coa.delete_reason.not_found',
+};
+
 type Props = {
   node: ChartAccountTreeNode | null;
   onClose: () => void;
@@ -51,7 +58,9 @@ export function CoaDeleteDialog({ node, onClose }: Props) {
 
   const label = node ? resolveCoaDisplayName(node, i18n.language) : '';
   const canDelete = checkQuery.data?.can_delete === true;
-  const reason = checkQuery.data?.reason ?? '';
+  const rawReason = checkQuery.data?.reason ?? '';
+  const reasonKey = DELETE_REASON_I18N[rawReason];
+  const reason = reasonKey ? t(reasonKey) : rawReason;
 
   return (
     <AlertDialog

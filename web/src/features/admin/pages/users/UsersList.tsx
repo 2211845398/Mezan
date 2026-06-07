@@ -129,7 +129,7 @@ export default function UsersList() {
         branch_id: branchId,
         role_code: roleCode.trim() || null,
         assigned_hr_user_id: assignedHrUserId.trim() ? Number(assignedHrUserId) : null,
-        status: 'pending_onboarding',
+        status: 'suspended',
       });
       notify.success(tc('toasts.saved'));
       setCreateOpen(false);

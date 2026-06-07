@@ -72,7 +72,7 @@ export function TenderDrawer({
   onAbortCheckout,
   onDone,
 }: TenderDrawerProps) {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
   const online = useOnline();
   const skipAbortOnCloseRef = useRef(false);
   const idemRef = useRef<string | null>(null);
@@ -290,7 +290,7 @@ export function TenderDrawer({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
+      <DialogContent className="overflow-hidden p-0 sm:max-w-lg" dir={i18n.dir()}>
         <DialogHeader className="border-b px-6 pt-6 pb-4">
           <DialogTitle>{t('tender.title')}</DialogTitle>
         </DialogHeader>

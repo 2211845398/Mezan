@@ -8,6 +8,7 @@ import {
   listStockOnHand,
   listTransferBatches,
 } from './api';
+import * as productionApi from './api/production';
 
 export const inventoryKeys = {
   root: ['inventory'] as const,
@@ -17,6 +18,11 @@ export const inventoryKeys = {
   transfer: (id: number) => [...inventoryKeys.root, 'transfer', id] as const,
   reorderAlerts: (q: Record<string, unknown>) => [...inventoryKeys.root, 'reorderAlerts', q] as const,
   stockCard: (productId: number) => [...inventoryKeys.root, 'stockCard', productId] as const,
+  boms: () => [...inventoryKeys.root, 'production', 'boms'] as const,
+  bom: (id: number) => [...inventoryKeys.root, 'production', 'bom', id] as const,
+  productionOrders: (q: Record<string, unknown>) =>
+    [...inventoryKeys.root, 'production', 'orders', q] as const,
+  productionOrder: (id: number) => [...inventoryKeys.root, 'production', 'order', id] as const,
 };
 
 export function stockOnHandQueryOptions(params: Record<string, unknown>) {
@@ -92,5 +98,39 @@ export function useStockCardQuery(productId: number | null) {
   return useQuery({
     ...stockCardQueryOptions(id),
     enabled: productId != null && productId > 0,
+  });
+}
+
+export function bomsQueryOptions() {
+  return queryOptions({
+    queryKey: inventoryKeys.boms(),
+    queryFn: () => productionApi.listBoms(),
+  });
+}
+
+export function bomDetailQueryOptions(bomId: number) {
+  return queryOptions({
+    queryKey: inventoryKeys.bom(bomId),
+    queryFn: () => productionApi.getBom(bomId),
+    enabled: bomId > 0,
+  });
+}
+
+export function productionOrdersQueryOptions(params: Record<string, unknown> = {}) {
+  return queryOptions({
+    queryKey: inventoryKeys.productionOrders(params),
+    queryFn: () =>
+      productionApi.listProductionOrders({
+        ...(params.branch_id != null ? { branch_id: Number(params.branch_id) } : {}),
+        ...(params.status ? { status: String(params.status) } : {}),
+      }),
+  });
+}
+
+export function productionOrderDetailQueryOptions(orderId: number) {
+  return queryOptions({
+    queryKey: inventoryKeys.productionOrder(orderId),
+    queryFn: () => productionApi.getProductionOrder(orderId),
+    enabled: orderId > 0,
   });
 }

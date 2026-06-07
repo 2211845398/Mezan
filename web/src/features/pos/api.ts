@@ -21,8 +21,11 @@ type CartLineBody =
   paths['/api/v1/pos/carts/{cart_id}/lines']['post']['requestBody']['content']['application/json'] & {
     uom_id?: number | null;
   };
-export type CartDiscountBody =
+type CartDiscountBodyGenerated =
   paths['/api/v1/pos/carts/{cart_id}/discounts']['post']['requestBody']['content']['application/json'];
+export type CartDiscountBody =
+  | CartDiscountBodyGenerated
+  | { mode: 'flat'; amount: string | number };
 type CartStateBody =
   paths['/api/v1/pos/carts/{cart_id}/state']['post']['requestBody']['content']['application/json'];
 
@@ -261,6 +264,58 @@ export async function submitReturn(body: ReturnBody): Promise<ReturnResponse> {
 export async function listTerminals(branchId: number): Promise<TerminalRead[]> {
   const { data } = await apiClient.get<TerminalRead[]>('/terminals', {
     params: { branch_id: branchId },
+  });
+  return data;
+}
+
+export type ProformaLineIn = {
+  product_id: number;
+  variant_id?: number | null;
+  qty: number;
+};
+
+export type ProformaLineRead = {
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  variant_id: number | null;
+  variant_label: string | null;
+  qty: number;
+  unit_price: string;
+  line_total: string;
+  tax_rate: string;
+  line_tax_amount: string;
+};
+
+export type ProformaQuoteResponse = {
+  lines: ProformaLineRead[];
+  subtotal: string;
+  tax_total: string;
+  total: string;
+  currency_code: string;
+};
+
+export type ProformaExportBody = {
+  lines: ProformaLineIn[];
+  branch_id?: number | null;
+  locale?: 'ar' | 'en';
+};
+
+export async function quoteProforma(lines: ProformaLineIn[]): Promise<ProformaQuoteResponse> {
+  const { data } = await apiClient.post<ProformaQuoteResponse>('/pos/proforma/quote', { lines });
+  return data;
+}
+
+export async function exportProformaPdfBlob(body: ProformaExportBody): Promise<Blob> {
+  const { data } = await apiClient.post<Blob>('/pos/proforma/export.pdf', body, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportProformaXlsxBlob(body: ProformaExportBody): Promise<Blob> {
+  const { data } = await apiClient.post<Blob>('/pos/proforma/export.xlsx', body, {
+    responseType: 'blob',
   });
   return data;
 }

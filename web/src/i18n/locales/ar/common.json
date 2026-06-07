@@ -14,6 +14,7 @@
     "inventory_adjustments": "حركات المخزون",
     "inventory_transfers": "التحويلات الداخلية",
     "inventory_stock_count": "الجرد المخزني",
+    "inventory_production": "الإنتاج",
     "inventory_scans": "مستندات الشراء",
     "purchasing": "المشتريات",
     "purchasing_orders": "أوامر الشراء",
@@ -23,6 +24,7 @@
     "hr": "الموارد البشرية",
     "hr_employees": "الموظفون",
     "hr_attendance": "الحضور والانصراف",
+    "hr_attendance_devices": "شاشات الحضور",
     "hr_leave": "الإجازات",
     "hr_pending": "التعيينات المعلقة",
     "hr_anomalies": "تنبيهات",
@@ -64,10 +66,11 @@
     "admin_users": "المستخدمون",
     "admin_roles": "الأدوار",
     "admin_branches": "الفروع",
-    "admin_terminals": "أجهزة البيع",
+    "admin_terminals": "أجهزة نقطة البيع",
     "admin_backups": "النسخ الاحتياطية",
     "admin_notifications": "الإشعارات",
-    "notifications_inbox": "إشعاراتي"
+    "notifications_inbox": "إشعاراتي",
+    "correspondence": "المراسلات"
   },
   "layout": {
     "app_name": "ميزان",
@@ -199,6 +202,19 @@
     "request_timeout": "انتهت مهلة انتظار الخادم. تحقق من الشبكة ثم أعد المحاولة.",
     "try_again": "يرجى المحاولة مرة أخرى."
   },
+  "clientValidation": {
+    "branch_required": "اختر الفرع قبل المتابعة.",
+    "lines_required": "أضف بنداً واحداً على الأقل (منتج، كمية، وحدة).",
+    "unit_cost_required": "أدخل تكلفة وحدة أكبر من صفر.",
+    "branch_and_product_required": "اختر الفرع والمنتج.",
+    "reason_required": "أدخل سبب التلف.",
+    "qty_required": "أدخل كمية أكبر من صفر.",
+    "missing_po_branch": "أمر الشراء بلا فرع — لا يمكن الاستلام.",
+    "receive_lines_required": "أدخل كمية وتكلفة لبند واحد على الأقل.",
+    "unresolved_variant": "أكمل اختيار المتغير لكل بند.",
+    "session_unavailable": "جلسة الجرد غير متاحة.",
+    "missing_batch": "لم يُعثر على التحويل."
+  },
   "apiErrors": {
     "email_already_exists": "هذا البريد الإلكتروني مسجّل مسبقًا.",
     "onboarding_assignee_ineligible": "يجب أن يكون المراجع مستخدمًا نشطًا ولديه صلاحية إكمال الضبط وبيانات الموظفين.",
@@ -268,9 +284,11 @@
     "stock_reserved_exceeds_on_hand": "مجموع المحجوز والتالف يتجاوز الرصيد على اليد.",
     "cart_not_found": "لم تُعثر على السلة.",
     "cart_not_active": "السلة غير نشطة.",
-    "terminal_not_found": "لم يُعثر على نقطة البيع.",
-    "shift_not_found": "لم تُعثر على وردية مفتوحة لهذه النقطة.",
+    "terminal_not_found": "لم يُعثر على الجهاز.",
+    "shift_not_found": "لم تُعثر على وردية مفتوحة لهذا الجهاز.",
     "product_not_found": "لم يُعثر على المنتج.",
+    "product_no_sellable_price": "المنتج ليس له سعر بيع محدد",
+    "product_invalid_sellable_price": "سعر البيع غير صالح لهذا المنتج.",
     "pos_discount_reserved": "رمز الخصم محجوز لاستبدال نقاط الولاء.",
     "pos_discount_already_applied": "رمز الخصم مُطبَّق مسبقاً على السلة.",
     "checkout_empty_cart": "لا يمكن إتمام الدفع لسلة فارغة.",
@@ -288,6 +306,12 @@
     "retry": "إعادة المحاولة",
     "close": "إغلاق",
     "clear": "مسح"
+  },
+  "export": {
+    "export_pdf": "تصدير PDF",
+    "export_excel": "تصدير Excel",
+    "pdf_ok": "تم تصدير PDF",
+    "excel_ok": "تم تصدير Excel"
   },
   "file_drop": {
     "select_file": "رفع ملف"

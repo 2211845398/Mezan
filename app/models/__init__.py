@@ -6,6 +6,7 @@ from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
 from app.models.ar_payment_application import ArPaymentApplication
+from app.models.attendance_device import AttendanceDevice
 from app.models.attendance_log import AttendanceLog
 from app.models.attendance_payroll_policy import AttendancePayrollPolicy, AttendancePolicyCategory
 from app.models.audit_log import AuditLog
@@ -24,6 +25,7 @@ from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.category import Category
 from app.models.chart_accounts import AccountType, ChartAccount
 from app.models.currency import Currency
+from app.models.correspondence import CorrespondenceMessage, CorrespondenceThread
 from app.models.customer_profile import CustomerOnboardingToken, CustomerProfile
 from app.models.discount import DiscountRule, DiscountStatus, DiscountType, DiscountUsageLog
 from app.models.employee_profile import EmployeeProfile
@@ -31,6 +33,7 @@ from app.models.example import Example
 from app.models.fiscal_period import FiscalPeriod
 from app.models.global_config import GlobalConfig
 from app.models.goods_receipt import GoodsReceipt
+from app.models.hr_feedback import HrFeedback
 from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.inventory_cost_layer import InventoryCostLayer
 from app.models.inventory_policy import InventoryPolicy
@@ -49,6 +52,7 @@ from app.models.notifications import (
     NotificationTemplate,
 )
 from app.models.password_reset_token import PasswordResetToken
+from app.models.two_factor_otp import TwoFactorChallenge, TwoFactorOtp
 from app.models.payment_terms import PaymentTerm
 from app.models.payslip import Payslip, PayslipStatus
 from app.models.permission import Permission
@@ -110,6 +114,8 @@ __all__ = [
     "CatalogAttributeValue",
     "ChartAccount",
     "Currency",
+    "CorrespondenceMessage",
+    "CorrespondenceThread",
     "CustomerOnboardingToken",
     "CustomerProfile",
     "DiscountRule",
@@ -141,6 +147,8 @@ __all__ = [
     "JournalEntry",
     "JournalEntryLine",
     "PasswordResetToken",
+    "TwoFactorChallenge",
+    "TwoFactorOtp",
     "PaymentTerm",
     "Permission",
     "POSTerminal",
@@ -190,6 +198,7 @@ __all__ = [
     "StockMovement",
     "TaxDefinition",
     "GoodsReceipt",
+    "HrFeedback",
     "GoodsReceiptLine",
     "InventoryPolicy",
     "FiscalPeriod",

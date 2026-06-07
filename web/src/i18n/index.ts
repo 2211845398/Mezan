@@ -9,6 +9,7 @@ import arAuth from './locales/ar/auth.json';
 import arBi from './locales/ar/bi.json';
 import arCatalog from './locales/ar/catalog.json';
 import arCommon from './locales/ar/common.json';
+import arCorrespondence from './locales/ar/correspondence.json';
 import arCrm from './locales/ar/crm.json';
 import arHr from './locales/ar/hr.json';
 import arInventory from './locales/ar/inventory.json';
@@ -24,6 +25,7 @@ import enAuth from './locales/en/auth.json';
 import enBi from './locales/en/bi.json';
 import enCatalog from './locales/en/catalog.json';
 import enCommon from './locales/en/common.json';
+import enCorrespondence from './locales/en/correspondence.json';
 import enCrm from './locales/en/crm.json';
 import enHr from './locales/en/hr.json';
 import enInventory from './locales/en/inventory.json';
@@ -50,6 +52,7 @@ export const resources = {
     invoiceScans: arInvoiceScans,
     inventory: arInventory,
     payroll: arPayroll,
+    correspondence: arCorrespondence,
     crm: arCrm,
     marketing: arMarketing,
     purchasing: arPurchasing,
@@ -67,6 +70,7 @@ export const resources = {
     invoiceScans: enInvoiceScans,
     inventory: enInventory,
     payroll: enPayroll,
+    correspondence: enCorrespondence,
     crm: enCrm,
     marketing: enMarketing,
     purchasing: enPurchasing,

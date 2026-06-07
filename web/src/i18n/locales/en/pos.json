@@ -10,18 +10,20 @@
     "nav_register": "Point of sale",
     "nav_close": "Close shift",
     "nav_invoices": "Invoices",
-    "change_terminal": "Change terminal"
+    "change_terminal": "Change device",
+    "device_fallback": "Device #{{id}}"
   },
   "gate": {
-    "select_terminal": "Select terminal",
-    "no_terminals": "No terminals for this branch.",
+    "select_terminal": "Select device",
+    "no_terminals": "No devices for this branch.",
+    "device_fallback": "Device {{id}}",
     "open_shift": "Open shift",
     "opening_float": "Opening float",
     "shift_open": "Shift is open",
     "go_register": "Go to register",
     "opened_at": "Opened at {{at}}",
-    "start_hint": "Select a terminal and open the shift, then move to the register to manage the cart and tender.",
-    "branch_hint": "Terminals and invoices follow the active branch on your account."
+    "start_hint": "Select a device and open the shift, then move to the register to manage the cart and tender.",
+    "branch_hint": "Devices and invoices follow the active branch on your account."
   },
   "register": {
     "need_shift": "Open a shift from the shift screen first.",
@@ -35,6 +37,7 @@
     "loading_cart_stuck_action": "Try again",
     "loading_shift": "Checking the active shift…",
     "cart_error_title": "Could not prepare the cart",
+    "cart_error_hint": "Please check your network connection and try again.",
     "shift_error_title": "Could not load the active shift",
     "retry_cart": "Retry",
     "new_cart": "New cart",
@@ -72,6 +75,9 @@
     "discount_code_placeholder": "e.g. SUMMER10",
     "discount_tab_code": "Promotion code",
     "discount_tab_loyalty": "Loyalty points",
+    "discount_tab_flat": "Flat amount",
+    "discount_flat_amount": "Discount amount",
+    "discount_flat_placeholder": "e.g. 10.00",
     "discount_loyalty_no_customer": "Select an active customer on the cart to redeem loyalty points.",
     "discount_loyalty_balance": "Available points: {{balance}}",
     "discount_loyalty_points": "Points to redeem",
@@ -106,6 +112,26 @@
     "add_customer_close": "Close",
     "add_customer_use_cart": "Attach to cart",
     "add_customer_error": "Could not create customer"
+  },
+  "proforma": {
+    "title": "Proforma invoice",
+    "product": "Product",
+    "variant": "Variant",
+    "variant_placeholder": "Select variant",
+    "qty": "Quantity",
+    "unit_price": "Unit price",
+    "line_total": "Line total",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "total": "Total",
+    "add_line": "Add line",
+    "remove_line": "Remove line",
+    "export_pdf": "Export PDF",
+    "export_excel": "Export Excel",
+    "export_pdf_ok": "PDF downloaded",
+    "export_excel_ok": "Excel file downloaded",
+    "close": "Close",
+    "quote_error": "Could not calculate prices"
   },
   "pending": {
     "title": "Pending invoices",

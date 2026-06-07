@@ -6,6 +6,7 @@ import { useParams } from 'react-router-dom';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -14,18 +15,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { usePermission } from '@/hooks/usePermission';
 import { inclusiveCalendarDaySpan } from '@/lib/date';
 
 import type { LeaveRequestRead } from '../../api';
 import { formatVacationBalanceRemaining } from '../../lib/leaveBalanceDisplay';
+import { leaveReviewerDisplay } from '../../lib/leaveReviewerDisplay';
 import { leaveListQueryOptions } from '../../queries';
+import LeaveApproveDrawer from '../leave/LeaveApproveDrawer';
 
 export default function EmployeeLeave() {
   const { id } = useParams<{ id: string }>();
   const employeeId = Number(id);
   const { t } = useTranslation('hr');
+  const canApprove = usePermission('employees', 'approve');
 
   const [status, setStatus] = useState<string>('all');
+  const [sel, setSel] = useState<LeaveRequestRead | null>(null);
+  const [open, setOpen] = useState(false);
 
   const { data: leaves = [], isLoading } = useQuery({
     ...leaveListQueryOptions({
@@ -91,19 +98,39 @@ export default function EmployeeLeave() {
         {
           id: 'reviewed',
           header: t('leave.col.reviewed_by'),
+          cell: ({ row }) => leaveReviewerDisplay(row.original),
+        },
+        {
+          id: 'act',
+          header: t('leave.col.actions'),
+          enableGlobalFilter: false,
           cell: ({ row }) =>
-            row.original.reviewed_by_user_id ? `User #${row.original.reviewed_by_user_id}` : '—',
+            canApprove && row.original.status === 'pending' ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setSel(row.original);
+                  setOpen(true);
+                }}
+              >
+                {t('leave.review')}
+              </Button>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {t(`leave.st.${row.original.status}`, { defaultValue: row.original.status })}
+              </span>
+            ),
         },
       ]),
-    [t],
+    [canApprove, t],
   );
 
-  // Stats
   const stats = useMemo(() => {
     const total = leaves.length;
-    const pending = leaves.filter(l => l.status === 'pending').length;
-    const approved = leaves.filter(l => l.status === 'approved').length;
-    const rejected = leaves.filter(l => l.status === 'rejected').length;
+    const pending = leaves.filter((l) => l.status === 'pending').length;
+    const approved = leaves.filter((l) => l.status === 'approved').length;
+    const rejected = leaves.filter((l) => l.status === 'rejected').length;
     return { total, pending, approved, rejected };
   }, [leaves]);
 
@@ -154,6 +181,7 @@ export default function EmployeeLeave() {
         isLoading={isLoading}
         emptyState={<p className="text-sm text-muted-foreground">{t('leave.empty')}</p>}
       />
+      <LeaveApproveDrawer open={open} onOpenChange={setOpen} leave={sel} />
     </div>
   );
 }

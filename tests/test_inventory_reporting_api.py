@@ -23,6 +23,34 @@ async def test_stock_on_hand_accepts_high_limit(
 
 @pytest.mark.core
 @pytest.mark.asyncio
+async def test_stock_finder_requires_query(
+    client: AsyncClient,
+    admin_auth_header: dict[str, str],
+) -> None:
+    resp = await client.get(
+        "/api/v1/inventory/stock-finder",
+        headers=admin_auth_header,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.core
+@pytest.mark.asyncio
+async def test_stock_finder_returns_list(
+    client: AsyncClient,
+    admin_auth_header: dict[str, str],
+) -> None:
+    resp = await client.get(
+        "/api/v1/inventory/stock-finder",
+        params={"q": "test", "limit": 5},
+        headers=admin_auth_header,
+    )
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
+
+
+@pytest.mark.core
+@pytest.mark.asyncio
 async def test_reorder_alerts_list_route(
     client: AsyncClient,
     admin_auth_header: dict[str, str],

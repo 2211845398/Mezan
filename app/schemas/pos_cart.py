@@ -39,15 +39,19 @@ class VariantAttributeTagRead(BaseModel):
 
 
 class CartDiscountRequest(BaseModel):
-    mode: Literal["code", "loyalty"] = Field(default="code")
+    mode: Literal["code", "loyalty", "flat"] = Field(default="code")
     code: str | None = Field(default=None, max_length=64)
     loyalty_points: int | None = Field(default=None, ge=1)
+    amount: Decimal | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def _validate_mode(self) -> CartDiscountRequest:
         if self.mode == "loyalty":
             if self.loyalty_points is None:
                 raise ValueError("loyalty_points is required when mode is loyalty")
+        elif self.mode == "flat":
+            if self.amount is None:
+                raise ValueError("amount is required when mode is flat")
         else:
             if not self.code or not str(self.code).strip():
                 raise ValueError("code is required when mode is code")

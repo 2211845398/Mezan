@@ -31,6 +31,8 @@ export type AuthUser = {
   avatar_url: string | null;
   last_login_at: string | null;
   employee_profile_id?: number | null;
+  must_change_password?: boolean;
+  two_factor_enabled?: boolean;
 };
 
 export type AuthStatus = 'idle' | 'booting' | 'authenticated' | 'unauthenticated';

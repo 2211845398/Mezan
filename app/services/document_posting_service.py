@@ -624,6 +624,55 @@ async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> N
     )
 
 
+def build_payslip_approved_journal_lines(
+    *,
+    gross: Decimal,
+    deductions: Decimal,
+    net: Decimal,
+    salary_expense_account_id: int,
+    deductions_payable_account_id: int,
+    payroll_liability_account_id: int,
+    branch_id: int,
+) -> list[dict]:
+    """Dr salary expense (gross), Cr deductions payable + payroll liability (net).
+
+    Zero-amount lines are omitted — the ledger rejects lines with both debit and credit at 0.
+    """
+    gross_q = q2(gross)
+    ded = q2(deductions)
+    net_q = q2(net)
+    lines: list[dict] = [
+        {
+            "account_id": salary_expense_account_id,
+            "branch_id": branch_id,
+            "debit": gross_q,
+            "credit": Decimal("0"),
+            "memo": "Salary expense",
+        },
+    ]
+    if ded > 0:
+        lines.append(
+            {
+                "account_id": deductions_payable_account_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": ded,
+                "memo": "Deductions payable",
+            }
+        )
+    if net_q > 0:
+        lines.append(
+            {
+                "account_id": payroll_liability_account_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": net_q,
+                "memo": "Net payroll payable",
+            }
+        )
+    return lines
+
+
 async def post_payslip_approved_gl(db: AsyncSession, *, payslip: Payslip, branch_id: int) -> None:
     """Dr salary expense (gross), Cr deductions payable + payroll liability (net)."""
     settings = await get_accounting_settings(db)
@@ -632,35 +681,26 @@ async def post_payslip_approved_gl(db: AsyncSession, *, payslip: Payslip, branch
     net = q2(payslip.net_amount)
     if gross <= 0:
         return
+    if gross != q2(ded + net):
+        raise ValidationError(
+            "Payslip GL amounts are unbalanced",
+            details={
+                "code": "payroll_unbalanced_payslip",
+                "gross_amount": str(gross),
+                "deductions": str(ded),
+                "net_amount": str(net),
+            },
+        )
 
     entry_date = payslip.period_end
-    lines = [
-        {
-            "account_id": settings.default_salary_expense_account_id,
-            "branch_id": branch_id,
-            "debit": gross,
-            "credit": Decimal("0"),
-            "memo": "Salary expense",
-        },
-    ]
-    if ded > 0:
-        lines.append(
-            {
-                "account_id": settings.default_payroll_deductions_payable_account_id,
-                "branch_id": branch_id,
-                "debit": Decimal("0"),
-                "credit": ded,
-                "memo": "Deductions payable",
-            }
-        )
-    lines.append(
-        {
-            "account_id": settings.default_payroll_liability_account_id,
-            "branch_id": branch_id,
-            "debit": Decimal("0"),
-            "credit": net,
-            "memo": "Net payroll payable",
-        }
+    lines = build_payslip_approved_journal_lines(
+        gross=gross,
+        deductions=ded,
+        net=net,
+        salary_expense_account_id=settings.default_salary_expense_account_id,
+        deductions_payable_account_id=settings.default_payroll_deductions_payable_account_id,
+        payroll_liability_account_id=settings.default_payroll_liability_account_id,
+        branch_id=branch_id,
     )
 
     await post_journal_entry(

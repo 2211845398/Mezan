@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -186,23 +185,18 @@ export default function CurrenciesPage() {
       <PageHeader
         title={t('currencies.title')}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" asChild>
-              <Link to="/accounting/operations">{t('currencies.link_fx')}</Link>
+          canUpdate ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setAddKey((k) => k + 1);
+                setAddOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              {t('currencies.add')}
             </Button>
-            {canUpdate ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  setAddKey((k) => k + 1);
-                  setAddOpen(true);
-                }}
-              >
-                <Plus className="size-4" />
-                {t('currencies.add')}
-              </Button>
-            ) : null}
-          </div>
+          ) : null
         }
       />
 

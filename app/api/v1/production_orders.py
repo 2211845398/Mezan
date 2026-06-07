@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.bom import BillOfMaterials
+from app.models.branch import Branch
 from app.models.product import Product
 from app.models.users import User
 from app.schemas.production_orders import (
@@ -18,6 +19,7 @@ from app.schemas.production_orders import (
     BomLineCreateRequest,
     BomLineRead,
     BomPatchRequest,
+    ProductionOrderCompleteRequest,
     ProductionOrderCreateRequest,
     ProductionOrderRead,
 )
@@ -33,7 +35,9 @@ from app.services.bom_service import (
 from app.services.production_order_service import (
     calculate_bom_cost,
     create_production_order,
+    get_production_order,
     issue_materials,
+    list_production_orders,
     receive_finished_goods,
 )
 
@@ -58,6 +62,17 @@ def _bom_to_read(bom: BillOfMaterials, names: dict[int, str]) -> BillOfMaterials
         notes=bom.notes,
         created_at=bom.created_at,
     )
+
+
+async def _order_to_read(db: AsyncSession, order) -> ProductionOrderRead:
+    bom_res = await db.execute(select(BillOfMaterials).where(BillOfMaterials.id == order.bom_id))
+    bom = bom_res.scalar_one_or_none()
+    branch_res = await db.execute(select(Branch).where(Branch.id == order.branch_id))
+    branch = branch_res.scalar_one_or_none()
+    data = ProductionOrderRead.model_validate(order).model_dump()
+    data["bom_name"] = bom.name if bom else ""
+    data["branch_name"] = branch.name if branch else ""
+    return ProductionOrderRead(**data)
 
 
 @router.post(
@@ -243,6 +258,33 @@ async def add_bom_line_endpoint(
     )
 
 
+@router.get("/production/orders", response_model=list[ProductionOrderRead])
+async def list_production_orders_endpoint(
+    branch_id: int | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("production_orders", "read"),
+) -> list[ProductionOrderRead]:
+    orders = await list_production_orders(
+        db, branch_id=branch_id, status=status, limit=limit, offset=offset
+    )
+    return [await _order_to_read(db, o) for o in orders]
+
+
+@router.get("/production/orders/{order_id}", response_model=ProductionOrderRead)
+async def get_production_order_endpoint(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("production_orders", "read"),
+) -> ProductionOrderRead:
+    order = await get_production_order(db, production_order_id=order_id)
+    return await _order_to_read(db, order)
+
+
 @router.post(
     "/production/orders",
     response_model=ProductionOrderRead,
@@ -275,7 +317,7 @@ async def create_production_order_endpoint(
         request=request,
     )
     await db.commit()
-    return ProductionOrderRead.model_validate(order)
+    return await _order_to_read(db, order)
 
 
 @router.post(
@@ -306,7 +348,7 @@ async def issue_materials_endpoint(
         request=request,
     )
     await db.commit()
-    return ProductionOrderRead.model_validate(order)
+    return await _order_to_read(db, order)
 
 
 @router.post(
@@ -315,6 +357,7 @@ async def issue_materials_endpoint(
 )
 async def complete_production_order_endpoint(
     order_id: int,
+    body: ProductionOrderCompleteRequest,
     request: Request,
     idempotency_key: str = Query(..., description="Idempotency key for this operation"),
     db: AsyncSession = Depends(get_db),
@@ -327,6 +370,7 @@ async def complete_production_order_endpoint(
         production_order_id=order_id,
         idempotency_key=idempotency_key,
         user_id=current_user.id,
+        overhead_cost=body.overhead_cost,
     )
     await audit_service.log(
         session=db,
@@ -337,4 +381,4 @@ async def complete_production_order_endpoint(
         request=request,
     )
     await db.commit()
-    return ProductionOrderRead.model_validate(order)
+    return await _order_to_read(db, order)

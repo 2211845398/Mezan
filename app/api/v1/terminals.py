@@ -19,7 +19,7 @@ from app.schemas.terminal import (
 )
 from app.services import audit_service
 from app.services.branch_accounting_service import ensure_terminal_cash_account
-from app.services.branch_scope import require_branch_open_for_operations
+from app.services.branch_scope import require_commercial_branch_for_pos
 from app.utils.security import hash_token
 
 router = APIRouter()
@@ -58,7 +58,7 @@ async def create_terminal(
     _: None = require_permission("terminals", "create"),
 ) -> TerminalCreateResponse:
     """Register a new terminal; returns API key once. Requires terminals:create."""
-    await require_branch_open_for_operations(db, body.branch_id)
+    await require_commercial_branch_for_pos(db, body.branch_id)
     result = await db.execute(
         select(POSTerminal).where(POSTerminal.terminal_code == body.terminal_code)
     )
@@ -117,7 +117,7 @@ async def update_terminal(
     if not terminal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Terminal not found")
     if body.branch_id is not None:
-        await require_branch_open_for_operations(db, body.branch_id)
+        await require_commercial_branch_for_pos(db, body.branch_id)
     old_value = TerminalRead.model_validate(terminal).model_dump()
     if body.name is not None:
         terminal.name = body.name

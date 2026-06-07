@@ -105,6 +105,40 @@ class FiscalPeriodStatusUpdate(BaseModel):
     status: Literal["open", "soft_closed", "closed"]
 
 
+class FiscalPeriodSubledgerRow(BaseModel):
+    account_id: int
+    code: str
+    name: str
+    subledger_kind: str
+    line_count: int
+    total_debit: Decimal
+    total_credit: Decimal
+    net: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class FiscalPeriodDetailRead(BaseModel):
+    id: int
+    period_key: str
+    period_start: date
+    period_end: date
+    status: Literal["open", "soft_closed", "closed"]
+    closed_at: datetime | None = None
+    closed_by_user_id: int | None = None
+    closed_by_name: str | None = None
+    can_post: bool
+    posting_reason: str
+    trial_balance: list[TrialBalanceRow] = Field(default_factory=list)
+    subledger_activity: list[FiscalPeriodSubledgerRow] = Field(default_factory=list)
+    ar_open_items_count: int = 0
+    ar_open_amount: Decimal = Decimal("0")
+    ap_open_items_count: int = 0
+    ap_open_amount: Decimal = Decimal("0")
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
 class JournalReversalRequest(BaseModel):
     reversal_date: date | None = None
     reason: str | None = Field(default=None, max_length=255)

@@ -109,6 +109,82 @@ export async function getSalesInvoicesRegister(params: {
   return data;
 }
 
+export async function exportSalesRegisterPdfBlob(params: {
+  branch_id: number;
+  period_start: string;
+  period_end: string;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/sales-invoices/register/export.pdf', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportSalesRegisterXlsxBlob(params: {
+  branch_id: number;
+  period_start: string;
+  period_end: string;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/sales-invoices/register/export.xlsx', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportDailySalesSummaryPdfBlob(params: {
+  period_start: string;
+  period_end: string;
+  branch_id?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/sales-invoices/daily-summary/export.pdf', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportDailySalesSummaryXlsxBlob(params: {
+  period_start: string;
+  period_end: string;
+  branch_id?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/sales-invoices/daily-summary/export.xlsx', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportSalesInvoicePdfBlob(invoiceId: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/sales-invoices/${invoiceId}/export.pdf`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportSalesInvoiceXlsxBlob(invoiceId: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/sales-invoices/${invoiceId}/export.xlsx`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportCreditNotePdfBlob(creditNoteId: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/credit-notes/${creditNoteId}/export.pdf`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportCreditNoteXlsxBlob(creditNoteId: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/credit-notes/${creditNoteId}/export.xlsx`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
 export async function postMarketingAdvisory(body: MarketingAdvisoryRequest): Promise<MarketingAdvisoryResponse> {
   const { data } = await apiClient.post<MarketingAdvisoryResponse>(
     '/marketing/advisory/suggestions',

@@ -52,6 +52,14 @@ export default function BranchesList() {
         { id: 'code', accessorKey: 'code', header: t('branches.col.code') },
         { id: 'name', accessorKey: 'name', header: t('branches.col.name') },
         {
+          id: 'kind',
+          header: t('branches.col.kind'),
+          cell: ({ row }) =>
+            row.original.kind === 'warehouse'
+              ? t('branches.kind.warehouse')
+              : t('branches.kind.commercial'),
+        },
+        {
           id: 'archived',
           header: t('branches.col.state'),
           cell: ({ row }) => (row.original.archived_at ? t('branches.state.archived') : t('branches.state.active')),
@@ -160,6 +168,7 @@ export default function BranchesList() {
                 code: v.code,
                 timezone: v.timezone,
                 address: v.address == null ? null : v.address,
+                kind: v.kind,
               });
               notify.success(tc('toasts.saved'));
               setFormOpen(false);
@@ -168,6 +177,7 @@ export default function BranchesList() {
                 name: v.name,
                 address: v.address == null ? null : v.address,
                 timezone: v.timezone,
+                kind: v.kind,
               });
               notify.success(tc('toasts.saved'));
               setFormOpen(false);

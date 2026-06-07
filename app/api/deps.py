@@ -14,11 +14,21 @@ from app.db.database import get_db
 from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
+from app.services.auth_service import ACTIVE_STATUS, AWAITING_VERIFICATION_STATUS, LOGIN_ALLOWED_STATUSES
 from app.services.effective_permissions import load_user_effective_permissions
 from app.utils.security import decode_token
 
 security = HTTPBearer(auto_error=False)
 PERMISSION_DEPENDENCY_MARKER = "__mezan_required_permission__"
+
+_RESTRICTED_SESSION_PATHS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("POST", "/api/v1/auth/change-password-required"),
+        ("POST", "/api/v1/auth/logout"),
+        ("GET", "/api/v1/auth/me"),
+        ("PATCH", "/api/v1/auth/me"),
+    }
+)
 
 
 def get_settings() -> Settings:
@@ -26,7 +36,22 @@ def get_settings() -> Settings:
     return app_settings
 
 
+def _path_requires_full_session(request: Request, user: User) -> bool:
+    if user.must_change_password:
+        return True
+    if user.status == AWAITING_VERIFICATION_STATUS:
+        return True
+    if user.status != ACTIVE_STATUS:
+        return True
+    return False
+
+
+def _is_restricted_session_allowed(request: Request) -> bool:
+    return (request.method.upper(), request.url.path) in _RESTRICTED_SESSION_PATHS
+
+
 async def get_current_user_optional(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> User | None:
@@ -48,8 +73,13 @@ async def get_current_user_optional(
         return None
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if not user or user.status != "active":
+    if not user or user.status not in LOGIN_ALLOWED_STATUSES:
         return None
+    if _path_requires_full_session(request, user) and not _is_restricted_session_allowed(request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="password_change_required",
+        )
     return user
 
 
@@ -83,6 +113,11 @@ async def get_current_user_permissions_cached(
     user: User = Depends(get_current_user),
 ) -> set[tuple[str, str]]:
     """Load effective permissions once per HTTP request (request.state memoization)."""
+    if _path_requires_full_session(request, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="password_change_required",
+        )
     cache_key = f"{_PERMISSIONS_STATE_PREFIX}{user.id}"
     cached = getattr(request.state, cache_key, None)
     if cached is not None:

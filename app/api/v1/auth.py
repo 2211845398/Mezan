@@ -25,7 +25,10 @@ from app.schemas.auth import (
     PasswordResetRequest,
     ProfileUpdate,
     RefreshRequest,
+    RequiredPasswordChangeRequest,
     TokenResponse,
+    TwoFactorToggleRequest,
+    TwoFactorVerifyRequest,
 )
 from app.schemas.users import UserRead
 from app.services import auth_service
@@ -39,6 +42,7 @@ LOGOUT_RATE_LIMIT = "20/minute"
 SSO_RATE_LIMIT = "10/minute"
 PASSWORD_RESET_REQUEST_RATE_LIMIT = "100/hour" if settings.is_development else "5/hour"
 PASSWORD_RESET_CONFIRM_RATE_LIMIT = "30/hour" if settings.is_development else "10/hour"
+TWO_FACTOR_VERIFY_RATE_LIMIT = "15/minute"
 AVATAR_UPLOAD_RATE_LIMIT = "20/minute"
 
 
@@ -122,6 +126,83 @@ async def password_reset_request(
     """Request password reset; emails a reset link if the account exists."""
     await auth_service.request_password_reset(db, body.email)
     return {"message": "If the email exists, a reset link has been sent."}
+
+
+@router.post("/auth/change-password-required", response_model=UserRead)
+@limiter.limit(PASSWORD_RESET_CONFIRM_RATE_LIMIT)
+async def change_password_required(
+    request: Request,
+    body: RequiredPasswordChangeRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> UserRead:
+    """Mandatory password change after HR onboarding verification."""
+    try:
+        user = await auth_service.change_required_password(
+            db,
+            user,
+            current_password=body.current_password,
+            new_password=body.new_password,
+        )
+    except ValueError as exc:
+        code = str(exc)
+        if code == "invalid_current_password":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+        if code == "password_change_not_required":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password change is not required",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=code)
+    return UserRead.model_validate(user)
+
+
+@router.post("/auth/2fa/verify", response_model=LoginResponse)
+@limiter.limit(TWO_FACTOR_VERIFY_RATE_LIMIT)
+async def verify_two_factor(
+    request: Request,
+    body: TwoFactorVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+) -> LoginResponse:
+    """Complete login with email OTP after primary credentials."""
+    try:
+        result = await auth_service.verify_two_factor_login(
+            db,
+            challenge_token=body.challenge_token,
+            code=body.code,
+        )
+        return LoginResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+
+
+@router.patch("/auth/me/two-factor", response_model=UserRead)
+async def toggle_two_factor(
+    body: TwoFactorToggleRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> UserRead:
+    """Enable or disable email two-factor authentication."""
+    from app.services.two_factor_service import set_two_factor_enabled
+
+    try:
+        user = await set_two_factor_enabled(
+            db,
+            user,
+            enabled=body.enabled,
+            current_password=body.current_password,
+        )
+    except ValueError as exc:
+        if str(exc) == "invalid_current_password":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return UserRead.model_validate(user)
 
 
 @router.post("/auth/password-reset/confirm")

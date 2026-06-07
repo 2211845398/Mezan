@@ -123,8 +123,8 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
   });
   const { data: suppliers = [] } = useQuery(suppliersPickerQueryOptions());
   const { data: branches = [] } = useQuery({
-    queryKey: adminKeys.branches(false),
-    queryFn: () => listBranches({ include_archived: false }),
+    queryKey: adminKeys.branches(false, 'warehouse'),
+    queryFn: () => listBranches({ include_archived: false, kind: 'warehouse' }),
   });
 
   const [supplierId, setSupplierId] = useState('');

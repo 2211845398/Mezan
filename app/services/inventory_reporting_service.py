@@ -20,7 +20,12 @@ from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
-from app.schemas.inventory_stock import StockOnHandRowRead
+from app.schemas.inventory_stock import (
+    StockFinderBranchBrief,
+    StockFinderBranchQty,
+    StockFinderResultRead,
+    StockOnHandRowRead,
+)
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
 from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 
@@ -303,6 +308,117 @@ async def list_stock_on_hand(
         out.sort(key=lambda r: (r.available, r.variant_sku or r.sku))
 
     return out
+
+
+STOCK_FINDER_MAX_RESULTS = 25
+STOCK_FINDER_FETCH_LIMIT = 500
+
+
+def _row_to_branch_qty(row: StockOnHandRowRead) -> StockFinderBranchQty:
+    return StockFinderBranchQty(
+        branch_id=row.branch_id,
+        branch_name=row.branch_name,
+        available=row.available,
+        on_hand=row.on_hand,
+        reserved=row.reserved,
+        damaged=row.damaged,
+        in_transit_in=row.in_transit_in,
+    )
+
+
+async def list_stock_finder_branches(db: AsyncSession) -> list[StockFinderBranchBrief]:
+    """Active branches for mobile stock finder (no ``branches:read`` required)."""
+    result = await db.execute(
+        select(Branch.id, Branch.name, Branch.code)
+        .where(Branch.is_active.is_(True), Branch.archived_at.is_(None))
+        .order_by(Branch.name.asc())
+    )
+    return [
+        StockFinderBranchBrief(id=int(row.id), name=row.name, code=row.code)
+        for row in result.all()
+    ]
+
+
+async def stock_finder(
+    db: AsyncSession,
+    *,
+    q: str,
+    current_branch_id: int | None = None,
+    current_branch_name: str | None = None,
+    limit: int = STOCK_FINDER_MAX_RESULTS,
+) -> list[StockFinderResultRead]:
+    """Group stock-on-hand rows by variant for mobile floor lookup."""
+    query = q.strip()
+    if not query:
+        return []
+
+    rows = await list_stock_on_hand(
+        db,
+        q=query,
+        limit=STOCK_FINDER_FETCH_LIMIT,
+        offset=0,
+    )
+    if not rows:
+        return []
+
+    by_variant: dict[int, list[StockOnHandRowRead]] = defaultdict(list)
+    for row in rows:
+        by_variant[row.variant_id].append(row)
+
+    results: list[StockFinderResultRead] = []
+    safe_limit = min(max(limit, 1), STOCK_FINDER_MAX_RESULTS)
+
+    for branch_rows in by_variant.values():
+        sample = branch_rows[0]
+        current: StockFinderBranchQty | None = None
+        others: list[StockFinderBranchQty] = []
+
+        for row in branch_rows:
+            qty = _row_to_branch_qty(row)
+            if current_branch_id is not None and row.branch_id == current_branch_id:
+                current = qty
+            else:
+                others.append(qty)
+
+        if current_branch_id is not None and current is None:
+            name = current_branch_name or ""
+            if not name:
+                br = await db.get(Branch, current_branch_id)
+                name = br.name if br else ""
+            current = StockFinderBranchQty(
+                branch_id=current_branch_id,
+                branch_name=name,
+                available=0,
+                on_hand=0,
+                reserved=0,
+                damaged=0,
+                in_transit_in=0,
+            )
+
+        others.sort(key=lambda b: (-b.available, b.branch_name.lower()))
+
+        results.append(
+            StockFinderResultRead(
+                product_id=sample.product_id,
+                variant_id=sample.variant_id,
+                product_name=sample.product_name,
+                variant_name=sample.variant_name or sample.product_name,
+                sku=sample.sku,
+                variant_sku=sample.variant_sku,
+                barcode=sample.reference_code,
+                current_branch=current,
+                other_branches=others,
+            )
+        )
+
+    def _sort_key(item: StockFinderResultRead) -> tuple[int, int, str]:
+        cur = item.current_branch.available if item.current_branch else -1
+        max_other = max((b.available for b in item.other_branches), default=0)
+        best = cur if cur >= 0 else max_other
+        return (-best, -cur if cur >= 0 else 0, item.product_name.lower())
+
+    results.sort(key=_sort_key)
+    return results[:safe_limit]
 
 
 async def list_stock_movements_with_names(

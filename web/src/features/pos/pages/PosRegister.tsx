@@ -521,7 +521,7 @@ function RegisterSession({
 }
 
 export default function PosRegister() {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
   const { t: tc } = useTranslation('common');
   const user = useAuthStore((s) => s.user);
   const activeBranchId = useAuthStore((s) => s.activeBranchId ?? user?.branch_id ?? null);
@@ -552,7 +552,7 @@ export default function PosRegister() {
       if (!shift?.id || !terminalId) return;
       if (creatingCartRef.current) return;
       creatingCartRef.current = true;
-      setCartCreateError(null);
+      setCartBootstrapFailed(false);
       try {
         const c = await withTimeout(
           createCartMutRef.current.mutateAsync({
@@ -567,16 +567,15 @@ export default function PosRegister() {
         if (opts?.dropDetailFor != null) {
           qc.removeQueries({ queryKey: cartKeys.detail(opts.dropDetailFor) });
         }
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        setCartCreateError(message);
+      } catch {
+        setCartBootstrapFailed(true);
         setActiveCartId(null);
-        notify.error(message);
+        notify.error(t('register.cart_error_hint'));
       } finally {
         creatingCartRef.current = false;
       }
     },
-    [qc, setActiveCartId, shift?.id, tc, terminalId],
+    [qc, setActiveCartId, shift?.id, t, tc, terminalId],
   );
 
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -584,7 +583,7 @@ export default function PosRegister() {
   const [receiptCredit, setReceiptCredit] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnExchangeSession, setReturnExchangeSession] = useState<ReturnExchangeSession | null>(null);
-  const [cartCreateError, setCartCreateError] = useState<string | null>(null);
+  const [cartBootstrapFailed, setCartBootstrapFailed] = useState(false);
   const [cartRetryNonce, setCartRetryNonce] = useState(0);
 
   // Parked invoices dialog — lifted so both toolbar and totals column can open it
@@ -608,7 +607,7 @@ export default function PosRegister() {
   useEffect(() => {
     if (!shift?.id || !terminalId) return;
     if (activeCartId != null) return;
-    if (cartCreateError || creatingCartRef.current) return;
+    if (cartBootstrapFailed || creatingCartRef.current) return;
     let cancelled = false;
     creatingCartRef.current = true;
     void (async () => {
@@ -623,10 +622,9 @@ export default function PosRegister() {
           tc('errors.request_timeout'),
         );
         if (!cancelled) setActiveCartId(c.id);
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        if (!cancelled) setCartCreateError(message);
-        notify.error(message);
+      } catch {
+        if (!cancelled) setCartBootstrapFailed(true);
+        notify.error(t('register.cart_error_hint'));
       } finally {
         creatingCartRef.current = false;
       }
@@ -638,9 +636,10 @@ export default function PosRegister() {
     shift?.id,
     terminalId,
     activeCartId,
-    cartCreateError,
+    cartBootstrapFailed,
     cartRetryNonce,
     setActiveCartId,
+    t,
     tc,
   ]);
 
@@ -691,7 +690,7 @@ export default function PosRegister() {
 
   function resetCartAndRetry() {
     creatingCartRef.current = false;
-    setCartCreateError(null);
+    setCartBootstrapFailed(false);
     setActiveCartId(null);
     setCartRetryNonce((n) => n + 1);
   }
@@ -718,6 +717,7 @@ export default function PosRegister() {
 
   return (
     <div
+      dir={i18n.dir()}
       data-return-mode={returnExchangeSession ? 'exchange' : undefined}
       className={`flex h-full min-h-0 w-full min-w-0 flex-col gap-2 px-2 py-2 transition-colors duration-200 sm:gap-3 sm:px-3 sm:py-3 ${
         returnExchangeSession
@@ -764,11 +764,11 @@ export default function PosRegister() {
             }}
             canReturn={canReturn}
           />
-        ) : cartCreateError ? (
+        ) : cartBootstrapFailed ? (
           <div className="flex min-h-0 flex-1 items-center justify-center">
             <div className="w-full max-w-md rounded-2xl border bg-card p-6 text-center shadow-sm">
               <h2 className="text-lg font-semibold">{t('register.cart_error_title')}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{cartCreateError}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t('register.cart_error_hint')}</p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 <Button type="button" onClick={resetCartAndRetry}>
                   {t('register.retry_cart')}

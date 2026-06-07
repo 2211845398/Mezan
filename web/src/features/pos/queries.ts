@@ -322,23 +322,94 @@ export function useAddLine(cartId: number) {
 
 type LineQtyVars = { line_id: number; product_id: number; variant_id: number; qty: number };
 
+type LineUomVars = {
+  product_id: number;
+  variant_id: number;
+  qty: number;
+  uom_id: number;
+};
+
+function parseUomFactor(raw: string | undefined): number {
+  const n = Number.parseFloat(raw ?? '1');
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
 export function useChangeLineUom(cartId: number) {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (variables: {
-      product_id: number;
-      variant_id: number;
-      qty: number;
-      uom_id: number;
-    }) =>
+  return createOptimisticMutation<CartRead, LineUomVars, CartRead | undefined>({
+    mutationFn: async (variables, _idempotencyKey) =>
       addCartLine(cartId, {
         product_id: variables.product_id,
         variant_id: variables.variant_id,
         qty: variables.qty,
         uom_id: variables.uom_id,
       }),
+    getSnapshot: (client) => client.getQueryData(cartKeys.detail(cartId)),
+    applyOptimistic: (client, variables) => {
+      const prev = client.getQueryData<CartRead>(cartKeys.detail(cartId));
+      if (!prev?.lines) return;
+
+      const linesAfterUom = prev.lines.map((ln) => {
+        const lnVariant = (ln as { variant_id?: number }).variant_id ?? 0;
+        if (ln.product_id !== variables.product_id || lnVariant !== variables.variant_id) {
+          return ln;
+        }
+
+        const uomOpts =
+          (
+            ln as {
+              available_uoms?: { uom_id: number; factor_to_base?: string; code?: string; symbol?: string }[];
+            }
+          ).available_uoms ?? [];
+        const oldUomId = (ln as { uom_id?: number }).uom_id;
+        const oldFactor = parseUomFactor(
+          uomOpts.find((o) => o.uom_id === oldUomId)?.factor_to_base,
+        );
+        const newFactor = parseUomFactor(
+          uomOpts.find((o) => o.uom_id === variables.uom_id)?.factor_to_base,
+        );
+
+        const oldQty = Number(ln.qty);
+        const baseUnits = oldQty * oldFactor;
+        const newQty =
+          newFactor > 0 ? Math.max(1, Math.floor(baseUnits / newFactor)) : variables.qty;
+
+        const oldUnitPrice = Number.parseFloat(String(ln.unit_price));
+        const baseUnitPrice = oldUnitPrice / oldFactor;
+        const newUnitPrice = baseUnitPrice * newFactor;
+
+        const newOpt = uomOpts.find((o) => o.uom_id === variables.uom_id);
+
+        return {
+          ...ln,
+          uom_id: variables.uom_id,
+          ...(newOpt?.code != null ? { uom_code: newOpt.code } : {}),
+          ...(newOpt?.symbol != null ? { uom_symbol: newOpt.symbol } : {}),
+          qty: newQty,
+          unit_price: newUnitPrice.toFixed(2),
+        };
+      });
+
+      const r = recalcApproxCartTotals(prev, linesAfterUom);
+      client.setQueryData(cartKeys.detail(cartId), { ...prev, ...r });
+    },
+    rollback: (client, snap) => {
+      if (snap !== undefined) client.setQueryData(cartKeys.detail(cartId), snap);
+    },
+  })({
     onSuccess: (data) => {
-      qc.setQueryData(cartKeys.detail(cartId), data);
+      qc.setQueryData(cartKeys.detail(cartId), (current: CartRead | undefined) => {
+        if (!current) return data;
+        if (current.status !== 'active') {
+          return current;
+        }
+        const stillPending = pendingOptimisticLinesAfterMerge(current.lines, data.lines);
+        const mergedLines = [...(data.lines ?? []), ...stillPending].filter(
+          (l) => Number(l.qty) > 0,
+        );
+        const r = recalcApproxCartTotals(data, mergedLines);
+        return { ...data, ...r, lines: r.lines };
+      });
     },
   });
 }

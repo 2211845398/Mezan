@@ -60,8 +60,8 @@ export const adminKeys = {
   roles: () => [...adminKeys.all, 'roles'] as const,
   roleList: () => [...adminKeys.roles(), 'list'] as const,
   permissions: () => [...adminKeys.all, 'permissions'] as const,
-  branches: (includeArchived: boolean) =>
-    [...adminKeys.all, 'branches', { includeArchived }] as const,
+  branches: (includeArchived: boolean, kind?: 'commercial' | 'warehouse') =>
+    [...adminKeys.all, 'branches', { includeArchived, kind: kind ?? 'all' }] as const,
   branchDetail: (id: number) => [...adminKeys.all, 'branch', id] as const,
   terminals: (branchId?: number) => [...adminKeys.all, 'terminals', { branchId }] as const,
   backups: () => [...adminKeys.all, 'backups'] as const,
@@ -151,10 +151,18 @@ export function usePermissions(options?: { enabled?: boolean }) {
   });
 }
 
-export function useBranches(includeArchived: boolean, options?: { enabled?: boolean }) {
+export function useBranches(
+  includeArchived: boolean,
+  options?: { enabled?: boolean; kind?: 'commercial' | 'warehouse' },
+) {
+  const kind = options?.kind;
   return useQuery({
-    queryKey: adminKeys.branches(includeArchived),
-    queryFn: () => listBranches({ include_archived: includeArchived }),
+    queryKey: adminKeys.branches(includeArchived, kind),
+    queryFn: () =>
+      listBranches({
+        include_archived: includeArchived,
+        ...(kind ? { kind } : {}),
+      }),
     enabled: options?.enabled ?? true,
   });
 }

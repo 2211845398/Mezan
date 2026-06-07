@@ -71,6 +71,113 @@ async def trial_balance(
     return rows
 
 
+async def trial_balance_for_period(
+    db: AsyncSession,
+    *,
+    period_start: date,
+    period_end: date,
+    branch_id: int | None = None,
+) -> list[dict]:
+    """Per-account debit/credit totals for entry_date within [period_start, period_end]."""
+    stmt = (
+        select(
+            JournalEntryLine.account_id,
+            ChartAccount.code,
+            ChartAccount.name,
+            ChartAccount.account_type,
+            func.coalesce(func.sum(JournalEntryLine.debit), 0).label("total_debit"),
+            func.coalesce(func.sum(JournalEntryLine.credit), 0).label("total_credit"),
+        )
+        .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+        .join(ChartAccount, ChartAccount.id == JournalEntryLine.account_id)
+        .where(JournalEntry.entry_date >= period_start)
+        .where(JournalEntry.entry_date <= period_end)
+    )
+    if branch_id is not None:
+        stmt = stmt.where(JournalEntryLine.branch_id == branch_id)
+    stmt = stmt.group_by(
+        JournalEntryLine.account_id,
+        ChartAccount.code,
+        ChartAccount.name,
+        ChartAccount.account_type,
+    ).order_by(ChartAccount.code)
+    res = await db.execute(stmt)
+    rows = []
+    for r in res.all():
+        dr = q2(r.total_debit)
+        cr = q2(r.total_credit)
+        at = r.account_type
+        at_s = at.value if isinstance(at, AccountType) else str(at)
+        rows.append(
+            {
+                "account_id": r.account_id,
+                "code": r.code,
+                "name": r.name,
+                "account_type": at_s,
+                "total_debit": dr,
+                "total_credit": cr,
+                "net": q2(dr - cr),
+            }
+        )
+    return rows
+
+
+async def subledger_activity_for_period(
+    db: AsyncSession,
+    *,
+    period_start: date,
+    period_end: date,
+    branch_id: int | None = None,
+) -> list[dict]:
+    """Sub-ledger accounts with journal activity in the period."""
+    from app.models.chart_accounts import SubledgerKind
+
+    stmt = (
+        select(
+            JournalEntryLine.account_id,
+            ChartAccount.code,
+            ChartAccount.name,
+            ChartAccount.subledger_kind,
+            func.count(JournalEntryLine.id).label("line_count"),
+            func.coalesce(func.sum(JournalEntryLine.debit), 0).label("total_debit"),
+            func.coalesce(func.sum(JournalEntryLine.credit), 0).label("total_credit"),
+        )
+        .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+        .join(ChartAccount, ChartAccount.id == JournalEntryLine.account_id)
+        .where(JournalEntry.entry_date >= period_start)
+        .where(JournalEntry.entry_date <= period_end)
+        .where(ChartAccount.subledger_kind != SubledgerKind.NONE)
+    )
+    if branch_id is not None:
+        stmt = stmt.where(JournalEntryLine.branch_id == branch_id)
+    stmt = stmt.group_by(
+        JournalEntryLine.account_id,
+        ChartAccount.code,
+        ChartAccount.name,
+        ChartAccount.subledger_kind,
+    ).order_by(ChartAccount.code)
+    res = await db.execute(stmt)
+    rows = []
+    for r in res.all():
+        dr = q2(r.total_debit)
+        cr = q2(r.total_credit)
+        sk = r.subledger_kind
+        sk_s = sk.value if isinstance(sk, SubledgerKind) else str(sk)
+        rows.append(
+            {
+                "account_id": r.account_id,
+                "code": r.code,
+                "name": r.name,
+                "subledger_kind": sk_s,
+                "line_count": int(r.line_count),
+                "total_debit": dr,
+                "total_credit": cr,
+                "net": q2(dr - cr),
+            }
+        )
+    return rows
+
+
 async def get_ledger_report(
     db: AsyncSession,
     *,

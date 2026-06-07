@@ -35,6 +35,7 @@
     "password_too_short": "Password must be at least 8 characters.",
     "user_status": {
       "pending_onboarding": "Pending onboarding",
+      "awaiting_verification": "Awaiting verification",
       "active": "Active",
       "deactivated": "Deactivated",
       "suspended": "Suspended",
@@ -115,7 +116,8 @@
       "CASHIER": "Cashier",
       "WAREHOUSE_MANAGER": "Warehouse manager",
       "MARKETING_MANAGER": "Marketing manager",
-      "FLOOR_STAFF": "Sales staff"
+      "FLOOR_STAFF": "Sales staff",
+      "ATTENDANCE_KIOSK": "Attendance QR device (non-employee account)"
     }
   },
   "branches": {
@@ -135,9 +137,14 @@
     "col": {
       "code": "Code",
       "name": "Name",
+      "kind": "Type",
       "timezone": "Timezone",
       "address": "Address",
       "state": "State"
+    },
+    "kind": {
+      "commercial": "Commercial",
+      "warehouse": "Warehouse"
     },
     "state": {
       "active": "Active",
@@ -145,11 +152,11 @@
     }
   },
   "terminals": {
-    "title": "Terminals",
-    "empty": "No terminals",
-    "create": "Register terminal",
-    "create_title": "Register terminal",
-    "edit_title": "Edit terminal",
+    "title": "POS devices",
+    "empty": "No devices",
+    "create": "Register POS device",
+    "create_title": "Register POS device",
+    "edit_title": "Edit POS device",
     "authorize": "Authorize",
     "deauthorize": "De-authorize",
     "last_seen": "Last seen",

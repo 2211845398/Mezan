@@ -3,7 +3,11 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isRouteErrorResponse, useNavigate, useRouteError } from 'react-router-dom';
 
-import { NotAuthenticatedError, PermissionDeniedError } from '@/api/errors';
+import {
+  NotAuthenticatedError,
+  PasswordChangeRequiredError,
+  PermissionDeniedError,
+} from '@/api/errors';
 import { env } from '@/config/env';
 
 /*
@@ -47,6 +51,9 @@ export default function RouteErrorBoundary() {
 
   if (error instanceof NotAuthenticatedError) {
     return <RedirectEffect to="/login" replace />;
+  }
+  if (error instanceof PasswordChangeRequiredError) {
+    return <RedirectEffect to="/change-password-required" replace />;
   }
   if (error instanceof PermissionDeniedError) {
     return <RedirectEffect to="/403" replace />;

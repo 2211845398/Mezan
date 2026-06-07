@@ -10,6 +10,7 @@ const LEGACY_MESSAGE_TO_CODE: Record<string, string> = {
     'payroll_negative_net',
   'Net amount cannot be negative': 'payroll_negative_net',
   'Net amount cannot be negative after recalculation': 'payroll_negative_net',
+  'Payslip amounts must satisfy gross = deductions + net': 'payroll_unbalanced_payslip',
 };
 
 export type PrepareFailure = {

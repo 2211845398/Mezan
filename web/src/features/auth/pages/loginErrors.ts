@@ -1,5 +1,6 @@
 import { isAxiosError } from '@/api/client';
 import { ApiError } from '@/api/errors';
+import { isPasswordChangeRequiredError } from '@/api/passwordChangeRequired';
 
 /**
  * Classify an error raised by `/auth/login` into a localised i18n key.
@@ -10,7 +11,11 @@ import { ApiError } from '@/api/errors';
  *  - 429              → errors.rate_limited
  *  - anything else    → errors.unexpected
  */
-export function classifyLoginError(err: unknown): string {
+export function classifyLoginError(err: unknown): string | null {
+  if (isPasswordChangeRequiredError(err)) {
+    return null;
+  }
+
   if (err instanceof ApiError) {
     if (err.status === 401) return 'auth:errors.invalid_credentials';
     if (err.status === 429) return 'auth:errors.rate_limited';

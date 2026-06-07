@@ -1,6 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+
+import { notifyApiError } from '@/api/errorMessages';
 
 import { paginatedParams } from '@/api/pagination';
 import { SectionCard } from '@/components/shared/ContentSurface';
@@ -9,6 +12,7 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { DateField } from '@/components/shared/form/DateField';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -22,10 +26,12 @@ import { listBranches } from '@/features/admin/api';
 import { getBranchLabel } from '@/features/admin/lib/branchLabels';
 import { adminKeys } from '@/features/admin/queries';
 import { formatIso, now, utcCalendarDayKey } from '@/lib/date';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { formatCurrency } from '@/lib/format';
 import { notify } from '@/lib/toast';
 
 import type { AttendanceLogRead } from '../../api';
+import { exportAttendancePdfBlob, exportAttendanceXlsxBlob } from '../../api';
 import { EmployeeCombobox } from '../../components/EmployeeCombobox';
 import {
   attendanceCategoryLabel,
@@ -79,6 +85,7 @@ function formatPayrollImpact(amount: string | null | undefined): string {
 
 export default function AttendanceList() {
   const { t, i18n } = useTranslation('hr');
+  const { t: tc } = useTranslation('common');
   const today = utcCalendarDayKey(now());
   const [dateFrom, setDateFrom] = useState(() => today);
   const [dateTo, setDateTo] = useState(() => today);
@@ -156,6 +163,24 @@ export default function AttendanceList() {
   const { data: summary } = useQuery({
     ...attendanceSummaryQueryOptions(summaryParams),
     enabled: !wideRangeBlocked,
+  });
+
+  const exportPdf = useMutation({
+    mutationFn: () => exportAttendancePdfBlob(summaryParams),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `attendance-${dateFrom}-${dateTo}.pdf`);
+      toast.success(tc('export.pdf_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('attendance.title')),
+  });
+
+  const exportExcel = useMutation({
+    mutationFn: () => exportAttendanceXlsxBlob(summaryParams),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `attendance-${dateFrom}-${dateTo}.xlsx`);
+      toast.success(tc('export.excel_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('attendance.title')),
   });
 
   const columns = useMemo(() => {
@@ -285,7 +310,17 @@ export default function AttendanceList() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageHeader title={t('attendance.title')} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader title={t('attendance.title')} />
+        {!wideRangeBlocked ? (
+          <ReportExportButtons
+            pdfPending={exportPdf.isPending}
+            excelPending={exportExcel.isPending}
+            onExportPdf={() => exportPdf.mutate()}
+            onExportExcel={() => exportExcel.mutate()}
+          />
+        ) : null}
+      </div>
       {summary && !wideRangeBlocked ? (
         <div className="grid grid-cols-2 gap-3 min-[520px]:grid-cols-5">
           <SectionCard className="p-4">

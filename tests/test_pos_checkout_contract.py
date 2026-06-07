@@ -202,11 +202,17 @@ async def test_finalize_rejected_when_cart_not_locked(db_session, monkeypatch) -
 
 
 @pytest.mark.asyncio
-async def test_payment_intent_unknown_currency_rejected(client, admin_auth_header) -> None:
+async def test_payment_intent_unknown_currency_rejected(
+    client, admin_auth_header, commercial_branch_id
+) -> None:
     t = await client.post(
         "/api/v1/terminals",
         headers=admin_auth_header,
-        json={"branch_id": 1, "name": "CUR-1", "terminal_code": f"CUR-{uuid.uuid4().hex[:6]}"},
+        json={
+            "branch_id": commercial_branch_id,
+            "name": "CUR-1",
+            "terminal_code": f"CUR-{uuid.uuid4().hex[:6]}",
+        },
     )
     assert t.status_code == 200, t.text
     terminal_id = t.json()["id"]
@@ -272,11 +278,17 @@ async def test_payment_intent_unknown_currency_rejected(client, admin_auth_heade
 
 
 @pytest.mark.asyncio
-async def test_payment_intent_rejected_via_api_when_cart_active(client, admin_auth_header) -> None:
+async def test_payment_intent_rejected_via_api_when_cart_active(
+    client, admin_auth_header, commercial_branch_id
+) -> None:
     t = await client.post(
         "/api/v1/terminals",
         headers=admin_auth_header,
-        json={"branch_id": 1, "name": "AL-1", "terminal_code": f"AL-{uuid.uuid4().hex[:6]}"},
+        json={
+            "branch_id": commercial_branch_id,
+            "name": "AL-1",
+            "terminal_code": f"AL-{uuid.uuid4().hex[:6]}",
+        },
     )
     assert t.status_code == 200, t.text
     terminal_id = t.json()["id"]

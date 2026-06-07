@@ -23,7 +23,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   );
 
 export default function PosLayout() {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
   const online = useOnline();
   const pending = usePendingOps();
 
@@ -34,7 +34,7 @@ export default function PosLayout() {
   }, [online]);
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-[#f8f7f4]">
+    <div className="flex h-screen w-screen flex-col bg-[#f8f7f4]" dir={i18n.dir()}>
       <header className="shrink-0 border-b border-border bg-background/95">
         <div className="flex h-12 items-center justify-between gap-3 px-4">
           <div className="flex min-w-0 items-center gap-3">

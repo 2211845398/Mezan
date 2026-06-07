@@ -321,6 +321,7 @@ async def search_product_variants_endpoint(
     q: str | None = None,
     product_id: int | None = None,
     attribute_value_id: int | None = None,
+    priced_only: bool = False,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -330,6 +331,7 @@ async def search_product_variants_endpoint(
         ("purchase_orders", "read"),
         ("inventory", "read"),
         ("inventory", "update"),
+        ("pos_carts", "read"),
     ),
 ) -> list[ProductVariantPurchasingSearchItem]:
     """Search stock-keeping variants for purchasing line pickers (display name = product)."""
@@ -340,6 +342,7 @@ async def search_product_variants_endpoint(
         offset=offset,
         attribute_value_id=attribute_value_id,
         product_id=product_id,
+        priced_only=priced_only,
     )
 
 

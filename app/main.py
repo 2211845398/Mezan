@@ -26,6 +26,7 @@ from app.api.error_handlers import (
 )
 from app.api.v1 import (
     accounting_router,
+    attendance_devices_router,
     ai_advisory_router,
     attributes_router,
     audit_router,
@@ -36,15 +37,16 @@ from app.api.v1 import (
     catalog_router,
     chart_accounts_router,
     config_router,
+    correspondence_router,
     currencies_router,
     customer_performance_router,
     customers_router,
     discounts_router,
     employees_router,
     executive_bi_router,
-    fx_revaluation_router,
     goods_receipts_router,
     health_router,
+    hr_router,
     inventory_adjustments_router,
     inventory_operations_router,
     inventory_reporting_router,
@@ -56,6 +58,7 @@ from app.api.v1 import (
     payment_terms_router,
     payments_router,
     payroll_router,
+    pos_proforma_router,
     pos_shifts_router,
     price_lists_router,
     pricing_evaluation_router,
@@ -112,7 +115,10 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", "/api/v1/auth/me/permissions"),
     ("GET", "/api/v1/auth/me/roles"),
     ("PATCH", "/api/v1/auth/me"),
+    ("PATCH", "/api/v1/auth/me/two-factor"),
     ("POST", "/api/v1/auth/me/avatar"),
+    ("POST", "/api/v1/auth/2fa/verify"),
+    ("POST", "/api/v1/auth/change-password-required"),
     ("POST", "/api/v1/customers/onboarding/complete"),
 }
 
@@ -234,12 +240,41 @@ app.add_exception_handler(RequestValidationError, request_validation_exception_h
 app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
+# Local dev: Flutter web, Vite, and other tools bind to ephemeral localhost ports.
+_LOCALHOST_ORIGIN_REGEX = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+
+
+def _resolve_cors_origins() -> list[str]:
+    """Development allows any origin when unset or configured as ``*``."""
+    configured = settings.ALLOWED_ORIGINS
+    if settings.is_development and (not configured or "*" in configured):
+        return ["*"]
+    return configured
+
+
+def _resolve_cors_allow_credentials(origins: list[str]) -> bool:
+    # Browsers reject credentialed requests when Access-Control-Allow-Origin is ``*``.
+    if "*" in origins:
+        return False
+    return settings.cors_allow_credentials
+
+
+def _resolve_cors_origin_regex(origins: list[str]) -> str | None:
+    """Match any localhost port in dev when explicit origins are listed."""
+    if not settings.is_development or "*" in origins:
+        return None
+    return _LOCALHOST_ORIGIN_REGEX
+
+
+_cors_origins = _resolve_cors_origins()
+
 # Middleware: request_id first (innermost), then CORS
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=settings.cors_allow_credentials,
+    allow_origins=_cors_origins,
+    allow_origin_regex=_resolve_cors_origin_regex(_cors_origins),
+    allow_credentials=_resolve_cors_allow_credentials(_cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -295,12 +330,16 @@ app.include_router(goods_receipts_router, prefix="/api/v1", tags=["goods_receipt
 app.include_router(invoice_scans_router, prefix="/api/v1", tags=["invoice_scans"])
 app.include_router(transfers_router, prefix="/api/v1", tags=["transfers"])
 app.include_router(pos_shifts_router, prefix="/api/v1", tags=["pos_shifts"])
+app.include_router(pos_proforma_router, prefix="/api/v1", tags=["pos_proforma"])
 app.include_router(production_orders_router, prefix="/api/v1", tags=["production_orders"])
 app.include_router(inventory_adjustments_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(inventory_reporting_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(inventory_operations_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(customers_router, prefix="/api/v1", tags=["customers"])
 app.include_router(employees_router, prefix="/api/v1", tags=["employees"])
+app.include_router(attendance_devices_router, prefix="/api/v1", tags=["attendance_devices"])
+app.include_router(hr_router, prefix="/api/v1", tags=["hr"])
+app.include_router(correspondence_router, prefix="/api/v1", tags=["correspondence"])
 app.include_router(carts_router, prefix="/api/v1", tags=["pos_carts"])
 app.include_router(payments_router, prefix="/api/v1", tags=["pos_payments"])
 app.include_router(payroll_router, prefix="/api/v1", tags=["payroll"])
@@ -315,7 +354,6 @@ app.include_router(ai_advisory_router, prefix="/api/v1", tags=["ai_advisory"])
 app.include_router(accounting_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(executive_bi_router, prefix="/api/v1", tags=["executive_bi"])
 app.include_router(chart_accounts_router, prefix="/api/v1", tags=["accounting"])
-app.include_router(fx_revaluation_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(currencies_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(payment_terms_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(vouchers_router, prefix="/api/v1", tags=["accounting"])

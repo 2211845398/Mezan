@@ -192,6 +192,14 @@ export function apOpenItemsQueryOptions(p: { branch_id?: number; status?: string
   });
 }
 
+export function fiscalPeriodDetailQueryOptions(periodKey: string, branchId?: number | null) {
+  return queryOptions({
+    queryKey: [...accountingKeys.fiscal(), 'detail', periodKey, branchId ?? 'all'] as const,
+    queryFn: () => api.getFiscalPeriodDetail(periodKey, branchId),
+    enabled: Boolean(periodKey),
+  });
+}
+
 export function fiscalPeriodsQueryOptions() {
   return queryOptions({
     queryKey: accountingKeys.fiscal(),

@@ -26,7 +26,40 @@ from app.utils.security import (
 )
 
 ACTIVE_STATUS = "active"
+AWAITING_VERIFICATION_STATUS = "awaiting_verification"
+LOGIN_ALLOWED_STATUSES = frozenset({ACTIVE_STATUS, AWAITING_VERIFICATION_STATUS})
 logger = logging.getLogger(__name__)
+
+
+async def _issue_tokens(db: AsyncSession, user: User) -> dict[str, Any]:
+    user.last_login_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(user)
+
+    access_token = create_access_token(user.id)
+    refresh_token_str = create_refresh_token(user.id)
+    token_hash = hash_token(refresh_token_str)
+
+    refresh_record = RefreshToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        last_used_at=datetime.now(UTC),
+    )
+    db.add(refresh_record)
+    await db.commit()
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token_str,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user_id": user.id,
+        "email": user.email,
+        "must_change_password": bool(user.must_change_password),
+        "requires_2fa": False,
+        "challenge_token": None,
+    }
 
 
 def _is_session_idle_expired(last_used_at: datetime | None) -> bool:
@@ -63,38 +96,72 @@ async def login_email_password(
     user = await get_user_by_email(db, email)
     if not user:
         raise ValueError("Invalid email or password")
-    if user.status != ACTIVE_STATUS:
+    if user.status not in LOGIN_ALLOWED_STATUSES:
         raise ValueError("Account is not active")
     if not user.password_hash:
         raise ValueError("Invalid email or password")
     if not verify_password(password, user.password_hash):
         raise ValueError("Invalid email or password")
 
-    user.last_login_at = datetime.now(UTC)
+    if (
+        user.two_factor_enabled
+        and not user.must_change_password
+        and user.status == ACTIVE_STATUS
+    ):
+        from app.services.two_factor_service import create_login_challenge
+
+        challenge_token, _otp = await create_login_challenge(db, user)
+        await db.commit()
+        return {
+            "access_token": None,
+            "refresh_token": None,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user_id": user.id,
+            "email": user.email,
+            "must_change_password": False,
+            "requires_2fa": True,
+            "challenge_token": challenge_token,
+        }
+
+    return await _issue_tokens(db, user)
+
+
+async def verify_two_factor_login(
+    db: AsyncSession,
+    *,
+    challenge_token: str,
+    code: str,
+) -> dict[str, Any]:
+    from app.services.two_factor_service import verify_login_challenge
+
+    user = await verify_login_challenge(db, challenge_token=challenge_token, code=code)
+    if user is None:
+        raise ValueError("Invalid verification code")
+    if user.status not in LOGIN_ALLOWED_STATUSES:
+        raise ValueError("Account is not active")
+    await db.commit()
+    return await _issue_tokens(db, user)
+
+
+async def change_required_password(
+    db: AsyncSession,
+    user: User,
+    *,
+    current_password: str,
+    new_password: str,
+) -> User:
+    if not user.must_change_password:
+        raise ValueError("password_change_not_required")
+    if not user.password_hash or not verify_password(current_password, user.password_hash):
+        raise ValueError("invalid_current_password")
+    user.password_hash = hash_password(new_password)
+    user.must_change_password = False
+    if user.status == AWAITING_VERIFICATION_STATUS:
+        user.status = ACTIVE_STATUS
     await db.commit()
     await db.refresh(user)
-
-    access_token = create_access_token(user.id)
-    refresh_token_str = create_refresh_token(user.id)
-    token_hash = hash_token(refresh_token_str)
-
-    refresh_record = RefreshToken(
-        user_id=user.id,
-        token_hash=token_hash,
-        expires_at=datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-        last_used_at=datetime.now(UTC),
-    )
-    db.add(refresh_record)
-    await db.commit()
-
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token_str,
-        "token_type": "bearer",
-        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        "user_id": user.id,
-        "email": user.email,
-    }
+    return user
 
 
 async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, Any]:
@@ -129,7 +196,7 @@ async def refresh_tokens(db: AsyncSession, refresh_token_str: str) -> dict[str, 
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if not user or user.status != ACTIVE_STATUS:
+    if not user or user.status not in LOGIN_ALLOWED_STATUSES:
         raise ValueError("Account is not active")
 
     refresh_record.last_used_at = datetime.now(UTC)
@@ -237,6 +304,9 @@ async def reset_password(db: AsyncSession, token_str: str, new_password: str) ->
         raise ValueError("Invalid or expired reset token")
 
     user.password_hash = hash_password(new_password)
+    user.must_change_password = False
+    if user.status == AWAITING_VERIFICATION_STATUS:
+        user.status = ACTIVE_STATUS
     reset_record.used = True
     await db.commit()
 
@@ -293,6 +363,7 @@ async def update_own_profile(db: AsyncSession, user: User, body: ProfileUpdate) 
         if not verify_password(body.current_password, user.password_hash):
             raise ValueError("invalid_current_password")
         user.password_hash = hash_password(body.new_password)
+        user.must_change_password = False
 
     await db.commit()
     await db.refresh(user)
@@ -427,4 +498,7 @@ async def exchange_google_code_and_login(
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "user_id": user.id,
         "email": user.email,
+        "must_change_password": bool(user.must_change_password),
+        "requires_2fa": False,
+        "challenge_token": None,
     }

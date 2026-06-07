@@ -35,6 +35,30 @@ export async function login(body: LoginRequest): Promise<LoginResponse> {
   return data;
 }
 
+export async function verifyTwoFactor(body: {
+  challenge_token: string;
+  code: string;
+}): Promise<LoginResponse> {
+  const { data } = await apiClient.post<LoginResponse>('/auth/2fa/verify', body);
+  return data;
+}
+
+export async function changeRequiredPassword(body: {
+  current_password: string;
+  new_password: string;
+}): Promise<UserRead> {
+  const { data } = await apiClient.post<UserRead>('/auth/change-password-required', body);
+  return data;
+}
+
+export async function toggleTwoFactor(body: {
+  enabled: boolean;
+  current_password?: string;
+}): Promise<UserRead> {
+  const { data } = await apiClient.patch<UserRead>('/auth/me/two-factor', body);
+  return data;
+}
+
 export async function refresh(body: RefreshRequest): Promise<TokenResponse> {
   const { data } = await apiClient.post<TokenResponse>('/auth/refresh', body);
   return data;

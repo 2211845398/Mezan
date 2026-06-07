@@ -8,7 +8,7 @@ from decimal import Decimal
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ValidationError
+from app.core.errors import validation_error
 from app.models.product_price import ProductPrice
 from app.services.accounting_service import get_accounting_settings
 from app.utils.money import q2
@@ -80,9 +80,11 @@ async def get_active_sell_price(
         as_of=as_of,
     )
     if price is None:
-        raise ValidationError(
-            "Product has no sellable price",
-            details={"product_id": product_id, "variant_id": variant_id},
+        validation_error(
+            "product_no_sellable_price",
+            "المنتج ليس له سعر بيع محدد",
+            product_id=product_id,
+            variant_id=variant_id,
         )
     return q2(price.amount)
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,14 +32,31 @@ export function DiscountPicker({
   onApply,
   triggerClassName,
 }: DiscountPickerProps) {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<'code' | 'loyalty'>('code');
+  const [tab, setTab] = useState<'flat' | 'code' | 'loyalty'>('flat');
   const [code, setCode] = useState('');
+  const [flatAmount, setFlatAmount] = useState('');
   const [loyaltyPoints, setLoyaltyPoints] = useState('');
   const [busy, setBusy] = useState(false);
 
   const loyaltyAvailable = customerLoyaltyBalance != null && customerLoyaltyBalance > 0;
+
+  async function submitFlat() {
+    const normalized = flatAmount.trim().replace(',', '.');
+    const n = Number.parseFloat(normalized);
+    if (!Number.isFinite(n) || n <= 0) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await onApply({ mode: 'flat', amount: normalized });
+      setOpen(false);
+      setFlatAmount('');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submitCode() {
     setBusy(true);
@@ -73,21 +91,33 @@ export function DiscountPicker({
           {t('register.discount_apply')}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent dir={i18n.dir()}>
         <DialogHeader>
           <DialogTitle>{t('register.discount_apply')}</DialogTitle>
         </DialogHeader>
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as 'code' | 'loyalty')}
+          onValueChange={(v) => setTab(v as 'flat' | 'code' | 'loyalty')}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="flat">{t('register.discount_tab_flat')}</TabsTrigger>
             <TabsTrigger value="code">{t('register.discount_tab_code')}</TabsTrigger>
             <TabsTrigger value="loyalty" disabled={!loyaltyAvailable}>
               {t('register.discount_tab_loyalty')}
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="flat" className="mt-3 space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="disc-flat">{t('register.discount_flat_amount')}</Label>
+              <MoneyInput
+                id="disc-flat"
+                value={flatAmount}
+                onChange={setFlatAmount}
+                placeholder={t('register.discount_flat_placeholder')}
+              />
+            </div>
+          </TabsContent>
           <TabsContent value="code" className="mt-3 space-y-3">
             <div className="space-y-1">
               <Label htmlFor="disc-code">{t('register.discount_code')}</Label>
@@ -98,7 +128,6 @@ export function DiscountPicker({
                 autoComplete="off"
                 placeholder={t('register.discount_code_placeholder')}
               />
-              <p className="text-xs text-muted-foreground">{t('register.discount_code_hint')}</p>
             </div>
           </TabsContent>
           <TabsContent value="loyalty" className="mt-3 space-y-3">
@@ -119,7 +148,6 @@ export function DiscountPicker({
                     autoComplete="off"
                     placeholder={t('register.discount_loyalty_points_placeholder')}
                   />
-                  <p className="text-xs text-muted-foreground">{t('register.discount_loyalty_hint')}</p>
                 </div>
               </>
             )}
@@ -129,7 +157,15 @@ export function DiscountPicker({
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             {t('actions.cancel', { ns: 'common' })}
           </Button>
-          {tab === 'code' ? (
+          {tab === 'flat' ? (
+            <Button
+              type="button"
+              onClick={() => void submitFlat()}
+              disabled={busy || !flatAmount.trim()}
+            >
+              {t('register.discount_apply')}
+            </Button>
+          ) : tab === 'code' ? (
             <Button type="button" onClick={() => void submitCode()} disabled={busy || !code.trim()}>
               {t('register.discount_apply')}
             </Button>

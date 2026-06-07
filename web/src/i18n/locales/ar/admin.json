@@ -35,6 +35,7 @@
     "password_too_short": "يجب ألا تقل كلمة المرور عن 8 أحرف.",
     "user_status": {
       "pending_onboarding": "بانتظار الضبط",
+      "awaiting_verification": "انتظار التحقق",
       "active": "نشط",
       "deactivated": "معطل",
       "suspended": "معلّق",
@@ -112,7 +113,8 @@
       "CASHIER": "أمين صندوق",
       "WAREHOUSE_MANAGER": "مدير المستودع",
       "MARKETING_MANAGER": "مدير التسويق",
-      "FLOOR_STAFF": "موظف المبيعات"
+      "FLOOR_STAFF": "موظف المبيعات",
+      "ATTENDANCE_KIOSK": "جهاز حضور وانصراف"
     }
   },
   "branches": {
@@ -129,11 +131,12 @@
     "picker_placeholder": "اختر فرعاً",
     "picker_clear": "لا شيء",
     "archived_badge": "مؤرشف",
-    "col": { "code": "الرمز", "name": "الاسم", "timezone": "المنطقة الزمنية", "address": "العنوان", "state": "الحالة" },
+    "col": { "code": "الرمز", "name": "الاسم", "kind": "النوع", "timezone": "المنطقة الزمنية", "address": "العنوان", "state": "الحالة" },
+    "kind": { "commercial": "تجاري", "warehouse": "مخزني" },
     "state": { "active": "نشط", "archived": "مؤرشف" }
   },
   "terminals": {
-    "title": "نقاط البيع",
+    "title": "أجهزة نقطة البيع",
     "empty": "لا أجهزة",
     "create": "تسجيل جهاز",
     "create_title": "تسجيل جهاز",

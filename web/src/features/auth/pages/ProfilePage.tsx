@@ -1,21 +1,31 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Camera, Lock, User } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Camera, Lock, Shield, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { applyApiErrorToForm, notifyApiError } from '@/api/errorMessages';
 import type { ProfileUpdate } from '@/api/types';
+import {
+  FloatingFormDialog,
+  floatingFormApproveButtonClassName,
+  floatingFormCloseButtonClassName,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -31,9 +41,11 @@ import { formatPersonName } from '@/lib/personName';
 import { isLibyanMobilePhone } from '@/lib/validation/contact';
 import { cn } from '@/lib/utils';
 
+import type { UserRead } from '../api';
+import { toggleTwoFactor } from '../api';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { useUploadAvatar } from '../hooks/useUploadAvatar';
-import { useMe } from '../queries';
+import { authKeys, useMe } from '../queries';
 
 function joinNameParts(first: string, father: string, last: string): string | null {
   const segments = [first, father, last].map((s) => s.trim()).filter((s) => s.length > 0);
@@ -113,11 +125,16 @@ type PasswordFormValues = z.infer<ReturnType<typeof buildPasswordSchema>>;
 
 export default function ProfilePage() {
   const { t } = useTranslation('auth');
+  const { t: tCommon } = useTranslation('common');
   const { t: tHr } = useTranslation('hr');
+  const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
   const roleCodes = useAuthStore((s) => s.roleCodes);
   const avatarCacheBust = useAuthStore((s) => s.avatarCacheBust);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [twoFactorDialogOpen, setTwoFactorDialogOpen] = useState(false);
+  const [twoFactorPassword, setTwoFactorPassword] = useState('');
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
   const { data: me, isLoading, isError } = useMe();
   const update = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
@@ -258,6 +275,56 @@ export default function ProfilePage() {
     );
   }
 
+  function syncTwoFactorUser(updated: UserRead) {
+    const current = useAuthStore.getState().user;
+    if (current) {
+      setUser({ ...current, ...updated } as AuthUser);
+    }
+    queryClient.setQueryData<UserRead>(authKeys.me(), (prev) =>
+      prev ? { ...prev, ...updated } : updated,
+    );
+  }
+
+  async function handleTwoFactorToggle(checked: boolean) {
+    if (checked) {
+      setTwoFactorPassword('');
+      setTwoFactorDialogOpen(true);
+      return;
+    }
+    setTwoFactorBusy(true);
+    try {
+      const updated = await toggleTwoFactor({ enabled: false });
+      syncTwoFactorUser(updated);
+      toast.success(t('profile.two_factor_disabled'));
+    } catch (err) {
+      notifyApiError(err, t('profile.two_factor_failed'));
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  }
+
+  async function confirmEnableTwoFactor() {
+    if (!twoFactorPassword.trim()) {
+      toast.error(t('profile.two_factor_password_required'));
+      return;
+    }
+    setTwoFactorBusy(true);
+    try {
+      const updated = await toggleTwoFactor({
+        enabled: true,
+        current_password: twoFactorPassword,
+      });
+      syncTwoFactorUser(updated);
+      setTwoFactorDialogOpen(false);
+      setTwoFactorPassword('');
+      toast.success(t('profile.two_factor_enabled'));
+    } catch (err) {
+      notifyApiError(err, t('profile.two_factor_failed'));
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  }
+
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -291,9 +358,14 @@ export default function ProfilePage() {
         subtitle={t('profile.page_subtitle')}
         actions={
           showLeaveRequest ? (
-            <Button type="button" size="sm" onClick={() => setLeaveDialogOpen(true)}>
-              {tHr('leave.dialog.trigger')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link to="/my-leaves">{tHr('leave.my_title')}</Link>
+              </Button>
+              <Button type="button" size="sm" onClick={() => setLeaveDialogOpen(true)}>
+                {tHr('leave.dialog.trigger')}
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -532,9 +604,8 @@ export default function ProfilePage() {
                     <FormItem>
                       <FormLabel>{t('profile.current_password')}</FormLabel>
                       <FormControl>
-                        <Input
+                        <PasswordInput
                           {...field}
-                          type="password"
                           autoComplete="current-password"
                           dir="ltr"
                         />
@@ -550,7 +621,7 @@ export default function ProfilePage() {
                     <FormItem>
                       <FormLabel>{t('profile.new_password')}</FormLabel>
                       <FormControl>
-                        <Input {...field} type="password" autoComplete="new-password" dir="ltr" />
+                        <PasswordInput {...field} autoComplete="new-password" dir="ltr" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -563,7 +634,7 @@ export default function ProfilePage() {
                     <FormItem>
                       <FormLabel>{t('profile.confirm_new_password')}</FormLabel>
                       <FormControl>
-                        <Input {...field} type="password" autoComplete="new-password" dir="ltr" />
+                        <PasswordInput {...field} autoComplete="new-password" dir="ltr" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -580,9 +651,83 @@ export default function ProfilePage() {
                 </Button>
               </form>
             </Form>
+
+            <Separator className="my-6" />
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-secondary">
+                <Shield className="size-5 shrink-0" aria-hidden />
+                <h3 className="text-base font-semibold">{t('profile.two_factor_section')}</h3>
+              </div>
+              <p className="text-muted-foreground text-sm">{t('profile.two_factor_hint')}</p>
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="two-factor-toggle">{t('profile.two_factor_enable')}</Label>
+                <Switch
+                  id="two-factor-toggle"
+                  checked={me.two_factor_enabled === true}
+                  disabled={twoFactorBusy}
+                  onCheckedChange={handleTwoFactorToggle}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      <FloatingFormDialog
+        open={twoFactorDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !twoFactorBusy) {
+            setTwoFactorPassword('');
+          }
+          setTwoFactorDialogOpen(open);
+        }}
+        title={t('profile.two_factor_confirm_title')}
+        description={t('profile.two_factor_confirm_hint')}
+        footer={
+          <>
+            <Button
+              type="submit"
+              form="two-factor-enable-form"
+              disabled={twoFactorBusy || !twoFactorPassword.trim()}
+              className={floatingFormApproveButtonClassName}
+            >
+              {twoFactorBusy ? t('actions.loading') : t('profile.two_factor_confirm_action')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTwoFactorDialogOpen(false)}
+              disabled={twoFactorBusy}
+              className={floatingFormCloseButtonClassName}
+            >
+              {tCommon('actions.cancel')}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="two-factor-enable-form"
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void confirmEnableTwoFactor();
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="two-factor-dialog-password">{t('profile.current_password')}</Label>
+            <PasswordInput
+              id="two-factor-dialog-password"
+              autoComplete="current-password"
+              dir="ltr"
+              value={twoFactorPassword}
+              onChange={(e) => setTwoFactorPassword(e.target.value)}
+              disabled={twoFactorBusy}
+              autoFocus
+            />
+          </div>
+        </form>
+      </FloatingFormDialog>
     </div>
   );
 }

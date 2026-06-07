@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+import secrets
+import string
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
@@ -16,9 +19,25 @@ from app.models.user_permission_override import UserPermissionOverride
 from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
+from app.core.config import settings
 from app.schemas.users import UserOnboardingSubjectUpdate
+from app.services import email_service
+from app.services.account_invite_email import (
+    build_account_invite_email,
+    normalize_invite_locale,
+)
 from app.services.identity_document_files import persist_raster_identity_scan
 from app.utils.person_name import person_name_sql_expr
+from app.utils.security import hash_password
+
+logger = logging.getLogger(__name__)
+
+PENDING_QUEUE_STATUSES = ("suspended", "pending_onboarding")
+
+
+def generate_temporary_password(length: int = 12) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 async def assign_role_by_code(db: AsyncSession, *, user_id: int, role_code: str) -> None:
@@ -108,7 +127,7 @@ async def list_onboarding_tasks_enriched(
         stmt = stmt.where(UserOnboarding.status == status_filter)
     # HR "pending" queue is only for accounts still awaiting onboarding, not deactivated/etc.
     if status_filter == "pending":
-        stmt = stmt.where(UserModel.status == "pending_onboarding")
+        stmt = stmt.where(UserModel.status.in_(PENDING_QUEUE_STATUSES))
 
     result = await db.execute(stmt)
     rows = result.all()
@@ -272,9 +291,42 @@ async def complete_onboarding_task(
     )
     task.salary_amount = salary_amount
     task.completed_at = datetime.now(UTC)
-    user.status = "active"
+
+    temp_password = generate_temporary_password()
+    user.password_hash = hash_password(temp_password)
+    user.must_change_password = True
+    user.status = "awaiting_verification"
     await db.flush()
     await db.refresh(task)
+
+    login_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/login"
+    locale = normalize_invite_locale(user.preferred_language)
+    subject, body_text, body_html = build_account_invite_email(
+        locale=locale,
+        login_url=login_url,
+        email=str(user.email),
+        temporary_password=temp_password,
+        company_name=settings.COMPANY_DISPLAY_NAME,
+    )
+    try:
+        await email_service.send_email(
+            to=str(user.email),
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+        )
+    except Exception:
+        logger.exception("Account invite email failed for user_id=%s", user.id)
+    else:
+        logger.info("Account invite email sent to=%s", user.email)
+    if settings.is_development:
+        logger.warning(
+            "Account invite (dev) email=%s temp_password=%s login=%s",
+            user.email,
+            temp_password,
+            login_url,
+        )
+
     return task
 
 
@@ -303,11 +355,14 @@ async def update_pending_onboarding_subject(
     user = user_res.scalar_one_or_none()
     if not user:
         raise NotFoundError("User not found", details={"user_id": task.user_id})
-    if user.status != "pending_onboarding":
+    if user.status not in PENDING_QUEUE_STATUSES:
         raise ValidationError(
-            "User account is not pending onboarding",
+            "User account is not in the onboarding queue",
             details={"user_id": user.id, "status": user.status},
         )
+
+    if user.status == "suspended":
+        user.status = "pending_onboarding"
 
     for field, col in (
         ("first_name", "first_name"),

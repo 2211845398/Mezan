@@ -189,7 +189,10 @@ export async function setRolePermissions(
   return data;
 }
 
-export async function listBranches(params?: { include_archived?: boolean }): Promise<BranchRead[]> {
+export async function listBranches(params?: {
+  include_archived?: boolean;
+  kind?: 'commercial' | 'warehouse';
+}): Promise<BranchRead[]> {
   const { data } = await apiClient.get<BranchRead[]>('/branches', { params });
   return data;
 }

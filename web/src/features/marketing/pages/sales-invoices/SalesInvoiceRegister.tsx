@@ -1,12 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { subDays } from 'date-fns';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
@@ -26,9 +29,16 @@ import { useMe, useMyBranch } from '@/features/auth/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { A4InvoicePrintButton } from '@/features/sales/print/A4InvoicePrintDialog';
 import type { SalesInvoiceRegisterRow } from '@/features/marketing/api';
+import {
+  exportDailySalesSummaryPdfBlob,
+  exportDailySalesSummaryXlsxBlob,
+  exportSalesRegisterPdfBlob,
+  exportSalesRegisterXlsxBlob,
+} from '@/features/marketing/api';
 import { InvoiceRepaymentDialog } from '@/features/marketing/components/InvoiceRepaymentDialog';
 import { salesInvoicesRegisterQueryOptions } from '@/features/marketing/queries';
 import { usePermission } from '@/hooks/usePermission';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { cn } from '@/lib/utils';
 import { format, now } from '@/lib/date';
 import { formatCurrencyWithLeadingSymbol, formatNumber } from '@/lib/format';
@@ -62,6 +72,7 @@ const DISPLAY_CURRENCY = 'USD';
 
 export default function SalesInvoiceRegister() {
   const { t } = useTranslation('marketing');
+  const { t: tc } = useTranslation('common');
   const activeBranchId = useAuthStore((s) => s.activeBranchId);
   const user = useAuthStore((s) => s.user);
   const userBranchId = activeBranchId ?? user?.branch_id ?? null;
@@ -118,6 +129,48 @@ export default function SalesInvoiceRegister() {
       offset: page * PAGE_SIZE,
     }),
     enabled: canRead && branchId > 0,
+  });
+
+  const exportParams = {
+    branch_id: branchId,
+    period_start: applied.ps,
+    period_end: applied.pe,
+  };
+
+  const exportRegisterPdf = useMutation({
+    mutationFn: () => exportSalesRegisterPdfBlob(exportParams),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `sales-register-${applied.ps}-${applied.pe}.pdf`);
+      toast.success(tc('export.pdf_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('salesRegister.empty')),
+  });
+
+  const exportRegisterExcel = useMutation({
+    mutationFn: () => exportSalesRegisterXlsxBlob(exportParams),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `sales-register-${applied.ps}-${applied.pe}.xlsx`);
+      toast.success(tc('export.excel_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('salesRegister.empty')),
+  });
+
+  const exportDailyPdf = useMutation({
+    mutationFn: () => exportDailySalesSummaryPdfBlob(exportParams),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `daily-sales-${applied.ps}-${applied.pe}.pdf`);
+      toast.success(tc('export.pdf_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('salesRegister.empty')),
+  });
+
+  const exportDailyExcel = useMutation({
+    mutationFn: () => exportDailySalesSummaryXlsxBlob(exportParams),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `daily-sales-${applied.ps}-${applied.pe}.xlsx`);
+      toast.success(tc('export.excel_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('salesRegister.empty')),
   });
 
   const cols = useMemo(
@@ -248,7 +301,18 @@ export default function SalesInvoiceRegister() {
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 p-4 md:p-6">
-      <PageHeader title={t('salesRegister.title')} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader title={t('salesRegister.title')} />
+        {branchId > 0 ? (
+          <ReportExportButtons
+            disabled={registerQuery.isLoading}
+            pdfPending={exportRegisterPdf.isPending}
+            excelPending={exportRegisterExcel.isPending}
+            onExportPdf={() => exportRegisterPdf.mutate()}
+            onExportExcel={() => exportRegisterExcel.mutate()}
+          />
+        ) : null}
+      </div>
 
       <Card className="w-full">
         <CardHeader className="pb-3">
@@ -302,6 +366,18 @@ export default function SalesInvoiceRegister() {
           </Button>
         </CardContent>
       </Card>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-medium text-muted-foreground">{t('salesRegister.daily_summary_export')}</p>
+        <ReportExportButtons
+          size="sm"
+          disabled={registerQuery.isLoading || branchId <= 0}
+          pdfPending={exportDailyPdf.isPending}
+          excelPending={exportDailyExcel.isPending}
+          onExportPdf={() => exportDailyPdf.mutate()}
+          onExportExcel={() => exportDailyExcel.mutate()}
+        />
+      </div>
 
       <div className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="min-w-0">

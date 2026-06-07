@@ -122,7 +122,8 @@
     "repay_no_balance": "No open balance for this invoice",
     "page_range": "{{from}}–{{to}} of {{total}}",
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "daily_summary_export": "Daily sales summary"
   },
   "inventoryInsights": {
     "title": "Inventory & promotion insight",

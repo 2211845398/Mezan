@@ -1,13 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Activity, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+
+import { notifyApiError } from '@/api/errorMessages';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,8 +24,10 @@ import {
 } from '@/components/ui/select';
 import { usePermission } from '@/hooks/usePermission';
 import { inclusiveCalendarDaySpan } from '@/lib/date';
+import { downloadBlob } from '@/lib/downloadBlob';
 
 import type { LeaveRequestRead } from '../../api';
+import { exportLeaveSummaryPdfBlob, exportLeaveSummaryXlsxBlob } from '../../api';
 import { leaveRequestRowSearchValue } from '../../lib/hrTableSearch';
 import { formatVacationBalanceRemaining } from '../../lib/leaveBalanceDisplay';
 import { employeesPickerQueryOptions, leaveListQueryOptions } from '../../queries';
@@ -40,6 +46,24 @@ export default function LeaveList() {
   const { data: emps = [] } = useQuery(employeesPickerQueryOptions());
   const [sel, setSel] = useState<LeaveRequestRead | null>(null);
   const [open, setOpen] = useState(false);
+
+  const exportPdf = useMutation({
+    mutationFn: () => exportLeaveSummaryPdfBlob(st === undefined ? {} : { status: st }),
+    onSuccess: (blob) => {
+      downloadBlob(blob, 'leave-summary.pdf');
+      toast.success(tc('export.pdf_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('leave.title')),
+  });
+
+  const exportExcel = useMutation({
+    mutationFn: () => exportLeaveSummaryXlsxBlob(st === undefined ? {} : { status: st }),
+    onSuccess: (blob) => {
+      downloadBlob(blob, 'leave-summary.xlsx');
+      toast.success(tc('export.excel_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('leave.title')),
+  });
 
   const employeeById = useMemo(() => new Map(emps.map((e) => [e.id, e])), [emps]);
 
@@ -203,7 +227,15 @@ export default function LeaveList() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageHeader title={t('leave.title')} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader title={t('leave.title')} />
+        <ReportExportButtons
+          pdfPending={exportPdf.isPending}
+          excelPending={exportExcel.isPending}
+          onExportPdf={() => exportPdf.mutate()}
+          onExportExcel={() => exportExcel.mutate()}
+        />
+      </div>
       <DataTable
         mode="client"
         columns={columns}

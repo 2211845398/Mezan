@@ -143,7 +143,8 @@
       "payroll_no_branch": "Employee has no branch — assign a branch on the user profile.",
       "payroll_no_schedule": "No weekly work schedule — add one on the employee schedule page.",
       "payroll_no_pay_rate": "Set a base salary or hourly rate on the employee profile.",
-      "payroll_negative_net": "Net pay is negative for this period — review attendance, absences, and deductions."
+      "payroll_negative_net": "Net pay is negative for this period — review attendance, absences, and deductions.",
+      "payroll_unbalanced_payslip": "Payslip amounts are inconsistent — recalculate the draft before approval."
     }
   }
 }

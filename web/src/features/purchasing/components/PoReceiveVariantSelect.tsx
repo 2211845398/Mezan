@@ -13,6 +13,7 @@ type Props = {
   disabled?: boolean | undefined;
   placeholder?: string | undefined;
   title?: string | undefined;
+  pricedOnly?: boolean | undefined;
 };
 
 export default function PoReceiveVariantSelect({
@@ -22,18 +23,20 @@ export default function PoReceiveVariantSelect({
   disabled,
   placeholder,
   title,
+  pricedOnly = false,
 }: Props) {
   const { t } = useTranslation('purchasing');
   const [search, setSearch] = useState('');
   const [lastPickedLabel, setLastPickedLabel] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['catalog', 'product-variants-search', productId, search],
+    queryKey: ['catalog', 'product-variants-search', productId, search, pricedOnly],
     queryFn: () =>
       searchProductVariantsForPurchasing({
         product_id: productId,
         q: search,
         limit: 200,
+        priced_only: pricedOnly || undefined,
       }),
     enabled: productId > 0,
     staleTime: 15_000,

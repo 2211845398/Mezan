@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { confirmPasswordReset } from '@/features/auth/api';
-import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
+import { PasswordInput } from '@/components/ui/password-input';
 import { notify } from '@/lib/toast';
 
 const schema = z
@@ -107,11 +107,9 @@ export default function ResetPasswordPage() {
           <label className="text-sm font-medium" htmlFor="reset-password">
             {t('auth:reset.new_password')}
           </label>
-          <input
+          <PasswordInput
             id="reset-password"
-            type="password"
             autoComplete="new-password"
-            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.password ? true : undefined}
             {...form.register('password')}
           />
@@ -121,11 +119,9 @@ export default function ResetPasswordPage() {
           <label className="text-sm font-medium" htmlFor="reset-confirm">
             {t('auth:reset.confirm_password')}
           </label>
-          <input
+          <PasswordInput
             id="reset-confirm"
-            type="password"
             autoComplete="new-password"
-            className={MEZ_AUTH_INPUT_CLASS}
             aria-invalid={form.formState.errors.confirm ? true : undefined}
             {...form.register('confirm')}
           />

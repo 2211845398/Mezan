@@ -30,7 +30,7 @@ describe('ShiftGate', () => {
     renderWithProviders(<ShiftGate />);
 
     await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: /اختر الطرفية|Select terminal/i })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: /اختر الجهاز|Select device/i })).toBeInTheDocument();
     });
 
     const openBtn = screen.getByRole('button', { name: /فتح وردية|Open shift/i });

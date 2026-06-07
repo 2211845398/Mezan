@@ -5,6 +5,8 @@ import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -18,11 +20,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePermission } from '@/hooks/usePermission';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { formatMoney } from '@/lib/format';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { cn } from '@/lib/utils';
 
-import { approvePayslip, exportPayrollCsvBlob, patchPayslipAdjustments, recalculatePayslip } from '../../api';
+import {
+  approvePayslip,
+  exportPayslipPdfBlob,
+  exportPayslipXlsxBlob,
+  patchPayslipAdjustments,
+  recalculatePayslip,
+} from '../../api';
 import { payslipEmployeeDisplay, payslipStatusLabel } from '../../lib/payslipLabels';
 import { payrollKeys, payslipQueryOptions } from '../../queries';
 
@@ -35,6 +44,7 @@ export default function RunDetail() {
   const { id } = useParams<{ id: string }>();
   const pid = id ? Number(id) : NaN;
   const { t } = useTranslation('payroll');
+  const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const canApprove = usePermission('payroll', 'approve');
   const canCreate = usePermission('payroll', 'create');
@@ -81,15 +91,20 @@ export default function RunDetail() {
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
-  const exportCsv = useMutation({
-    mutationFn: async () => {
-      const blob = await exportPayrollCsvBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = t('export.filename');
-      a.click();
-      URL.revokeObjectURL(url);
+  const exportPdf = useMutation({
+    mutationFn: () => exportPayslipPdfBlob(pid),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `payslip-${pid}.pdf`);
+      toast.success(tc('export.pdf_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('errors.generic')),
+  });
+
+  const exportExcel = useMutation({
+    mutationFn: () => exportPayslipXlsxBlob(pid),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `payslip-${pid}.xlsx`);
+      toast.success(tc('export.excel_ok'));
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
@@ -143,9 +158,12 @@ export default function RunDetail() {
           </Button>
         ) : null}
         {canExport ? (
-          <Button type="button" variant="outline" disabled={exportCsv.isPending} onClick={() => void exportCsv.mutate()}>
-            {t('actions.export_csv')}
-          </Button>
+          <ReportExportButtons
+            pdfPending={exportPdf.isPending}
+            excelPending={exportExcel.isPending}
+            onExportPdf={() => exportPdf.mutate()}
+            onExportExcel={() => exportExcel.mutate()}
+          />
         ) : null}
       </div>
       <div className="grid max-w-5xl gap-4 lg:grid-cols-2 lg:items-stretch">

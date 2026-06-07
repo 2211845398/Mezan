@@ -3,7 +3,13 @@ import type { ReactNode } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { isOrgNotificationManager } from '@/config/notificationOrgRoles';
-import { hasPricingEvaluationRole, isPersonalLeaveBlocked } from '@/config/roleNavAccess';
+import {
+  CORRESPONDENCE_SELF_SERVICE_PERMISSIONS,
+  hasCorrespondenceInboxAccess,
+  hasMarketingCampaignAccess,
+  hasPricingEvaluationRole,
+  isPersonalLeaveBlocked,
+} from '@/config/roleNavAccess';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 
 /*
@@ -27,9 +33,17 @@ function FullScreenSpinner() {
 
 export function RequireAuth({ children }: { children?: ReactNode }) {
   const status = useAuthStore((s) => s.status);
+  const user = useAuthStore((s) => s.user);
   const location = useLocation();
 
   if (status === 'authenticated') {
+    const mustChange = user?.must_change_password === true;
+    if (mustChange && location.pathname !== '/change-password-required') {
+      return <Navigate to="/change-password-required" replace />;
+    }
+    if (!mustChange && location.pathname === '/change-password-required') {
+      return <Navigate to="/dashboard" replace />;
+    }
     return <>{children ?? <Outlet />}</>;
   }
 
@@ -116,6 +130,42 @@ export function RequirePersonalLeaveAccess({ children }: { children?: ReactNode 
   }
 
   if (!hasEmployeesRead || isPersonalLeaveBlocked(roleCodes)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children ?? <Outlet />}</>;
+}
+
+/** Correspondence inbox: self-service permission plus manager recipient roles. */
+export function RequireCorrespondenceInboxAccess({ children }: { children?: ReactNode }) {
+  const permissionsLoaded = useAuthStore((s) => s.permissionsLoaded);
+  const permissions = useAuthStore((s) => s.permissions);
+  const roleCodes = useAuthStore((s) => s.roleCodes);
+  const hasPerm = CORRESPONDENCE_SELF_SERVICE_PERMISSIONS.some(({ resource, action }) =>
+    permissions.has(`${resource}:${action}`),
+  );
+
+  if (!permissionsLoaded) {
+    return <FullScreenSpinner />;
+  }
+
+  if (!hasPerm || !hasCorrespondenceInboxAccess(roleCodes)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children ?? <Outlet />}</>;
+}
+
+/** Campaign advisor: ai_advisory permission plus marketing/admin roles (not HR_MANAGER). */
+export function RequireMarketingCampaignAccess({ children }: { children?: ReactNode }) {
+  const permissionsLoaded = useAuthStore((s) => s.permissionsLoaded);
+  const permissions = useAuthStore((s) => s.permissions);
+  const roleCodes = useAuthStore((s) => s.roleCodes);
+  const hasPerm = permissions.has('ai_advisory:run');
+
+  if (!permissionsLoaded) {
+    return <FullScreenSpinner />;
+  }
+
+  if (!hasPerm || !hasMarketingCampaignAccess(roleCodes)) {
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children ?? <Outlet />}</>;

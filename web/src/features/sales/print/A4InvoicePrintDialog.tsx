@@ -1,9 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useReactToPrint } from 'react-to-print';
+import { toast } from 'sonner';
 
+import { notifyApiError } from '@/api/errorMessages';
+import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,6 +17,11 @@ import {
 } from '@/components/ui/dialog';
 import { getSalesInvoice } from '@/features/pos/api';
 import { invoiceKeys } from '@/features/pos/queries';
+import {
+  exportSalesInvoicePdfBlob,
+  exportSalesInvoiceXlsxBlob,
+} from '@/features/marketing/api';
+import { downloadBlob } from '@/lib/downloadBlob';
 
 import { A4InvoiceDocument } from './A4InvoiceDocument';
 import { a4ModelFromInvoiceDetail } from './a4InvoiceModel';
@@ -26,6 +34,7 @@ export type A4InvoicePrintDialogProps = {
 
 export function A4InvoicePrintDialog({ invoiceId, open, onOpenChange }: A4InvoicePrintDialogProps) {
   const { t } = useTranslation('pos');
+  const { t: tc } = useTranslation('common');
   const printRef = useRef<HTMLDivElement>(null);
   const print = useReactToPrint({ contentRef: printRef });
 
@@ -33,6 +42,24 @@ export function A4InvoicePrintDialog({ invoiceId, open, onOpenChange }: A4Invoic
     queryKey: invoiceKeys.detail(invoiceId ?? 0),
     queryFn: () => getSalesInvoice(invoiceId!),
     enabled: open && invoiceId != null && invoiceId > 0,
+  });
+
+  const exportPdf = useMutation({
+    mutationFn: () => exportSalesInvoicePdfBlob(invoiceId!),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `invoice-${invoiceId}.pdf`);
+      toast.success(tc('export.pdf_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('print.a4.load_error')),
+  });
+
+  const exportExcel = useMutation({
+    mutationFn: () => exportSalesInvoiceXlsxBlob(invoiceId!),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `invoice-${invoiceId}.xlsx`);
+      toast.success(tc('export.excel_ok'));
+    },
+    onError: (error) => notifyApiError(error, t('print.a4.load_error')),
   });
 
   const model = useMemo(() => (invoice ? a4ModelFromInvoiceDetail(invoice) : null), [invoice]);
@@ -58,14 +85,25 @@ export function A4InvoicePrintDialog({ invoiceId, open, onOpenChange }: A4Invoic
         >
           {model ? <A4InvoiceDocument ref={printRef} model={model} /> : null}
         </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t('receipt.close')}
-          </Button>
-          <Button type="button" disabled={!model} onClick={() => void print()}>
-            <Printer className="me-2 size-4" aria-hidden />
-            {t('print.a4.print')}
-          </Button>
+        <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {invoiceId != null && invoiceId > 0 ? (
+            <ReportExportButtons
+              disabled={!model}
+              pdfPending={exportPdf.isPending}
+              excelPending={exportExcel.isPending}
+              onExportPdf={() => exportPdf.mutate()}
+              onExportExcel={() => exportExcel.mutate()}
+            />
+          ) : null}
+          <div className="flex gap-2 sm:ms-auto">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t('receipt.close')}
+            </Button>
+            <Button type="button" disabled={!model} onClick={() => void print()}>
+              <Printer className="me-2 size-4" aria-hidden />
+              {t('print.a4.print')}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

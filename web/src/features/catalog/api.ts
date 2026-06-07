@@ -174,6 +174,7 @@ export async function searchProductVariantsForPurchasing(params: {
   limit?: number;
   offset?: number;
   attribute_value_id?: number | null;
+  priced_only?: boolean;
 }): Promise<ProductVariantPurchasingSearchItem[]> {
   const { data } = await apiClient.get<ProductVariantPurchasingSearchItem[]>('/product-variants/search', {
     params: {
@@ -490,6 +491,10 @@ export type PricingEvaluationRow = {
   current_sell_price: string | null;
   has_sell_price: boolean;
   valuation_cost: string;
+  default_markup_pct: string;
+  suggested_price: string | null;
+  implied_markup_pct: string | null;
+  needs_pricing_review: boolean;
   fifo_layers: FifoLayerRead[] | null;
   wavg_breakdown: WavgBreakdownRead | null;
 };
@@ -499,6 +504,7 @@ export type PricingEvaluationResponse = {
   valuation_policy_label: string;
   branch_id: number | null;
   currency_code: string;
+  default_markup_pct: string;
   total: number;
   items: PricingEvaluationRow[];
 };
@@ -507,14 +513,22 @@ export async function evaluatePricingMatrix(params: {
   branch_id?: number;
   q?: string;
   needs_pricing_only?: boolean;
+  pricing_review_only?: boolean;
   product_id?: number;
   variant_id?: number;
   limit?: number;
   offset?: number;
 }): Promise<PricingEvaluationResponse> {
-  const { branch_id, ...rest } = params;
-  const query =
-    branch_id != null && branch_id > 0 ? { branch_id, ...rest } : { ...rest };
+  const { branch_id, needs_pricing_only, pricing_review_only, ...rest } = params;
+  const query: Record<string, unknown> = { ...rest };
+  if (branch_id != null && branch_id > 0) {
+    query.branch_id = branch_id;
+  }
+  if (pricing_review_only != null) {
+    query.pricing_review_only = pricing_review_only;
+  } else if (needs_pricing_only != null) {
+    query.needs_pricing_only = needs_pricing_only;
+  }
   const { data } = await apiClient.get<PricingEvaluationResponse>('/catalog/pricing/evaluate', {
     params: query,
   });

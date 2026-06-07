@@ -10,18 +10,20 @@
     "nav_register": "نقطة البيع",
     "nav_close": "إغلاق الوردية",
     "nav_invoices": "الفواتير",
-    "change_terminal": "تغيير الطرفية"
+    "change_terminal": "تغيير الجهاز",
+    "device_fallback": "الجهاز #{{id}}"
   },
   "gate": {
-    "select_terminal": "اختر الطرفية",
-    "no_terminals": "لا توجد طرفيات لهذا الفرع.",
+    "select_terminal": "اختر الجهاز",
+    "no_terminals": "لا توجد أجهزة لهذا الفرع.",
+    "device_fallback": "الجهاز {{id}}",
     "open_shift": "فتح وردية",
     "opening_float": "العهدة الافتتاحية",
     "shift_open": "الوردية مفتوحة",
     "go_register": "الانتقال للكاشير",
     "opened_at": "فُتحت في {{at}}",
-    "start_hint": "ابدأ باختيار الطرفية وفتح الوردية، ثم انتقل لشاشة الكاشير لإدارة السلة والتحصيل.",
-    "branch_hint": "تعتمد الطرفيات والفواتير على الفرع النشط في حسابك."
+    "start_hint": "ابدأ باختيار الجهاز وفتح الوردية، ثم انتقل لشاشة الكاشير لإدارة السلة والتحصيل.",
+    "branch_hint": "تعتمد الأجهزة والفواتير على الفرع النشط في حسابك."
   },
   "register": {
     "need_shift": "افتح وردية من شاشة الوردية أولًا.",
@@ -34,6 +36,7 @@
     "loading_cart_stuck_action": "إعادة المحاولة",
     "loading_shift": "جاري التحقق من الوردية النشطة…",
     "cart_error_title": "تعذر تجهيز السلة",
+    "cart_error_hint": "يرجى التحقق من اتصال الشبكة والمحاولة مرة أخرى.",
     "shift_error_title": "تعذر تحميل الوردية النشطة",
     "retry_cart": "إعادة المحاولة",
     "new_cart": "سلة جديدة",
@@ -72,6 +75,9 @@
     "discount_code_placeholder": "مثال: SUMMER10",
     "discount_tab_code": "رمز ترويجي",
     "discount_tab_loyalty": "نقاط الولاء",
+    "discount_tab_flat": "مبلغ ثابت",
+    "discount_flat_amount": "مبلغ الخصم",
+    "discount_flat_placeholder": "مثال: 10.00",
     "discount_loyalty_no_customer": "اختر عميلاً نشطاً على السلة لاستبدال نقاط الولاء.",
     "discount_loyalty_balance": "النقاط المتاحة: {{balance}}",
     "discount_loyalty_points": "نقاط للاستبدال",
@@ -106,6 +112,26 @@
     "add_customer_close": "إغلاق",
     "add_customer_use_cart": "ربط بالسلة",
     "add_customer_error": "تعذر إنشاء العميل"
+  },
+  "proforma": {
+    "title": "فاتورة مبدئية",
+    "product": "المنتج",
+    "variant": "المتغير",
+    "variant_placeholder": "اختر المتغير",
+    "qty": "الكمية",
+    "unit_price": "سعر الوحدة",
+    "line_total": "إجمالي السطر",
+    "subtotal": "المجموع الفرعي",
+    "tax": "الضريبة",
+    "total": "الإجمالي",
+    "add_line": "إضافة سطر",
+    "remove_line": "حذف السطر",
+    "export_pdf": "تصدير PDF",
+    "export_excel": "تصدير Excel",
+    "export_pdf_ok": "تم تنزيل ملف PDF",
+    "export_excel_ok": "تم تنزيل ملف Excel",
+    "close": "إغلاق",
+    "quote_error": "تعذر حساب الأسعار"
   },
   "pending": {
     "title": "الفواتير المعلقة",

@@ -28,7 +28,7 @@ export type PosQuickAddCustomerDialogProps = {
 };
 
 export function PosQuickAddCustomerDialog({ open, onOpenChange, onCreated }: PosQuickAddCustomerDialogProps) {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const [phone, setPhone] = useState('');
@@ -61,7 +61,7 @@ export function PosQuickAddCustomerDialog({ open, onOpenChange, onCreated }: Pos
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" dir="auto">
+      <DialogContent className="sm:max-w-md" dir={i18n.dir()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="size-5" aria-hidden />

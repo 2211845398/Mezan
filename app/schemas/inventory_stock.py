@@ -106,3 +106,40 @@ class StockCardRead(BaseModel):
     category_name: str
     branches: list[StockCardBranchRow]
     recent_movements: list[StockMovementLedgerRead]
+
+
+class StockFinderBranchBrief(BaseModel):
+    """Active branch label for mobile stock finder branch picker."""
+
+    id: int
+    name: str
+    code: str | None = None
+
+
+class StockFinderBranchQty(BaseModel):
+    """Per-branch quantities for mobile stock finder."""
+
+    branch_id: int
+    branch_name: str
+    available: int
+    on_hand: int
+    reserved: int
+    damaged: int
+    in_transit_in: int = 0
+
+
+class StockFinderResultRead(BaseModel):
+    """Grouped stock lookup for floor staff (one row per product variant)."""
+
+    product_id: int
+    variant_id: int
+    product_name: str
+    variant_name: str
+    sku: str
+    variant_sku: str = ""
+    barcode: str = Field(
+        default="",
+        description="Variant reference / barcode when configured.",
+    )
+    current_branch: StockFinderBranchQty | None = None
+    other_branches: list[StockFinderBranchQty] = Field(default_factory=list)

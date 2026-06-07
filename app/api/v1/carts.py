@@ -20,6 +20,7 @@ from app.schemas.pos_cart import (
 from app.services import audit_service
 from app.services.cart_service import (
     apply_discount,
+    apply_flat_discount,
     apply_loyalty_discount,
     change_state,
     create_cart,
@@ -112,6 +113,13 @@ async def apply_discount_endpoint(
             db,
             cart_id=cart_id,
             loyalty_points=int(body.loyalty_points or 0),
+            created_by_user_id=current_user.id,
+        )
+    elif body.mode == "flat":
+        cart = await apply_flat_discount(
+            db,
+            cart_id=cart_id,
+            amount=body.amount or 0,
             created_by_user_id=current_user.id,
         )
     else:

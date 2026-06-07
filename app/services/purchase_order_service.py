@@ -18,6 +18,7 @@ from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_order_line import PurchaseOrderLine
 from app.models.suppliers import Supplier
 from app.schemas.purchase_orders import PurchaseOrderLineRead, PurchaseOrderRead
+from app.services.branch_scope import require_warehouse_branch_for_purchasing
 from app.services.product_uom_service import (
     convert_product_qty_to_base,
     get_product_base_uom_id,
@@ -210,6 +211,11 @@ def _ensure_status(po: PurchaseOrder, expected: str) -> None:
         )
 
 
+async def _validate_po_branch_id(db: AsyncSession, branch_id: int | None) -> None:
+    if branch_id is not None:
+        await require_warehouse_branch_for_purchasing(db, int(branch_id))
+
+
 async def create_po(
     db: AsyncSession,
     *,
@@ -218,6 +224,7 @@ async def create_po(
 ) -> PurchaseOrder:
     lines = data.pop("lines", [])
     data = await _resolve_supplier_name(db, data)
+    await _validate_po_branch_id(db, data.get("branch_id"))
     po = PurchaseOrder(**data, status="draft", created_by_user_id=created_by_user_id)
     db.add(po)
     await db.flush()
@@ -282,6 +289,8 @@ async def update_po(db: AsyncSession, *, po_id: int, data: dict[str, Any]) -> Pu
     lines = data.pop("lines", None)
     if data:
         data = await _resolve_supplier_name(db, data)
+        if "branch_id" in data:
+            await _validate_po_branch_id(db, data.get("branch_id"))
         for k, v in data.items():
             setattr(po, k, v)
 

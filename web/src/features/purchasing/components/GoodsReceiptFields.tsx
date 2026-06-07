@@ -136,8 +136,7 @@ export default function GoodsReceiptFields({
       }
 
       if (!branch_id || lines.length === 0) {
-        toast.error(t('orders.receive.no_lines'));
-        throw new Error('branch and qty');
+        throw new Error('receive_lines_required');
       }
 
       const idem = idempotencyKeyRef.current ?? newIdempotencyKey();

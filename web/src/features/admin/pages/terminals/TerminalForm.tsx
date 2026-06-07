@@ -160,6 +160,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                       label={t('terminals.col.branch')}
                       value={field.value}
                       onChange={(b) => field.onChange(b ?? 0)}
+                      kind="commercial"
                     />
                   </FormItem>
                 )}
@@ -253,6 +254,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                     label={t('terminals.col.branch')}
                     value={field.value || null}
                     onChange={(b) => field.onChange(b ?? 0)}
+                    kind="commercial"
                   />
                 </FormItem>
               )}

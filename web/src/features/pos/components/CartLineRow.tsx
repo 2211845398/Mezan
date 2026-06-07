@@ -1,22 +1,18 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, Minus, Package, Plus } from 'lucide-react';
+import { Minus, Package, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { formatCurrency } from '@/lib/format';
-import { formatQtyWithLocalizedUom, localizedUomLabel } from '@/lib/localizedUom';
+import { formatQtyWithLocalizedUom } from '@/lib/localizedUom';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { cn } from '@/lib/utils';
 
 import type { CartRead } from '../api';
 import { findProductInCatalogCache } from '../cartTotalsApprox';
+import { CartLineUomToggle, type CartLineUomOption } from './CartLineUomToggle';
 
 type CartLine = NonNullable<CartRead['lines']>[number];
 
@@ -51,7 +47,6 @@ export function CartLineRow({
   const { t: tc } = useTranslation('catalog');
   const qc = useQueryClient();
   const [imgBroken, setImgBroken] = useState(false);
-  const [uomOpen, setUomOpen] = useState(false);
   const imgSrc = lineImageSrc(line);
   const showImg = imgSrc && !imgBroken;
   const serverName = line.product_name?.trim();
@@ -66,12 +61,14 @@ export function CartLineRow({
     t('register.product_unlabeled');
 
   const uomCode = (line as { uom_code?: string }).uom_code ?? line.uom_symbol;
-  const uomOptions = (line as { available_uoms?: { uom_id: number; code: string; symbol: string; name: string }[] })
-    .available_uoms ?? [];
+  const uomOptions =
+    (line as { available_uoms?: CartLineUomOption[] }).available_uoms ?? [];
   const variantTags =
     (line as { variant_attribute_tags?: { attribute_name: string; value_label: string }[] })
       .variant_attribute_tags ?? [];
-  const hasUomChoice = uomOptions.length > 1 && editable && onUomChange;
+  const activeUomId = (line as { uom_id?: number }).uom_id ?? 0;
+  const hasMultipleUoms = uomOptions.length > 1;
+  const canChangeUom = hasMultipleUoms && editable && !!onUomChange;
 
   const rowDir = i18n.dir() === 'rtl' ? 'rtl' : 'ltr';
   const currentQty = Number(line.qty);
@@ -84,6 +81,11 @@ export function CartLineRow({
   }
 
   const qtyUomLabel = formatQtyWithLocalizedUom(line.qty, uomCode, tc);
+  const unitPriceStr = formatCurrency(Number.parseFloat(String(line.unit_price)), currency);
+
+  const priceQtyLabel = hasMultipleUoms
+    ? `${unitPriceStr} × ${line.qty}`
+    : `${unitPriceStr} × ${qtyUomLabel}`;
 
   return (
     <div
@@ -120,7 +122,7 @@ export function CartLineRow({
         )}
       </div>
 
-      <div className="min-w-0 flex-1 self-center py-0.5 text-center sm:text-start" dir="auto">
+      <div className="min-w-0 flex-1 self-center py-0.5 text-center sm:text-start">
         <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
           <div className="truncate text-sm font-semibold leading-snug text-foreground sm:text-base">
             {label}
@@ -144,45 +146,23 @@ export function CartLineRow({
       </div>
 
       <div
-        className="flex shrink-0 flex-col items-center justify-center gap-0.5 self-center tabular-nums sm:min-w-[6.5rem]"
+        className="flex shrink-0 flex-col items-center justify-center gap-1 self-center tabular-nums sm:min-w-[6.5rem]"
         dir="ltr"
       >
         <span className="max-w-full text-[11px] leading-tight text-muted-foreground sm:text-xs">
-          {formatCurrency(Number.parseFloat(String(line.unit_price)), currency)} ×{' '}
-          {hasUomChoice ? (
-            <Popover open={uomOpen} onOpenChange={setUomOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-0.5 underline decoration-dotted underline-offset-2 hover:text-foreground"
-                  aria-label={t('register.change_uom')}
-                >
-                  {qtyUomLabel}
-                  <ChevronDown className="size-3 opacity-60" aria-hidden />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-40 p-1" align="center">
-                {uomOptions.map((opt) => (
-                  <Button
-                    key={opt.uom_id}
-                    type="button"
-                    variant={opt.uom_id === (line as { uom_id?: number }).uom_id ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="w-full justify-start text-xs"
-                    onClick={() => {
-                      onUomChange!(line.id, line.product_id, line.variant_id, opt.uom_id);
-                      setUomOpen(false);
-                    }}
-                  >
-                    {localizedUomLabel(opt.code, tc) || opt.name}
-                  </Button>
-                ))}
-              </PopoverContent>
-            </Popover>
-          ) : (
-            qtyUomLabel
-          )}
+          {priceQtyLabel}
         </span>
+        {hasMultipleUoms ? (
+          <CartLineUomToggle
+            options={uomOptions}
+            activeUomId={activeUomId}
+            editable={canChangeUom}
+            triggerLabel={qtyUomLabel}
+            onSelect={(uomId) => {
+              onUomChange?.(line.id, line.product_id, line.variant_id, uomId);
+            }}
+          />
+        ) : null}
         <span className="max-w-full text-sm font-bold tracking-tight text-foreground sm:text-base">
           {formatCurrency(Number.parseFloat(String(line.line_total)), currency)}
         </span>

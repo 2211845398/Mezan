@@ -32,9 +32,9 @@ import { catalogKeys } from '../../queries';
 
 import { buildPricingDetailPath, pricingListBasePath } from './pricingPaths';
 
-const DEFAULT_MARGIN = '30';
 const PAGE_SIZE = 50;
 const MAX_MARKUP_PCT = 1000;
+const FALLBACK_DEFAULT_MARGIN = '30';
 
 function evaluationRowKey(row: Pick<PricingEvaluationRow, 'product_id' | 'variant_id'>): string {
   return `${row.product_id}-${row.variant_id}`;
@@ -132,21 +132,25 @@ export default function PricingEvaluationPage() {
 
   useEffect(() => {
     if (!evaluation.data?.items) return;
+    const defaultMargin =
+      evaluation.data.default_markup_pct?.trim() || FALLBACK_DEFAULT_MARGIN;
     setRowDrafts((prev) => {
       const next = { ...prev };
       for (const row of evaluation.data.items) {
         const key = evaluationRowKey(row);
         if (!next[key]) {
-          const suggested = computeSuggestedPrice(row.valuation_cost, DEFAULT_MARGIN);
+          const suggested =
+            row.suggested_price ??
+            computeSuggestedPrice(row.valuation_cost, defaultMargin);
           next[key] = {
-            targetMargin: DEFAULT_MARGIN,
+            targetMargin: defaultMargin,
             finalPrice: suggested,
           };
         }
       }
       return next;
     });
-  }, [evaluation.data?.items]);
+  }, [evaluation.data?.default_markup_pct, evaluation.data?.items]);
 
   const commitM = useMutation({
     mutationFn: commitProductSellPrice,
@@ -183,11 +187,14 @@ export default function PricingEvaluationPage() {
     [setSearchParams],
   );
 
+  const defaultMargin =
+    evaluation.data?.default_markup_pct?.trim() || FALLBACK_DEFAULT_MARGIN;
+
   const updateRowDraft = (key: string, patch: Partial<RowDraft>, valuationCost: string) => {
     setRowDrafts((prev) => {
       const current = prev[key] ?? {
-        targetMargin: DEFAULT_MARGIN,
-        finalPrice: computeSuggestedPrice(valuationCost, DEFAULT_MARGIN),
+        targetMargin: defaultMargin,
+        finalPrice: computeSuggestedPrice(valuationCost, defaultMargin),
       };
       const targetMargin = patch.targetMargin ?? current.targetMargin;
       const finalPrice =
@@ -289,8 +296,10 @@ export default function PricingEvaluationPage() {
                   evaluation.data?.items.map((row) => {
                     const key = evaluationRowKey(row);
                     const draft = rowDrafts[key] ?? {
-                      targetMargin: DEFAULT_MARGIN,
-                      finalPrice: computeSuggestedPrice(row.valuation_cost, DEFAULT_MARGIN),
+                      targetMargin: defaultMargin,
+                      finalPrice:
+                        row.suggested_price ??
+                        computeSuggestedPrice(row.valuation_cost, defaultMargin),
                     };
                     const suggested = computeSuggestedPrice(row.valuation_cost, draft.targetMargin);
                     const isCommitting = committingKey === key && commitM.isPending;

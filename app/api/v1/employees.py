@@ -5,11 +5,13 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     STAFF_SELF_SERVICE_ANY,
     get_current_user,
+    get_user_role_codes,
     require_any_permission,
     require_permission,
 )
@@ -24,8 +26,12 @@ from app.schemas.employees import (
     AttendanceClockOutRequest,
     AttendanceLogListResponse,
     AttendanceLogRead,
+    AttendanceQrRequestResponse,
+    AttendanceSelfClockInRequest,
+    AttendanceSelfClockOutRequest,
     AttendanceSummaryRead,
     EmployeeListResponse,
+    EmployeeMeProfileRead,
     EmployeeProfileCreate,
     EmployeeProfileRead,
     EmployeeProfileUpdate,
@@ -39,7 +45,16 @@ from app.schemas.employees import (
     WeeklyScheduleUpdate,
 )
 from app.schemas.pagination import clamp_pagination
+from app.utils.request_locale import resolve_request_locale
 from app.services import audit_service
+from app.services.attendance_device_service import request_fresh_attendance_qr_for_branch
+from app.services.attendance_export_service import (
+    export_attendance_pdf,
+    export_attendance_xlsx,
+    export_leave_summary_pdf,
+    export_leave_summary_xlsx,
+)
+from app.services.attendance_qr_service import QR_TTL_SECONDS, resolve_branch_from_qr_payload
 from app.services.employee_service import (
     attendance_period_summary,
     clock_in,
@@ -228,6 +243,152 @@ async def get_my_leave_balance_endpoint(
     return await get_vacation_leave_balance(db, employee_profile_id=employee_profile_id)
 
 
+@router.get("/employees/me/profile", response_model=EmployeeMeProfileRead)
+async def get_my_profile_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> EmployeeMeProfileRead:
+    """Enriched employee profile for the signed-in user (mobile profile / badge)."""
+    employee_profile_id = await get_employee_profile_id_for_user(db, current_user.id)
+    if employee_profile_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No employee profile linked to this account",
+        )
+    row = await get_employee_profile_enriched(db, employee_profile_id)
+    role_codes = sorted(await get_user_role_codes(db, current_user.id))
+    full_name = (row.get("user_full_name") or "").strip()
+    if not full_name:
+        full_name = current_user.email
+    return EmployeeMeProfileRead(
+        employee_profile_id=employee_profile_id,
+        user_id=current_user.id,
+        full_name=full_name,
+        email=row.get("user_email") or current_user.email,
+        phone=current_user.phone,
+        avatar_url=current_user.avatar_url,
+        branch_id=row.get("user_branch_id"),
+        branch_name=row.get("user_branch_name"),
+        role_codes=role_codes,
+        role_name=row.get("user_role_name"),
+        hire_date=row["employee"].hire_date,
+    )
+
+
+async def _employee_profile_id_for_self_service(
+    db: AsyncSession, user_id: int
+) -> int:
+    employee_profile_id = await get_employee_profile_id_for_user(db, user_id)
+    if employee_profile_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No employee profile linked to this account",
+        )
+    return employee_profile_id
+
+
+@router.get("/employees/me/attendance", response_model=list[AttendanceLogRead])
+async def list_my_attendance_endpoint(
+    limit: int = Query(30, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> list[AttendanceLogRead]:
+    """Self-service attendance history for the signed-in employee."""
+    employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
+    rows = await list_attendance_logs(
+        db, employee_profile_id=employee_profile_id, limit=limit
+    )
+    return [AttendanceLogRead.model_validate(r) for r in rows]
+
+
+@router.post("/employees/me/attendance/request-qr", response_model=AttendanceQrRequestResponse)
+async def request_my_attendance_qr_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> AttendanceQrRequestResponse:
+    """Ask the branch kiosk to display a fresh attendance QR for scanning."""
+    await _employee_profile_id_for_self_service(db, current_user.id)
+    if current_user.branch_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No branch assigned to your account",
+        )
+    await request_fresh_attendance_qr_for_branch(db, branch_id=current_user.branch_id)
+    await db.commit()
+    return AttendanceQrRequestResponse(ok=True, expires_in_seconds=QR_TTL_SECONDS)
+
+
+@router.post(
+    "/employees/me/attendance/clock-in",
+    response_model=AttendanceLogRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def clock_in_my_attendance_endpoint(
+    body: AttendanceSelfClockInRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> AttendanceLogRead:
+    """Clock in using a branch attendance QR (no ``employees:update``)."""
+    employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
+    branch_id = await resolve_branch_from_qr_payload(
+        db,
+        body.qr_payload,
+        fallback_branch_id=body.branch_id,
+    )
+    row = await clock_in(
+        db,
+        employee_profile_id=employee_profile_id,
+        branch_id=branch_id,
+        clock_in_at=body.clock_in_at,
+    )
+    await audit_service.log(
+        session=db,
+        action="attendance.clock_in",
+        resource_type="attendance_log",
+        resource_id=str(row.id),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return AttendanceLogRead.model_validate(row)
+
+
+@router.post(
+    "/employees/me/attendance/clock-out",
+    response_model=AttendanceLogRead,
+)
+async def clock_out_my_attendance_endpoint(
+    body: AttendanceSelfClockOutRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> AttendanceLogRead:
+    """Clock out using a branch attendance QR (no ``employees:update``)."""
+    employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
+    await resolve_branch_from_qr_payload(db, body.qr_payload)
+    row = await clock_out(
+        db,
+        employee_profile_id=employee_profile_id,
+        clock_out_at=body.clock_out_at,
+    )
+    await audit_service.log(
+        session=db,
+        action="attendance.clock_out",
+        resource_type="attendance_log",
+        resource_id=str(row.id),
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
+    return AttendanceLogRead.model_validate(row)
+
+
 @router.post(
     "/employees/me/leave-requests",
     response_model=LeaveRequestRead,
@@ -254,6 +415,27 @@ async def create_my_leave_request_endpoint(
         employee_profile_id=employee_profile_id,
         body=body,
     )
+
+
+@router.get("/employees/me/leave-requests", response_model=list[LeaveRequestRead])
+async def list_my_leave_requests_endpoint(
+    status: str | None = Query(None, pattern="^(pending|approved|rejected)$"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> list[LeaveRequestRead]:
+    """Self-service leave history for the signed-in employee."""
+    employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
+    rows = await list_leave_requests_filtered(
+        db,
+        status=status,
+        employee_profile_id=employee_profile_id,
+        limit=limit,
+        offset=offset,
+    )
+    return await enrich_leave_request_reads(db, rows)
 
 
 @router.get("/employees/{employee_profile_id}", response_model=EmployeeProfileRead)
@@ -590,6 +772,60 @@ async def attendance_summary_endpoint(
     )
 
 
+@router.get("/attendance/export.pdf")
+async def export_attendance_pdf_endpoint(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("employees", "read"),
+    branch_id: int | None = None,
+    employee_profile_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> Response:
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content, filename = await export_attendance_pdf(
+        db,
+        branch_id=branch_id,
+        employee_profile_id=employee_profile_id,
+        date_from=date_from,
+        date_to=date_to,
+        locale=locale,
+    )
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/attendance/export.xlsx")
+async def export_attendance_xlsx_endpoint(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("employees", "read"),
+    branch_id: int | None = None,
+    employee_profile_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> Response:
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content, filename = await export_attendance_xlsx(
+        db,
+        branch_id=branch_id,
+        employee_profile_id=employee_profile_id,
+        date_from=date_from,
+        date_to=date_to,
+        locale=locale,
+    )
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post(
     "/employees/{employee_profile_id}/leave-requests",
     response_model=LeaveRequestRead,
@@ -646,6 +882,52 @@ async def list_leave_requests_global(
     return await enrich_leave_request_reads(db, rows)
 
 
+@router.get("/leave-requests/export.pdf")
+async def export_leave_requests_pdf_endpoint(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("employees", "read"),
+    status: str | None = None,
+    employee_profile_id: int | None = None,
+) -> Response:
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content, filename = await export_leave_summary_pdf(
+        db,
+        status=status,
+        employee_profile_id=employee_profile_id,
+        locale=locale,
+    )
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/leave-requests/export.xlsx")
+async def export_leave_requests_xlsx_endpoint(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("employees", "read"),
+    status: str | None = None,
+    employee_profile_id: int | None = None,
+) -> Response:
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content, filename = await export_leave_summary_xlsx(
+        db,
+        status=status,
+        employee_profile_id=employee_profile_id,
+        locale=locale,
+    )
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/leave-requests/{leave_request_id}/review", response_model=LeaveRequestRead)
 async def review_leave_request_endpoint(
     leave_request_id: int,
@@ -693,7 +975,7 @@ async def review_leave_request_endpoint(
                 body=body_txt,
                 template_kind="leave_request_review",
                 idempotency_key=f"leave_req:{row.id}:{row.status.value}:{idem or 'noidem'}",
-                data={"leave_request_id": row.id, "path": "/hr/leave"},
+                data={"leave_request_id": row.id, "path": "/my-leaves"},
                 provider_name=None,
                 default_push_provider=settings.PUSH_PROVIDER,
             )

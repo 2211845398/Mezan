@@ -70,4 +70,10 @@
   .mezan-scrollbar::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground) / 0.6);
   }
+
+  /* Custom password reveal — hide Edge/IE native control to avoid duplicate toggles. */
+  input[data-password-input]::-ms-reveal,
+  input[data-password-input]::-ms-clear {
+    display: none;
+  }
 }

@@ -167,6 +167,8 @@ export function leaveRequestRowSearchValue(
     row.reason,
     row.review_notes,
     row.reviewed_by_user_id != null ? String(row.reviewed_by_user_id) : '',
+    (row as { reviewed_by_user_full_name?: string | null }).reviewed_by_user_full_name ?? '',
+    (row as { reviewed_by_user_email?: string | null }).reviewed_by_user_email ?? '',
     row.reviewed_at,
     row.created_at,
     row.updated_at,

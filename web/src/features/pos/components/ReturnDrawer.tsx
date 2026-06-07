@@ -41,7 +41,7 @@ export function ReturnDrawer({
   exchangeSession,
   onExchangeSessionChange,
 }: ReturnDrawerProps) {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
   const qc = useQueryClient();
   const canReturn = usePermission('returns', 'create');
   const [invoiceQuery, setInvoiceQuery] = useState('');
@@ -192,7 +192,7 @@ export function ReturnDrawer({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-h-[calc(100dvh-2rem)] overflow-hidden border-border bg-card p-0 sm:max-w-lg"
-        dir="auto"
+        dir={i18n.dir()}
       >
         <DialogHeader className="border-b border-border/80 px-6 pt-6 pb-4">
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base">

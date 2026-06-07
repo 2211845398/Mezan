@@ -16,8 +16,8 @@ class UserCreate(BaseModel):
     first_name: str | None = None
     father_name: str | None = None
     family_name: str | None = None
-    password: str | None = None  # optional for SSO-only users
-    status: str = "pending_onboarding"  # pending_onboarding, active, deactivated, suspended, banned
+    password: str | None = None  # ignored for staff IT create; set on HR completion
+    status: str = "suspended"  # suspended, pending_onboarding, awaiting_verification, active, ...
     branch_id: int | None = None
     role_code: str | None = Field(default=None, max_length=64)
     assigned_hr_user_id: int | None = None
@@ -29,7 +29,7 @@ class UserUpdate(BaseModel):
     first_name: str | None = None
     father_name: str | None = None
     family_name: str | None = None
-    status: str | None = None  # active, deactivated, suspended, banned
+    status: str | None = None  # active, awaiting_verification, deactivated, suspended, banned, ...
     branch_id: int | None = None
 
 
@@ -44,6 +44,8 @@ class UserRead(BaseModel):
     father_name: str | None = None
     family_name: str | None = None
     status: str
+    must_change_password: bool = False
+    two_factor_enabled: bool = False
     branch_id: int | None = None
     branch_name: str | None = None
     phone: str | None = None

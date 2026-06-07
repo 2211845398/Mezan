@@ -3,6 +3,12 @@
  * routes so `?next=` cannot land a user on a page they cannot access.
  */
 
+import {
+  CORRESPONDENCE_SELF_SERVICE_PERMISSIONS,
+  hasCorrespondenceInboxAccess,
+  hasMarketingCampaignAccess,
+} from '@/config/roleNavAccess';
+
 type PathRule = {
   test: (pathname: string) => boolean;
   resource: string;
@@ -12,6 +18,7 @@ type PathRule = {
 /** Longest / most specific rules first. */
 const PATH_RULES: PathRule[] = [
   { test: (p) => p === '/' || p === '/dashboard' || p === '/profile' || p === '/select-branch', resource: '', action: '' },
+  { test: (p) => p === '/attendance-kiosk', resource: 'attendance_kiosk', action: 'read' },
   { test: (p) => p.startsWith('/admin/users/new'), resource: 'users', action: 'create' },
   { test: (p) => /^\/admin\/users\/\d+/.test(p), resource: 'users', action: 'read' },
   { test: (p) => p.startsWith('/admin/users'), resource: 'users', action: 'read' },
@@ -21,6 +28,7 @@ const PATH_RULES: PathRule[] = [
   { test: (p) => p.startsWith('/admin/backups'), resource: 'backups', action: 'read' },
   { test: (p) => p.startsWith('/admin/notifications'), resource: 'notifications', action: 'read' },
   { test: (p) => p.startsWith('/notifications'), resource: 'notifications', action: 'read' },
+  { test: (p) => p.startsWith('/correspondence'), resource: 'employees', action: 'read' },
   { test: (p) => p === '/pos/register', resource: 'pos_carts', action: 'update' },
   { test: (p) => p === '/pos/close', resource: 'pos_shifts', action: 'close' },
   { test: (p) => p.startsWith('/pos/invoices'), resource: 'sales_invoices', action: 'read' },
@@ -62,6 +70,7 @@ function permissionKey(resource: string, action: string): string {
 export function canAccessPath(
   rawPath: string,
   permissions: ReadonlySet<string> | Iterable<string>,
+  roleCodes: readonly string[] = [],
 ): boolean {
   const pathname = rawPath.split('?')[0] ?? rawPath;
   const permSet =
@@ -70,7 +79,18 @@ export function canAccessPath(
   for (const rule of PATH_RULES) {
     if (!rule.test(pathname)) continue;
     if (!rule.resource) return true;
-    return permSet.has(permissionKey(rule.resource, rule.action));
+    if (pathname.startsWith('/correspondence')) {
+      const hasPerm = CORRESPONDENCE_SELF_SERVICE_PERMISSIONS.some(({ resource, action }) =>
+        permSet.has(permissionKey(resource, action)),
+      );
+      if (!hasPerm) return false;
+      return hasCorrespondenceInboxAccess(roleCodes);
+    }
+    if (!permSet.has(permissionKey(rule.resource, rule.action))) return false;
+    if (pathname.startsWith('/marketing/campaigns')) {
+      return hasMarketingCampaignAccess(roleCodes);
+    }
+    return true;
   }
 
   // Unguarded authenticated routes (e.g. future pages): allow.

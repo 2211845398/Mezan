@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.errors import ConflictError, NotFoundError, ValidationError, validation_error
 from app.models.category import Category
 from app.models.product import Product
 from app.models.product_category import ProductCategory
@@ -248,9 +248,12 @@ def _normalize_sell_price(raw_value: Any) -> Decimal:
     try:
         sell_price = to_decimal(raw_value)
     except ValueError as exc:
-        raise ValidationError("Product has invalid sellable price") from exc
+        raise ValidationError(
+            "سعر البيع غير صالح لهذا المنتج",
+            details={"code": "product_invalid_sellable_price"},
+        ) from exc
     if sell_price <= Decimal("0.00"):
-        raise ValidationError("Product has no sellable price")
+        validation_error("product_no_sellable_price", "المنتج ليس له سعر بيع محدد")
     return sell_price
 
 
@@ -886,6 +889,7 @@ async def search_product_variants_for_purchasing(
     offset: int = 0,
     attribute_value_id: int | None = None,
     product_id: int | None = None,
+    priced_only: bool = False,
 ) -> list[ProductVariantPurchasingSearchItem]:
     """Search active variants joined to active products (PO / receiving pickers)."""
     qs = (q or "").strip()
@@ -949,7 +953,19 @@ async def search_product_variants_for_purchasing(
                 attribute_values=attr_vals,
             )
         )
-    return items
+    if not priced_only:
+        return items
+
+    from app.services.pricing_service import get_active_product_price
+
+    priced: list[ProductVariantPurchasingSearchItem] = []
+    for item in items:
+        price = await get_active_product_price(
+            db, product_id=item.product_id, variant_id=item.variant_id
+        )
+        if price is not None and price.amount > Decimal("0.00"):
+            priced.append(item)
+    return priced
 
 
 async def create_product(db: AsyncSession, *, data: dict[str, Any]) -> Product:
