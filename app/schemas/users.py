@@ -16,7 +16,6 @@ class UserCreate(BaseModel):
     first_name: str | None = None
     father_name: str | None = None
     family_name: str | None = None
-    password: str | None = None  # ignored for staff IT create; set on HR completion
     status: str = "suspended"  # suspended, pending_onboarding, awaiting_verification, active, ...
     branch_id: int | None = None
     role_code: str | None = Field(default=None, max_length=64)

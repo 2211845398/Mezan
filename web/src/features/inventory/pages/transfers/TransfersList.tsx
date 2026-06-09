@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
@@ -350,14 +350,18 @@ export default function TransfersList() {
               </div>
               <CollapsibleContent className="mt-3 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:gap-4">
                   <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:max-w-md">
-                    <div className="space-y-1">
-                      <Label htmlFor="tf-from">{t('transfers.board.date_from')}</Label>
-                      <DateField id="tf-from" value={dateFrom} onChange={setDateFrom} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="tf-to">{t('transfers.board.date_to')}</Label>
-                      <DateField id="tf-to" value={dateTo} onChange={setDateTo} />
-                    </div>
+                    <DateRangeFields
+                      className="contents"
+                      cellClassName="space-y-1"
+                      fromId="tf-from"
+                      toId="tf-to"
+                      fromValue={dateFrom}
+                      toValue={dateTo}
+                      onFromChange={setDateFrom}
+                      onToChange={setDateTo}
+                      fromLabel={<Label htmlFor="tf-from">{t('transfers.board.date_from')}</Label>}
+                      toLabel={<Label htmlFor="tf-to">{t('transfers.board.date_to')}</Label>}
+                    />
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                     <div className="min-w-40 flex-1 space-y-1">

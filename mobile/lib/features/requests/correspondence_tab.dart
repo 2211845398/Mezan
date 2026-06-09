@@ -130,7 +130,7 @@ class _CorrespondenceTabState extends State<CorrespondenceTab> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _targetRole,
+                  initialValue: _targetRole,
                   decoration: InputDecoration(labelText: strings.correspondenceTargetRole),
                   items: const [
                     DropdownMenuItem(value: 'HR_MANAGER', child: Text('HR')),

@@ -103,6 +103,21 @@ export function ThermalReceiptInner({ model }: { model: ThermalReceiptModel }) {
           <span>{t('register.total')}</span>
           <span dir="ltr">{money(model.total, model.currency)}</span>
         </div>
+        {model.roundingDifference != null &&
+        model.roundingDifference !== '' &&
+        model.roundingDifference !== '0' &&
+        model.roundingDifference !== '0.00' ? (
+          <div className="flex justify-between gap-2">
+            <span>{t('tender.rounding_difference')}</span>
+            <span dir="ltr">{money(model.roundingDifference, model.currency)}</span>
+          </div>
+        ) : null}
+        {model.amountPaid != null && model.amountPaid !== '' ? (
+          <div className="flex justify-between gap-2 font-bold">
+            <span>{t('tender.amount_paid')}</span>
+            <span dir="ltr">{money(model.amountPaid, model.currency)}</span>
+          </div>
+        ) : null}
         {model.paymentMethod ? (
           <div className="flex justify-between gap-2">
             <span>{t('tender.method')}</span>

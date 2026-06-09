@@ -444,6 +444,7 @@ export type CurrencyRead = {
   exchange_rate_to_base: string | null;
   active: boolean;
   is_base: boolean;
+  cash_rounding_increment?: string | null;
 };
 
 export type AccountingSettingsRead = {
@@ -477,6 +478,20 @@ export async function createCurrency(body: {
   exchange_rate_to_base?: string | null;
 }): Promise<CurrencyRead> {
   const { data } = await apiClient.post<CurrencyRead>('/accounting/currencies', body);
+  return data;
+}
+
+export async function updateCurrency(
+  currencyId: number,
+  body: {
+    name?: string;
+    decimal_places?: number;
+    suffix?: string | null;
+    active?: boolean;
+    cash_rounding_increment?: string | null;
+  },
+): Promise<CurrencyRead> {
+  const { data } = await apiClient.patch<CurrencyRead>(`/accounting/currencies/${currencyId}`, body);
   return data;
 }
 

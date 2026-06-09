@@ -29,6 +29,8 @@ import PoReceiveVariantSplitRows, {
   newReceiveSplitRow,
 } from './PoReceiveVariantSplitRows';
 
+export const GOODS_RECEIPT_FORM_ID = 'purchasing-goods-receipt-form';
+
 type Props = {
   purchaseOrder: PurchaseOrderRead;
   receipts: import('../api').GoodsReceiptRead[];
@@ -37,6 +39,8 @@ type Props = {
   variantLabels?: Record<number, string>;
   onPosted?: () => void | Promise<void>;
   disabled?: boolean;
+  formId?: string;
+  hideFooterActions?: boolean;
 };
 
 export default function GoodsReceiptFields({
@@ -47,6 +51,8 @@ export default function GoodsReceiptFields({
   variantLabels = {},
   onPosted,
   disabled,
+  formId,
+  hideFooterActions = false,
 }: Props) {
   const { t } = useTranslation('purchasing');
   const { t: tInv } = useTranslation('inventory');
@@ -195,8 +201,8 @@ export default function GoodsReceiptFields({
 
   const pending = disabled || receiveM.isPending;
 
-  return (
-    <div className="grid gap-4">
+  const body = (
+    <>
       <div className="grid gap-2 md:max-w-sm">
         <Label>{t('orders.receive.branch')}</Label>
         <div
@@ -288,11 +294,30 @@ export default function GoodsReceiptFields({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={pending} onClick={handleSubmit}>
-          {t('orders.receive.submit')}
-        </Button>
-      </div>
-    </div>
+      {hideFooterActions ? null : (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" disabled={pending} onClick={handleSubmit}>
+            {t('orders.receive.submit')}
+          </Button>
+        </div>
+      )}
+    </>
   );
+
+  if (formId) {
+    return (
+      <form
+        id={formId}
+        className="grid gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+      >
+        {body}
+      </form>
+    );
+  }
+
+  return <div className="grid gap-4">{body}</div>;
 }

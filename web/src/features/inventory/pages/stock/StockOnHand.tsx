@@ -5,7 +5,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { TableCategoryTags } from '@/components/shared/TableCategoryTags';
 import { Input } from '@/components/ui/input';
@@ -20,7 +23,7 @@ import { BranchStockFilterBar } from '../../components/BranchStockFilterBar';
 import { InventoryStockNavActions } from '../../components/InventoryStockNavActions';
 import { useStockOnHandQuery } from '../../queries';
 import type { StockOnHandRow } from '../../types';
-import AdjustmentForm from '../adjustments/AdjustmentForm';
+import AdjustmentForm, { ADJUSTMENT_DIALOG_FORM_ID } from '../adjustments/AdjustmentForm';
 
 function flattenCats(nodes: { id: number; name: string; children?: typeof nodes }[]): { id: number; name: string }[] {
   const o: { id: number; name: string }[] = [];
@@ -46,6 +49,7 @@ type MetricFilter = 'reserved' | 'damaged' | 'in_transit';
 
 export default function StockOnHand() {
   const { t } = useTranslation('inventory');
+  const { t: tc } = useTranslation('common');
   const [searchParams, setSearchParams] = useSearchParams();
 
   const branchId = useMemo(() => {
@@ -453,6 +457,14 @@ export default function StockOnHand() {
         onOpenChange={setMovementDialogOpen}
         title={t('adjustments.new')}
         maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={ADJUSTMENT_DIALOG_FORM_ID}
+            onCancel={() => setMovementDialogOpen(false)}
+            saveLabel={t('actions.submit')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {movementDialogOpen ? (
           <AdjustmentForm

@@ -5,7 +5,10 @@ import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
@@ -13,7 +16,7 @@ import { usePermission } from '@/hooks/usePermission';
 import type { TaxDefinitionRead } from '../../api';
 import { listTaxDefinitions } from '../../api';
 import { catalogKeys } from '../../queries';
-import TaxForm from './TaxForm';
+import TaxForm, { TAX_DIALOG_FORM_ID } from './TaxForm';
 
 function formatRateFraction(rate: string): string {
   const n = Number.parseFloat(String(rate));
@@ -25,6 +28,7 @@ function formatRateFraction(rate: string): string {
 
 export default function TaxesList() {
   const { t } = useTranslation('catalog');
+  const { t: tc } = useTranslation('common');
   const canCreate = usePermission('catalog', 'create');
   const canUpdate = usePermission('catalog', 'update');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -123,6 +127,17 @@ export default function TaxesList() {
         }}
         title={editing ? t('taxes.edit') : t('taxes.new')}
         maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={TAX_DIALOG_FORM_ID}
+            onCancel={() => {
+              setDialogOpen(false);
+              setEditing(null);
+            }}
+            saveLabel={t('actions.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {dialogOpen ? (
           <TaxForm

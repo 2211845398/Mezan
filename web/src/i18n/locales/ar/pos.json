@@ -94,7 +94,7 @@
     "todays_sales": "مبيعات اليوم",
     "leave_return_mode": "العودة للبيع",
     "park_cart": "تعليق",
-    "cancel_cart": "حذف السلة",
+    "cancel_cart": "حذف سلة",
     "exit_checkout": "إلغاء الدفع",
     "view_parked": "عرض المعلقة",
     "add_customer": "إضافة عميل",
@@ -170,6 +170,9 @@
     "exchange_credit": "رصيد المرتجع",
     "exchange_new_items": "مشتريات الاستبدال",
     "net_exchange": "الصافي المستحق",
+    "exact_total": "الإجمالي الدقيق",
+    "rounding_difference": "فروقات التقريب",
+    "amount_paid": "المبلغ المدفوع",
     "refund_due": "استرداد للعميل",
     "complete_refund": "إتمام الاسترداد"
   },
@@ -206,6 +209,7 @@
     "title": "إيصال",
     "print_58": "طباعة ٥٨مم",
     "print_80": "طباعة ٨٠مم",
+    "print_a4": "طباعة A4",
     "close": "إغلاق",
     "col_item": "صنف",
     "col_unit": "سعر القطعة",
@@ -241,7 +245,11 @@
     "mode_banner": "إرجاع · فاتورة {{number}}",
     "invoice_badge": "فاتورة {{number}}",
     "auto_load_need_empty_cart": "أفرغ السلة لتحميل الفاتورة تلقائياً، أو استخدم «إعادة التحميل في السلة» للاستبدال.",
-    "reload_into_cart": "إعادة التحميل في السلة"
+    "reload_into_cart": "إعادة التحميل في السلة",
+    "refund_confirm_title": "تأكيد الاسترداد",
+    "refund_confirm_body": "سيتم تسجيل المرتجع واسترداد {{amount}} للعميل من الصندوق.",
+    "refund_confirm_zero": "سيتم تسجيل المرتجع دون مبلغ إضافي للتحصيل.",
+    "refund_confirm_action": "تأكيد وتسجيل المرتجع"
   },
   "close": {
     "title": "إغلاق الوردية",
@@ -302,7 +310,8 @@
     "void_reason_placeholder": "مثال: طلب العميل الإلغاء",
     "void_confirm": "تأكيد الإلغاء",
     "void_success": "تم إلغاء الفاتورة {{number}}.",
-    "empty": "لا فواتير في هذه النافذة."
+    "empty": "لا فواتير في هذه النافذة.",
+    "return_badge": "مرتجع"
   },
   "shortcuts": {
     "title": "اختصارات",

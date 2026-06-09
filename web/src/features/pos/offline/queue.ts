@@ -19,6 +19,8 @@ export type ReturnSubmitPayload = {
   reason?: string | null;
   lines: { sales_invoice_line_id: number; qty: number }[];
   exchange_cart_id?: number | null;
+  shift_id?: number | null;
+  return_cart_line_ids?: number[];
   /** Reserved for future server idempotency; stored for replay metadata. */
   clientUuid: string;
 };

@@ -11,7 +11,7 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { SectionCard } from '@/components/shared/ContentSurface';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -319,14 +319,16 @@ export default function SalesInvoiceRegister() {
           <CardTitle className="text-base">{t('salesRegister.filters_title')}</CardTitle>
         </CardHeader>
         <CardContent className="flex items-end gap-3 overflow-x-auto">
-          <div className="grid w-[9.75rem] shrink-0 gap-1">
-            <Label className="text-xs">{t('analytics.period_start')}</Label>
-            <DateField value={periodStart} onChange={setPeriodStart} className="w-full" />
-          </div>
-          <div className="grid w-[9.75rem] shrink-0 gap-1">
-            <Label className="text-xs">{t('analytics.period_end')}</Label>
-            <DateField value={periodEnd} onChange={setPeriodEnd} className="w-full" />
-          </div>
+          <DateRangeFields
+            fromValue={periodStart}
+            toValue={periodEnd}
+            onFromChange={setPeriodStart}
+            onToChange={setPeriodEnd}
+            fromLabel={<Label className="text-xs">{t('analytics.period_start')}</Label>}
+            toLabel={<Label className="text-xs">{t('analytics.period_end')}</Label>}
+            cellClassName="grid w-[9.75rem] shrink-0 gap-1"
+            fieldClassName="w-full"
+          />
           <div className="grid w-[10.5rem] shrink-0 gap-1">
             <Label className="text-xs">{t('salesRegister.branch')}</Label>
             {canPickBranch ? (

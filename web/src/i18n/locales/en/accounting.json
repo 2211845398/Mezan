@@ -386,6 +386,9 @@
     "yes": "Yes",
     "no": "No",
     "edit_rate": "Edit rate",
+    "edit_rounding": "Cash rounding",
+    "edit_rounding_title": "Cash rounding — {{code}}",
+    "rounding_updated": "Cash rounding setting updated",
     "edit_rate_title": "Rate for {{code}}",
     "set_base": "Set as base",
     "created": "Currency added",
@@ -399,6 +402,8 @@
       "name": "Name",
       "rate": "Exchange rate to base",
       "rate_hint": "Units of base currency per 1 unit of this currency. Leave empty for base-like setup.",
+      "cash_rounding_increment": "Cash rounding increment",
+      "rounding_hint": "Example: 0.05 to round to the nearest nickel. Leave empty to disable.",
       "save": "Save"
     }
   },

@@ -6,7 +6,18 @@ import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 
 import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/format';
 import { getBranchDisplayName } from '@/features/admin/lib/branchLabels';
 import { useMe, useMyBranch } from '@/features/auth/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
@@ -15,7 +26,14 @@ import { useOnline } from '@/hooks/useOnline';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 
-import { addCartLine, addShiftCashEvent, changeCartState, getCart, type CartRead } from '../api';
+import {
+  addShiftCashEvent,
+  changeCartState,
+  getCart,
+  getCashRoundingConfig,
+  type CartRead,
+  type ReturnResponse,
+} from '../api';
 import { thermalModelFromCreditNote } from '../print/mapModel';
 import { CustomerPicker } from '../components/CustomerPicker';
 import { PosQuickAddCustomerDialog } from '../components/PosQuickAddCustomerDialog';
@@ -40,7 +58,6 @@ import {
   useCurrentShift,
   useLockCart,
   useParkCart,
-  useParkedCarts,
   useSubmitReturnMutation,
   useUpdateCartCustomer,
   useChangeLineUom,
@@ -70,6 +87,79 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 
 const CREATE_CART_BOOTSTRAP_MS = 28_000;
 
+type PendingReturnPayload = {
+  linesPayload: { sales_invoice_line_id: number; qty: number }[];
+  returnCartLineIds: number[];
+};
+
+function buildReturnPayload(
+  fresh: CartRead,
+  session: ReturnExchangeSession,
+): PendingReturnPayload | null {
+  const linesPayload: { sales_invoice_line_id: number; qty: number }[] = [];
+  const returnCartLineIds: number[] = [];
+  for (const [idStr, meta] of Object.entries(session.loads)) {
+    const salesInvoiceLineId = Number.parseInt(idStr, 10);
+    const cartLn = fresh.lines?.find(
+      (l) => l.product_id === meta.productId && l.variant_id === meta.variantId,
+    );
+    const current = cartLn ? Number(cartLn.qty) : 0;
+    const retQty = Math.max(0, current);
+    if (retQty === 0) continue;
+    linesPayload.push({ sales_invoice_line_id: salesInvoiceLineId, qty: retQty });
+    if (cartLn?.id != null) {
+      returnCartLineIds.push(cartLn.id);
+    }
+  }
+  if (!linesPayload.length) return null;
+  return { linesPayload, returnCartLineIds };
+}
+
+function calcCreditEstimate(
+  session: ReturnExchangeSession,
+  linesPayload: { sales_invoice_line_id: number; qty: number }[],
+): Decimal {
+  let credit = new Decimal(0);
+  for (const p of linesPayload) {
+    const meta = session.loads[p.sales_invoice_line_id];
+    if (meta) {
+      credit = credit.plus(new Decimal(meta.lineGrossPerUnit).times(p.qty));
+    }
+  }
+  return credit;
+}
+
+function willHaveExchangeLinesAfterReturn(cart: CartRead, returnCartLineIds: number[]): boolean {
+  const returnIds = new Set(returnCartLineIds);
+  return (cart.lines ?? []).some(
+    (ln) => Number(ln.qty) > 0 && (ln.id == null || !returnIds.has(ln.id)),
+  );
+}
+
+function creditNoteModelFromReturn(
+  session: ReturnExchangeSession,
+  res: ReturnResponse,
+  linesPayload: { sales_invoice_line_id: number; qty: number }[],
+  branchLabel: string,
+): ThermalReceiptModel {
+  return thermalModelFromCreditNote({
+    branchLabel,
+    currency: POS_CURRENCY,
+    creditNumber: res.credit_number,
+    total: res.total_amount,
+    lines: linesPayload.map((p) => {
+      const meta = session.loads[p.sales_invoice_line_id];
+      return {
+        name: meta?.productName ?? '',
+        qty: p.qty,
+        unitPrice: '0',
+        lineTotal: '0',
+        taxAmount: '0',
+      };
+    }),
+  });
+}
+
 type RegisterSessionProps = {
   cartId: number;
   terminalId: number;
@@ -79,12 +169,10 @@ type RegisterSessionProps = {
   posBranchId: number;
   /** Paid carts this shift (`/pos/shifts/current` → `transactions_in_shift`). */
   transactionsInShift: number;
-  parkedCount: number;
   /** Create a new empty cart and switch to it (avoids long null + loading gap after park/cancel). */
   onOpenFreshCart: (opts?: { dropDetailFor?: number | null }) => Promise<void>;
   onTenderDone: (result: TenderDone) => void;
   onCartMissing: () => void;
-  onShowParked: () => void;
   returnExchangeSession: ReturnExchangeSession | null;
   onReturnExchangeSessionChange: (session: ReturnExchangeSession | null) => void;
   onReturnCredit: (model: ThermalReceiptModel) => void;
@@ -98,11 +186,9 @@ function RegisterSession({
   branchLabel,
   posBranchId,
   transactionsInShift,
-  parkedCount,
   onOpenFreshCart,
   onTenderDone,
   onCartMissing,
-  onShowParked,
   returnExchangeSession,
   onReturnExchangeSessionChange,
   onReturnCredit,
@@ -121,7 +207,17 @@ function RegisterSession({
   const canCreateCustomer = usePermission('customers', 'create');
 
   const [tenderOpen, setTenderOpen] = useState(false);
+  const { data: cashRoundingConfig } = useQuery({
+    queryKey: ['pos', 'cash-rounding-config', POS_CURRENCY],
+    queryFn: () => getCashRoundingConfig(POS_CURRENCY),
+    enabled: tenderOpen,
+    staleTime: 5 * 60 * 1000,
+  });
   const [pendingExchangeCredit, setPendingExchangeCredit] = useState<Decimal | null>(null);
+  const [pendingReturnPayload, setPendingReturnPayload] = useState<PendingReturnPayload | null>(null);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [refundConfirmAmount, setRefundConfirmAmount] = useState<Decimal>(new Decimal(0));
+  const pendingReturnSessionRef = useRef<ReturnExchangeSession | null>(null);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [variantPickerProduct, setVariantPickerProduct] = useState<ProductRead | null>(null);
   const [selectedLineId, setSelectedLineId] = useState<number | null>(null);
@@ -161,6 +257,8 @@ function RegisterSession({
 
   const abortCheckoutIfLocked = useCallback(async () => {
     setPendingExchangeCredit(null);
+    setPendingReturnPayload(null);
+    pendingReturnSessionRef.current = null;
     setSelectedLineId(null);
     setNumpadBuffer('');
     const cached = qc.getQueryData<CartRead>(cartKeys.detail(cartId));
@@ -254,71 +352,105 @@ function RegisterSession({
   const canRegisterReturn =
     online && canReturn && editable && activeCart.status === 'active' && returnExchangeSession != null;
 
+  const handleReturnAfterCapture = useCallback(
+    async (paymentIntentId: number) => {
+      const session = pendingReturnSessionRef.current ?? returnExchangeSession;
+      if (!session || !pendingReturnPayload) {
+        throw new Error('Missing return payload');
+      }
+      const { linesPayload, returnCartLineIds } = pendingReturnPayload;
+      const res = await submitReturnMut.mutateAsync({
+        invoice_barcode: session.invoiceBarcode,
+        reason: null,
+        lines: linesPayload,
+        exchange_cart_id: cartId,
+        shift_id: shiftId,
+        return_cart_line_ids: returnCartLineIds,
+        payment_intent_id: paymentIntentId,
+      });
+      notify.success(t('return.credit_note', { id: res.credit_note_id }));
+      onReturnCredit(creditNoteModelFromReturn(session, res, linesPayload, branchLabel));
+      onReturnExchangeSessionChange(null);
+      setPendingReturnPayload(null);
+      pendingReturnSessionRef.current = null;
+      const cartAfter = await getCart(cartId);
+      qc.setQueryData(cartKeys.detail(cartId), cartAfter);
+    },
+    [
+      branchLabel,
+      cartId,
+      onReturnCredit,
+      onReturnExchangeSessionChange,
+      pendingReturnPayload,
+      qc,
+      returnExchangeSession,
+      shiftId,
+      submitReturnMut,
+      t,
+    ],
+  );
+
+  async function confirmRefundAndRegisterReturn() {
+    const session = pendingReturnSessionRef.current ?? returnExchangeSession;
+    if (!session || !pendingReturnPayload) return;
+    const { linesPayload, returnCartLineIds } = pendingReturnPayload;
+    const hadExchangeLines = willHaveExchangeLinesAfterReturn(
+      await getCart(cartId),
+      returnCartLineIds,
+    );
+    try {
+      const res = await submitReturnMut.mutateAsync({
+        invoice_barcode: session.invoiceBarcode,
+        reason: null,
+        lines: linesPayload,
+        exchange_cart_id: cartId,
+        shift_id: shiftId,
+        return_cart_line_ids: returnCartLineIds,
+      });
+      notify.success(t('return.credit_note', { id: res.credit_note_id }));
+      onReturnCredit(creditNoteModelFromReturn(session, res, linesPayload, branchLabel));
+      onReturnExchangeSessionChange(null);
+      setPendingReturnPayload(null);
+      pendingReturnSessionRef.current = null;
+      setShowRefundConfirm(false);
+
+      if (refundConfirmAmount.greaterThan(0) && shiftId && hadExchangeLines) {
+        await addShiftCashEvent(shiftId, {
+          event_type: 'refund',
+          amount: refundConfirmAmount.toFixed(2),
+          note: t('tender.refund_due'),
+        });
+      }
+
+      const cartAfter = await getCart(cartId);
+      qc.setQueryData(cartKeys.detail(cartId), cartAfter);
+      await cancelCart.mutateAsync();
+      await onOpenFreshCart({ dropDetailFor: cartId });
+    } catch (error) {
+      notifyApiError(error);
+    }
+  }
+
   async function registerReturn() {
     if (!returnExchangeSession) return;
     try {
       await addLineChainRef.current;
       const fresh = await getCart(cartId);
-      const linesPayload: { sales_invoice_line_id: number; qty: number }[] = [];
-      const returnLineMetas: ReturnExchangeSession['loads'][number][] = [];
-      for (const [idStr, meta] of Object.entries(returnExchangeSession.loads)) {
-        const salesInvoiceLineId = Number.parseInt(idStr, 10);
-        const cartLn = fresh.lines?.find(
-          (l) => l.product_id === meta.productId && l.variant_id === meta.variantId,
-        );
-        const current = cartLn ? Number(cartLn.qty) : 0;
-        const retQty = Math.max(0, current);
-        if (retQty === 0) continue;
-        linesPayload.push({ sales_invoice_line_id: salesInvoiceLineId, qty: retQty });
-        returnLineMetas.push(meta);
-      }
-      if (!linesPayload.length) {
+      const built = buildReturnPayload(fresh, returnExchangeSession);
+      if (!built) {
         notify.error(t('return.none_return_qty'));
         return;
       }
-      const res = await submitReturnMut.mutateAsync({
-        invoice_barcode: returnExchangeSession.invoiceBarcode,
-        reason: null,
-        lines: linesPayload,
-        exchange_cart_id: cartId,
-      });
-      const model = thermalModelFromCreditNote({
-        branchLabel,
-        currency: POS_CURRENCY,
-        creditNumber: res.credit_number,
-        total: res.total_amount,
-        lines: linesPayload.map((p) => {
-          const meta = returnExchangeSession.loads[p.sales_invoice_line_id];
-          return {
-            name: meta?.productName ?? '',
-            qty: p.qty,
-            unitPrice: '0',
-            lineTotal: '0',
-            taxAmount: '0',
-          };
-        }),
-      });
-      notify.success(t('return.credit_note', { id: res.credit_note_id }));
-      onReturnCredit(model);
+      const { linesPayload, returnCartLineIds } = built;
+      const creditEstimate = calcCreditEstimate(returnExchangeSession, linesPayload);
+      const netVariance = new Decimal(fresh.total).minus(creditEstimate);
 
-      for (const meta of returnLineMetas) {
-        await addCartLine(cartId, {
-          product_id: meta.productId,
-          variant_id: meta.variantId,
-          qty: 0,
-        });
-      }
-      const cartAfter = await getCart(cartId);
-      qc.setQueryData(cartKeys.detail(cartId), cartAfter);
-      onReturnExchangeSessionChange(null);
+      pendingReturnSessionRef.current = returnExchangeSession;
+      setPendingReturnPayload({ linesPayload, returnCartLineIds });
 
-      const creditDec = new Decimal(res.total_amount);
-      const hasExchangeLines = (cartAfter.lines ?? []).some((ln) => Number(ln.qty) > 0);
-
-      if (hasExchangeLines) {
-        setPendingExchangeCredit(creditDec);
-        await addLineChainRef.current;
-        if (cartAfter.status === 'active' && canUpdateCart) {
+      if (netVariance.greaterThan(0)) {
+        setPendingExchangeCredit(creditEstimate);
+        if (fresh.status === 'active' && canUpdateCart) {
           await lock.mutateAsync();
           const locked = await getCart(cartId);
           qc.setQueryData(cartKeys.detail(cartId), locked);
@@ -327,17 +459,12 @@ function RegisterSession({
         return;
       }
 
-      if (creditDec.greaterThan(0)) {
-        await addShiftCashEvent(shiftId, {
-          event_type: 'cash_out',
-          amount: creditDec.toFixed(2),
-          note: `CRN ${res.credit_number}`,
-        });
-      }
-      await cancelCart.mutateAsync();
-      await onOpenFreshCart({ dropDetailFor: cartId });
+      setRefundConfirmAmount(netVariance.lessThan(0) ? netVariance.abs() : new Decimal(0));
+      setShowRefundConfirm(true);
     } catch (error) {
       notifyApiError(error);
+      setPendingReturnPayload(null);
+      pendingReturnSessionRef.current = null;
     }
   }
 
@@ -373,6 +500,23 @@ function RegisterSession({
     try {
       await parkCart.mutateAsync();
       await onOpenFreshCart();
+    } catch (error) {
+      notifyApiError(error);
+    }
+  }
+
+  async function handleClearCart() {
+    const hasPayableLines = (activeCart.lines ?? []).some((ln) => (ln.qty ?? 0) > 0);
+    if (!hasPayableLines) {
+      notify.info(t('register.cart_empty'));
+      return;
+    }
+    setSelectedLineId(null);
+    setNumpadBuffer('');
+    try {
+      await addLineChainRef.current;
+      await cancelCart.mutateAsync();
+      await onOpenFreshCart({ dropDetailFor: cartId });
     } catch (error) {
       notifyApiError(error);
     }
@@ -417,7 +561,6 @@ function RegisterSession({
           canInvoice={canInvoice}
           editable={editable}
           isLocked={isLocked}
-          parkedCount={parkedCount}
           returnModeActive={returnExchangeSession != null}
           canRegisterReturn={canRegisterReturn}
           returnSubmitPending={submitReturnMut.isPending}
@@ -436,7 +579,7 @@ function RegisterSession({
           onCheckout={() => void openCheckout()}
           onPark={() => void handlePark()}
           onNewCart={() => void handlePark()}
-          onShowParked={onShowParked}
+          onClearCart={() => void handleClearCart()}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 px-0.5 pt-2 sm:px-1">
           <div className="flex shrink-0 gap-2">
@@ -498,13 +641,17 @@ function RegisterSession({
         onOpenChange={setTenderOpen}
         cart={cart}
         currency={POS_CURRENCY}
+        cashRoundingIncrement={cashRoundingConfig?.cash_rounding_increment ?? null}
         branchLabel={branchLabel}
         customerId={(cart as typeof cart & { customer_id?: number | null }).customer_id ?? null}
         exchangeCredit={pendingExchangeCredit}
         shiftId={shiftId}
         onAbortCheckout={abortCheckoutIfLocked}
+        {...(pendingReturnPayload ? { onAfterCapture: handleReturnAfterCapture } : {})}
         onDone={(result) => {
           setPendingExchangeCredit(null);
+          setPendingReturnPayload(null);
+          pendingReturnSessionRef.current = null;
           if (result.kind === 'exchange_refund') {
             onTenderDone(result);
             void (async () => {
@@ -516,6 +663,42 @@ function RegisterSession({
           onTenderDone(result);
         }}
       />
+
+      <AlertDialog
+        open={showRefundConfirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingReturnPayload(null);
+            pendingReturnSessionRef.current = null;
+          }
+          setShowRefundConfirm(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('return.refund_confirm_title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {refundConfirmAmount.greaterThan(0)
+                ? t('return.refund_confirm_body', {
+                    amount: formatCurrency(refundConfirmAmount.toNumber(), POS_CURRENCY),
+                  })
+                : t('return.refund_confirm_zero')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('actions.cancel', { ns: 'common' })}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={submitReturnMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmRefundAndRegisterReturn();
+              }}
+            >
+              {t('return.refund_confirm_action')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -586,15 +769,11 @@ export default function PosRegister() {
   const [cartBootstrapFailed, setCartBootstrapFailed] = useState(false);
   const [cartRetryNonce, setCartRetryNonce] = useState(0);
 
-  // Parked invoices dialog — lifted so both toolbar and totals column can open it
+  // Parked invoices dialog — lifted so toolbar can open it
   const [parkedOpen, setParkedOpen] = useState(false);
   const [drawerMovementOpen, setDrawerMovementOpen] = useState(false);
   const canShiftLedgerActions = usePermission('pos_shifts', 'update');
   const canReturn = usePermission('returns', 'create');
-
-  // Parked carts for badge count (fetched here so both toolbar & totals column share the same data)
-  const parkedCarts = useParkedCarts(terminalId ?? 0);
-  const parkedCount = parkedCarts.data?.length ?? 0;
 
   // Active cart (cached by TanStack Query — no extra network round-trip)
   const { data: activeCart } = useCart(activeCartId);
@@ -750,11 +929,9 @@ export default function PosRegister() {
             branchLabel={branchLabel}
             posBranchId={shift.branch_id}
             transactionsInShift={shift.transactions_in_shift ?? 0}
-            parkedCount={parkedCount}
             onOpenFreshCart={openFreshCartAfterSessionEnd}
             onTenderDone={onTenderDone}
             onCartMissing={resetCartAndRetry}
-            onShowParked={() => setParkedOpen(true)}
             returnExchangeSession={returnExchangeSession}
             onReturnExchangeSessionChange={setReturnExchangeSession}
             onReturnCredit={(model) => {

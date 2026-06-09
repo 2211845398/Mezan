@@ -1,4 +1,6 @@
 export { DateField } from './DateField';
+export type { DateRangeFieldsProps } from './DateRangeFields';
+export { DateRangeFields } from './DateRangeFields';
 export { Form } from './Form';
 export { applyBackendFieldErrors, handleFormApiError } from './formFieldErrors';
 export { MoneyInput } from './MoneyInput';

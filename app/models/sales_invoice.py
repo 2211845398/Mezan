@@ -39,6 +39,10 @@ class SalesInvoice(Base):
     tax_total: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=Decimal("0.00")
     )
+    amount_paid: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    rounding_difference: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0.00")
+    )
     payment_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="paid"
     )  # paid | partially_paid

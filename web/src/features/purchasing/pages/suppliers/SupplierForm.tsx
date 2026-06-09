@@ -69,6 +69,8 @@ const SUPPLIER_FORM_FIELD_ORDER = [
   'payables_account_id',
 ] as const;
 
+export const SUPPLIER_DIALOG_FORM_ID = 'purchasing-supplier-dialog-form';
+
 export type SupplierFormProps = {
   variant?: 'page' | 'dialog';
   /** Hide page header when rendered inside SupplierDetailLayout tabs. */
@@ -328,18 +330,14 @@ export default function SupplierForm({
     </>
   );
 
-  const saveActions = (
-    <div className="flex flex-wrap gap-2">
-      <Button type="submit" disabled={save.isPending}>
-        {t('suppliers.form.save')}
-      </Button>
-      {variant === 'dialog' && onDismiss ? (
-        <Button type="button" variant="ghost" onClick={onDismiss} disabled={save.isPending}>
-          {t('actions.cancel', { ns: 'common' })}
+  const saveActions =
+    variant === 'dialog' ? null : (
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={save.isPending}>
+          {t('suppliers.form.save')}
         </Button>
-      ) : null}
-    </div>
-  );
+      </div>
+    );
 
   return (
     <div
@@ -368,6 +366,7 @@ export default function SupplierForm({
         </p>
       ) : null}
       <form
+        id={variant === 'dialog' ? SUPPLIER_DIALOG_FORM_ID : undefined}
         className={cn('flex flex-col', useSectionLayout ? 'gap-6' : 'gap-3')}
         onKeyDown={handleFormEnterSubmit}
         onSubmit={form.handleSubmit((v) => save.mutate(v), onInvalid)}

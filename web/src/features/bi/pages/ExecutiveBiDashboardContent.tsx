@@ -15,7 +15,7 @@ import {
 } from '@/components/shared/charts';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -174,14 +174,14 @@ export default function ExecutiveBiDashboardContent() {
           <CardDescription>{t('filters.hint')}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-4">
-          <div className="grid gap-1">
-            <span className="text-sm font-medium">{t('filters.period_start')}</span>
-            <DateField value={periodStart} onChange={(next) => setPeriodStart(next)} />
-          </div>
-          <div className="grid gap-1">
-            <span className="text-sm font-medium">{t('filters.period_end')}</span>
-            <DateField value={periodEnd} onChange={(next) => setPeriodEnd(next)} />
-          </div>
+          <DateRangeFields
+            fromValue={periodStart}
+            toValue={periodEnd}
+            onFromChange={setPeriodStart}
+            onToChange={setPeriodEnd}
+            fromLabel={<span className="text-sm font-medium">{t('filters.period_start')}</span>}
+            toLabel={<span className="text-sm font-medium">{t('filters.period_end')}</span>}
+          />
           <div className="grid min-w-[200px] gap-1">
             <span className="text-sm font-medium">{t('filters.branch')}</span>
             <Select value={branchFilter} onValueChange={setBranchFilter}>

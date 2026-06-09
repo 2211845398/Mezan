@@ -191,8 +191,7 @@ export default function BranchesList() {
         open={!!archiving}
         onOpenChange={(o) => !o && setArchiving(null)}
         title={t('branches.archive_title')}
-        description={t('branches.archive_desc')}
-        confirmKeyword="ARCHIVE"
+        confirmKeyword={t('branches.archive_confirm_keyword')}
         isLoading={archive.isPending}
         onConfirm={async () => {
           if (!archiving) return;

@@ -22,6 +22,7 @@ import {
   finalizeSale,
   getCart,
   getCurrentShift,
+  getCreditNote,
   getSalesInvoice,
   listCarts,
   listSalesInvoices,
@@ -58,6 +59,8 @@ export const cartKeys = {
 export const invoiceKeys = {
   all: ['pos', 'invoices'] as const,
   detail: (invoiceId: number) => [...invoiceKeys.all, 'detail', invoiceId] as const,
+  creditNote: (creditNoteId: number) =>
+    [...invoiceKeys.all, 'credit-note', creditNoteId] as const,
   list: (terminalId: number, dayKey: string) =>
     [...invoiceKeys.all, 'list', terminalId, dayKey] as const,
 } as const;
@@ -142,6 +145,16 @@ export function useInvoice(invoiceId: number | null) {
     queryKey: invoiceId != null ? invoiceKeys.detail(invoiceId) : ['pos', 'invoices', 'none'],
     queryFn: () => getSalesInvoice(invoiceId!),
     enabled: invoiceId != null,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useCreditNote(creditNoteId: number | null) {
+  return useQuery({
+    queryKey:
+      creditNoteId != null ? invoiceKeys.creditNote(creditNoteId) : ['pos', 'credit-notes', 'none'],
+    queryFn: () => getCreditNote(creditNoteId!),
+    enabled: creditNoteId != null,
     staleTime: 5 * 60_000,
   });
 }

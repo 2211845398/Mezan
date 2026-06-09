@@ -4,14 +4,15 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { DateField } from '@/components/shared/form/DateField';
-import { Button } from '@/components/ui/button';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { localDayEndToIsoUtc, localDayStartToIsoUtc, now, utcCalendarDayKey } from '@/lib/date';
 
 import { createDiscountRule, updateDiscountRule } from '../../api';
 import { crmKeys, discountDetailQueryOptions } from '../../queries';
+
+export const DISCOUNT_DIALOG_FORM_ID = 'crm-discount-dialog-form';
 
 export type DiscountFormProps = {
   /** `null` = new rule; positive id = edit existing */
@@ -30,7 +31,6 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
   const did = isEdit ? dialogDiscountId : NaN;
 
   const { t } = useTranslation('crm');
-  const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
 
   const { data: existing } = useQuery({
@@ -158,10 +158,15 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
     else void mCreate.mutate();
   };
 
-  const busy = mCreate.isPending || mUpdate.isPending;
-
   return (
-    <div className="flex flex-col gap-4">
+    <form
+      id={DISCOUNT_DIALOG_FORM_ID}
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
       {incompatibleRule ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
           {t('discounts.unsupported_type')}
@@ -200,23 +205,16 @@ export default function DiscountForm({ dialogDiscountId, onDismiss }: DiscountFo
         </div>
       </div>
 
-      <div className="grid gap-1">
-        <Label>{t('discounts.start_day')}</Label>
-        <DateField value={startDay} onChange={setStartDay} />
-      </div>
-      <div className="grid gap-1">
-        <Label>{t('discounts.end_day')}</Label>
-        <DateField value={endDay} onChange={setEndDay} />
-      </div>
+      <DateRangeFields
+        className="flex-col items-stretch"
+        fromValue={startDay}
+        toValue={endDay}
+        onFromChange={setStartDay}
+        onToChange={setEndDay}
+        fromLabel={<Label>{t('discounts.start_day')}</Label>}
+        toLabel={<Label>{t('discounts.end_day')}</Label>}
+      />
 
-      <div className="flex flex-wrap gap-2 pt-1">
-        <Button type="button" disabled={busy || Boolean(incompatibleRule)} onClick={submit}>
-          {tc('actions.save')}
-        </Button>
-        <Button type="button" variant="outline" disabled={busy} onClick={onDismiss}>
-          {tc('actions.cancel')}
-        </Button>
-      </div>
-    </div>
+    </form>
   );
 }

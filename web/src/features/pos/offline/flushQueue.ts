@@ -36,6 +36,8 @@ export async function flushPosOfflineQueue(): Promise<void> {
           reason: op.payload.reason ?? null,
           lines: op.payload.lines,
           exchange_cart_id: op.payload.exchange_cart_id ?? null,
+          shift_id: op.payload.shift_id ?? null,
+          return_cart_line_ids: op.payload.return_cart_line_ids ?? [],
         });
         await q.markSynced(op.id, String(res.sales_return_id));
       }

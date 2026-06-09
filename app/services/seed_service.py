@@ -397,8 +397,6 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
 
     res = await db.execute(select(AccountingSettings).where(AccountingSettings.id == 1))
     if res.scalar_one_or_none():
-        if await accounting_bootstrap_complete(db):
-            return
         await upgrade_coa_skeleton(db)
         await db.commit()
         return
@@ -409,6 +407,7 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
         decimal_places=2,
         suffix=None,
         exchange_rate_to_base=Decimal("1"),
+        cash_rounding_increment=Decimal("0.05"),
     )
     db.add(cur)
     await db.flush()

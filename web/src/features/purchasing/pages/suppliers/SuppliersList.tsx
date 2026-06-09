@@ -8,7 +8,10 @@ import { paginatedParams } from '@/api/pagination';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,10 +25,11 @@ import { supplierCurrencyLabel } from '../../lib/supplierCurrencyLabel';
 import { supplierPaymentTermsLabel } from '../../lib/supplierPaymentTermsLabel';
 import type { SupplierRead } from '../../api';
 import { suppliersQueryOptions } from '../../queries';
-import SupplierForm from './SupplierForm';
+import SupplierForm, { SUPPLIER_DIALOG_FORM_ID } from './SupplierForm';
 
 export default function SuppliersList() {
   const { t, i18n } = useTranslation('purchasing');
+  const { t: tc } = useTranslation('common');
   const isAr = i18n.language.startsWith('ar');
   const canCreate = usePermission('suppliers', 'create');
   const canRead = usePermission('suppliers', 'read');
@@ -169,6 +173,14 @@ export default function SuppliersList() {
         onOpenChange={setNewDialogOpen}
         title={t('suppliers.new')}
         maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={SUPPLIER_DIALOG_FORM_ID}
+            onCancel={() => setNewDialogOpen(false)}
+            saveLabel={t('suppliers.form.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {newDialogOpen ? (
           <SupplierForm

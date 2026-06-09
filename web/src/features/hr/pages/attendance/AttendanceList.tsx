@@ -10,7 +10,7 @@ import { SectionCard } from '@/components/shared/ContentSurface';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { Label } from '@/components/ui/label';
@@ -347,14 +347,16 @@ export default function AttendanceList() {
       ) : null}
       <SectionCard>
         <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:items-end">
-          <div className="grid min-w-0 gap-1">
-            <Label>{t('attendance.from')}</Label>
-            <DateField value={dateFrom} onChange={setDateFrom} />
-          </div>
-          <div className="grid min-w-0 gap-1">
-            <Label>{t('attendance.to')}</Label>
-            <DateField value={dateTo} onChange={setDateTo} />
-          </div>
+          <DateRangeFields
+            className="contents"
+            cellClassName="grid min-w-0 gap-1"
+            fromValue={dateFrom}
+            toValue={dateTo}
+            onFromChange={setDateFrom}
+            onToChange={setDateTo}
+            fromLabel={<Label>{t('attendance.from')}</Label>}
+            toLabel={<Label>{t('attendance.to')}</Label>}
+          />
           <div className="grid min-w-0 gap-1">
             <BranchCombobox
               label={t('attendance.branch')}

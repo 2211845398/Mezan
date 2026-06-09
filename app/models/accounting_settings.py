@@ -67,6 +67,9 @@ class AccountingSettings(Base):
     default_cash_over_short_account_id: Mapped[int] = mapped_column(
         ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
     )
+    default_rounding_difference_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=True
+    )
     default_loyalty_liability_account_id: Mapped[int] = mapped_column(
         ForeignKey("chart_accounts.id", ondelete="RESTRICT"), nullable=False
     )

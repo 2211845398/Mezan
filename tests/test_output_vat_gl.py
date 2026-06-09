@@ -103,6 +103,8 @@ async def test_walk_in_sale_posts_credit_to_output_vat_payable(db_session) -> No
         discount_total=Decimal("0.00"),
         tax_total=Decimal("15.00"),
         total=Decimal("115.00"),
+        amount_paid=Decimal("115.00"),
+        rounding_difference=Decimal("0.00"),
         created_by_user_id=user.id,
     )
     db_session.add(invoice)
@@ -225,6 +227,8 @@ async def test_sales_return_debits_output_vat_payable(db_session) -> None:
         discount_total=Decimal("0.00"),
         tax_total=Decimal("15.00"),
         total=Decimal("115.00"),
+        amount_paid=Decimal("115.00"),
+        rounding_difference=Decimal("0.00"),
         created_by_user_id=user.id,
     )
     db_session.add(invoice)

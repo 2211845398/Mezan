@@ -528,7 +528,6 @@ export default function ProfilePage() {
                             autoComplete="tel"
                             className="num-latin"
                             dir="ltr"
-                            placeholder="0912345678"
                           />
                         </FormControl>
                         <FormMessage />
@@ -687,14 +686,6 @@ export default function ProfilePage() {
         footer={
           <>
             <Button
-              type="submit"
-              form="two-factor-enable-form"
-              disabled={twoFactorBusy || !twoFactorPassword.trim()}
-              className={floatingFormApproveButtonClassName}
-            >
-              {twoFactorBusy ? t('actions.loading') : t('profile.two_factor_confirm_action')}
-            </Button>
-            <Button
               type="button"
               variant="outline"
               onClick={() => setTwoFactorDialogOpen(false)}
@@ -702,6 +693,14 @@ export default function ProfilePage() {
               className={floatingFormCloseButtonClassName}
             >
               {tCommon('actions.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              form="two-factor-enable-form"
+              disabled={twoFactorBusy || !twoFactorPassword.trim()}
+              className={floatingFormApproveButtonClassName}
+            >
+              {twoFactorBusy ? t('actions.loading') : t('profile.two_factor_confirm_action')}
             </Button>
           </>
         }

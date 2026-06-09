@@ -23,3 +23,7 @@ class Currency(Base):
         Numeric(18, 8), nullable=True, default=None
     )
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    #: Smallest cash unit for POS rounding (e.g. 0.05); null disables cash rounding.
+    cash_rounding_increment: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 4), nullable=True, default=None
+    )

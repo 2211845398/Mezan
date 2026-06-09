@@ -21,12 +21,11 @@ import { formatCurrency } from '@/lib/format';
 import { notify } from '@/lib/toast';
 
 import type { SalesInvoiceListItem } from '../api';
-import { A4InvoicePrintButton } from '@/features/sales/print/A4InvoicePrintDialog';
 
 import { ReceiptModal } from '../components/ReceiptModal';
-import { thermalModelFromInvoiceDetail } from '../print/mapModel';
+import { thermalModelFromCreditNote, thermalModelFromInvoiceDetail } from '../print/mapModel';
 import type { ThermalReceiptModel } from '../print/types';
-import { useInvoice, useTodayInvoices, useVoidSale } from '../queries';
+import { useCreditNote, useInvoice, useTodayInvoices, useVoidSale } from '../queries';
 import { usePosTerminalStore } from '../stores/posTerminalStore';
 
 const POS_CURRENCY = 'USD';
@@ -46,10 +45,13 @@ export default function InvoiceLookup() {
 
   const { data: rows, isLoading } = useTodayInvoices(terminalId);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedCreditNoteId, setSelectedCreditNoteId] = useState<number | null>(null);
   const { data: detail } = useInvoice(selectedId);
+  const { data: creditDetail } = useCreditNote(selectedCreditNoteId);
 
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptModel, setReceiptModel] = useState<ThermalReceiptModel | null>(null);
+  const [receiptCredit, setReceiptCredit] = useState(false);
 
   const voidSale = useVoidSale();
   const [voidTarget, setVoidTarget] = useState<SalesInvoiceListItem | null>(null);
@@ -61,16 +63,38 @@ export default function InvoiceLookup() {
       branchLabel,
       currency: POS_CURRENCY,
     });
+    setReceiptCredit(false);
     setReceiptModel(model);
     setReceiptOpen(true);
   }, [selectedId, detail, branchLabel]);
+
+  useEffect(() => {
+    if (!selectedCreditNoteId || !creditDetail || creditDetail.id !== selectedCreditNoteId) return;
+    const model = thermalModelFromCreditNote({
+      branchLabel,
+      currency: POS_CURRENCY,
+      creditNumber: creditDetail.credit_number,
+      total: creditDetail.total_amount,
+      createdAt: fromISO(creditDetail.created_at),
+      lines: creditDetail.lines.map((ln) => ({
+        name: ln.product_name,
+        qty: ln.qty,
+        unitPrice: ln.unit_price,
+        lineTotal: ln.line_total,
+        taxAmount: '0',
+      })),
+    });
+    setReceiptCredit(true);
+    setReceiptModel(model);
+    setReceiptOpen(true);
+  }, [selectedCreditNoteId, creditDetail, branchLabel]);
 
   if (!canRead) {
     return <p className="p-6 text-sm text-muted-foreground">403</p>;
   }
 
   async function confirmVoid() {
-    if (!voidTarget) return;
+    if (!voidTarget || voidTarget.transaction_type === 'return') return;
     try {
       await voidSale.mutateAsync({
         invoice_id: voidTarget.id,
@@ -146,19 +170,32 @@ export default function InvoiceLookup() {
               </thead>
               <tbody>
                 {rows.map((r) => {
+                  const isReturn = r.transaction_type === 'return';
                   const customerLabel =
                     (r.customer_display && r.customer_display.trim()) ||
                     (r.customer_id != null ? t('invoices.customer_missing') : t('invoices.walk_in'));
+                  const totalNum = Number.parseFloat(r.total);
                   return (
                   <tr
-                    key={r.id}
-                    className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/20"
+                    key={`${r.transaction_type ?? 'sale'}-${r.id}`}
+                    className={
+                      isReturn
+                        ? 'border-b border-destructive/20 bg-destructive/5 transition-colors last:border-b-0 hover:bg-destructive/10'
+                        : 'border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/20'
+                    }
                   >
                     <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{r.id}</td>
                     <td className="min-w-0 px-3 py-2.5">
-                      <span className="block truncate font-medium" title={r.invoice_number}>
-                        {r.invoice_number}
-                      </span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="block truncate font-medium" title={r.invoice_number}>
+                          {r.invoice_number}
+                        </span>
+                        {isReturn ? (
+                          <span className="shrink-0 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">
+                            {t('invoices.return_badge')}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="min-w-0 px-3 py-2.5">
                       <span className="block truncate text-muted-foreground" title={customerLabel}>
@@ -171,36 +208,54 @@ export default function InvoiceLookup() {
                     <td className="px-3 py-2.5 text-start">
                       <span
                         dir="ltr"
-                        className="inline-block whitespace-nowrap font-semibold tabular-nums tracking-tight"
+                        className={
+                          isReturn
+                            ? 'inline-block whitespace-nowrap font-semibold tabular-nums tracking-tight text-destructive'
+                            : 'inline-block whitespace-nowrap font-semibold tabular-nums tracking-tight'
+                        }
                       >
-                        {formatCurrency(Number.parseFloat(r.total), POS_CURRENCY)}
+                        {isReturn
+                          ? `-${formatCurrency(totalNum, POS_CURRENCY)}`
+                          : formatCurrency(totalNum, POS_CURRENCY)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex justify-end">
+                          {!isReturn ? (
+                            <Can resource="sales_invoices" action="void">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                className="min-h-9 w-full"
+                                onClick={() => {
+                                  setVoidTarget(r);
+                                  setVoidReason('');
+                                }}
+                              >
+                                {t('invoices.void')}
+                              </Button>
+                            </Can>
+                          ) : null}
+                        </div>
                         <Button
                           type="button"
                           size="sm"
-                          className="min-h-9 bg-primary font-medium text-primary-foreground shadow-sm shadow-primary/15 hover:bg-primary/90"
-                          onClick={() => setSelectedId(r.id)}
+                          variant="outline"
+                          className="min-h-9 w-full"
+                          onClick={() => {
+                            if (isReturn) {
+                              setSelectedId(null);
+                              setSelectedCreditNoteId(r.id);
+                            } else {
+                              setSelectedCreditNoteId(null);
+                              setSelectedId(r.id);
+                            }
+                          }}
                         >
                           {t('invoices.reprint')}
                         </Button>
-                        <A4InvoicePrintButton invoiceId={r.id} />
-                        <Can resource="sales_invoices" action="void">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            className="min-h-9"
-                            onClick={() => {
-                              setVoidTarget(r);
-                              setVoidReason('');
-                            }}
-                          >
-                            {t('invoices.void')}
-                          </Button>
-                        </Can>
                       </div>
                     </td>
                   </tr>
@@ -281,9 +336,13 @@ export default function InvoiceLookup() {
             if (!o) {
               setReceiptModel(null);
               setSelectedId(null);
+              setSelectedCreditNoteId(null);
+              setReceiptCredit(false);
             }
           }}
           model={receiptModel}
+          creditMode={receiptCredit}
+          invoiceId={receiptCredit ? null : selectedId}
         />
       ) : null}
     </div>

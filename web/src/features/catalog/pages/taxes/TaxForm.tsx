@@ -30,6 +30,8 @@ const schema = z.object({
 
 type Values = z.infer<typeof schema>;
 
+export const TAX_DIALOG_FORM_ID = 'catalog-tax-dialog-form';
+
 type Props = {
   variant?: 'dialog' | 'page';
   existing?: TaxDefinitionRead | null;
@@ -113,6 +115,7 @@ export default function TaxForm({ variant = 'page', existing, onDismiss }: Props
   const inner = (
     <FormProvider {...form}>
       <form
+        id={variant === 'dialog' ? TAX_DIALOG_FORM_ID : undefined}
         onSubmit={form.handleSubmit((v) => saveM.mutate(v))}
         onKeyDown={variant === 'dialog' ? handleDialogFormEnterSubmit : handleFormEnterSubmit}
         className={variant === 'dialog' ? 'space-y-4' : 'max-w-xl space-y-4'}
@@ -169,30 +172,43 @@ export default function TaxForm({ variant = 'page', existing, onDismiss }: Props
             </FormItem>
           )}
         />
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={saveM.isPending}>
-            {t('actions.save')}
-          </Button>
-          {variant === 'page' ? (
+        {variant === 'page' ? (
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={saveM.isPending}>
+              {t('actions.save')}
+            </Button>
             <Button type="button" variant="outline" onClick={() => onDismiss?.()}>
               {t('actions.cancel')}
             </Button>
-          ) : null}
-          {isEdit && existing?.is_active ? (
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={archiveM.isPending}
-              onClick={() => {
-                if (window.confirm(t('taxes.archive_confirm'))) {
-                  archiveM.mutate();
-                }
-              }}
-            >
-              {t('taxes.archive')}
-            </Button>
-          ) : null}
-        </div>
+            {isEdit && existing?.is_active ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={archiveM.isPending}
+                onClick={() => {
+                  if (window.confirm(t('taxes.archive_confirm'))) {
+                    archiveM.mutate();
+                  }
+                }}
+              >
+                {t('taxes.archive')}
+              </Button>
+            ) : null}
+          </div>
+        ) : isEdit && existing?.is_active ? (
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={archiveM.isPending}
+            onClick={() => {
+              if (window.confirm(t('taxes.archive_confirm'))) {
+                archiveM.mutate();
+              }
+            }}
+          >
+            {t('taxes.archive')}
+          </Button>
+        ) : null}
       </form>
     </FormProvider>
   );

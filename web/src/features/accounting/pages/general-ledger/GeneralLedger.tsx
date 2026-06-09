@@ -6,7 +6,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -311,14 +311,15 @@ export default function GeneralLedger() {
         ) : null}
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-1">
-          <Label>{t('period.from')}</Label>
-          <DateField value={df} onChange={setDf} className="w-[180px]" />
-        </div>
-        <div className="grid gap-1">
-          <Label>{t('period.to')}</Label>
-          <DateField value={dt} onChange={setDt} className="w-[180px]" />
-        </div>
+        <DateRangeFields
+          fromValue={df}
+          toValue={dt}
+          onFromChange={setDf}
+          onToChange={setDt}
+          fromLabel={<Label>{t('period.from')}</Label>}
+          toLabel={<Label>{t('period.to')}</Label>}
+          fieldClassName="w-[180px]"
+        />
         <div className="grid gap-1">
           <Label>{t('toolbar.branch')}</Label>
           <AccountingBranchFilter

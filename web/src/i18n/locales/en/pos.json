@@ -170,6 +170,9 @@
     "exchange_credit": "Return Credit",
     "exchange_new_items": "Exchange Items",
     "net_exchange": "Net Due",
+    "exact_total": "Exact total",
+    "rounding_difference": "Rounding difference",
+    "amount_paid": "Amount paid",
     "refund_due": "Refund to Customer",
     "complete_refund": "Complete Refund"
   },
@@ -206,6 +209,7 @@
     "title": "Receipt",
     "print_58": "Print 58mm",
     "print_80": "Print 80mm",
+    "print_a4": "Print A4",
     "close": "Close",
     "col_item": "Item",
     "col_unit": "Unit price",
@@ -241,7 +245,11 @@
     "mode_banner": "Return · invoice {{number}}",
     "invoice_badge": "Invoice {{number}}",
     "auto_load_need_empty_cart": "Empty the cart to auto-load this invoice, or use «Reload into cart» to replace.",
-    "reload_into_cart": "Reload into cart"
+    "reload_into_cart": "Reload into cart",
+    "refund_confirm_title": "Confirm refund",
+    "refund_confirm_body": "The return will be posted and {{amount}} will be refunded to the customer from the drawer.",
+    "refund_confirm_zero": "The return will be posted with no additional collection.",
+    "refund_confirm_action": "Confirm and register return"
   },
   "close": {
     "title": "Close shift",
@@ -302,7 +310,8 @@
     "void_reason_placeholder": "e.g. customer cancelled",
     "void_confirm": "Void invoice",
     "void_success": "Invoice {{number}} voided.",
-    "empty": "No invoices in this window."
+    "empty": "No invoices in this window.",
+    "return_badge": "Return"
   },
   "shortcuts": {
     "title": "Shortcuts",

@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
@@ -14,6 +14,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { useOnline } from '@/hooks/useOnline';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { roundCashTotal } from '@/lib/cashRounding';
 import { formatCurrency } from '@/lib/format';
 import { notify } from '@/lib/toast';
 
@@ -49,6 +50,8 @@ export type TenderDrawerProps = {
   onOpenChange: (open: boolean) => void;
   cart: CartRead;
   currency: string;
+  /** POS tender currency cash rounding increment (e.g. 0.05); null disables rounding. */
+  cashRoundingIncrement?: string | null;
   branchLabel: string;
   customerId?: number | null;
   /** Credit from a return leg already posted; offsets exchange cart total. */
@@ -57,6 +60,8 @@ export type TenderDrawerProps = {
   shiftId?: number | null;
   /** When the drawer closes without a completed sale, unlock a checkout-locked cart. */
   onAbortCheckout?: () => void | Promise<void>;
+  /** Called after payment capture succeeds and before invoice finalize (e.g. register return). */
+  onAfterCapture?: (paymentIntentId: number) => Promise<void>;
   onDone: (result: TenderDone) => void;
 };
 
@@ -65,11 +70,13 @@ export function TenderDrawer({
   onOpenChange,
   cart,
   currency,
+  cashRoundingIncrement = null,
   branchLabel,
   customerId = null,
   exchangeCredit = null,
   shiftId = null,
   onAbortCheckout,
+  onAfterCapture,
   onDone,
 }: TenderDrawerProps) {
   const { t, i18n } = useTranslation('pos');
@@ -104,9 +111,33 @@ export function TenderDrawer({
   const hasExchangeOffset = exchangeCredit != null && exchangeCredit.greaterThan(0);
   const netDec = exchangeItemsDec.minus(creditDec);
   const isRefundDue = hasExchangeOffset && netDec.lessThanOrEqualTo(0);
-  const amountDueDec = isRefundDue ? new Decimal(0) : hasExchangeOffset ? netDec : exchangeItemsDec;
+  const exactDueDec = isRefundDue ? new Decimal(0) : hasExchangeOffset ? netDec : exchangeItemsDec;
 
   const tenderedDec = tendered ? new Decimal(tendered) : null;
+
+  const cashRoundingPreview = useMemo(() => {
+    if (!cashRoundingIncrement) {
+      return { rounded: exactDueDec, roundingDifference: new Decimal(0) };
+    }
+    return roundCashTotal(exactDueDec, cashRoundingIncrement);
+  }, [cashRoundingIncrement, exactDueDec]);
+
+  const isPartialCash =
+    method === 'cash' &&
+    tenderedDec != null &&
+    tenderedDec.greaterThan(0) &&
+    customerId != null &&
+    customerId > 0 &&
+    cashRoundingIncrement != null &&
+    cashRoundingPreview.rounded.greaterThan(tenderedDec);
+
+  const amountDueDec = useMemo(() => {
+    if (method !== 'cash' || !cashRoundingIncrement || isPartialCash) {
+      return exactDueDec;
+    }
+    return cashRoundingPreview.rounded;
+  }, [method, cashRoundingIncrement, isPartialCash, exactDueDec, cashRoundingPreview.rounded]);
+
   const shortfall =
     method === 'cash' && tenderedDec != null && tenderedDec.lessThan(amountDueDec)
       ? amountDueDec.minus(tenderedDec)
@@ -145,6 +176,11 @@ export function TenderDrawer({
         cart_id: cart.id,
         provider: 'in_store',
         currency,
+        payment_method: captureMethodFromUi(method),
+        ...(method === 'cash' && tendered ? { cash_tendered: tendered } : {}),
+        ...(hasExchangeOffset && creditDec.greaterThan(0)
+          ? { exchange_credit_amount: creditDec.toFixed(2) }
+          : {}),
       });
       intentId = intent.id;
     } catch (err) {
@@ -178,6 +214,9 @@ export function TenderDrawer({
 
     try {
       await capture.mutateAsync(captureBody);
+      if (onAfterCapture) {
+        await onAfterCapture(intentId);
+      }
       const inv = await finalize.mutateAsync({
         cart_id: cart.id,
         payment_intent_id: intentId,
@@ -205,6 +244,8 @@ export function TenderDrawer({
         tendered: tenderedStr,
         changeDue: changeStr,
         remaining: remainingStr,
+        amountPaid: inv.amount_paid,
+        roundingDifference: inv.rounding_difference ?? '0',
       });
       skipAbortOnCloseRef.current = true;
       onDone({ kind: 'invoice', invoice: inv, model });
@@ -259,7 +300,7 @@ export function TenderDrawer({
     try {
       const amt = refundAmountDec.toFixed(2);
       await addShiftCashEvent(shiftId, {
-        event_type: 'cash_out',
+        event_type: 'refund',
         amount: amt,
         note: t('tender.refund_due'),
       });
@@ -339,14 +380,6 @@ export function TenderDrawer({
               </Button>
             ))}
           </div>
-          ) : null}
-          {!isRefundDue && amountDueDec.greaterThan(0) ? (
-            <p className="text-sm text-muted-foreground">
-              {t('tender.net_exchange')}:{' '}
-              <span className="font-semibold text-foreground" dir="ltr">
-                {formatCurrency(amountDueDec.toNumber(), currency)}
-              </span>
-            </p>
           ) : null}
           {!isRefundDue && method === 'cash' ? (
             <div className="space-y-1">

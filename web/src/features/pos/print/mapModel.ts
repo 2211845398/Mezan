@@ -16,6 +16,8 @@ export function thermalModelFromCart(
     invoiceNumber?: string | null;
     provisionalWatermark?: string;
     paymentMethod?: string | null;
+    amountPaid?: string | null;
+    roundingDifference?: string | null;
     tendered?: string | null;
     changeDue?: string | null;
     remaining?: string | null;
@@ -39,6 +41,8 @@ export function thermalModelFromCart(
     discountTotal: cart.discount_total,
     taxTotal: cart.tax_total,
     total: cart.total,
+    amountPaid: opts.amountPaid ?? null,
+    roundingDifference: opts.roundingDifference ?? null,
     paymentMethod: opts.paymentMethod ?? null,
     tendered: opts.tendered ?? null,
     changeDue: opts.changeDue ?? null,
@@ -56,6 +60,7 @@ export function thermalModelFromCreditNote(opts: {
   creditNumber: string;
   total: string;
   lines: ThermalReceiptModel['lines'];
+  createdAt?: Date;
 }): ThermalReceiptModel {
   return {
     branchLabel: opts.branchLabel,
@@ -68,7 +73,7 @@ export function thermalModelFromCreditNote(opts: {
     discountTotal: '0',
     taxTotal: '0',
     total: opts.total,
-    createdAtLabel: formatDateTime(now()),
+    createdAtLabel: formatDateTime(opts.createdAt ?? now()),
   };
 }
 
@@ -95,6 +100,8 @@ export function thermalModelFromInvoiceDetail(
     discountTotal: inv.discount_total,
     taxTotal: inv.tax_total,
     total: inv.total,
+    amountPaid: inv.amount_paid,
+    roundingDifference: inv.rounding_difference ?? '0',
     paymentMethod: pay?.method ?? null,
     tendered: pay?.amount ?? null,
     changeDue: null,

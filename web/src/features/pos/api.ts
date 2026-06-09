@@ -29,8 +29,11 @@ export type CartDiscountBody =
 type CartStateBody =
   paths['/api/v1/pos/carts/{cart_id}/state']['post']['requestBody']['content']['application/json'];
 
-type PaymentIntentBody =
+type PaymentIntentBodyBase =
   paths['/api/v1/pos/payments/intents']['post']['requestBody']['content']['application/json'];
+type PaymentIntentBody = PaymentIntentBodyBase & {
+  exchange_credit_amount?: string | number | null;
+};
 type PaymentIntentRead =
   paths['/api/v1/pos/payments/intents']['post']['responses']['201']['content']['application/json'];
 type PaymentCaptureBody =
@@ -44,7 +47,10 @@ type SalesInvoiceRead =
   paths['/api/v1/pos/sales/finalize']['post']['responses']['200']['content']['application/json'];
 type SalesInvoiceDetailRead =
   paths['/api/v1/sales-invoices/{invoice_id}']['get']['responses']['200']['content']['application/json'];
-type SalesInvoiceListItem = PaginatedItem<'/api/v1/sales-invoices'>;
+type SalesInvoiceListItemBase = PaginatedItem<'/api/v1/sales-invoices'>;
+type SalesInvoiceListItem = SalesInvoiceListItemBase & {
+  transaction_type?: 'sale' | 'return' | string;
+};
 
 type ListInvoicesParams = paths['/api/v1/sales-invoices']['get']['parameters']['query'];
 
@@ -53,13 +59,34 @@ type ReturnLookupParams =
 type ReturnLookupRead =
   paths['/api/v1/pos/returns/invoice-lookup']['get']['responses']['200']['content']['application/json'];
 
-type ReturnBody = paths['/api/v1/pos/returns']['post']['requestBody']['content']['application/json'];
+type ReturnBodyBase =
+  paths['/api/v1/pos/returns']['post']['requestBody']['content']['application/json'];
+type ReturnBody = ReturnBodyBase & {
+  shift_id?: number | null;
+  return_cart_line_ids?: number[];
+  payment_intent_id?: number | null;
+};
 /** OpenAPI types this as open object; server returns a fixed shape. */
 export type ReturnResponse = {
   sales_return_id: number;
   credit_note_id: number;
   credit_number: string;
   total_amount: string;
+};
+
+export type CreditNoteLineRead = {
+  product_name: string;
+  qty: number;
+  unit_price: string;
+  line_total: string;
+};
+
+export type CreditNoteDetailRead = {
+  id: number;
+  credit_number: string;
+  total_amount: string;
+  created_at: string;
+  lines: CreditNoteLineRead[];
 };
 
 type TerminalRead = paths['/api/v1/terminals']['get']['responses']['200']['content']['application/json'][number];
@@ -213,6 +240,19 @@ export async function updateCartCustomer(cartId: number, customerId: number | nu
   return data;
 }
 
+export type CashRoundingConfigRead = {
+  currency: string;
+  cash_rounding_increment: string | null;
+};
+
+export async function getCashRoundingConfig(currency: string): Promise<CashRoundingConfigRead> {
+  const { data } = await apiClient.get<CashRoundingConfigRead>(
+    '/pos/payments/cash-rounding-config',
+    { params: { currency } },
+  );
+  return data;
+}
+
 export async function createPaymentIntent(body: PaymentIntentBody): Promise<PaymentIntentRead> {
   const { data } = await apiClient.post<PaymentIntentRead>('/pos/payments/intents', body);
   return data;
@@ -235,6 +275,11 @@ export async function voidSale(body: VoidSaleBody): Promise<SalesInvoiceRead> {
 
 export async function getSalesInvoice(invoiceId: number): Promise<SalesInvoiceDetailRead> {
   const { data } = await apiClient.get<SalesInvoiceDetailRead>(`/sales-invoices/${invoiceId}`);
+  return data;
+}
+
+export async function getCreditNote(creditNoteId: number): Promise<CreditNoteDetailRead> {
+  const { data } = await apiClient.get<CreditNoteDetailRead>(`/credit-notes/${creditNoteId}`);
   return data;
 }
 

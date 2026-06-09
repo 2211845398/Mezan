@@ -28,6 +28,8 @@ from app.schemas.sales_invoice import (
     SalesInvoiceRegisterPageRead,
     VoidInvoiceRequest,
 )
+from app.schemas.sales_return import CreditNoteDetailRead
+from app.services.returns_service import read_credit_note_detail
 from app.services import audit_service
 from app.services.invoice_service import (
     finalize_paid_cart,
@@ -118,6 +120,16 @@ async def export_sales_invoice_xlsx_endpoint(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/credit-notes/{credit_note_id}", response_model=CreditNoteDetailRead)
+async def read_credit_note_endpoint(
+    credit_note_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("sales_invoices", "read"),
+) -> CreditNoteDetailRead:
+    return await read_credit_note_detail(db, credit_note_id=credit_note_id)
 
 
 @router.get("/credit-notes/{credit_note_id}/export.pdf")

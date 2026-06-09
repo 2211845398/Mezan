@@ -11,6 +11,7 @@ import {
   floatingFormCloseButtonClassName,
 } from '@/components/shared/FloatingFormDialog';
 import { DateField } from '@/components/shared/form/DateField';
+import { useDateRangeConstraint } from '@/hooks/useDateRangeConstraint';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -138,14 +139,11 @@ export default function PendingOnboardingDetail() {
     },
   });
 
-  useEffect(() => {
-    const s = contractStart.trim();
-    const e = contractEnd.trim();
-    if (!s || !e) return;
-    if (e < s) {
-      setContractEnd('');
-    }
-  }, [contractStart, contractEnd]);
+  const { minToDate: minContractEndDate } = useDateRangeConstraint(
+    contractStart,
+    contractEnd,
+    setContractEnd,
+  );
 
   function validatePendingForm(): Partial<Record<PendingFieldKey, string>> {
     const next: Partial<Record<PendingFieldKey, string>> = {};
@@ -428,9 +426,7 @@ export default function PendingOnboardingDetail() {
                   clearFieldError('contract_end');
                 }}
                 invalid={!!fieldErrors.contract_end}
-                {...(contractStart.trim()
-                  ? { minSelectableDate: contractStart.trim() }
-                  : {})}
+                minSelectableDate={minContractEndDate}
               />
             </div>
           </div>

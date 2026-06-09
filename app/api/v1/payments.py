@@ -1,20 +1,35 @@
 """POS payment APIs."""
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.pos_payment import (
+    CashRoundingConfigRead,
     PaymentCaptureRequest,
     PaymentIntentCreateRequest,
     PaymentIntentRead,
 )
 from app.services import audit_service
-from app.services.payment_service import capture_payment, create_payment_intent
+from app.services.payment_service import (
+    capture_payment,
+    create_payment_intent,
+    get_cash_rounding_config,
+)
 
 router = APIRouter()
+
+
+@router.get("/pos/payments/cash-rounding-config", response_model=CashRoundingConfigRead)
+async def cash_rounding_config_endpoint(
+    currency: str = Query(min_length=3, max_length=3),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("pos_payments", "create"),
+) -> CashRoundingConfigRead:
+    return await get_cash_rounding_config(db, currency=currency)
 
 
 @router.post(
@@ -28,7 +43,13 @@ async def create_payment_intent_endpoint(
     _: None = require_permission("pos_payments", "create"),
 ) -> PaymentIntentRead:
     intent = await create_payment_intent(
-        db, cart_id=body.cart_id, provider_name=body.provider, currency=body.currency
+        db,
+        cart_id=body.cart_id,
+        provider_name=body.provider,
+        currency=body.currency,
+        payment_method=body.payment_method,
+        cash_tendered=body.cash_tendered,
+        exchange_credit_amount=body.exchange_credit_amount,
     )
     await audit_service.log(
         session=db,

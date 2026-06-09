@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { getLocalizedApiErrorMessage } from '@/api/errorMessages';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ export type ReturnExchangeLineMeta = {
   variantId: number;
   qtyLoaded: number;
   productName: string;
+  lineGrossPerUnit: string;
 };
 
 export type ReturnExchangeSession = {
@@ -42,11 +44,15 @@ export function ReturnDrawer({
   onExchangeSessionChange,
 }: ReturnDrawerProps) {
   const { t, i18n } = useTranslation('pos');
+  const { t: tCommon } = useTranslation('common');
   const qc = useQueryClient();
   const canReturn = usePermission('returns', 'create');
   const [invoiceQuery, setInvoiceQuery] = useState('');
   const [lookupOn, setLookupOn] = useState(false);
-  const { data: lookup, isFetching } = useReturnLookup(invoiceQuery.trim() || null, lookupOn);
+  const { data: lookup, isFetching, isError, error: lookupError } = useReturnLookup(
+    invoiceQuery.trim() || null,
+    lookupOn,
+  );
 
   const [loadingCart, setLoadingCart] = useState(false);
   const openedRef = useRef(false);
@@ -94,6 +100,8 @@ export function ReturnDrawer({
             variantId: el.variant_id,
             qtyLoaded: el.qty_remaining,
             productName: el.product_name ?? '',
+            lineGrossPerUnit:
+              (el as { line_gross_per_unit?: string }).line_gross_per_unit ?? '0',
           };
         }
         onExchangeSessionChange({
@@ -244,6 +252,14 @@ export function ReturnDrawer({
             </div>
           </div>
           {isFetching ? <p className="text-sm text-muted-foreground">…</p> : null}
+          {isError ? (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm font-medium text-destructive"
+            >
+              {getLocalizedApiErrorMessage(lookupError, tCommon)}
+            </div>
+          ) : null}
           {lookup ? (
             <div className="flex flex-wrap items-center gap-2">
               <Button

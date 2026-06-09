@@ -8,7 +8,7 @@ import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { KpiCard, kpiCardGridClassName } from '@/components/shared/charts/KpiCard';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -181,14 +181,14 @@ export default function SupplierStatement() {
 
       <SectionCard title={t('suppliers.statement.ledger_title')}>
         <div className="mb-4 flex flex-wrap items-end gap-4">
-          <div className="grid gap-1">
-            <Label>{t('suppliers.statement.date_from')}</Label>
-            <DateField value={periodStart} onChange={setPeriodStart} />
-          </div>
-          <div className="grid gap-1">
-            <Label>{t('suppliers.statement.date_to')}</Label>
-            <DateField value={periodEnd} onChange={setPeriodEnd} />
-          </div>
+          <DateRangeFields
+            fromValue={periodStart}
+            toValue={periodEnd}
+            onFromChange={setPeriodStart}
+            onToChange={setPeriodEnd}
+            fromLabel={<Label>{t('suppliers.statement.date_from')}</Label>}
+            toLabel={<Label>{t('suppliers.statement.date_to')}</Label>}
+          />
           <div className="grid min-w-[10rem] gap-1">
             <Label>{t('suppliers.statement.branch')}</Label>
             <Select value={branchFilter} onValueChange={setBranchFilter}>

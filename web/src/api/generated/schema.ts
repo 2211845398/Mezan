@@ -5937,6 +5937,8 @@ export interface components {
              * @default false
              */
             is_base: boolean;
+            /** Cash Rounding Increment */
+            cash_rounding_increment?: string | null;
         };
         /** CurrencyUpdate */
         CurrencyUpdate: {
@@ -5948,6 +5950,8 @@ export interface components {
             suffix?: string | null;
             /** Active */
             active?: boolean | null;
+            /** Cash Rounding Increment */
+            cash_rounding_increment?: number | string | null;
         };
         /** CustomerCompleteOnboardingRequest */
         CustomerCompleteOnboardingRequest: {
@@ -8175,6 +8179,10 @@ export interface components {
              * @default USD
              */
             currency: string;
+            /** Payment Method */
+            payment_method?: ("cash" | "card" | "transfer" | "other") | null;
+            /** Cash Tendered */
+            cash_tendered?: number | string | null;
         };
         /** PaymentIntentRead */
         PaymentIntentRead: {
@@ -9661,6 +9669,13 @@ export interface components {
             tax_total: string;
             /** Total */
             total: string;
+            /** Amount Paid */
+            amount_paid: string;
+            /**
+             * Rounding Difference
+             * @default 0.00
+             */
+            rounding_difference?: string;
             /**
              * Created At
              * Format: date-time
@@ -9775,6 +9790,13 @@ export interface components {
             tax_total: string;
             /** Total */
             total: string;
+            /** Amount Paid */
+            amount_paid: string;
+            /**
+             * Rounding Difference
+             * @default 0.00
+             */
+            rounding_difference?: string;
             /**
              * Created At
              * Format: date-time
@@ -10563,8 +10585,6 @@ export interface components {
             father_name?: string | null;
             /** Family Name */
             family_name?: string | null;
-            /** Password */
-            password?: string | null;
             /**
              * Status
              * @default pending_onboarding

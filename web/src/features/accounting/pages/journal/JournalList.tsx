@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { CreateButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -204,14 +204,15 @@ export default function JournalList() {
         }
       />
       <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-1">
-          <Label>{t('period.from')}</Label>
-          <DateField value={dateFrom} onChange={setDateFrom} className="w-[180px]" />
-        </div>
-        <div className="grid gap-1">
-          <Label>{t('period.to')}</Label>
-          <DateField value={dateTo} onChange={setDateTo} className="w-[180px]" />
-        </div>
+        <DateRangeFields
+          fromValue={dateFrom}
+          toValue={dateTo}
+          onFromChange={setDateFrom}
+          onToChange={setDateTo}
+          fromLabel={<Label>{t('period.from')}</Label>}
+          toLabel={<Label>{t('period.to')}</Label>}
+          fieldClassName="w-[180px]"
+        />
         <div className="grid gap-1">
           <Label>{t('journal.filter.source_type')}</Label>
           <JournalSourceTypeCombobox

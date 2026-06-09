@@ -7,13 +7,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { handleContainerEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { cn } from '@/lib/utils';
 
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
 } from './styles';
-import type { FloatingFormActionsProps, FloatingFormDialogProps } from './types';
+import type {
+  FloatingFormActionsProps,
+  FloatingFormDialogFooterProps,
+  FloatingFormDialogProps,
+} from './types';
 
 const maxWidthClasses = {
   sm: 'max-w-sm',
@@ -57,11 +62,14 @@ export function FloatingFormDialog({
           <DialogTitle className="text-xl font-bold tracking-tight">{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-4 [scrollbar-gutter:stable]">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-4 [scrollbar-gutter:stable]"
+          onKeyDown={handleContainerEnterSubmit}
+        >
           {children}
         </div>
         {footer ? (
-          <DialogFooter className="shrink-0 border-t px-6 py-4 sm:justify-between">{footer}</DialogFooter>
+          <DialogFooter className="shrink-0 border-t px-6 py-4 sm:justify-end">{footer}</DialogFooter>
         ) : null}
       </DialogContent>
     </Dialog>
@@ -73,6 +81,42 @@ export function FloatingFormDialog({
  * Primary action is dark (default variant), cancel is outline.
  * RTL-safe button order via flex row-reverse on small screens (which respects dir).
  */
+/** Fixed dialog footer: cancel + save (matches BranchForm layout). */
+export function FloatingFormDialogFooter({
+  onCancel,
+  saveLabel,
+  cancelLabel,
+  formId,
+  onSave,
+  isSubmitting = false,
+  saveDisabled = false,
+  extraActions,
+}: FloatingFormDialogFooterProps) {
+  return (
+    <div className="flex w-full flex-wrap items-center justify-end gap-[5px]">
+      {extraActions}
+      <Button
+        type="button"
+        variant="outline"
+        className={floatingFormCloseButtonClassName}
+        onClick={onCancel}
+        disabled={isSubmitting}
+      >
+        {cancelLabel}
+      </Button>
+      <Button
+        type={formId ? 'submit' : 'button'}
+        form={formId}
+        className={floatingFormApproveButtonClassName}
+        disabled={isSubmitting || saveDisabled}
+        {...(formId ? {} : { onClick: onSave })}
+      >
+        {saveLabel}
+      </Button>
+    </div>
+  );
+}
+
 export function FloatingFormActions({
   submitLabel,
   cancelLabel,

@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 import RouteLoader from '@/routes/RouteLoader';
@@ -75,7 +76,8 @@ export default function UserEdit() {
   const removeRole = useRemoveUserRole(userId);
   const requestReset = useRequestPasswordReset();
   const canUpdate = usePermission('users', 'update');
-  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const currentUserId = useAuthStore((s) => s.user?.id);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [addRoleId, setAddRoleId] = useState<string>('');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -103,6 +105,9 @@ export default function UserEdit() {
   }
 
   const bootstrapLocked = user.bootstrap_admin_protected === true;
+  const isDeactivated = user.status === 'deactivated';
+  const isSelf = user.id === currentUserId;
+  const statusAction: 'activate' | 'deactivate' = isDeactivated ? 'activate' : 'deactivate';
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-5 py-6 sm:px-8 sm:py-8">
@@ -304,7 +309,10 @@ export default function UserEdit() {
                 </div>
               </div>
 
-              {canUpdate && !bootstrapLocked ? (
+              {canUpdate && !bootstrapLocked && isDeactivated ? (
+                <p className="text-muted-foreground text-sm">{t('users.roles_disabled_deactivated')}</p>
+              ) : null}
+              {canUpdate && !bootstrapLocked && !isDeactivated ? (
                 <div className="bg-muted/30 flex flex-col gap-3 rounded-xl border border-dashed p-4 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1 space-y-1">
                     <Label className="text-sm">{t('users.add_role')}</Label>
@@ -357,14 +365,18 @@ export default function UserEdit() {
                     <Button type="button" variant="outline" className={floatingFormCloseButtonClassName} asChild>
                       <Link to={`/admin/users/${userId}/permissions`}>{t('users.view_permissions')}</Link>
                     </Button>
-                    <Separator orientation="vertical" className="h-8" />
-                    <Button
-                      type="button"
-                      className={floatingFormDangerButtonClassName}
-                      onClick={() => setDeactivateOpen(true)}
-                    >
-                      {t('users.deactivate')}
-                    </Button>
+                    {!isSelf ? (
+                      <>
+                        <Separator orientation="vertical" className="h-8" />
+                        <Button
+                          type="button"
+                          className={floatingFormDangerButtonClassName}
+                          onClick={() => setStatusDialogOpen(true)}
+                        >
+                          {isDeactivated ? t('users.activate') : t('users.deactivate')}
+                        </Button>
+                      </>
+                    ) : null}
                   </>
                 ) : null}
               </div>
@@ -374,19 +386,31 @@ export default function UserEdit() {
       </section>
 
       <DangerConfirmDialog
-        open={deactivateOpen && !bootstrapLocked}
+        open={statusDialogOpen && !bootstrapLocked && !isSelf}
         onOpenChange={(open) => {
-          if (!bootstrapLocked) setDeactivateOpen(open);
+          if (!bootstrapLocked && !isSelf) setStatusDialogOpen(open);
         }}
-        title={t('users.deactivate_title')}
-        description={t('users.deactivate_desc')}
-        confirmKeyword="DELETE"
+        title={
+          statusAction === 'activate' ? t('users.activate_title') : t('users.deactivate_title')
+        }
+        description={
+          statusAction === 'activate' ? t('users.activate_desc') : t('users.deactivate_desc')
+        }
+        confirmKeyword={
+          statusAction === 'activate'
+            ? t('users.activate_confirm_keyword')
+            : t('users.deactivate_confirm_keyword')
+        }
         isLoading={update.isPending}
         onConfirm={async () => {
           try {
-            await update.mutateAsync({ status: 'deactivated' });
-            notify.success(tc('toasts.deactivated'));
-            setDeactivateOpen(false);
+            await update.mutateAsync({
+              status: statusAction === 'activate' ? 'active' : 'deactivated',
+            });
+            notify.success(
+              statusAction === 'activate' ? tc('toasts.activated') : tc('toasts.deactivated'),
+            );
+            setStatusDialogOpen(false);
           } catch (error) {
             notifyApiError(error, tc('errors.generic'));
           }

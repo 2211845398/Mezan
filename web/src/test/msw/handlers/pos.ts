@@ -400,8 +400,29 @@ export const posHandlers = [
 
   http.get(`${BASE}/pos/returns/invoice-lookup`, ({ request }) => {
     const ref = new URL(request.url).searchParams.get('invoice_barcode')?.trim() ?? '';
+    if (ref === 'CRN-TEST') {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'bad_request',
+            message: 'لا يمكن إرجاع فاتورة مرتجع',
+            details: { code: 'return_lookup_is_credit_note' },
+          },
+        },
+        { status: 400 },
+      );
+    }
     if (ref !== 'INV-555' && ref !== 'BC555') {
-      return HttpResponse.json({ detail: 'Invoice not found' }, { status: 404 });
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'resource_not_found',
+            message: 'فاتورة البيع غير موجودة بالنظام',
+            details: { code: 'return_lookup_invoice_not_found' },
+          },
+        },
+        { status: 404 },
+      );
     }
     return HttpResponse.json({
       invoice_id: 555,

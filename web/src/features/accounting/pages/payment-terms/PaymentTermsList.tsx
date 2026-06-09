@@ -7,7 +7,10 @@ import { toast } from 'sonner';
 import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +20,8 @@ import { usePermission } from '@/hooks/usePermission';
 import type { PaymentTermRead } from '../../api';
 import { createPaymentTerm, updatePaymentTerm } from '../../api';
 import { accountingKeys, paymentTermsQueryOptions } from '../../queries';
+
+const PAYMENT_TERM_FORM_ID = 'accounting-payment-term-form';
 
 function PaymentTermForm({
   existing,
@@ -59,6 +64,7 @@ function PaymentTermForm({
 
   return (
     <form
+      id={PAYMENT_TERM_FORM_ID}
       className="flex flex-col gap-3 p-1"
       onSubmit={(e) => {
         e.preventDefault();
@@ -83,15 +89,13 @@ function PaymentTermForm({
         <Label>{t('payment_terms.form.days')}</Label>
         <Input type="number" min={0} value={days} onChange={(e) => setDays(e.target.value)} />
       </div>
-      <Button type="submit" disabled={save.isPending}>
-        {t('payment_terms.form.save')}
-      </Button>
     </form>
   );
 }
 
 export default function PaymentTermsList() {
   const { t, i18n } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const isAr = i18n.language.startsWith('ar');
   const canUpdate = usePermission('accounting', 'update');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -175,6 +179,14 @@ export default function PaymentTermsList() {
         onOpenChange={setDialogOpen}
         title={editing ? t('payment_terms.edit') : t('payment_terms.add')}
         key={dialogKey}
+        footer={
+          <FloatingFormDialogFooter
+            formId={PAYMENT_TERM_FORM_ID}
+            onCancel={() => setDialogOpen(false)}
+            saveLabel={t('payment_terms.form.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         <PaymentTermForm existing={editing} onDone={() => setDialogOpen(false)} />
       </FloatingFormDialog>

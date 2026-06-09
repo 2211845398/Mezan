@@ -20,6 +20,8 @@ export type ThermalReceiptModel = {
   discountTotal: string;
   taxTotal: string;
   total: string;
+  amountPaid?: string | null;
+  roundingDifference?: string | null;
   tendered?: string | null;
   changeDue?: string | null;
   /** Customer balance still owed after partial cash tender */

@@ -10,7 +10,7 @@ import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { SectionCard } from '@/components/shared/ContentSurface';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -182,14 +182,14 @@ export default function Analytics() {
           <CardTitle className="text-base">{t('analytics.filters_title')}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-4">
-          <div className="grid gap-1">
-            <Label>{t('analytics.period_start')}</Label>
-            <DateField value={ps} onChange={setPs} />
-          </div>
-          <div className="grid gap-1">
-            <Label>{t('analytics.period_end')}</Label>
-            <DateField value={pe} onChange={setPe} />
-          </div>
+          <DateRangeFields
+            fromValue={ps}
+            toValue={pe}
+            onFromChange={setPs}
+            onToChange={setPe}
+            fromLabel={<Label>{t('analytics.period_start')}</Label>}
+            toLabel={<Label>{t('analytics.period_end')}</Label>}
+          />
           <Button type="button" onClick={() => setApplied({ ps, pe })} disabled={top.isFetching}>
             {t('analytics.apply')}
           </Button>

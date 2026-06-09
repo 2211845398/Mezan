@@ -128,6 +128,8 @@ async def test_void_reverses_journal_and_restores_stock(db_session) -> None:
         discount_total=Decimal("0.00"),
         tax_total=Decimal("15.00"),
         total=Decimal("115.00"),
+        amount_paid=Decimal("115.00"),
+        rounding_difference=Decimal("0.00"),
         created_by_user_id=user.id,
     )
     db_session.add(invoice)
@@ -303,6 +305,8 @@ async def test_void_is_idempotent(db_session) -> None:
         discount_total=Decimal("0.00"),
         tax_total=Decimal("0.00"),
         total=Decimal("10.00"),
+        amount_paid=Decimal("10.00"),
+        rounding_difference=Decimal("0.00"),
         created_by_user_id=user.id,
     )
     db_session.add(invoice)
@@ -446,6 +450,8 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
         discount_total=Decimal("0.00"),
         tax_total=Decimal("0.00"),
         total=Decimal("10.00"),
+        amount_paid=Decimal("10.00"),
+        rounding_difference=Decimal("0.00"),
         created_by_user_id=user.id,
     )
     db_session.add(invoice)
@@ -490,4 +496,160 @@ async def test_return_rejected_for_voided_invoice(db_session) -> None:
             reason=None,
             exchange_cart_id=None,
             user_id=user.id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_void_rejected_for_credit_note(db_session) -> None:
+    await seed_accounting_defaults(db_session)
+    branch = Branch(
+        name="Void CN",
+        code=f"VCN-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    user = User(
+        email=f"vcn-{uuid.uuid4().hex[:8]}@example.com",
+        first_name="VCN",
+        password_hash="x",
+        status="active",
+        branch_id=None,
+    )
+    db_session.add_all([branch, user])
+    await db_session.flush()
+    terminal = POSTerminal(
+        branch_id=branch.id,
+        name="VCNT",
+        terminal_code=f"VCNT-{uuid.uuid4().hex[:8]}",
+        api_key_hash="h",
+        is_authorized=True,
+    )
+    db_session.add(terminal)
+    await db_session.flush()
+    cart = PosCart(
+        terminal_id=terminal.id,
+        branch_id=branch.id,
+        shift_id=None,
+        customer_id=None,
+        status="paid",
+        subtotal=Decimal("10.00"),
+        discount_total=Decimal("0.00"),
+        tax_total=Decimal("0.00"),
+        total=Decimal("10.00"),
+    )
+    db_session.add(cart)
+    await db_session.flush()
+    category = Category(
+        name="VCNc",
+        slug=f"vcn-{uuid.uuid4().hex[:8]}",
+        sort_order=0,
+        is_active=True,
+    )
+    db_session.add(category)
+    await db_session.flush()
+    product = Product(
+        category_id=category.id,
+        name="VCNp",
+        sku=f"vcnp-{uuid.uuid4().hex[:8]}",
+        status="active",
+        output_vat_rate=Decimal("0"),
+    )
+    db_session.add(product)
+    await db_session.flush()
+    pv = ProductVariant(
+        product_id=product.id,
+        sku=f"{product.sku}-V",
+        attribute_values={},
+        active=True,
+    )
+    db_session.add(pv)
+    await db_session.flush()
+    db_session.add(
+        StockLevel(
+            branch_id=branch.id, product_id=product.id, variant_id=pv.id, on_hand=5, reserved=0
+        )
+    )
+    await db_session.flush()
+    await apply_stock_movement(
+        db_session,
+        idempotency_key=f"vcn:{uuid.uuid4().hex}",
+        branch_id=branch.id,
+        product_id=product.id,
+        qty_delta=-1,
+        reason="sale",
+        ref_type="sales_invoice",
+        ref_id="vcn",
+        variant_id=pv.id,
+    )
+    await db_session.commit()
+
+    barcode = f"BCN-{uuid.uuid4().hex[:8]}"
+    invoice = SalesInvoice(
+        invoice_number=f"ICN-{uuid.uuid4().hex[:8]}",
+        invoice_barcode=barcode,
+        cart_id=cart.id,
+        terminal_id=terminal.id,
+        branch_id=branch.id,
+        customer_id=None,
+        subtotal=Decimal("10.00"),
+        discount_total=Decimal("0.00"),
+        tax_total=Decimal("0.00"),
+        total=Decimal("10.00"),
+        amount_paid=Decimal("10.00"),
+        rounding_difference=Decimal("0.00"),
+        created_by_user_id=user.id,
+    )
+    db_session.add(invoice)
+    await db_session.flush()
+    ln = SalesInvoiceLine(
+        sales_invoice_id=invoice.id,
+        product_id=product.id,
+        variant_id=pv.id,
+        qty=1,
+        unit_price=Decimal("10.00"),
+        line_total=Decimal("10.00"),
+        tax_rate=Decimal("0"),
+        line_tax_amount=Decimal("0.00"),
+    )
+    db_session.add(ln)
+    db_session.add(
+        InvoicePayment(
+            sales_invoice_id=invoice.id,
+            payment_intent_id=None,
+            amount=Decimal("10.00"),
+            method="cash",
+            reference=None,
+        )
+    )
+    await db_session.flush()
+    await post_sales_invoice_gl(db_session, invoice=invoice, lines=[ln])
+    await db_session.commit()
+
+    _ret, credit = await create_return_and_credit(
+        db_session,
+        invoice_barcode=barcode,
+        lines=[{"sales_invoice_line_id": ln.id, "qty": 1}],
+        reason=None,
+        exchange_cart_id=None,
+        user_id=user.id,
+    )
+    await db_session.commit()
+
+    msg = "لا يمكن إلغاء الفواتير المرتجعة"
+    with pytest.raises(ValidationError, match=msg):
+        await void_sales_invoice(
+            db_session,
+            invoice_id=credit.id,
+            invoice_barcode=None,
+            reason="should fail",
+            actor_user_id=user.id,
+        )
+    with pytest.raises(ValidationError, match=msg):
+        await void_sales_invoice(
+            db_session,
+            invoice_id=None,
+            invoice_barcode=credit.credit_number,
+            reason="should fail",
+            actor_user_id=user.id,
         )

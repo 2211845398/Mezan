@@ -12,7 +12,10 @@ import { notifyApiError } from '@/api/errorMessages';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
@@ -22,7 +25,7 @@ import { notify } from '@/lib/toast';
 import type { DiscountRuleRead } from '../../api';
 import { updateDiscountRule } from '../../api';
 import { crmKeys, discountsListQueryOptions } from '../../queries';
-import DiscountForm from './DiscountForm';
+import DiscountForm, { DISCOUNT_DIALOG_FORM_ID } from './DiscountForm';
 
 function sortDiscounts(rows: DiscountRuleRead[]): DiscountRuleRead[] {
   return [...rows].sort((a, b) => {
@@ -199,6 +202,14 @@ export default function DiscountsList() {
         }}
         title={openNew ? t('discounts.new_title') : t('discounts.edit_title')}
         maxWidth="md"
+        footer={
+          <FloatingFormDialogFooter
+            formId={DISCOUNT_DIALOG_FORM_ID}
+            onCancel={closeDiscountForm}
+            saveLabel={tc('actions.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {formOpen ? (
           <DiscountForm

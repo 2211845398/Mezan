@@ -178,7 +178,7 @@ export default function RoutineSchedules() {
         }}
         title={t('notifications.delete_routine_title')}
         description={t('notifications.delete_routine_desc')}
-        confirmKeyword={(pendingDelete?.name ?? '').trim() || 'DELETE'}
+        confirmKeyword={t('notifications.delete_confirm_keyword')}
         isLoading={removeSchedule.isPending}
         onConfirm={() => {
           if (!pendingDelete) return;

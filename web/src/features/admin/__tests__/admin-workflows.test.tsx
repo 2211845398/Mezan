@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -7,7 +7,9 @@ import BranchesList from '@/features/admin/pages/branches/BranchesList';
 import SendNow from '@/features/admin/pages/notifications/SendNow';
 import RolesList from '@/features/admin/pages/roles/RolesList';
 import UserCreate from '@/features/admin/pages/users/UserCreate';
+import UsersList from '@/features/admin/pages/users/UsersList';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import i18n from '@/i18n';
 import { server } from '@/test/msw/server';
 import { renderWithProviders, userEvent } from '@/test/utils';
 
@@ -39,6 +41,90 @@ describe('W-5.9 admin', () => {
       { resource: 'notifications', action: 'update' },
     ]);
     useAuthStore.getState().setRoleCodes(['ADMIN']);
+  });
+
+  it('users list shows activate for deactivated user and hides self status toggle', async () => {
+    server.use(
+      http.get(`${BASE}/users`, () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 1,
+              email: 'admin@example.com',
+              first_name: 'Admin',
+              father_name: null,
+              family_name: null,
+              status: 'active',
+              branch_id: 1,
+              last_login_at: null,
+              bootstrap_admin_protected: false,
+            },
+            {
+              id: 2,
+              email: 'off@example.com',
+              first_name: 'Off',
+              father_name: null,
+              family_name: null,
+              status: 'deactivated',
+              branch_id: null,
+              last_login_at: null,
+              bootstrap_admin_protected: false,
+            },
+          ],
+          total: 2,
+          limit: 20,
+          offset: 0,
+        }),
+      ),
+      http.get(`${BASE}/users/:id/roles`, () => HttpResponse.json([])),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<UsersList />, { initialEntries: ['/admin/users'] });
+    await screen.findByText('off@example.com');
+
+    const menuButtons = await screen.findAllByRole('button', { name: /قائمة|open menu/i });
+    await user.click(menuButtons[0]!);
+    expect(screen.queryByRole('menuitem', { name: /تعطيل|deactivate/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /تفعيل|activate/i })).toBeNull();
+    await user.keyboard('{Escape}');
+
+    await user.click(menuButtons[1]!);
+    expect(await screen.findByRole('menuitem', { name: /تفعيل|activate/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /تعطيل|deactivate/i })).toBeNull();
+  });
+
+  it('users list create dialog has no initial password field (MSW)', async () => {
+    let postedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.post(`${BASE}/users`, async ({ request }) => {
+        postedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          id: 3,
+          email: postedBody.email,
+          first_name: postedBody.first_name ?? null,
+          father_name: null,
+          family_name: null,
+          status: 'pending_onboarding',
+          branch_id: null,
+          last_login_at: null,
+          bootstrap_admin_protected: false,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<UsersList />, { initialEntries: ['/admin/users'] });
+    await user.click(await screen.findByRole('button', { name: /مستخدم جديد|create user|create/i }));
+    const dialog = await screen.findByRole('dialog', { name: /إنشاء مستخدم|create user/i });
+    const dialogScope = within(dialog);
+    expect(dialog.querySelector('input[type="password"]')).toBeNull();
+    const [firstNameInput] = dialogScope.getAllByRole('textbox');
+    await user.type(firstNameInput, 'Staff');
+    await user.type(dialogScope.getByPlaceholderText('user@example.com'), 'staff@example.com');
+    await user.click(screen.getByRole('button', { name: /حفظ|save/i }));
+    await waitFor(() => {
+      expect(postedBody).not.toBeNull();
+    });
+    expect(postedBody).not.toHaveProperty('password');
   });
 
   it('create user happy path (MSW)', async () => {
@@ -223,5 +309,32 @@ describe('branches list archive filter', () => {
     await waitFor(() => {
       expect(screen.getByText('A')).toBeInTheDocument();
     });
+  });
+
+  it('archive dialog uses Arabic confirm keyword without soft-delete description', async () => {
+    await i18n.changeLanguage('ar');
+    server.use(
+      http.get(`${BASE}/branches`, () =>
+        HttpResponse.json([
+          {
+            id: 2,
+            code: 'B',
+            name: 'Active',
+            address: null,
+            timezone: 'UTC',
+            is_active: true,
+            archived_at: null,
+            kind: 'commercial',
+          },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<BranchesList />, { initialEntries: ['/'] });
+    await screen.findByText('Active');
+    await user.click(screen.getByRole('button', { name: 'أرشفة' }));
+    expect(await screen.findByText('اكتب «أرشفة» للتأكيد')).toBeInTheDocument();
+    expect(screen.queryByText(/حذف ناعم/)).toBeNull();
+    expect(screen.queryByText('ARCHIVE')).toBeNull();
   });
 });

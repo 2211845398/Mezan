@@ -17,3 +17,16 @@ export type FloatingFormActionsProps = {
   isSubmitting?: boolean;
   submitDisabled?: boolean;
 };
+
+export type FloatingFormDialogFooterProps = {
+  onCancel: () => void;
+  saveLabel: string;
+  cancelLabel: string;
+  /** When set, the save button submits this form by id. */
+  formId?: string;
+  /** Used when `formId` is not set (e.g. imperative submit handlers). */
+  onSave?: () => void;
+  isSubmitting?: boolean;
+  saveDisabled?: boolean;
+  extraActions?: ReactNode;
+};

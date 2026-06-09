@@ -295,6 +295,8 @@ async def seed_dev_pos_shifts_and_invoices(
         discount_total=Decimal("0.00"),
         tax_total=Decimal("0.00"),
         total=subtotal,
+        amount_paid=subtotal,
+        rounding_difference=Decimal("0.00"),
         created_by_user_id=admin_user.id,
     )
     db.add(invoice)
@@ -671,6 +673,8 @@ async def seed_dev_extra_invoices(
             discount_total=Decimal("0.00"),
             tax_total=Decimal("0.00"),
             total=subtotal,
+            amount_paid=subtotal,
+            rounding_difference=Decimal("0.00"),
             created_by_user_id=admin_user.id,
         )
         db.add(invoice)

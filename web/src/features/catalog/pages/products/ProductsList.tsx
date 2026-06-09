@@ -9,15 +9,6 @@ import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,7 +53,6 @@ export default function ProductsList() {
   const canCreate = usePermission('catalog', 'create');
 
   const [status, setStatus] = useState<string | null>(null);
-  const [archiveTarget, setArchiveTarget] = useState<ProductRead | null>(null);
 
   const categoryId = useMemo(() => {
     const raw = searchParams.get('category_id');
@@ -148,6 +138,18 @@ export default function ProductsList() {
       await qc.invalidateQueries({ queryKey: catalogKeys.root });
     },
   });
+
+  const handleArchiveToggle = useCallback(
+    async (product: ProductRead) => {
+      try {
+        await archiveProduct.mutateAsync(product);
+        toast.success(t('products.status_updated'));
+      } catch (e) {
+        notifyApiError(e, t('errors.generic'));
+      }
+    },
+    [archiveProduct, t],
+  );
 
   const { data, isLoading, isError, refetch } = useProductListQuery({
     limit: pageSize,
@@ -247,7 +249,7 @@ export default function ProductsList() {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  onClick={() => setArchiveTarget(product)}
+                  onClick={() => void handleArchiveToggle(product)}
                   disabled={archiveProduct.isPending}
                   aria-label={archived ? t('products.unarchive') : t('products.archive')}
                 >
@@ -258,7 +260,7 @@ export default function ProductsList() {
           },
         },
       ]),
-    [t, canUpdate, categoryNameById, taxById, archiveProduct, navigate],
+    [t, canUpdate, categoryNameById, taxById, archiveProduct, navigate, handleArchiveToggle],
   );
 
   return (
@@ -345,41 +347,6 @@ export default function ProductsList() {
           void refetch();
         }}
       />
-      <AlertDialog
-        open={archiveTarget != null}
-        onOpenChange={(o) => {
-          if (!o) setArchiveTarget(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {archiveTarget?.status === 'archived' ? t('products.unarchive') : t('products.archive')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>{t('products.archive_desc')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel type="button">{t('actions.cancel')}</AlertDialogCancel>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={archiveProduct.isPending}
-              onClick={async () => {
-                if (!archiveTarget) return;
-                try {
-                  await archiveProduct.mutateAsync(archiveTarget);
-                  setArchiveTarget(null);
-                  toast.success(t('products.status_updated'));
-                } catch (e) {
-                  notifyApiError(e, t('errors.generic'));
-                }
-              }}
-            >
-              {archiveTarget?.status === 'archived' ? t('products.unarchive') : t('products.archive')}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

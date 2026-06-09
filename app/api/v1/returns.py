@@ -59,6 +59,9 @@ async def create_return_endpoint(
         lines=[x.model_dump() for x in body.lines],
         reason=body.reason,
         exchange_cart_id=body.exchange_cart_id,
+        shift_id=body.shift_id,
+        return_cart_line_ids=body.return_cart_line_ids,
+        payment_intent_id=body.payment_intent_id,
         user_id=current_user.id,
     )
     await audit_service.log(
