@@ -1,10 +1,15 @@
 """Attendance kiosk device management and QR display APIs."""
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_permission
+from app.api.deps import (
+    get_current_user,
+    get_current_user_permissions_cached,
+    require_any_permission,
+    require_permission,
+)
 from app.db.database import get_db
 from app.models.attendance_device import AttendanceDevice
 from app.models.branch import Branch
@@ -21,6 +26,7 @@ from app.services.attendance_device_service import (
     create_attendance_device,
     current_qr_payload_for_device,
     ensure_kiosk_role_for_user,
+    generate_fresh_qr_for_device,
     get_attendance_device,
     get_attendance_device_for_user,
     list_attendance_devices,
@@ -197,14 +203,13 @@ async def rotate_qr_endpoint(
     return AttendanceDeviceRead.model_validate(device)
 
 
-@router.get("/attendance-devices/{device_id}/qr", response_model=AttendanceQrPayloadRead)
-async def preview_qr_endpoint(
-    device_id: int,
+@router.get("/attendance-devices/me/qr", response_model=AttendanceQrPayloadRead)
+async def kiosk_qr_endpoint(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-    __: None = require_permission("attendance_devices", "read"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("attendance_kiosk", "read"),
 ) -> AttendanceQrPayloadRead:
-    device = await get_attendance_device(db, device_id)
+    device = await get_attendance_device_for_user(db, user_id=current_user.id)
     payload = await current_qr_payload_for_device(db, device=device)
     await db.commit()
     return AttendanceQrPayloadRead(
@@ -215,13 +220,44 @@ async def preview_qr_endpoint(
     )
 
 
-@router.get("/attendance-devices/me/qr", response_model=AttendanceQrPayloadRead)
-async def kiosk_qr_endpoint(
+@router.post("/attendance-devices/me/qr/generate", response_model=AttendanceQrPayloadRead)
+async def generate_kiosk_qr_endpoint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("attendance_kiosk", "read"),
 ) -> AttendanceQrPayloadRead:
+    """Rotate and return a fresh single-use attendance QR for kiosk display."""
     device = await get_attendance_device_for_user(db, user_id=current_user.id)
+    payload = await generate_fresh_qr_for_device(db, device=device)
+    await db.commit()
+    await db.refresh(device)
+    return AttendanceQrPayloadRead(
+        qr_payload=payload,
+        expires_in_seconds=QR_TTL_SECONDS,
+        branch_id=device.branch_id,
+        device_id=device.id,
+    )
+
+
+@router.get("/attendance-devices/{device_id}/qr", response_model=AttendanceQrPayloadRead)
+async def preview_qr_endpoint(
+    device_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    perms: set[tuple[str, str]] = Depends(get_current_user_permissions_cached),
+    _: None = require_any_permission(
+        ("attendance_devices", "read"),
+        ("attendance_kiosk", "read"),
+    ),
+) -> AttendanceQrPayloadRead:
+    device = await get_attendance_device(db, device_id)
+    if ("attendance_devices", "read") not in perms:
+        owns_device = device.user_id == current_user.id
+        if ("attendance_kiosk", "read") not in perms or not owns_device:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission required: attendance_devices:read",
+            )
     payload = await current_qr_payload_for_device(db, device=device)
     await db.commit()
     return AttendanceQrPayloadRead(

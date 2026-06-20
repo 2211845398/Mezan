@@ -125,6 +125,16 @@ async def test_hr_lists_devices_and_kiosk_reads_qr(
     assert body["qr_payload"].startswith("mezan:attendance:v2:")
     assert body["branch_id"] == branch.id
 
+    generated = await client.post(
+        "/api/v1/attendance-devices/me/qr/generate",
+        headers=kiosk_headers,
+    )
+    assert generated.status_code == 200
+    generated_body = generated.json()
+    assert generated_body["qr_payload"].startswith("mezan:attendance:v2:")
+    assert generated_body["device_id"] == device.id
+    assert generated_body["qr_payload"] != body["qr_payload"]
+
     preview = await client.get(
         f"/api/v1/attendance-devices/{device.id}/qr",
         headers=hr_headers,
@@ -133,6 +143,75 @@ async def test_hr_lists_devices_and_kiosk_reads_qr(
 
     forbidden = await client.get("/api/v1/attendance-devices/me/qr", headers=hr_headers)
     assert forbidden.status_code in (403, 404)
+
+
+@pytest.mark.security
+@pytest.mark.asyncio
+async def test_kiosk_reads_own_device_qr_by_id_forbidden_for_other(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    await seed_permissions_and_roles(db_session)
+
+    branch = Branch(name="South", code="SOUTH-DEV", address=None, timezone="UTC", is_active=True)
+    db_session.add(branch)
+    await db_session.flush()
+
+    res_kiosk_role = await db_session.execute(select(Role).where(Role.code == "ATTENDANCE_KIOSK"))
+    kiosk_role = res_kiosk_role.scalar_one()
+
+    kiosk_user_a = User(
+        email="kiosk_a@test.example",
+        first_name="KioskA",
+        password_hash=hash_password("pw"),
+        status="active",
+        branch_id=branch.id,
+    )
+    kiosk_user_b = User(
+        email="kiosk_b@test.example",
+        first_name="KioskB",
+        password_hash=hash_password("pw"),
+        status="active",
+        branch_id=branch.id,
+    )
+    db_session.add_all([kiosk_user_a, kiosk_user_b])
+    await db_session.flush()
+    db_session.add(UserRole(user_id=kiosk_user_a.id, role_id=kiosk_role.id, branch_id=branch.id))
+    db_session.add(UserRole(user_id=kiosk_user_b.id, role_id=kiosk_role.id, branch_id=branch.id))
+    await db_session.flush()
+
+    device_a = await create_attendance_device(
+        db_session,
+        branch_id=branch.id,
+        name="Kiosk A",
+        device_code="KIOSK-A",
+        user_id=kiosk_user_a.id,
+    )
+    device_b = await create_attendance_device(
+        db_session,
+        branch_id=branch.id,
+        name="Kiosk B",
+        device_code="KIOSK-B",
+        user_id=kiosk_user_b.id,
+    )
+    await ensure_kiosk_role_for_user(db_session, user_id=kiosk_user_a.id)
+    await ensure_kiosk_role_for_user(db_session, user_id=kiosk_user_b.id)
+    await db_session.commit()
+
+    headers_a = {"Authorization": f"Bearer {create_access_token(kiosk_user_a.id)}"}
+
+    own_qr = await client.get(
+        f"/api/v1/attendance-devices/{device_a.id}/qr",
+        headers=headers_a,
+    )
+    assert own_qr.status_code == 200
+    assert own_qr.json()["device_id"] == device_a.id
+
+    other_qr = await client.get(
+        f"/api/v1/attendance-devices/{device_b.id}/qr",
+        headers=headers_a,
+    )
+    assert other_qr.status_code == 403
 
 
 @pytest.mark.security

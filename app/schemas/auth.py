@@ -76,15 +76,34 @@ class LogoutRequest(BaseModel):
 
 
 class PasswordResetRequest(BaseModel):
-    """Request password reset (sends email if user exists)."""
+    """Request password reset (sends OTP email if user exists)."""
 
     email: EmailStr
 
 
-class PasswordResetConfirm(BaseModel):
-    """Confirm password reset with token and new password."""
+class PasswordResetRequestResponse(BaseModel):
+    """Challenge token for OTP verification step."""
 
-    token: str
+    challenge_token: str
+
+
+class PasswordResetOtpVerify(BaseModel):
+    """Verify password-reset OTP."""
+
+    challenge_token: str
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class PasswordResetOtpVerifyResponse(BaseModel):
+    """Short-lived token for setting a new password."""
+
+    reset_token: str
+
+
+class PasswordResetConfirm(BaseModel):
+    """Confirm password reset with reset token and new password."""
+
+    reset_token: str
     new_password: str = Field(..., min_length=8)
 
 

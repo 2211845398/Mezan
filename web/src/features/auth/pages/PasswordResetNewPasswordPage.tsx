@@ -3,7 +3,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -22,10 +22,11 @@ const schema = z
   });
 type Values = z.infer<typeof schema>;
 
-export default function ResetPasswordPage() {
+export default function PasswordResetNewPasswordPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { token } = useParams<{ token: string }>();
+  const location = useLocation();
+  const resetToken = (location.state as { resetToken?: string } | null)?.resetToken ?? '';
   const [done, setDone] = useState(false);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -34,15 +35,15 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     if (done) {
-      const t = setTimeout(() => navigate('/login', { replace: true }), 2000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => navigate('/login', { replace: true }), 2000);
+      return () => clearTimeout(timer);
     }
   }, [done, navigate]);
 
   async function onSubmit(values: Values) {
-    if (!token) return;
+    if (!resetToken) return;
     try {
-      await confirmPasswordReset({ token, new_password: values.password });
+      await confirmPasswordReset({ reset_token: resetToken, new_password: values.password });
       setDone(true);
       notify.success(t('auth:reset.success'));
     } catch (err) {
@@ -64,11 +65,11 @@ export default function ResetPasswordPage() {
     notify.error(t('common:errors.validation_required'));
   };
 
-  if (!token) {
+  if (!resetToken) {
     return (
       <div className="space-y-6 text-center" dir="auto">
         <h1 className="text-xl font-semibold">{t('auth:reset.missing_token')}</h1>
-        <Link to="/login" className="text-sm text-primary underline-offset-4 hover:underline">
+        <Link to="/forgot-password" className="text-sm text-primary underline-offset-4 hover:underline">
           {t('auth:actions.back_to_login')}
         </Link>
       </div>

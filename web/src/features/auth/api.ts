@@ -6,8 +6,6 @@ import type {
   LoginRequest,
   LoginResponse,
   LogoutRequest,
-  PasswordResetConfirm,
-  PasswordResetRequest,
   PermissionRead,
   RefreshRequest,
   TokenResponse,
@@ -15,14 +13,34 @@ import type {
   UserUpdate,
 } from '@/api/types';
 
+export type PasswordResetRequest = {
+  email: string;
+};
+
+export type PasswordResetRequestResponse = {
+  challenge_token: string;
+};
+
+export type PasswordResetOtpVerify = {
+  challenge_token: string;
+  code: string;
+};
+
+export type PasswordResetOtpVerifyResponse = {
+  reset_token: string;
+};
+
+export type PasswordResetConfirm = {
+  reset_token: string;
+  new_password: string;
+};
+
 export type {
   CustomerCompleteOnboardingRequest,
   CustomerRead,
   LoginRequest,
   LoginResponse,
   LogoutRequest,
-  PasswordResetConfirm,
-  PasswordResetRequest,
   PermissionRead,
   RefreshRequest,
   TokenResponse,
@@ -111,8 +129,24 @@ export async function getMyRoles(): Promise<{ codes: string[] }> {
   return data;
 }
 
-export async function requestPasswordReset(body: PasswordResetRequest): Promise<void> {
-  await apiClient.post('/auth/password-reset/request', body);
+export async function requestPasswordReset(
+  body: PasswordResetRequest,
+): Promise<PasswordResetRequestResponse> {
+  const { data } = await apiClient.post<PasswordResetRequestResponse>(
+    '/auth/password-reset/request',
+    body,
+  );
+  return data;
+}
+
+export async function verifyPasswordResetOtp(
+  body: PasswordResetOtpVerify,
+): Promise<PasswordResetOtpVerifyResponse> {
+  const { data } = await apiClient.post<PasswordResetOtpVerifyResponse>(
+    '/auth/password-reset/verify-otp',
+    body,
+  );
+  return data;
 }
 
 export async function confirmPasswordReset(body: PasswordResetConfirm): Promise<void> {

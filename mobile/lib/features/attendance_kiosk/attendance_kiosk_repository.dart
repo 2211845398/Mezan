@@ -1,4 +1,6 @@
+import '../../core/api/api_exception.dart';
 import '../../core/api/api_client.dart';
+import 'kiosk_device_storage.dart';
 import 'models/attendance_qr_payload.dart';
 
 class AttendanceKioskRepository {
@@ -6,8 +8,17 @@ class AttendanceKioskRepository {
 
   final ApiClient _api;
 
-  Future<AttendanceQrPayload> fetchCurrentQr() async {
-    final data = await _api.getMap('/attendance-devices/me/qr');
-    return AttendanceQrPayload.fromJson(data);
+  Future<AttendanceQrPayload> generateQr() async {
+    try {
+      final data = await _api.postMap('/attendance-devices/me/qr/generate');
+      final payload = AttendanceQrPayload.fromJson(data);
+      await KioskDeviceStorage.saveDeviceId(payload.deviceId);
+      return payload;
+    } on ApiException catch (e) {
+      if (e.statusCode == 403 || e.statusCode == 404) {
+        await KioskDeviceStorage.clear();
+      }
+      rethrow;
+    }
   }
 }

@@ -16,7 +16,8 @@ from app.api.deps import (
     require_permission,
 )
 from app.core.config import settings
-from app.core.errors import ValidationError
+
+from app.schemas.pagination import clamp_pagination
 from app.db.database import get_db
 from app.models.employee_profile import EmployeeProfile
 from app.models.leave_request import LeaveStatus, LeaveType
@@ -44,17 +45,20 @@ from app.schemas.employees import (
     WeeklyScheduleRead,
     WeeklyScheduleUpdate,
 )
-from app.schemas.pagination import clamp_pagination
+from app.core.errors import StateTransitionError, ValidationError
 from app.utils.request_locale import resolve_request_locale
 from app.services import audit_service
-from app.services.attendance_device_service import request_fresh_attendance_qr_for_branch
+from app.services.attendance_device_service import (
+    consume_attendance_qr_device,
+    request_fresh_attendance_qr_for_branch,
+)
 from app.services.attendance_export_service import (
     export_attendance_pdf,
     export_attendance_xlsx,
     export_leave_summary_pdf,
     export_leave_summary_xlsx,
 )
-from app.services.attendance_qr_service import QR_TTL_SECONDS, resolve_branch_from_qr_payload
+from app.services.attendance_qr_service import QR_TTL_SECONDS, resolve_attendance_qr_payload
 from app.services.employee_service import (
     attendance_period_summary,
     clock_in,
@@ -66,6 +70,7 @@ from app.services.employee_service import (
     enrich_leave_request_reads,
     get_employee_profile_enriched,
     get_employee_profile_id_for_user,
+    get_open_attendance_log_for_today,
     get_vacation_leave_balance,
     list_attendance_logs,
     list_attendance_logs_enriched_page,
@@ -288,6 +293,18 @@ async def _employee_profile_id_for_self_service(
     return employee_profile_id
 
 
+def _validate_attendance_action(
+    *,
+    action: str | None,
+    expected: str,
+) -> None:
+    if action is not None and action != expected:
+        raise ValidationError(
+            f"Attendance action must be {expected}",
+            details={"action": action, "expected": expected},
+        )
+
+
 @router.get("/employees/me/attendance", response_model=list[AttendanceLogRead])
 async def list_my_attendance_endpoint(
     limit: int = Query(30, ge=1, le=200),
@@ -335,7 +352,8 @@ async def clock_in_my_attendance_endpoint(
 ) -> AttendanceLogRead:
     """Clock in using a branch attendance QR (no ``employees:update``)."""
     employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
-    branch_id = await resolve_branch_from_qr_payload(
+    _validate_attendance_action(action=body.action, expected="check_in")
+    resolved = await resolve_attendance_qr_payload(
         db,
         body.qr_payload,
         fallback_branch_id=body.branch_id,
@@ -343,9 +361,10 @@ async def clock_in_my_attendance_endpoint(
     row = await clock_in(
         db,
         employee_profile_id=employee_profile_id,
-        branch_id=branch_id,
+        branch_id=resolved.branch_id,
         clock_in_at=body.clock_in_at,
     )
+    await consume_attendance_qr_device(db, device_id=resolved.device_id)
     await audit_service.log(
         session=db,
         action="attendance.clock_in",
@@ -371,12 +390,21 @@ async def clock_out_my_attendance_endpoint(
 ) -> AttendanceLogRead:
     """Clock out using a branch attendance QR (no ``employees:update``)."""
     employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
-    await resolve_branch_from_qr_payload(db, body.qr_payload)
+    _validate_attendance_action(action=body.action, expected="check_out")
+    open_log = await get_open_attendance_log_for_today(
+        db,
+        employee_profile_id=employee_profile_id,
+    )
+    if open_log is None:
+        raise StateTransitionError("No open attendance log to clock out for today")
+    resolved = await resolve_attendance_qr_payload(db, body.qr_payload)
     row = await clock_out(
         db,
         employee_profile_id=employee_profile_id,
         clock_out_at=body.clock_out_at,
+        branch_id=resolved.branch_id,
     )
+    await consume_attendance_qr_device(db, device_id=resolved.device_id)
     await audit_service.log(
         session=db,
         action="attendance.clock_out",

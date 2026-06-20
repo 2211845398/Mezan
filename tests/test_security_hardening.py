@@ -9,7 +9,7 @@ from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
-from app.api.deps import require_permission
+from app.api.deps import require_any_permission, require_permission
 from app.db.database import get_db
 
 
@@ -198,4 +198,52 @@ def test_route_audit_detects_permission_marker_on_protected_route(
 
     app.include_router(router, prefix="/api/v1")
 
+    main_module._audit_route_permissions(app)
+
+
+def test_route_audit_passes_for_password_reset_verify_otp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    main_module = _reload_main_module(monkeypatch)
+    app = FastAPI()
+    router = APIRouter()
+
+    @router.post("/auth/password-reset/verify-otp")
+    async def password_reset_verify_otp() -> dict[str, str]:
+        return {"reset_token": "token"}
+
+    app.include_router(router, prefix="/api/v1")
+
+    main_module._audit_route_permissions(app)
+
+
+def test_route_audit_passes_for_full_mezan_app(monkeypatch: pytest.MonkeyPatch) -> None:
+    main_module = _reload_main_module(monkeypatch)
+    main_module._audit_route_permissions(main_module.app)
+
+
+def test_route_audit_passes_for_attendance_device_qr_routes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    main_module = _reload_main_module(monkeypatch)
+    from app.api.deps import require_any_permission, require_permission
+
+    app = FastAPI()
+    router = APIRouter()
+
+    @router.get("/attendance-devices/me/qr")
+    async def kiosk_qr(_: None = require_permission("attendance_kiosk", "read")) -> dict[str, str]:
+        return {"qr_payload": "x"}
+
+    @router.get("/attendance-devices/{device_id}/qr")
+    async def device_qr(
+        device_id: int,
+        _: None = require_any_permission(
+            ("attendance_devices", "read"),
+            ("attendance_kiosk", "read"),
+        ),
+    ) -> dict[str, str]:
+        return {"qr_payload": "x", "device_id": str(device_id)}
+
+    app.include_router(router, prefix="/api/v1")
     main_module._audit_route_permissions(app)

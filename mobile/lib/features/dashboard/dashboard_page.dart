@@ -44,13 +44,13 @@ class _DashboardPageState extends State<DashboardPage> {
     final controller = context.read<DashboardController>();
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
 
-    final requested = await controller.requestAttendanceQr();
-    if (!mounted) return;
-    if (!requested) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(strings.scanAttendanceRequestHint)),
-    );
+    if (controller.attendanceIntent == AttendanceIntent.checkOut &&
+        controller.openShift == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.attendanceNoOpenCheckIn)),
+      );
+      return;
+    }
 
     final qr = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const AttendanceQrScanPage()),
@@ -67,6 +67,14 @@ class _DashboardPageState extends State<DashboardPage> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       controller.clearAttendanceFeedback();
     }
+  }
+
+  String? _attendanceErrorMessage(AppStrings strings, String? error) {
+    if (error == null) return null;
+    if (error == 'no_open_check_in') {
+      return strings.attendanceNoOpenCheckIn;
+    }
+    return error;
   }
 
   @override
@@ -121,7 +129,12 @@ class _DashboardPageState extends State<DashboardPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           if (controller.attendanceActionError != null) ...[
-            MezanErrorState(message: controller.attendanceActionError),
+            MezanErrorState(
+              message: _attendanceErrorMessage(
+                strings,
+                controller.attendanceActionError,
+              ),
+            ),
             const SizedBox(height: 12),
           ],
           MezanCard(
@@ -162,17 +175,18 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                   ),
                 ],
-                const SizedBox(height: 20),
-                MezanButton(
-                  label: strings.scanAttendanceButtonFor(
-                    clockOut: controller.todayStatus ==
-                        TodayAttendanceStatus.checkedIn,
+                if (controller.todayStatus != TodayAttendanceStatus.completed) ...[
+                  const SizedBox(height: 20),
+                  MezanButton(
+                    label: controller.attendanceIntent == AttendanceIntent.checkOut
+                        ? strings.attendanceCheckOutAction
+                        : strings.attendanceCheckInAction,
+                    icon: Icons.qr_code_scanner,
+                    expand: true,
+                    loading: controller.isBusy,
+                    onPressed: controller.isBusy ? null : _scanAttendance,
                   ),
-                  icon: Icons.qr_code_scanner,
-                  expand: true,
-                  loading: controller.isBusy,
-                  onPressed: controller.isBusy ? null : _scanAttendance,
-                ),
+                ],
               ],
             ),
           ),

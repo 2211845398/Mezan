@@ -22,7 +22,10 @@ from app.schemas.auth import (
     LoginResponse,
     LogoutRequest,
     PasswordResetConfirm,
+    PasswordResetOtpVerify,
+    PasswordResetOtpVerifyResponse,
     PasswordResetRequest,
+    PasswordResetRequestResponse,
     ProfileUpdate,
     RefreshRequest,
     RequiredPasswordChangeRequest,
@@ -116,16 +119,35 @@ async def sso_callback(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.post("/auth/password-reset/request")
+@router.post("/auth/password-reset/request", response_model=PasswordResetRequestResponse)
 @limiter.limit(PASSWORD_RESET_REQUEST_RATE_LIMIT)
 async def password_reset_request(
     request: Request,
     body: PasswordResetRequest,
     db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Request password reset; emails a reset link if the account exists."""
-    await auth_service.request_password_reset(db, body.email)
-    return {"message": "If the email exists, a reset link has been sent."}
+) -> PasswordResetRequestResponse:
+    """Request password reset; emails a 6-digit OTP if the account exists."""
+    challenge_token = await auth_service.request_password_reset(db, body.email)
+    return PasswordResetRequestResponse(challenge_token=challenge_token)
+
+
+@router.post("/auth/password-reset/verify-otp", response_model=PasswordResetOtpVerifyResponse)
+@limiter.limit(PASSWORD_RESET_CONFIRM_RATE_LIMIT)
+async def password_reset_verify_otp(
+    request: Request,
+    body: PasswordResetOtpVerify,
+    db: AsyncSession = Depends(get_db),
+) -> PasswordResetOtpVerifyResponse:
+    """Verify password-reset OTP and issue a short-lived reset token."""
+    try:
+        reset_token = await auth_service.verify_reset_otp(
+            db,
+            body.challenge_token,
+            body.code,
+        )
+        return PasswordResetOtpVerifyResponse(reset_token=reset_token)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/auth/change-password-required", response_model=UserRead)
@@ -212,9 +234,9 @@ async def password_reset_confirm(
     body: PasswordResetConfirm,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Set new password using reset token."""
+    """Set new password using reset token from OTP verification."""
     try:
-        await auth_service.reset_password(db, body.token, body.new_password)
+        await auth_service.reset_password(db, body.reset_token, body.new_password)
         return {"message": "Password updated"}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

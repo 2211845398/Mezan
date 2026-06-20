@@ -76,6 +76,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       final authRepo = context.read<AuthRepository>();
       final session = context.read<AuthSession>();
       final locale = context.read<LocaleController>();
+      final profileController = context.read<ProfileController>();
 
       final phoneRaw = _phone.text.trim();
       final body = ProfileUpdate(
@@ -91,8 +92,10 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       );
 
       await authRepo.updateMe(body.toJson());
+      if (!mounted) return;
       await session.refreshUser();
-      await context.read<ProfileController>().load();
+      if (!mounted) return;
+      await profileController.load();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -32,7 +32,7 @@ export function useKioskUserCandidates(branchId: number | null, excludeDeviceId?
 export function useMyAttendanceKioskQr(enabled: boolean, refreshMs = 240_000) {
   return useQuery({
     queryKey: attendanceDeviceKeys.myQr(),
-    queryFn: () => api.getMyAttendanceKioskQr(),
+    queryFn: () => api.getAttendanceKioskQr(),
     enabled,
     refetchInterval: refreshMs,
   });

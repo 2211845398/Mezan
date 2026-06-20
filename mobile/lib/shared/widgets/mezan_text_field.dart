@@ -16,11 +16,13 @@ class MezanTextField extends StatelessWidget {
     this.validator,
     this.errorText,
     this.textInputAction,
+    this.suffixIcon,
   });
 
   final TextEditingController? controller;
   final String? label;
   final String? hint;
+  final Widget? suffixIcon;
   final bool obscureText;
   final TextInputType? keyboardType;
   final int maxLines;
@@ -52,6 +54,7 @@ class MezanTextField extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyMedium,
           decoration: InputDecoration(
             hintText: hint,
+            suffixIcon: suffixIcon,
             errorText: errorText,
             errorStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: ext.destructive,

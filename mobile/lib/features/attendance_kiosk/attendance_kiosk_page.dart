@@ -23,97 +23,61 @@ class AttendanceKioskPage extends StatefulWidget {
 
 class _AttendanceKioskPageState extends State<AttendanceKioskPage> {
   AttendanceQrPayload? _displayedPayload;
-  int? _waitingBaselineVersion;
   String? _error;
-  var _loading = true;
-  Timer? _pollTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _pollOnce(initial: true).whenComplete(_startPolling);
-  }
+  var _generating = false;
+  Timer? _expiryTimer;
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _expiryTimer?.cancel();
     super.dispose();
   }
 
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _pollOnce());
+  void _scheduleExpiryCheck() {
+    _expiryTimer?.cancel();
+    final expiresAt = _displayedPayload?.expiresAt;
+    if (expiresAt == null) return;
+
+    _expiryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final now = DateTime.now().toUtc();
+      if (!now.isBefore(expiresAt)) {
+        setState(() {
+          _displayedPayload = null;
+          _error = null;
+        });
+        _expiryTimer?.cancel();
+      }
+    });
   }
 
-  Future<void> _pollOnce({bool initial = false}) async {
-    if (!mounted) return;
+  Future<void> _generateQr() async {
+    if (_generating) return;
+    setState(() {
+      _generating = true;
+      _error = null;
+    });
+
     try {
       final repo = context.read<AttendanceKioskRepository>();
-      final payload = await repo.fetchCurrentQr();
+      final payload = await repo.generateQr();
       if (!mounted) return;
-
-      final version = payload.tokenVersion;
-      if (version == null) {
-        setState(() {
-          _error = 'Invalid QR payload';
-          _loading = false;
-        });
-        return;
-      }
-
-      final now = DateTime.now().toUtc();
-      final expiresAt = payload.expiresAt;
-
-      if (initial && _waitingBaselineVersion == null) {
-        _waitingBaselineVersion = version;
-      }
-
-      if (_displayedPayload != null) {
-        final displayedExpiresAt = _displayedPayload!.expiresAt;
-        final expired = displayedExpiresAt != null &&
-            !now.isBefore(displayedExpiresAt);
-        if (expired) {
-          setState(() {
-            _displayedPayload = null;
-            _waitingBaselineVersion = version;
-            _error = null;
-            _loading = false;
-          });
-          return;
-        }
-        setState(() {
-          _displayedPayload = payload;
-          _error = null;
-          _loading = false;
-        });
-        return;
-      }
-
-      final baseline = _waitingBaselineVersion ?? version;
-      if (version > baseline) {
-        setState(() {
-          _displayedPayload = payload;
-          _error = null;
-          _loading = false;
-        });
-        return;
-      }
-
       setState(() {
-        _error = null;
-        _loading = false;
+        _displayedPayload = payload;
+        _generating = false;
       });
+      _scheduleExpiryCheck();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.message;
-        _loading = false;
+        _generating = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _error = 'Network error';
-        _loading = false;
+        _generating = false;
       });
     }
   }
@@ -157,13 +121,10 @@ class _AttendanceKioskPageState extends State<AttendanceKioskPage> {
                   textAlign: TextAlign.center,
                 ),
               const Spacer(),
-              if (_loading)
+              if (_generating)
                 const MezanLoadingState()
               else if (_error != null)
-                MezanErrorState(
-                  message: _error!,
-                  onRetry: () => _pollOnce(),
-                )
+                MezanErrorState(message: _error!)
               else if (showingQr) ...[
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -185,10 +146,9 @@ class _AttendanceKioskPageState extends State<AttendanceKioskPage> {
                       ),
                   textAlign: TextAlign.center,
                 ),
-              ]
-              else ...[
+              ] else ...[
                 Icon(
-                  Icons.hourglass_top_outlined,
+                  Icons.qr_code_2_outlined,
                   size: 72,
                   color: ext.mutedForeground,
                 ),
@@ -203,9 +163,11 @@ class _AttendanceKioskPageState extends State<AttendanceKioskPage> {
               ],
               const Spacer(),
               MezanButton(
-                label: strings.retry,
+                label: strings.kioskGenerateQr,
                 expand: true,
-                onPressed: () => _pollOnce(),
+                loading: _generating,
+                icon: Icons.qr_code,
+                onPressed: _generating ? null : _generateQr,
               ),
             ],
           ),

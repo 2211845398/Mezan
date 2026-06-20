@@ -50,13 +50,16 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     });
 
     try {
-      await context.read<AuthRepository>().updateMe(
+      final authRepo = context.read<AuthRepository>();
+      final session = context.read<AuthSession>();
+      await authRepo.updateMe(
             ProfileUpdate(
               currentPassword: _current.text,
               newPassword: newPw,
             ).toJson(),
           );
-      await context.read<AuthSession>().refreshUser();
+      if (!mounted) return;
+      await session.refreshUser();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(strings.profilePasswordUpdated)),

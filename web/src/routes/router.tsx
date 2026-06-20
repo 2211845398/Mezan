@@ -26,7 +26,10 @@ import RouteLoader from './RouteLoader';
 
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'));
 const ForgotPasswordPage = lazy(() => import('@/features/auth/pages/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPasswordPage'));
+const PasswordResetOtpPage = lazy(() => import('@/features/auth/pages/PasswordResetOtpPage'));
+const PasswordResetNewPasswordPage = lazy(
+  () => import('@/features/auth/pages/PasswordResetNewPasswordPage'),
+);
 const RequiredPasswordChangePage = lazy(
   () => import('@/features/auth/pages/RequiredPasswordChangePage'),
 );
@@ -267,7 +270,9 @@ export const router = createBrowserRouter([
     children: [
       { path: '/login', element: withSuspense(LoginPage) },
       { path: '/forgot-password', element: withSuspense(ForgotPasswordPage) },
-      { path: '/reset-password/:token', element: withSuspense(ResetPasswordPage) },
+      { path: '/password-reset-otp', element: withSuspense(PasswordResetOtpPage) },
+      { path: '/password-reset-new', element: withSuspense(PasswordResetNewPasswordPage) },
+      { path: '/reset-password/:token', element: withSuspense(ForgotPasswordPage) },
       { path: '/two-factor-verify', element: withSuspense(TwoFactorVerifyPage) },
       {
         path: '/onboarding/complete/:token',

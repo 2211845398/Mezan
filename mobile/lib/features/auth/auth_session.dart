@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Locale;
 
 import '../../core/api/api_exception.dart';
 import '../../core/i18n/locale_controller.dart';
+import '../attendance_kiosk/kiosk_device_storage.dart';
 import 'auth_repository.dart';
 import 'models/branch_brief.dart';
 import 'models/login_result.dart';
@@ -196,6 +199,7 @@ class AuthSession extends ChangeNotifier {
 
   Future<void> signOut() async {
     await _repository.logout();
+    await KioskDeviceStorage.clear();
     user = null;
     branch = null;
     roleCodes = const [];
@@ -207,6 +211,7 @@ class AuthSession extends ChangeNotifier {
   }
 
   void handleSessionExpired() {
+    unawaited(KioskDeviceStorage.clear());
     user = null;
     branch = null;
     roleCodes = const [];

@@ -6,6 +6,8 @@ import 'models/dashboard_models.dart';
 
 enum DashboardLoadState { idle, loading, ready, error }
 
+enum AttendanceIntent { checkIn, checkOut }
+
 class DashboardController extends ChangeNotifier {
   DashboardController({required EmployeeSelfServiceRepository repository})
       : _repository = repository;
@@ -24,6 +26,9 @@ class DashboardController extends ChangeNotifier {
 
   bool get isLoading => state == DashboardLoadState.loading;
   bool get isBusy => _actionBusy;
+
+  AttendanceIntent get attendanceIntent =>
+      openShift != null ? AttendanceIntent.checkOut : AttendanceIntent.checkIn;
 
   TodayAttendanceStatus get todayStatus {
     if (openShift != null) return TodayAttendanceStatus.checkedIn;
@@ -73,13 +78,7 @@ class DashboardController extends ChangeNotifier {
       schedules = results[0] as List<WeeklyScheduleRead>;
       leaveBalance = results[1] as VacationLeaveBalanceRead?;
       attendanceLogs = results[2] as List<AttendanceLogRead>;
-      openShift = null;
-      for (final log in attendanceLogs) {
-        if (log.isOpen) {
-          openShift = log;
-          break;
-        }
-      }
+      openShift = _resolveOpenShiftForToday(attendanceLogs);
       state = DashboardLoadState.ready;
     } catch (e) {
       state = DashboardLoadState.error;
@@ -88,22 +87,14 @@ class DashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> requestAttendanceQr() async {
-    attendanceActionError = null;
-    _actionBusy = true;
-    notifyListeners();
-
-    try {
-      await _repository.requestAttendanceQr();
-      return true;
-    } catch (e) {
-      attendanceActionError =
-          e is ApiException ? e.message : 'Network error';
-      return false;
-    } finally {
-      _actionBusy = false;
-      notifyListeners();
+  AttendanceLogRead? _resolveOpenShiftForToday(List<AttendanceLogRead> logs) {
+    final today = DateTime.now();
+    for (final log in logs) {
+      if (log.isOpen && _isSameDay(log.clockInAt, today)) {
+        return log;
+      }
     }
+    return null;
   }
 
   Future<bool> submitAttendanceQr(String qrPayload) async {
@@ -112,12 +103,22 @@ class DashboardController extends ChangeNotifier {
     _actionBusy = true;
     notifyListeners();
 
+    final intent = attendanceIntent;
+    final action = intent == AttendanceIntent.checkOut ? 'check_out' : 'check_in';
+
+    if (intent == AttendanceIntent.checkOut && openShift == null) {
+      attendanceActionError = 'no_open_check_in';
+      _actionBusy = false;
+      notifyListeners();
+      return false;
+    }
+
     try {
-      if (openShift != null) {
-        await _repository.clockOut(qrPayload: qrPayload);
+      if (intent == AttendanceIntent.checkOut) {
+        await _repository.clockOut(qrPayload: qrPayload, action: action);
         attendanceActionSuccess = 'clock_out';
       } else {
-        await _repository.clockIn(qrPayload: qrPayload);
+        await _repository.clockIn(qrPayload: qrPayload, action: action);
         attendanceActionSuccess = 'clock_in';
       }
       await load();

@@ -150,11 +150,13 @@ class AttendanceSelfClockInRequest(BaseModel):
     branch_id: int | None = None
     clock_in_at: datetime | None = None
     qr_payload: str | None = None
+    action: Literal["check_in", "check_out"] | None = None
 
 
 class AttendanceSelfClockOutRequest(BaseModel):
     clock_out_at: datetime | None = None
     qr_payload: str | None = None
+    action: Literal["check_in", "check_out"] | None = None
 
 
 class AttendanceQrRequestResponse(BaseModel):

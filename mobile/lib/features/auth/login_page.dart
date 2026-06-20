@@ -100,25 +100,26 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _passwordController,
                         label: strings.loginPassword,
                         obscureText: _obscurePassword,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: ext.mutedForeground,
+                          ),
+                          tooltip: _obscurePassword
+                              ? strings.loginShowPassword
+                              : strings.loginHidePassword,
+                          onPressed: () {
+                            setState(() => _obscurePassword = !_obscurePassword);
+                          },
+                        ),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
                             return strings.loginPasswordRequired;
                           }
                           return null;
                         },
-                      ),
-                      Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: TextButton(
-                          onPressed: () {
-                            setState(() => _obscurePassword = !_obscurePassword);
-                          },
-                          child: Text(
-                            _obscurePassword
-                                ? strings.loginShowPassword
-                                : strings.loginHidePassword,
-                          ),
-                        ),
                       ),
                       Align(
                         alignment: AlignmentDirectional.centerEnd,

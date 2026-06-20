@@ -6,6 +6,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/config/api_urls.dart';
 import '../../core/i18n/app_strings.dart';
 import '../../core/i18n/locale_controller.dart';
+import '../../core/i18n/theme_mode_controller.dart';
 import '../../core/theme/mezan_theme.dart';
 import '../../features/auth/auth_repository.dart';
 import '../../features/auth/auth_session.dart';
@@ -30,14 +31,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final _twoFactorPassword = TextEditingController();
-
-  @override
-  void dispose() {
-    _twoFactorPassword.dispose();
-    super.dispose();
-  }
-
   @override
   void initState() {
     super.initState();
@@ -60,10 +53,179 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  String _themeModeLabel(AppStrings strings, ThemeMode mode) {
+    return switch (mode) {
+      ThemeMode.light => strings.themeLight,
+      ThemeMode.dark => strings.themeDark,
+      ThemeMode.system => strings.themeSystem,
+    };
+  }
+
+  Future<void> _showThemePicker(
+    ThemeModeController themeMode,
+    AppStrings strings,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.brightness_auto_outlined),
+              title: Text(strings.themeSystem),
+              trailing: themeMode.mode == ThemeMode.system
+                  ? Icon(Icons.check, color: Theme.of(ctx).colorScheme.secondary)
+                  : null,
+              onTap: () async {
+                await themeMode.setMode(ThemeMode.system);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.light_mode_outlined),
+              title: Text(strings.themeLight),
+              trailing: themeMode.mode == ThemeMode.light
+                  ? Icon(Icons.check, color: Theme.of(ctx).colorScheme.secondary)
+                  : null,
+              onTap: () async {
+                await themeMode.setMode(ThemeMode.light);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.dark_mode_outlined),
+              title: Text(strings.themeDark),
+              trailing: themeMode.mode == ThemeMode.dark
+                  ? Icon(Icons.check, color: Theme.of(ctx).colorScheme.secondary)
+                  : null,
+              onTap: () async {
+                await themeMode.setMode(ThemeMode.dark);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onTwoFactorToggle(bool enabled) async {
+    final strings = AppStrings(Localizations.localeOf(context).languageCode);
+    final session = context.read<AuthSession>();
+    final passwordController = TextEditingController();
+    var submitting = false;
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      strings.profileTwoFactorTitle,
+                      style: Theme.of(ctx).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      strings.profileTwoFactorPasswordPrompt,
+                      style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                            color: MezanThemeExtension.of(ctx).mutedForeground,
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    MezanTextField(
+                      controller: passwordController,
+                      label: strings.profileCurrentPassword,
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 16),
+                    MezanButton(
+                      label: strings.profileTwoFactorConfirm,
+                      expand: true,
+                      loading: submitting,
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              if (passwordController.text.isEmpty) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      strings.profileTwoFactorPasswordHint,
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              setSheetState(() => submitting = true);
+                              try {
+                                await session.toggleTwoFactor(
+                                  enabled: enabled,
+                                  currentPassword: passwordController.text,
+                                );
+                                if (!ctx.mounted) return;
+                                Navigator.of(ctx).pop(true);
+                              } catch (e) {
+                                if (!ctx.mounted) return;
+                                final message = e is ApiException
+                                    ? e.message
+                                    : strings.profileTwoFactorFailed;
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(content: Text(message)),
+                                );
+                                setSheetState(() => submitting = false);
+                              }
+                            },
+                    ),
+                    const SizedBox(height: 8),
+                    MezanButton(
+                      label: strings.profileTwoFactorCancel,
+                      variant: MezanButtonVariant.outline,
+                      expand: true,
+                      onPressed: submitting
+                          ? null
+                          : () => Navigator.of(ctx).pop(false),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    passwordController.dispose();
+
+    if (!mounted || confirmed != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          enabled
+              ? strings.profileTwoFactorEnabled
+              : strings.profileTwoFactorDisabled,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
     final locale = context.watch<LocaleController>();
+    final themeMode = context.watch<ThemeModeController>();
     final session = context.watch<AuthSession>();
     final controller = context.watch<ProfileController>();
     final ext = MezanThemeExtension.of(context);
@@ -141,10 +303,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 title: Text(strings.profilePreferredLanguage),
                 subtitle: Text(
                   locale.isArabic
-                      ? strings.profileLanguageActive
-                      : strings.profileLanguageTap,
+                      ? strings.languageArabic
+                      : strings.languageEnglish,
                 ),
                 onTap: () => _toggleLanguage(locale),
+              ),
+              const Divider(height: 24),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.palette_outlined, color: scheme.secondary),
+                title: Text(strings.profileThemeMode),
+                subtitle: Text(_themeModeLabel(strings, themeMode.mode)),
+                onTap: () => _showThemePicker(themeMode, strings),
               ),
               const Divider(height: 24),
               ListTile(
@@ -167,45 +337,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(strings.profileTwoFactorEnable),
                 value: session.user?.twoFactorEnabled ?? false,
-                onChanged: (enabled) async {
-                  final pw = _twoFactorPassword.text;
-                  if (pw.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(strings.profileTwoFactorPasswordHint)),
-                    );
-                    return;
-                  }
-                  try {
-                    await session.toggleTwoFactor(
-                      enabled: enabled,
-                      currentPassword: pw,
-                    );
-                    _twoFactorPassword.clear();
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          enabled
-                              ? strings.profileTwoFactorEnabled
-                              : strings.profileTwoFactorDisabled,
-                        ),
-                      ),
-                    );
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    final message = e is ApiException
-                        ? e.message
-                        : strings.profileTwoFactorFailed;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(message)),
-                    );
-                  }
-                },
-              ),
-              MezanTextField(
-                controller: _twoFactorPassword,
-                label: strings.profileCurrentPassword,
-                obscureText: true,
+                onChanged: (enabled) => _onTwoFactorToggle(enabled),
               ),
             ],
           ),
@@ -307,7 +439,6 @@ class _IdentityCardState extends State<_IdentityCard> {
   @override
   Widget build(BuildContext context) {
     final profile = widget.profile;
-    final strings = widget.strings;
     final ext = widget.ext;
     final avatarUrl = resolveApiAssetUrl(profile.avatarUrl);
 
@@ -354,13 +485,6 @@ class _IdentityCardState extends State<_IdentityCard> {
               ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            strings.profileAvatarTapHint,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: ext.mutedForeground,
-                ),
-          ),
           const SizedBox(height: 12),
           Text(
             profile.fullName,
@@ -381,4 +505,3 @@ class _IdentityCardState extends State<_IdentityCard> {
     );
   }
 }
-

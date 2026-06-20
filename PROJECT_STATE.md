@@ -67,7 +67,7 @@
 ### Mobile/Flutter Status
 | Epic | Status | Key Deliverables |
 |------|--------|------------------|
-| M-1 to M-5 | Not Started | Scaffold, auth, offline POS, attendance, field inventory |
+| M-1 to M-5 | In Progress | Scaffold, auth, profile settings, leaves self-service, attendance kiosk QR + mobile scan flow |
 
 ### Documentation Status
 | Document | Status | Action |
@@ -515,10 +515,10 @@ Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
 ### Flutter/Mobile Plan (Epics M-1 to M-5)
 
 #### Epic M-1 — Flutter Scaffold
-- [ ] Project setup with Flutter 3.x
-- [ ] Navigation structure (GoRouter)
-- [ ] State management (Riverpod or Bloc)
-- [ ] Theme system (light/dark, RTL)
+- [x] Project setup with Flutter 3.x
+- [x] Navigation structure (GoRouter)
+- [x] State management (Provider + ChangeNotifier)
+- [x] Theme system (light/dark/system, RTL) with profile settings tile
 
 #### Epic M-2 — Auth
 - [ ] JWT in secure enclave (Flutter Secure Storage)
@@ -532,9 +532,11 @@ Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
 - [ ] Conflict resolution UI
 
 #### Epic M-4 — Attendance
-- [ ] Clock in/out with GPS verification
-- [ ] Leave request submission
-- [ ] Photo capture for clock events
+- [x] **M-4.1** Kiosk explicit QR generation (`POST /attendance-devices/me/qr/generate`) with TTL display and single-use consumption.
+- [x] **M-4.2** Mobile dashboard dynamic check-in/check-out intent from today's open attendance log; sends `action` with scanned QR.
+- [x] **M-4.3** Backend guards: today's open check-in required for check-out; branch match; QR invalidation after successful scan.
+- [ ] **M-4.4** Clock in/out with GPS verification
+- [ ] **M-4.5** Photo capture for clock events
 
 #### Epic M-5 — Field Inventory
 - [ ] Stock count entry

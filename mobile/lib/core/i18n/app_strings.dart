@@ -33,15 +33,36 @@ class AppStrings {
   String get themeSystem => t('تلقائي', 'System');
   String get themeLight => t('فاتح', 'Light');
   String get themeDark => t('داكن', 'Dark');
+  String get profileThemeMode => t('وضع المظهر', 'Theme mode');
+  String get profileTwoFactorPasswordPrompt => t(
+        'أدخل كلمة المرور الحالية لتأكيد تغيير المصادقة الثنائية',
+        'Enter your current password to confirm the 2FA change',
+      );
+  String get profileTwoFactorConfirm => t('تأكيد', 'Confirm');
+  String get profileTwoFactorCancel => t('إلغاء', 'Cancel');
   String get signOut => t('تسجيل الخروج', 'Sign out');
 
   String get kioskTitle =>
       t('امسح لتسجيل الحضور أو الانصراف', 'Scan to clock in / out');
   String kioskBranch(String name) => t('الفرع: $name', 'Branch: $name');
   String get kioskWaiting =>
-      t('في انتظار طلب موظف…', 'Waiting for an employee request…');
+      t('في انتظار توليد رمز الحضور…', 'Waiting for attendance code generation…');
   String get kioskQrReady =>
       t('الرمز جاهز للمسح', 'Code ready to scan');
+  String get kioskGenerateQr =>
+      t('توليد رمز الحضور', 'Generate attendance code');
+  String get kioskQrExpired =>
+      t('انتهت صلاحية الرمز', 'Code has expired');
+  String get attendanceCheckInAction =>
+      t('تسجيل حضور', 'Check in');
+  String get attendanceCheckOutAction =>
+      t('تسجيل انصراف', 'Check out');
+  String get attendanceNoOpenCheckIn => t(
+        'لا يمكن تسجيل الانصراف دون حضور مفتوح لهذا اليوم',
+        'Cannot check out without an open check-in for today',
+      );
+  String get leaveRequestAction =>
+      t('طلب إجازة', 'Request leave');
 
   String get loginTitle => t('تسجيل الدخول', 'Sign in');
   String get loginSubtitle =>
@@ -170,13 +191,30 @@ class AppStrings {
   String get requestsTabCorrespondence => t('المراسلات', 'Correspondence');
   String get loginForgotPassword => t('نسيت كلمة المرور؟', 'Forgot password?');
   String get forgotPasswordTitle => t('استعادة كلمة المرور', 'Forgot password');
-  String get forgotPasswordSubtitle =>
-      t('أدخل بريدك وسنرسل رابط إعادة التعيين إن وُجد الحساب.', 'Enter your email to receive a reset link if the account exists.');
-  String get forgotPasswordSubmit => t('إرسال الرابط', 'Send link');
-  String get forgotPasswordSent =>
-      t('إذا وُجد الحساب، ستصلك رسالة قريباً.', 'If the account exists, you will receive an email shortly.');
+  String get forgotPasswordSubmit => t('إرسال رمز التحقق', 'Send verification code');
   String get forgotPasswordFailed =>
       t('تعذّر إرسال الطلب.', 'Could not send the request.');
+  String get resetOtpTitle => t('أدخل رمز التحقق', 'Enter verification code');
+  String get resetOtpSubtitle => t(
+        'أرسلنا رمزاً مكوّناً من 6 أرقام إلى بريدك. صالح لمدة 10 دقائق.',
+        'We sent a 6-digit code to your email. It expires in 10 minutes.',
+      );
+  String get resetOtpCodeLabel => t('رمز التحقق', 'Verification code');
+  String get resetOtpSubmit => t('تحقق من الرمز', 'Verify code');
+  String get resetOtpInvalid =>
+      t('الرمز غير صالح أو منتهٍ.', 'Invalid or expired code.');
+  String get resetNewPasswordTitle =>
+      t('إعادة تعيين كلمة المرور', 'Set a new password');
+  String get resetNewPasswordLabel =>
+      t('كلمة المرور الجديدة', 'New password');
+  String get resetConfirmPasswordLabel =>
+      t('تأكيد كلمة المرور', 'Confirm password');
+  String get resetNewPasswordSubmit =>
+      t('حفظ كلمة المرور', 'Save password');
+  String get resetNewPasswordSuccess =>
+      t('تم تحديث كلمة المرور.', 'Password updated.');
+  String get resetNewPasswordFailed =>
+      t('تعذّر تحديث كلمة المرور.', 'Could not update password.');
   String get requiredPasswordTitle => t('تغيير كلمة المرور', 'Change password');
   String get requiredPasswordSubtitle => t(
         'يجب اختيار كلمة مرور جديدة قبل متابعة استخدام التطبيق.',

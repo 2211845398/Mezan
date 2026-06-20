@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import time
+from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +19,12 @@ from app.models.branch import Branch
 QR_PREFIX = "mezan:attendance:v1:branch:"
 QR_V2_PREFIX = "mezan:attendance:v2:"
 QR_TTL_SECONDS = 90
+
+
+@dataclass(frozen=True)
+class ResolvedAttendanceQr:
+    branch_id: int
+    device_id: int | None
 
 
 def build_signed_attendance_qr_payload(
@@ -47,31 +54,47 @@ async def resolve_branch_from_qr_payload(
     fallback_branch_id: int | None = None,
 ) -> int:
     """Return a validated branch id from a scanned QR payload."""
+    resolved = await resolve_attendance_qr_payload(
+        db,
+        qr_payload,
+        fallback_branch_id=fallback_branch_id,
+    )
+    return resolved.branch_id
+
+
+async def resolve_attendance_qr_payload(
+    db: AsyncSession,
+    qr_payload: str | None,
+    *,
+    fallback_branch_id: int | None = None,
+) -> ResolvedAttendanceQr:
+    """Return validated branch and device ids from a scanned QR payload."""
     if qr_payload is None or not qr_payload.strip():
         if fallback_branch_id is not None:
             branch_id = fallback_branch_id
+            device_id = None
         else:
             raise ValidationError("QR payload is required")
     else:
         raw = qr_payload.strip()
-        branch_id = await _parse_and_validate_payload(db, raw)
+        branch_id, device_id = await _parse_and_validate_payload(db, raw)
 
     branch = await db.get(Branch, branch_id)
     if branch is None or not branch.is_active:
         raise ValidationError("Invalid attendance QR code")
-    return branch_id
+    return ResolvedAttendanceQr(branch_id=branch_id, device_id=device_id)
 
 
-async def _parse_and_validate_payload(db: AsyncSession, raw: str) -> int:
+async def _parse_and_validate_payload(db: AsyncSession, raw: str) -> tuple[int, int | None]:
     if raw.startswith(QR_V2_PREFIX):
         return await _parse_v2_signed(db, raw[len(QR_V2_PREFIX) :])
     branch_id = _parse_branch_id(raw)
     if branch_id is None:
         raise ValidationError("Invalid attendance QR code")
-    return branch_id
+    return branch_id, None
 
 
-async def _parse_v2_signed(db: AsyncSession, body: str) -> int:
+async def _parse_v2_signed(db: AsyncSession, body: str) -> tuple[int, int]:
     if "." not in body:
         raise ValidationError("Invalid attendance QR code")
     encoded, sig = body.rsplit(".", 1)
@@ -101,7 +124,7 @@ async def _parse_v2_signed(db: AsyncSession, body: str) -> int:
         or device.qr_token_version != token_version
     ):
         raise ValidationError("Invalid attendance QR code")
-    return branch_id
+    return branch_id, device_id
 
 
 def _sign_payload(encoded: str) -> str:

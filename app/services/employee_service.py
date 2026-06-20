@@ -458,20 +458,23 @@ async def clock_in(
 
 
 async def clock_out(
-    db: AsyncSession, *, employee_profile_id: int, clock_out_at: datetime | None
+    db: AsyncSession,
+    *,
+    employee_profile_id: int,
+    clock_out_at: datetime | None,
+    branch_id: int | None = None,
 ) -> AttendanceLog:
     await _get_employee_profile(db, employee_profile_id)
-    result = await db.execute(
-        select(AttendanceLog)
-        .where(
-            AttendanceLog.employee_profile_id == employee_profile_id,
-            AttendanceLog.clock_out_at.is_(None),
-        )
-        .order_by(AttendanceLog.clock_in_at.desc())
+    log = await get_open_attendance_log_for_today(
+        db,
+        employee_profile_id=employee_profile_id,
     )
-    log = result.scalar_one_or_none()
     if not log:
-        raise StateTransitionError("No open attendance log to clock out")
+        raise StateTransitionError("No open attendance log to clock out for today")
+    if branch_id is not None and log.branch_id != branch_id:
+        raise StateTransitionError(
+            "Attendance QR branch does not match today's open check-in"
+        )
 
     out_at = _to_utc(clock_out_at)
     if out_at <= log.clock_in_at:
@@ -511,6 +514,21 @@ async def get_open_attendance_log(
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+async def get_open_attendance_log_for_today(
+    db: AsyncSession,
+    *,
+    employee_profile_id: int,
+) -> AttendanceLog | None:
+    """Return the employee's open shift only when check-in occurred today (UTC)."""
+    log = await get_open_attendance_log(db, employee_profile_id=employee_profile_id)
+    if log is None:
+        return None
+    today = datetime.now(UTC).date()
+    if log.clock_in_at.astimezone(UTC).date() != today:
+        return None
+    return log
 
 
 def _vacation_overlap_days_in_year(req_start: date, req_end: date, year: int) -> int:

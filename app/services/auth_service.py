@@ -1,6 +1,7 @@
 """Authentication service: email/password, JWT, refresh, password reset, SSO."""
 
 import logging
+import secrets
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from secrets import token_urlsafe
@@ -14,7 +15,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.users import User
 from app.schemas.auth import ProfileUpdate
 from app.services import bootstrap_admin_protection, email_service
-from app.services.password_reset_email import build_password_reset_email, normalize_reset_locale
+from app.services.password_reset_email import build_password_reset_otp_email, normalize_reset_locale
 from app.utils.image_format import detect_raster_image_extension
 from app.utils.security import (
     create_access_token,
@@ -220,12 +221,22 @@ async def logout(db: AsyncSession, refresh_token_str: str) -> None:
         await db.commit()
 
 
-async def request_password_reset(db: AsyncSession, email: str) -> None:
+PASSWORD_RESET_OTP_EXPIRE_MINUTES = 10
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 30
+
+
+def _generate_reset_otp_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+async def request_password_reset(db: AsyncSession, email: str) -> str:
     """
-    If user exists, create a short-lived reset token and email a reset link.
-    Does not reveal whether email exists.
+    If user exists, create OTP challenge and email the code.
+    Always returns a challenge_token (decoy when email unknown).
     """
-    from app.models.password_reset_token import PasswordResetToken
+    from app.models.password_reset_challenge import PasswordResetChallenge
+
+    challenge_token = token_urlsafe(32)
 
     user = await get_user_by_email_insensitive(db, email)
     if not user:
@@ -233,38 +244,38 @@ async def request_password_reset(db: AsyncSession, email: str) -> None:
             logger.warning(
                 "Password reset not sent: no user matches email (check spelling / case)."
             )
-        return
+        return challenge_token
     if bootstrap_admin_protection.is_bootstrap_protected_user(user):
         if settings.is_production:
-            return
+            return challenge_token
         logger.warning(
             "Password reset for bootstrap admin (%s) allowed in development only.",
             user.email,
         )
+
     stale = await db.execute(
-        select(PasswordResetToken).where(
-            PasswordResetToken.user_id == user.id,
-            PasswordResetToken.used.is_(False),
+        select(PasswordResetChallenge).where(
+            PasswordResetChallenge.user_id == user.id,
+            PasswordResetChallenge.used.is_(False),
         )
     )
-    for token in stale.scalars().all():
-        token.used = True
-    token_str = token_urlsafe(32)
-    token_hash = hash_token(token_str)
-    expires_at = datetime.now(UTC) + timedelta(minutes=60)
-    reset = PasswordResetToken(
+    for row in stale.scalars().all():
+        row.used = True
+
+    otp_plain = _generate_reset_otp_code()
+    challenge = PasswordResetChallenge(
         user_id=user.id,
-        token_hash=token_hash,
-        expires_at=expires_at,
+        challenge_token_hash=hash_token(challenge_token),
+        otp_code_hash=hash_token(otp_plain),
+        otp_expires_at=datetime.now(UTC) + timedelta(minutes=PASSWORD_RESET_OTP_EXPIRE_MINUTES),
     )
-    db.add(reset)
+    db.add(challenge)
     await db.commit()
 
-    reset_url = settings.build_password_reset_url(token_str)
     locale = normalize_reset_locale(user.preferred_language)
-    subject, body_text, body_html = build_password_reset_email(
+    subject, body_text, body_html = build_password_reset_otp_email(
         locale=locale,
-        reset_url=reset_url,
+        code=otp_plain,
         company_name=settings.COMPANY_DISPLAY_NAME,
     )
     try:
@@ -275,23 +286,59 @@ async def request_password_reset(db: AsyncSession, email: str) -> None:
             body_html=body_html,
         )
     except Exception:
-        logger.exception("Password reset email delivery failed for user_id=%s", user.id)
+        logger.exception("Password reset OTP email delivery failed for user_id=%s", user.id)
     else:
-        logger.info("Password reset email queued to=%s subject=%r", user.email, subject)
+        logger.info("Password reset OTP email queued to=%s subject=%r", user.email, subject)
     if settings.is_development:
-        logger.warning("Password reset link (dev, also check Mailpit :8025): %s", reset_url)
+        logger.warning(
+            "Password reset OTP (dev, also check Mailpit :8025): %s challenge=%s",
+            otp_plain,
+            challenge_token,
+        )
+
+    return challenge_token
 
 
-async def reset_password(db: AsyncSession, token_str: str, new_password: str) -> None:
-    """Validate reset token and set new password. Raises ValueError if token invalid."""
-    from app.models.password_reset_token import PasswordResetToken
+async def verify_reset_otp(db: AsyncSession, challenge_token: str, code: str) -> str:
+    """Validate OTP challenge; returns reset_token for password entry step."""
+    from app.models.password_reset_challenge import PasswordResetChallenge
 
-    token_hash = hash_token(token_str)
+    challenge_hash = hash_token(challenge_token)
     result = await db.execute(
-        select(PasswordResetToken).where(
-            PasswordResetToken.token_hash == token_hash,
-            PasswordResetToken.used.is_(False),
-            PasswordResetToken.expires_at > datetime.now(UTC),
+        select(PasswordResetChallenge).where(
+            PasswordResetChallenge.challenge_token_hash == challenge_hash,
+            PasswordResetChallenge.used.is_(False),
+            PasswordResetChallenge.otp_expires_at > datetime.now(UTC),
+            PasswordResetChallenge.reset_token_hash.is_(None),
+        )
+    )
+    challenge = result.scalar_one_or_none()
+    if challenge is None:
+        raise ValueError("Invalid or expired verification code")
+
+    if challenge.otp_code_hash != hash_token(code.strip()):
+        raise ValueError("Invalid or expired verification code")
+
+    reset_token = token_urlsafe(32)
+    challenge.reset_token_hash = hash_token(reset_token)
+    challenge.reset_expires_at = datetime.now(UTC) + timedelta(
+        minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+    )
+    await db.commit()
+    return reset_token
+
+
+async def reset_password(db: AsyncSession, reset_token: str, new_password: str) -> None:
+    """Validate reset token and set new password. Raises ValueError if token invalid."""
+    from app.models.password_reset_challenge import PasswordResetChallenge
+
+    token_hash = hash_token(reset_token)
+    result = await db.execute(
+        select(PasswordResetChallenge).where(
+            PasswordResetChallenge.reset_token_hash == token_hash,
+            PasswordResetChallenge.used.is_(False),
+            PasswordResetChallenge.reset_expires_at.is_not(None),
+            PasswordResetChallenge.reset_expires_at > datetime.now(UTC),
         )
     )
     reset_record = result.scalar_one_or_none()

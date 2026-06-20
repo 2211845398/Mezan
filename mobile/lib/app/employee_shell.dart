@@ -10,6 +10,7 @@ import '../features/dashboard/dashboard_page.dart';
 import '../features/notifications/notifications_controller.dart';
 import '../features/notifications/notifications_page.dart';
 import '../features/payroll/payroll_page.dart';
+import '../features/my_leaves/create_leave_request_page.dart';
 import '../features/my_leaves/my_leaves_page.dart';
 import '../features/profile/profile_page.dart';
 import '../features/stock/stock_page.dart';
@@ -197,6 +198,12 @@ List<StatefulShellBranch> buildEmployeeBranches({required bool showStock}) {
         GoRoute(
           path: '/my-leaves',
           builder: (context, state) => const MyLeavesPage(),
+          routes: [
+            GoRoute(
+              path: 'new',
+              builder: (context, state) => const CreateLeaveRequestPage(),
+            ),
+          ],
         ),
       ],
     ),

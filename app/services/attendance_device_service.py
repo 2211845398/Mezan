@@ -213,6 +213,27 @@ async def request_fresh_attendance_qr_for_branch(
     return await rotate_device_qr(db, device_id=device.id)
 
 
+async def generate_fresh_qr_for_device(
+    db: AsyncSession,
+    *,
+    device: AttendanceDevice,
+) -> str:
+    """Rotate token version and return a new single-use QR payload."""
+    device = await rotate_device_qr(db, device_id=device.id)
+    return await current_qr_payload_for_device(db, device=device)
+
+
+async def consume_attendance_qr_device(
+    db: AsyncSession,
+    *,
+    device_id: int | None,
+) -> None:
+    """Invalidate the scanned QR by bumping the device token version."""
+    if device_id is None:
+        return
+    await rotate_device_qr(db, device_id=device_id)
+
+
 async def rotate_device_qr(db: AsyncSession, *, device_id: int) -> AttendanceDevice:
     device = await get_attendance_device(db, device_id)
     device.qr_token_version += 1

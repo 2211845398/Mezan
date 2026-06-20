@@ -78,20 +78,40 @@ class AuthRepository {
     return UserRead.fromJson(data);
   }
 
-  Future<void> requestPasswordReset(String email) async {
-    await _api.postVoid(
+  Future<String> requestPasswordReset(String email) async {
+    final data = await _api.postMap(
       '/auth/password-reset/request',
       data: {'email': email.trim()},
     );
+    final challenge = data['challenge_token'] as String?;
+    if (challenge == null || challenge.isEmpty) {
+      throw StateError('missing_challenge_token');
+    }
+    return challenge;
+  }
+
+  Future<String> verifyResetOtp({
+    required String challengeToken,
+    required String code,
+  }) async {
+    final data = await _api.postMap(
+      '/auth/password-reset/verify-otp',
+      data: {'challenge_token': challengeToken, 'code': code.trim()},
+    );
+    final resetToken = data['reset_token'] as String?;
+    if (resetToken == null || resetToken.isEmpty) {
+      throw StateError('missing_reset_token');
+    }
+    return resetToken;
   }
 
   Future<void> confirmPasswordReset({
-    required String token,
+    required String resetToken,
     required String newPassword,
   }) async {
     await _api.postVoid(
       '/auth/password-reset/confirm',
-      data: {'token': token, 'new_password': newPassword},
+      data: {'reset_token': resetToken, 'new_password': newPassword},
     );
   }
 

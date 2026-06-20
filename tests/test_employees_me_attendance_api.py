@@ -68,7 +68,7 @@ async def test_my_attendance_clock_in_and_out(
     r_in = await client.post(
         "/api/v1/employees/me/attendance/clock-in",
         headers=headers,
-        json={"qr_payload": _qr(store.id)},
+        json={"qr_payload": _qr(store.id), "action": "check_in"},
     )
     assert r_in.status_code == 201
     log_id = r_in.json()["id"]
@@ -77,14 +77,14 @@ async def test_my_attendance_clock_in_and_out(
     r_dup = await client.post(
         "/api/v1/employees/me/attendance/clock-in",
         headers=headers,
-        json={"qr_payload": _qr(store.id)},
+        json={"qr_payload": _qr(store.id), "action": "check_in"},
     )
     assert r_dup.status_code == 409
 
     r_out = await client.post(
         "/api/v1/employees/me/attendance/clock-out",
         headers=headers,
-        json={"qr_payload": _qr(store.id)},
+        json={"qr_payload": _qr(store.id), "action": "check_out"},
     )
     assert r_out.status_code == 200
     assert r_out.json()["id"] == log_id
@@ -140,3 +140,50 @@ async def test_my_attendance_rejects_invalid_qr(
         json={"qr_payload": "not-a-valid-qr"},
     )
     assert r.status_code == 422
+
+
+@pytest.mark.security
+@pytest.mark.asyncio
+async def test_my_attendance_rejects_check_out_without_open_log(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    await seed_permissions_and_roles(db_session)
+
+    res_b = await db_session.execute(select(Branch).where(Branch.code == "ST1"))
+    store = res_b.scalar_one_or_none()
+    if store is None:
+        store = Branch(name="Store A", code="ST1", address=None, timezone="UTC", is_active=True)
+        db_session.add(store)
+        await db_session.flush()
+
+    res_r = await db_session.execute(select(Role).where(Role.code == "CASHIER"))
+    cashier_role = res_r.scalar_one()
+
+    u = User(
+        email="me_attendance_no_open@test.example",
+        first_name="NoOpen",
+        password_hash=hash_password("pw"),
+        status="active",
+        branch_id=store.id,
+    )
+    db_session.add(u)
+    await db_session.flush()
+    ep = EmployeeProfile(
+        user_id=u.id,
+        hire_date=date(2025, 1, 1),
+        base_salary=None,
+        hourly_rate=Decimal("10.00"),
+    )
+    db_session.add(ep)
+    await db_session.flush()
+    db_session.add(UserRole(user_id=u.id, role_id=cashier_role.id, branch_id=None))
+    await db_session.commit()
+
+    token = create_access_token(u.id)
+    r = await client.post(
+        "/api/v1/employees/me/attendance/clock-out",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"qr_payload": _qr(store.id), "action": "check_out"},
+    )
+    assert r.status_code == 409

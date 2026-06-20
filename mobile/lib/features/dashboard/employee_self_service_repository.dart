@@ -32,22 +32,30 @@ class EmployeeSelfServiceRepository {
         .toList();
   }
 
-  Future<void> requestAttendanceQr() async {
-    await _api.postMap('/employees/me/attendance/request-qr');
-  }
-
-  Future<AttendanceLogRead> clockIn({required String qrPayload}) async {
+  Future<AttendanceLogRead> clockIn({
+    required String qrPayload,
+    required String action,
+  }) async {
     final data = await _api.postMap(
       '/employees/me/attendance/clock-in',
-      data: {'qr_payload': qrPayload},
+      data: {
+        'qr_payload': qrPayload,
+        'action': action,
+      },
     );
     return AttendanceLogRead.fromJson(data);
   }
 
-  Future<AttendanceLogRead> clockOut({required String qrPayload}) async {
+  Future<AttendanceLogRead> clockOut({
+    required String qrPayload,
+    required String action,
+  }) async {
     final data = await _api.postMap(
       '/employees/me/attendance/clock-out',
-      data: {'qr_payload': qrPayload},
+      data: {
+        'qr_payload': qrPayload,
+        'action': action,
+      },
     );
     return AttendanceLogRead.fromJson(data);
   }

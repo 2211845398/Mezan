@@ -52,6 +52,7 @@ from app.models.notifications import (
     NotificationTemplate,
 )
 from app.models.password_reset_token import PasswordResetToken
+from app.models.password_reset_challenge import PasswordResetChallenge
 from app.models.two_factor_otp import TwoFactorChallenge, TwoFactorOtp
 from app.models.payment_terms import PaymentTerm
 from app.models.payslip import Payslip, PayslipStatus
@@ -147,6 +148,7 @@ __all__ = [
     "JournalEntry",
     "JournalEntryLine",
     "PasswordResetToken",
+    "PasswordResetChallenge",
     "TwoFactorChallenge",
     "TwoFactorOtp",
     "PaymentTerm",

@@ -110,6 +110,7 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", "/api/v1/auth/sso/google"),
     ("GET", "/api/v1/auth/sso/callback"),
     ("POST", "/api/v1/auth/password-reset/request"),
+    ("POST", "/api/v1/auth/password-reset/verify-otp"),
     ("POST", "/api/v1/auth/password-reset/confirm"),
     ("GET", "/api/v1/auth/me"),
     ("GET", "/api/v1/auth/me/permissions"),
@@ -121,6 +122,16 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("POST", "/api/v1/auth/change-password-required"),
     ("POST", "/api/v1/customers/onboarding/complete"),
 }
+
+PUBLIC_ROUTE_PATH_PREFIXES: tuple[str, ...] = (
+    "/api/v1/auth/password-reset/",
+)
+
+
+def _is_public_route(method: str, path: str) -> bool:
+    if (method, path) in PUBLIC_ROUTE_ALLOWLIST:
+        return True
+    return any(path.startswith(prefix) for prefix in PUBLIC_ROUTE_PATH_PREFIXES)
 
 
 def _iter_dependency_calls(dependant):
@@ -147,7 +158,7 @@ def _audit_route_permissions(app: FastAPI) -> None:
         methods = sorted((route.methods or set()) - {"HEAD", "OPTIONS"})
         if not methods:
             continue
-        if all((method, route.path) in PUBLIC_ROUTE_ALLOWLIST for method in methods):
+        if all(_is_public_route(method, route.path) for method in methods):
             continue
         if _route_has_permission_dependency(route):
             continue
