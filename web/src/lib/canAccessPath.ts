@@ -38,6 +38,7 @@ const PATH_RULES: PathRule[] = [
   { test: (p) => p.startsWith('/catalog'), resource: 'catalog', action: 'read' },
   { test: (p) => p.includes('/inventory/adjustments/new'), resource: 'stock_adjustments', action: 'create' },
   { test: (p) => p.startsWith('/inventory/adjustments'), resource: 'stock_adjustments', action: 'read' },
+  { test: (p) => p.startsWith('/inventory/alerts'), resource: 'inventory', action: 'read' },
   { test: (p) => p.startsWith('/inventory/transfers'), resource: 'inventory', action: 'read' },
   { test: (p) => p.startsWith('/inventory/scans'), resource: 'invoice_scans', action: 'read' },
   { test: (p) => p.startsWith('/inventory'), resource: 'inventory', action: 'read' },

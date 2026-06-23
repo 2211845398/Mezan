@@ -387,6 +387,10 @@ async def update_own_profile(db: AsyncSession, user: User, body: ProfileUpdate) 
     ):
         if field in data:
             v = getattr(body, field)
+            if field == "first_name" and (
+                v is None or (isinstance(v, str) and not v.strip())
+            ):
+                raise ValueError("first_name_required")
             setattr(user, col, v.strip() if isinstance(v, str) and v.strip() else None)
 
     if "phone" in data:

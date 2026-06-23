@@ -18,9 +18,12 @@
     "action": {
       "movement": "Record movement",
       "transfer": "New transfer",
-      "create_po_alerts": "Create POs from alerts"
+      "create_po_alerts": "Create POs from alerts",
+      "create_po_alerts_empty": "No warehouse reorder alerts to create purchase orders"
     },
     "kpi": {
+      "warehouse_po": "Warehouses needing purchase",
+      "commercial_restock": "Commercial branches needing transfer",
       "low": "Items below reorder point",
       "out": "Items out of stock",
       "reserved_units": "Total reserved units",
@@ -94,6 +97,31 @@
       "reorder_point": "Reorder point",
       "days_cover": "Days of cover",
       "status": "Status"
+    }
+  },
+  "productMovements": {
+    "title": "Product warehouse movements",
+    "subtitle": "Movement ledger for this product with branch and variant filters.",
+    "select_branch": "Select a branch to configure reorder alerts.",
+    "filter": {
+      "variant": "Variant",
+      "all_variants": "All variants"
+    }
+  },
+  "reorderPolicy": {
+    "title": "Reorder alert policy",
+    "saved": "Reorder policy saved.",
+    "stock": {
+      "title": "Branch stock"
+    },
+    "field": {
+      "reorder_point": "Reorder alert threshold",
+      "reorder_point_hint": "When available + on-order + inbound cover falls at or below this level, status becomes «Below reorder».",
+      "reorder_qty": "Suggested reorder quantity",
+      "reorder_qty_hint": "Used when creating purchase orders from reorder alerts.",
+      "preferred_supplier": "Preferred supplier",
+      "lead_time_days": "Lead time (days)",
+      "is_active": "Policy active"
     }
   },
   "adjustments": {
@@ -215,7 +243,12 @@
       "release_title": "Release reservation",
       "release_qty": "Quantity (base units)",
       "release_confirm": "Confirm release",
-      "released": "Reservation released"
+      "released": "Reservation released",
+      "source": "Source",
+      "source_manual": "Manual reservation",
+      "source_transfer": "Inter-branch transfer hold",
+      "transfer_hint": "Cancel from Internal Transfers",
+      "transfer_link": "Transfer #{{batchId}}"
     },
     "damage": {
       "short": "Damage",
@@ -273,12 +306,37 @@
       "status_in_progress": "In progress",
       "status_posted": "Posted",
       "status_cancelled": "Cancelled",
+      "cancel": "Cancel stock count",
+      "cancel_title": "Cancel this stock count session?",
+      "cancel_desc": "This session cannot be filled or posted after cancellation.",
+      "cancel_confirm": "Yes, cancel stock count",
+      "cancel_pending": "Cancelling…",
+      "cancelled": "Stock count cancelled",
       "responsible": "Count responsible",
-      "responsible_placeholder": "Select warehouse manager…",
+      "my_list_title": "My stock counts",
+      "my_empty": "No stock count sessions assigned to you",
+      "responsible_placeholder": "Select stock count assignee…",
       "responsible_search": "Search by name…",
-      "responsible_empty": "No active warehouse managers",
+      "responsible_empty": "No eligible staff (cashier / sales / warehouses custodian)",
       "export": "Export PDF",
       "exported": "Downloaded {{filename}}"
+    }
+  },
+  "alerts": {
+    "title": "Alerts",
+    "subtitle": "Commercial branches that need stock transfers from warehouses",
+    "empty": "No transfer alerts right now",
+    "no_source": "No sufficient warehouse",
+    "no_warehouse_stock": "No warehouse has enough stock for this item",
+    "col": {
+      "branch": "Branch",
+      "product": "Product",
+      "variant": "Variant",
+      "available": "Available",
+      "reorder_point": "Reorder point",
+      "suggested_qty": "Suggested qty",
+      "source_warehouse": "Source warehouse",
+      "status": "Status"
     }
   },
   "transfers": {

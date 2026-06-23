@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../shared/widgets/mezan_loading_state.dart';
+import '../../core/i18n/app_strings.dart';
+import '../../shared/widgets/mezan_logo_loader.dart';
 import 'auth_session.dart';
 import 'login_page.dart';
 import 'required_password_change_page.dart';
@@ -17,11 +18,11 @@ class AuthGate extends StatelessWidget {
     final session = context.watch<AuthSession>();
 
     if (session.isBooting) {
-      return const Scaffold(
+      final strings = AppStrings(Localizations.localeOf(context).languageCode);
+      return Scaffold(
         body: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: MezanLoadingState(useShimmer: false),
+          child: Center(
+            child: MezanLogoLoader(label: strings.loading),
           ),
         ),
       );

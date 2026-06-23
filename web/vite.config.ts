@@ -55,6 +55,14 @@ export default defineConfig(({ mode }) => ({
       '/api': {
         target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            const contentType = proxyRes.headers['content-type'];
+            if (typeof contentType === 'string' && contentType.includes('text/event-stream')) {
+              proxyRes.headers['cache-control'] = 'no-cache';
+            }
+          });
+        },
       },
     },
   },

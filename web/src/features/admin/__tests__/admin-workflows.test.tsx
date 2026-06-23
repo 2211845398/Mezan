@@ -118,7 +118,7 @@ describe('W-5.9 admin', () => {
     const dialogScope = within(dialog);
     expect(dialog.querySelector('input[type="password"]')).toBeNull();
     const [firstNameInput] = dialogScope.getAllByRole('textbox');
-    await user.type(firstNameInput, 'Staff');
+    await user.type(firstNameInput!, 'Staff');
     await user.type(dialogScope.getByPlaceholderText('user@example.com'), 'staff@example.com');
     await user.click(screen.getByRole('button', { name: /حفظ|save/i }));
     await waitFor(() => {
@@ -198,6 +198,21 @@ describe('W-5.9 admin', () => {
   it('role list shows system role', async () => {
     renderWithProviders(<RolesList />, { initialEntries: ['/'] });
     expect(await screen.findByText('ADMIN')).toBeInTheDocument();
+  });
+
+  it('role list rows are not row-click navigable; permissions button opens dialog', async () => {
+    const user = userEvent.setup();
+    const { container } = renderWithProviders(<RolesList />, { initialEntries: ['/admin/roles'] });
+    const adminCell = await screen.findByText('ADMIN');
+    const row = adminCell.closest('tr');
+    expect(row).toBeTruthy();
+    expect(row?.className).not.toMatch(/cursor-pointer/);
+
+    const permBtn = within(row as HTMLElement).getByRole('button', {
+      name: /صلاحيات|permissions/i,
+    });
+    await user.click(permBtn);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
   it('backups: trigger completes and re-enables button', async () => {

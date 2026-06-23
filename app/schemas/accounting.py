@@ -40,6 +40,43 @@ class CategoryMixRow(BaseModel):
     model_config = ConfigDict(json_encoders={Decimal: str})
 
 
+class CategoryRevenueRow(BaseModel):
+    """Revenue and invoice count for one category (direct products only)."""
+
+    category_id: int
+    category_name: str
+    gross_sales: Decimal
+    invoice_count: int
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class CategoryProductRevenueRow(BaseModel):
+    """Per-product revenue for products directly assigned to a category."""
+
+    product_id: int
+    product_name: str
+    gross_sales: Decimal
+    qty_sold: int
+    invoice_count: int
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class CategoryRevenueBreakdownRead(BaseModel):
+    """Category revenue snapshot: self row, direct children, and direct products."""
+
+    category_id: int
+    period_start: str | None
+    period_end: str | None
+    branch_id: int | None
+    self_row: CategoryRevenueRow = Field(serialization_alias="self")
+    children: list[CategoryRevenueRow] = Field(default_factory=list)
+    products: list[CategoryProductRevenueRow] = Field(default_factory=list)
+
+    model_config = ConfigDict(json_encoders={Decimal: str}, populate_by_name=True)
+
+
 class TopProductRow(BaseModel):
     """Top seller by line revenue in the filtered period."""
 
@@ -218,6 +255,16 @@ class PaymentApplicationRead(BaseModel):
     applied_at: datetime
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class ApSupplierBalanceRead(BaseModel):
+    supplier_id: int
+    supplier_name: str
+    supplier_code: str
+    open_balance: Decimal
+    currency_code: str
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
 
 
 class GeneralLedgerLineRead(BaseModel):

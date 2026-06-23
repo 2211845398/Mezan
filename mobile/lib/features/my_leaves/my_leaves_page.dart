@@ -210,6 +210,7 @@ class _LeaveRequestTile extends StatelessWidget {
 
     return MezanCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      onTap: () => context.push('/my-leaves/${request.id}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

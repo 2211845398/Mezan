@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 import { currenciesQueryOptions } from '../queries';
 
@@ -16,6 +17,8 @@ type CurrencySelectProps = {
   onValueChange: (code: string) => void;
   disabled?: boolean | undefined;
   placeholder?: string | undefined;
+  triggerClassName?: string;
+  dir?: 'rtl' | 'ltr';
 };
 
 export default function CurrencySelect({
@@ -23,6 +26,8 @@ export default function CurrencySelect({
   onValueChange,
   disabled,
   placeholder,
+  triggerClassName,
+  dir,
 }: CurrencySelectProps) {
   const { t } = useTranslation('accounting');
   const { data: currencies = [], isLoading } = useQuery(currenciesQueryOptions(false));
@@ -34,12 +39,12 @@ export default function CurrencySelect({
       onValueChange={onValueChange}
       disabled={Boolean(disabled) || isLoading}
     >
-      <SelectTrigger>
+      <SelectTrigger className={triggerClassName}>
         <SelectValue placeholder={placeholder ?? t('currencies.select_placeholder')} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent dir={dir} align={dir === 'rtl' ? 'end' : 'start'}>
         {currencies.map((c) => (
-          <SelectItem key={c.id} value={c.code}>
+          <SelectItem key={c.id} value={c.code} className={cn(dir === 'rtl' && 'text-end')}>
             {c.code} — {c.name}
             {c.is_base ? ` (${t('currencies.base_badge')})` : ''}
           </SelectItem>

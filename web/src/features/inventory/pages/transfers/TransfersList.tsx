@@ -225,15 +225,6 @@ export default function TransfersList() {
           header: t('transfers.col.created'),
           cell: ({ row }) => formatIso(String(row.original.created_at), 'yyyy-MM-dd HH:mm'),
         },
-        {
-          id: 'a',
-          header: '',
-          cell: ({ row }) => (
-            <Button type="button" size="sm" variant="outline" asChild>
-              <Link to={`/inventory/transfers/${row.original.id}`}>{t('actions.open')}</Link>
-            </Button>
-          ),
-        },
       ]),
     [t, i18n.language],
   );
@@ -471,6 +462,7 @@ export default function TransfersList() {
             isError={isError}
             onRetry={() => void refetch()}
             tableDir={i18n.dir() === 'rtl' ? 'rtl' : 'ltr'}
+            getRowHref={(row) => `/inventory/transfers/${row.id}`}
           />
           </div>
         ) : null}

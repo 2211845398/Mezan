@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../config/app_config.dart';
 import 'api_exception.dart';
 import 'token_storage.dart';
+import '../validation/validation_messages.dart';
 
 class ApiClient {
   ApiClient({required TokenStorage tokenStorage})
@@ -229,8 +230,15 @@ class ApiClient {
         if (envelope['code'] is String) code = envelope['code'] as String;
         final details = envelope['details'];
         if (details is Map<String, dynamic>) {
+          final validationMsg = firstApiValidationMessage(
+            _localeHeader ?? 'en',
+            details['errors'] is List ? details['errors'] as List<dynamic> : null,
+          );
+          if (validationMsg != null) {
+            message = validationMsg;
+          }
           final inner = details['detail'];
-          if (inner is String && inner.isNotEmpty) {
+          if (inner is String && inner.isNotEmpty && validationMsg == null) {
             message = inner;
           }
         }

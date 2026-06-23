@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { startOfDay } from 'date-fns';
 
 import { format, fromISO } from '@/lib/date';
+import { readOnlyFieldClass } from '@/lib/readOnlyFieldStyles';
 import { cn } from '@/lib/utils';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,6 +28,7 @@ export type DateFieldProps = {
   name?: string | undefined;
   className?: string | undefined;
   disabled?: boolean | undefined;
+  readOnly?: boolean | undefined;
   /** ISO `YYYY-MM-DD`. When set, calendar days strictly before this day are not selectable. */
   minSelectableDate?: string | undefined;
   'aria-label'?: string | undefined;
@@ -48,6 +50,7 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
       name,
       className,
       disabled,
+      readOnly,
       minSelectableDate,
       'aria-label': ariaLabel,
       invalid: externalInvalid,
@@ -106,11 +109,13 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
           type="text"
           inputMode="numeric"
           dir={inputDir}
-          disabled={disabled}
+          disabled={readOnly ? false : disabled}
+          readOnly={readOnly}
+          tabIndex={readOnly ? 0 : undefined}
           aria-label={ariaLabel ?? t('form.pick_date')}
           aria-invalid={showInvalid || undefined}
           placeholder={placeholder ?? 'YYYY-MM-DD'}
-          className="num-latin flex-1 font-normal"
+          className={cn('num-latin flex-1 font-normal', readOnly && readOnlyFieldClass(false))}
           value={draft}
           onChange={(e) => {
             setDraft(e.target.value);
@@ -124,6 +129,7 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
             }
           }}
         />
+        {!readOnly ? (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -153,6 +159,7 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
             />
           </PopoverContent>
         </Popover>
+        ) : null}
       </div>
     );
   },

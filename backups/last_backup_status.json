@@ -1,8 +1,8 @@
 {
   "success": true,
-  "started_at": "2026-06-08T21:33:47.818586+00:00",
-  "finished_at": "2026-06-08T21:33:49.766601+00:00",
-  "output_file": "backups/mezan_20260608_213347.dump",
+  "started_at": "2026-06-23T13:48:50.580707+00:00",
+  "finished_at": "2026-06-23T13:48:55.655246+00:00",
+  "output_file": "backups/mezan_20260623_134850.dump",
   "message": "Backup completed",
   "s3_uploaded": false
 }

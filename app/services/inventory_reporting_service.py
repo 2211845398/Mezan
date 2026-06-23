@@ -96,6 +96,23 @@ async def _in_transit_in_map(db: AsyncSession) -> dict[tuple[int, int, int], int
     return {(int(b), int(p), int(v)): int(q) for b, p, v, q in res.all()}
 
 
+async def _pending_incoming_transfer_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
+    """Qty on pending_dispatch transfers inbound to each branch (not yet in transit)."""
+    stmt = (
+        select(
+            TransferBatch.to_branch_id,
+            TransferLine.product_id,
+            TransferLine.variant_id,
+            func.coalesce(func.sum(TransferLine.qty_base), 0),
+        )
+        .join(TransferLine, TransferLine.transfer_batch_id == TransferBatch.id)
+        .where(TransferBatch.status == "pending_dispatch")
+        .group_by(TransferBatch.to_branch_id, TransferLine.product_id, TransferLine.variant_id)
+    )
+    res = await db.execute(stmt)
+    return {(int(b), int(p), int(v)): int(q) for b, p, v, q in res.all()}
+
+
 async def _in_transit_out_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
     stmt = (
         select(
@@ -152,6 +169,7 @@ async def list_stock_on_hand(
     db: AsyncSession,
     *,
     branch_id: int | None = None,
+    branch_kind: str | None = None,
     category_id: int | None = None,
     category_ids: set[int] | None = None,
     variant_id: int | None = None,
@@ -164,6 +182,7 @@ async def list_stock_on_hand(
 ) -> list[StockOnHandRowRead]:
     on_order_m = await _open_po_qty_map(db)
     in_in_m = await _in_transit_in_map(db)
+    pending_in_m = await _pending_incoming_transfer_map(db)
     out_m = await _in_transit_out_map(db)
     cons_m = await _consumption_30d_map(db)
 
@@ -183,6 +202,8 @@ async def list_stock_on_hand(
     )
     if branch_id is not None:
         stmt = stmt.where(StockLevel.branch_id == branch_id)
+    if branch_kind is not None:
+        stmt = stmt.where(Branch.kind == branch_kind)
     if variant_id is not None:
         stmt = stmt.where(StockLevel.variant_id == variant_id)
     if category_ids is not None:
@@ -239,8 +260,9 @@ async def list_stock_on_hand(
                 on_order_m, branch_id=sl.branch_id, product_id=prod.id
             )
             in_in = in_in_m.get(key, 0)
+            pending_in = pending_in_m.get(key, 0)
             in_out = out_m.get(key, 0)
-            cover = available + on_order_product + in_in
+            cover = available + on_order_product + in_in + pending_in
             sold_30 = cons_m.get(key, 0)
             rate = sold_30 / 30.0 if sold_30 else 0.0
             days_cover: float | None = None
@@ -426,6 +448,7 @@ async def list_stock_movements_with_names(
     *,
     branch_id: int | None = None,
     product_id: int | None = None,
+    variant_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> list[dict]:
@@ -435,9 +458,11 @@ async def list_stock_movements_with_names(
             StockMovement,
             Branch.name.label("branch_name"),
             Product.name.label("product_name"),
+            ProductVariant,
         )
         .join(Branch, Branch.id == StockMovement.branch_id)
         .join(Product, Product.id == StockMovement.product_id)
+        .join(ProductVariant, ProductVariant.id == StockMovement.variant_id)
         .order_by(StockMovement.id.desc())
         .limit(limit)
         .offset(offset)
@@ -446,9 +471,12 @@ async def list_stock_movements_with_names(
         stmt = stmt.where(StockMovement.branch_id == branch_id)
     if product_id is not None:
         stmt = stmt.where(StockMovement.product_id == product_id)
+    if variant_id is not None:
+        stmt = stmt.where(StockMovement.variant_id == variant_id)
     res = await db.execute(stmt)
     rows: list[dict] = []
-    for r, branch_name, product_name in res.all():
+    for r, branch_name, product_name, pv in res.all():
+        variant_name = variant_value_labels_summary(pv.attribute_values) or product_name
         rows.append(
             {
                 "id": r.id,
@@ -456,6 +484,8 @@ async def list_stock_movements_with_names(
                 "branch_name": branch_name,
                 "product_id": r.product_id,
                 "product_name": product_name,
+                "variant_id": r.variant_id,
+                "variant_name": variant_name,
                 "qty_delta": r.qty_delta,
                 "reason": r.reason,
                 "ref_type": r.ref_type,

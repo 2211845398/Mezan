@@ -7,6 +7,7 @@ import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
 import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'auth_repository.dart';
 
 class PasswordResetNewPasswordPage extends StatefulWidget {
@@ -25,6 +26,7 @@ class _PasswordResetNewPasswordPageState extends State<PasswordResetNewPasswordP
   var _submitting = false;
   var _obscurePassword = true;
   var _obscureConfirm = true;
+  String? _validationError;
 
   @override
   void dispose() {
@@ -39,15 +41,18 @@ class _PasswordResetNewPasswordPageState extends State<PasswordResetNewPasswordP
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
 
     if (password.length < 8) {
-      MezanNotify.error(context, strings.requiredPasswordTooShort);
+      setState(() => _validationError = strings.requiredPasswordTooShort);
       return;
     }
     if (password != confirm) {
-      MezanNotify.error(context, strings.profilePasswordMismatch);
+      setState(() => _validationError = strings.profilePasswordMismatch);
       return;
     }
 
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _validationError = null;
+    });
     try {
       await context.read<AuthRepository>().confirmPasswordReset(
             resetToken: widget.resetToken,
@@ -58,7 +63,7 @@ class _PasswordResetNewPasswordPageState extends State<PasswordResetNewPasswordP
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (_) {
       if (!mounted) return;
-      MezanNotify.error(context, strings.resetNewPasswordFailed);
+      setState(() => _validationError = strings.resetNewPasswordFailed);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -122,6 +127,10 @@ class _PasswordResetNewPasswordPageState extends State<PasswordResetNewPasswordP
                       ),
                     ),
                     const SizedBox(height: 16),
+                    if (_validationError != null) ...[
+                      MezanValidationAlert(message: _validationError!),
+                      const SizedBox(height: 12),
+                    ],
                     MezanButton(
                       label: strings.resetNewPasswordSubmit,
                       expand: true,

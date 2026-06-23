@@ -41,6 +41,11 @@ class ReservationRead(BaseModel):
     qty_open: int
     created_at: str
     notes: str | None = None
+    movement_kind: str = "reserve"
+    ref_type: str | None = None
+    ref_id: str | None = None
+    transfer_batch_id: int | None = None
+    releasable: bool = True
 
 
 class ReservationReleaseCreate(BaseModel):

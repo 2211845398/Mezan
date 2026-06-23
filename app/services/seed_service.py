@@ -221,7 +221,7 @@ SYSTEM_ROLE_SPECS = [
     },
     {
         "code": "WAREHOUSE_MANAGER",
-        "name": "Warehouse Manager",
+        "name": "Warehouses Custodian",
         "description": "Logistics, catalog, stock, and procurement execution",
         "selectors": [
             ("catalog", "*"),

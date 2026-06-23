@@ -1,9 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { Eye, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-
 import { paginatedParams } from '@/api/pagination';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -32,7 +30,6 @@ export default function SuppliersList() {
   const { t: tc } = useTranslation('common');
   const isAr = i18n.language.startsWith('ar');
   const canCreate = usePermission('suppliers', 'create');
-  const canRead = usePermission('suppliers', 'read');
 
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [newDialogKey, setNewDialogKey] = useState(0);
@@ -106,24 +103,8 @@ export default function SuppliersList() {
           header: t('suppliers.col.payment_terms'),
           cell: ({ row }) => supplierPaymentTermsLabel(row.original, paymentTerms, isAr),
         },
-        {
-          id: 'actions',
-          header: '',
-          enableGlobalFilter: false,
-          cell: ({ row }) =>
-            canRead ? (
-              <Button type="button" size="icon" variant="ghost" asChild>
-                <Link
-                  to={`/purchasing/suppliers/${row.original.id}`}
-                  aria-label={t('suppliers.view')}
-                >
-                  <Eye className="size-4" />
-                </Link>
-              </Button>
-            ) : null,
-        },
       ]),
-    [canRead, isAr, paymentTerms, t],
+    [isAr, paymentTerms, t],
   );
 
   return (
@@ -155,6 +136,7 @@ export default function SuppliersList() {
         isError={isError}
         onRetry={() => void refetch()}
         showSearch={false}
+        getRowHref={(r) => `/purchasing/suppliers/${r.id}`}
         toolbarLeading={
           <div className="space-y-1.5">
             <Label htmlFor="sup-search">{t('suppliers.search_label')}</Label>

@@ -1,13 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { paginatedParams } from '@/api/pagination';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { MoreHorizontal, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 
-import { getLocalizedApiErrorMessage, notifyApiError } from '@/api/errorMessages';
+import { getLocalizedApiErrorMessage } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import {
@@ -16,23 +15,14 @@ import {
 } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
 import { formatPersonName } from '@/lib/personName';
 import { notify } from '@/lib/toast';
 
-import { getUserRoles, updateUser as apiUpdateUser } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';
-import { DangerConfirmDialog } from '../../components/DangerConfirmDialog';
 import { HrAssigneeCombobox } from '../../components/HrAssigneeCombobox';
 import { RoleCodeCombobox } from '../../components/RoleCodeCombobox';
 import { getBranchLabel } from '../../lib/branchLabels';
@@ -43,20 +33,15 @@ import {
   userRowRoleFilterValue,
   userRowStatusFilterValue,
 } from '../../lib/userListSearch';
-import { adminKeys, useBranches, useCreateUser, useRequestPasswordReset, useUsersList } from '../../queries';
+import { adminKeys, useBranches, useCreateUser, useUsersList } from '../../queries';
+import { getUserRoles } from '../../api';
 import type { UserRead, UserRoleRow } from '../../types';
 
 const USER_CREATE_FORM_ID = 'admin-user-create-form';
 
-type UserStatusAction = {
-  user: UserRead;
-  action: 'deactivate' | 'activate';
-};
-
 export default function UsersList() {
   const { t, i18n } = useTranslation('admin');
   const { t: tc } = useTranslation('common');
-  const navigate = useNavigate();
   const [urlQuery] = useTableUrlState({ pageSize: 20 });
   const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
   const { data, isLoading, isError, refetch } = useUsersList({ limit, offset });
@@ -80,12 +65,8 @@ export default function UsersList() {
     },
     enabled: users.length > 0,
   });
-  const canUpdate = usePermission('users', 'update');
   const canCreate = usePermission('users', 'create');
-  const currentUserId = useAuthStore((s) => s.user?.id);
-  const [statusAction, setStatusAction] = useState<UserStatusAction | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const qc = useQueryClient();
 
   // Create user form state
   const [firstName, setFirstName] = useState('');
@@ -97,15 +78,7 @@ export default function UsersList() {
   const [assignedHrUserId, setAssignedHrUserId] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const setUserStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => apiUpdateUser(id, { status }),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: adminKeys.userList() });
-    },
-  });
-
   const createUser = useCreateUser();
-  const requestReset = useRequestPasswordReset();
 
   const handleCreateSubmit = async () => {
     setCreateError(null);
@@ -191,71 +164,8 @@ export default function UsersList() {
           cell: ({ row }) =>
             row.original.last_login_at ? formatIso(row.original.last_login_at, 'yyyy-MM-dd HH:mm') : '—',
         },
-        {
-          id: 'actions',
-          header: '',
-          enableGlobalFilter: false,
-          cell: ({ row }) => {
-            const u = row.original;
-            return (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" size="icon" variant="ghost" aria-label={t('actions.open_menu')}>
-                    <MoreHorizontal className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {canUpdate ? (
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onSelect={() => {
-                        navigate(`/admin/users/${u.id}`);
-                      }}
-                    >
-                      {t('actions.edit')}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canUpdate &&
-                  !u.bootstrap_admin_protected &&
-                  u.id !== currentUserId ? (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setStatusAction({
-                          user: u,
-                          action: u.status === 'deactivated' ? 'activate' : 'deactivate',
-                        });
-                      }}
-                    >
-                      {u.status === 'deactivated' ? t('users.activate') : t('users.deactivate')}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canUpdate && !u.bootstrap_admin_protected ? (
-                    <DropdownMenuItem
-                      onClick={() =>
-                        void requestReset
-                          .mutateAsync(u.id)
-                          .then(() => notify.success(tc('toasts.email_sent')))
-                          .catch((error) => notifyApiError(error, t('errors.generic', { ns: 'common' })))
-                      }
-                    >
-                      {t('users.reset_password')}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canUpdate && !u.bootstrap_admin_protected ? (
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onSelect={() => navigate(`/admin/users/${u.id}/permissions`)}
-                    >
-                      {t('users.view_permissions')}
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            );
-          },
-        },
       ]);
-  }, [t, i18n, branches, roleMap, canUpdate, requestReset, navigate, tc, currentUserId]);
+  }, [t, i18n, branches, roleMap]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -354,39 +264,7 @@ export default function UsersList() {
         isError={isError}
         onRetry={() => void refetch()}
         emptyState={<p className="text-sm text-muted-foreground">{t('users.empty')}</p>}
-      />
-      <DangerConfirmDialog
-        open={!!statusAction}
-        onOpenChange={(o) => !o && setStatusAction(null)}
-        title={
-          statusAction?.action === 'activate'
-            ? t('users.activate_title')
-            : t('users.deactivate_title')
-        }
-        description={
-          statusAction?.action === 'activate'
-            ? t('users.activate_desc')
-            : t('users.deactivate_desc')
-        }
-        confirmKeyword={
-          statusAction?.action === 'activate'
-            ? t('users.activate_confirm_keyword')
-            : t('users.deactivate_confirm_keyword')
-        }
-        isLoading={setUserStatus.isPending}
-        onConfirm={async () => {
-          if (!statusAction) return;
-          const nextStatus = statusAction.action === 'activate' ? 'active' : 'deactivated';
-          try {
-            await setUserStatus.mutateAsync({ id: statusAction.user.id, status: nextStatus });
-            notify.success(
-              statusAction.action === 'activate' ? tc('toasts.activated') : tc('toasts.deactivated'),
-            );
-            setStatusAction(null);
-          } catch (error) {
-            notifyApiError(error, t('errors.generic', { ns: 'common' }));
-          }
-        }}
+        getRowHref={(u) => `/admin/users/${u.id}`}
       />
     </div>
   );

@@ -153,6 +153,7 @@ export default function AttributesPage() {
       attributeId={attr.id}
       name={attr.name}
       valueCount={attr.value_count ?? 0}
+      usageCount={attr.usage_count ?? 0}
       expanded={expandedId === attr.id}
       onToggle={() => setExpandedId((id) => (id === attr.id ? null : attr.id))}
       canCreate={canCreate}
@@ -438,7 +439,17 @@ function AttributeValueChip({
             </Button>
           ) : null}
           {canDelete ? (
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-7 w-7',
+                (value.usage_count ?? 0) > 0 && 'pointer-events-none opacity-40',
+              )}
+              disabled={(value.usage_count ?? 0) > 0}
+              onClick={onDelete}
+            >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           ) : null}
@@ -452,6 +463,7 @@ function AttributeRow({
   attributeId,
   name,
   valueCount,
+  usageCount,
   expanded,
   onToggle,
   canCreate,
@@ -467,6 +479,7 @@ function AttributeRow({
   attributeId: number;
   name: string;
   valueCount: number;
+  usageCount: number;
   expanded: boolean;
   onToggle: () => void;
   canCreate: boolean;
@@ -511,7 +524,14 @@ function AttributeRow({
           </Button>
         ) : null}
         {canDelete ? (
-          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onDeleteAttribute}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn('h-8 w-8 shrink-0', usageCount > 0 && 'pointer-events-none opacity-40')}
+            disabled={usageCount > 0}
+            onClick={onDeleteAttribute}
+          >
             <Trash2 className="h-4 w-4" />
           </Button>
         ) : null}

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ChevronRight, UserPlus, type ReactNode } from 'lucide-react';
-import { useState } from 'react';
+import { CalendarClock, ChevronRight, UserPlus } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
@@ -237,8 +237,8 @@ export default function HrManagerDashboard() {
                     key={row.id}
                     id={row.id}
                     name={row.user_full_name ?? row.user_email ?? `#${row.user_id}`}
-                    email={row.user_email}
-                    jobTitle={row.job_title}
+                    email={row.user_email ?? null}
+                    jobTitle={row.job_title ?? null}
                   />
                 ))}
               </ul>

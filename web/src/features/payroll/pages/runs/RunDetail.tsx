@@ -5,7 +5,6 @@ import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { StatusBadge } from '@/components/shared/StatusBadge';

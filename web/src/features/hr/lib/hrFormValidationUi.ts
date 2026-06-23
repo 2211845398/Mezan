@@ -1,6 +1,8 @@
 import type { FieldError, FieldErrors, FieldValues } from 'react-hook-form';
 import type { TFunction } from 'i18next';
 
+import { collectValidationToasts } from '@/lib/formValidation';
+
 export const EMPLOYEE_DATA_FIELD_ORDER = [
   'subject_first_name',
   'subject_father_name',
@@ -55,24 +57,7 @@ export function collectHrValidationToasts(
   tc: TFunction<'common'>,
   fieldOrder: readonly string[] = EMPLOYEE_DATA_FIELD_ORDER,
 ): string[] {
-  const messages: string[] = [];
-  const seen = new Set<string>();
-  for (const key of fieldOrder) {
-    const err = errs[key] as FieldError | undefined;
-    const text = hrFieldErrorMessage(err, t, tc);
-    if (text && !seen.has(text)) {
-      seen.add(text);
-      messages.push(text);
-    }
-  }
-  for (const key of Object.keys(errs)) {
-    if (fieldOrder.includes(key)) continue;
-    const err = errs[key] as FieldError | undefined;
-    const text = hrFieldErrorMessage(err, t, tc);
-    if (text && !seen.has(text)) {
-      seen.add(text);
-      messages.push(text);
-    }
-  }
-  return messages;
+  return collectValidationToasts(errs, tc, fieldOrder, (err, _field) =>
+    hrFieldErrorMessage(err, t, tc),
+  );
 }

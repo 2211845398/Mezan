@@ -1,13 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Button } from '@/components/ui/button';
 import type { FiscalPeriodRead } from '../../api';
 import { fiscalPeriodsQueryOptions } from '../../queries';
 
@@ -33,12 +31,7 @@ export default function FiscalPeriodsList() {
           accessorKey: 'period_key',
           header: t('fiscal.col.key'),
           cell: ({ row }) => (
-            <Link
-              className="font-medium text-primary underline-offset-4 hover:underline num-latin"
-              to={`/accounting/fiscal-periods/${encodeURIComponent(row.original.period_key)}`}
-            >
-              {row.original.period_key}
-            </Link>
+            <span className="font-medium num-latin">{row.original.period_key}</span>
           ),
         },
         {
@@ -70,17 +63,6 @@ export default function FiscalPeriodsList() {
           accessorFn: (row) => periodDateSlice((row as FiscalPeriodRow).closed_at),
           cell: ({ row }) => periodDateSlice((row.original as FiscalPeriodRow).closed_at) || '—',
         },
-        {
-          id: 'a',
-          header: '',
-          cell: ({ row }) => (
-            <Button type="button" size="sm" variant="outline" asChild>
-              <Link to={`/accounting/fiscal-periods/${encodeURIComponent(row.original.period_key)}`}>
-                {t('fiscal.view_detail')}
-              </Link>
-            </Button>
-          ),
-        },
       ]),
     [t],
   );
@@ -96,6 +78,9 @@ export default function FiscalPeriodsList() {
         isError={isError}
         onRetry={() => void refetch()}
         searchPlaceholder={t('fiscal.search_placeholder')}
+        getRowHref={(row) =>
+          `/accounting/fiscal-periods/${encodeURIComponent(row.period_key)}`
+        }
       />
     </div>
   );

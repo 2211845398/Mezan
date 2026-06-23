@@ -12,6 +12,7 @@ class StockCountSessionCreate(BaseModel):
     category_id: int | None = None
     category_include_descendants: bool = False
     product_ids: list[int] | None = None
+    assigned_user_id: int
     responsible_name: str = Field(default="", max_length=128)
 
 
@@ -50,6 +51,7 @@ class StockCountSessionRead(BaseModel):
     status: str
     category_id: int | None = None
     responsible_name: str
+    assigned_user_id: int | None = None
     created_by: int | None = None
     created_at: datetime
     posted_at: datetime | None = None

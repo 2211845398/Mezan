@@ -100,6 +100,8 @@ async def supplier_statement_endpoint(
 async def supplier_evaluation_endpoint(
     supplier_id: int,
     period_days: int = Query(default=365, ge=1, le=3650),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
     branch_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -109,6 +111,8 @@ async def supplier_evaluation_endpoint(
         db,
         supplier_id=supplier_id,
         period_days=period_days,
+        date_from=date_from,
+        date_to=date_to,
         branch_id=branch_id,
     )
 

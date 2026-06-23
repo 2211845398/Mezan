@@ -18,9 +18,34 @@ from app.services.inventory_service import apply_stock_movement
 from app.services.stock_count_pdf_service import export_stock_count_pdf_from_session
 from app.services.stock_count_session_service import (
     create_stock_count_session,
+    get_my_stock_count_session,
+    list_my_stock_count_sessions,
     patch_stock_count_lines,
+    patch_my_stock_count_lines,
     post_stock_count_session,
 )
+from app.models.role import Role
+from app.models.user_role import UserRole
+from app.models.users import User
+from app.services.seed_service import seed_permissions_and_roles
+from app.utils.security import hash_password
+
+
+async def _stock_count_assignee(db_session, *, branch_id: int) -> int:
+    await seed_permissions_and_roles(db_session)
+    role = (await db_session.execute(select(Role).where(Role.code == "FLOOR_STAFF"))).scalar_one()
+    user = User(
+        email=f"count-{uuid.uuid4().hex[:8]}@test.local",
+        first_name="Counter",
+        password_hash=hash_password("password123"),
+        status="active",
+        branch_id=branch_id,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    db_session.add(UserRole(user_id=user.id, role_id=role.id, branch_id=None))
+    await db_session.flush()
+    return user.id
 
 
 @pytest.mark.asyncio
@@ -69,18 +94,22 @@ async def test_stock_count_session_create_and_post(db_session) -> None:
         variant_id=pv.id,
     )
 
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+
     s1 = await create_stock_count_session(
         db_session,
-        user_id=1,
+        user_id=assignee_id,
         branch_id=branch.id,
+        assigned_user_id=assignee_id,
     )
     assert s1.version_no == 1
     assert s1.line_count >= 1
 
     s2 = await create_stock_count_session(
         db_session,
-        user_id=1,
+        user_id=assignee_id,
         branch_id=branch.id,
+        assigned_user_id=assignee_id,
     )
     assert s2.version_no == 2
 
@@ -94,7 +123,7 @@ async def test_stock_count_session_create_and_post(db_session) -> None:
     ]
     await patch_stock_count_lines(db_session, session_id=s2.id, updates=updates)
 
-    result = await post_stock_count_session(db_session, user_id=1, session_id=s2.id)
+    result = await post_stock_count_session(db_session, user_id=assignee_id, session_id=s2.id)
     assert result.movements_posted >= 1
 
     sess = await db_session.get(StockCountSession, s2.id)
@@ -157,8 +186,14 @@ async def test_stock_count_post_requires_all_lines_complete(db_session) -> None:
         variant_id=pv.id,
     )
 
-    detail = await create_stock_count_session(db_session, user_id=1, branch_id=branch.id)
-    line = next(ln for ln in detail.lines if ln.product_id == product.id and ln.variant_id == pv.id)
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+
+    detail = await create_stock_count_session(
+        db_session,
+        user_id=assignee_id,
+        branch_id=branch.id,
+        assigned_user_id=assignee_id,
+    )
     await patch_stock_count_lines(
         db_session,
         session_id=detail.id,
@@ -166,7 +201,7 @@ async def test_stock_count_post_requires_all_lines_complete(db_session) -> None:
     )
 
     with pytest.raises(ValidationError, match="counted quantity"):
-        await post_stock_count_session(db_session, user_id=1, session_id=detail.id)
+        await post_stock_count_session(db_session, user_id=assignee_id, session_id=detail.id)
 
 
 @pytest.mark.asyncio
@@ -218,11 +253,18 @@ async def test_stock_count_post_allows_optional_damaged(db_session) -> None:
         variant_id=pv.id,
     )
 
-    detail = await create_stock_count_session(db_session, user_id=1, branch_id=branch.id)
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+
+    detail = await create_stock_count_session(
+        db_session,
+        user_id=assignee_id,
+        branch_id=branch.id,
+        assigned_user_id=assignee_id,
+    )
     updates = [StockCountLineUpdate(id=ln.id, counted_qty=ln.system_on_hand) for ln in detail.lines]
     await patch_stock_count_lines(db_session, session_id=detail.id, updates=updates)
 
-    result = await post_stock_count_session(db_session, user_id=1, session_id=detail.id)
+    result = await post_stock_count_session(db_session, user_id=assignee_id, session_id=detail.id)
     assert result.movements_posted == 0
 
     sess = await db_session.get(StockCountSession, detail.id)
@@ -267,12 +309,14 @@ async def test_stock_count_lines_unique_per_session(db_session) -> None:
         reason="adjustment",
     )
 
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+
     detail = await create_stock_count_session(
         db_session,
-        user_id=1,
+        user_id=assignee_id,
         branch_id=branch.id,
+        assigned_user_id=assignee_id,
     )
-    res = await db_session.execute(
         select(StockCountLine).where(StockCountLine.session_id == detail.id)
     )
     lines = list(res.scalars().all())
@@ -292,10 +336,13 @@ async def test_stock_count_session_pdf_export(db_session) -> None:
     db_session.add(branch)
     await db_session.flush()
 
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+
     detail = await create_stock_count_session(
         db_session,
-        user_id=1,
+        user_id=assignee_id,
         branch_id=branch.id,
+        assigned_user_id=assignee_id,
         responsible_name="Warehouse Lead",
     )
     pdf_bytes, filename = await export_stock_count_pdf_from_session(
@@ -369,19 +416,144 @@ async def test_stock_count_category_descendants(db_session) -> None:
             variant_id=pv.id,
         )
 
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+
     narrow = await create_stock_count_session(
         db_session,
-        user_id=1,
+        user_id=assignee_id,
         branch_id=branch.id,
+        assigned_user_id=assignee_id,
         category_id=parent.id,
         category_include_descendants=False,
     )
     wide = await create_stock_count_session(
         db_session,
-        user_id=1,
+        user_id=assignee_id,
         branch_id=branch.id,
+        assigned_user_id=assignee_id,
         category_id=parent.id,
         category_include_descendants=True,
     )
     assert wide.line_count >= narrow.line_count
     assert wide.line_count >= 2
+
+
+@pytest.mark.asyncio
+async def test_stock_count_self_service_lists_assigned_draft(db_session) -> None:
+    from app.core.errors import NotFoundError
+
+    branch = Branch(
+        name="Self Service Branch",
+        code=f"SS-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add(branch)
+    await db_session.flush()
+
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+    other_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+
+    detail = await create_stock_count_session(
+        db_session,
+        user_id=assignee_id,
+        branch_id=branch.id,
+        assigned_user_id=assignee_id,
+    )
+
+    mine = await list_my_stock_count_sessions(db_session, user_id=assignee_id)
+    assert any(s.id == detail.id for s in mine)
+
+    other_list = await list_my_stock_count_sessions(db_session, user_id=other_id)
+    assert not any(s.id == detail.id for s in other_list)
+
+    got = await get_my_stock_count_session(
+        db_session, session_id=detail.id, user_id=assignee_id
+    )
+    assert got.id == detail.id
+
+    with pytest.raises(NotFoundError, match="stock_count_session_not_found"):
+        await get_my_stock_count_session(
+            db_session, session_id=detail.id, user_id=other_id
+        )
+
+    if detail.lines:
+        line = detail.lines[0]
+        patched = await patch_my_stock_count_lines(
+            db_session,
+            session_id=detail.id,
+            user_id=assignee_id,
+            updates=[StockCountLineUpdate(id=line.id, counted_qty=line.system_on_hand)],
+        )
+        assert patched.lines[0].counted_qty == line.system_on_hand
+
+
+@pytest.mark.asyncio
+async def test_stock_count_assignee_may_be_from_other_branch(db_session) -> None:
+    branch_a = Branch(
+        name="Count Branch A",
+        code=f"CBA-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    branch_b = Branch(
+        name="Count Branch B",
+        code=f"CBB-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add_all([branch_a, branch_b])
+    await db_session.flush()
+
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch_b.id)
+
+    detail = await create_stock_count_session(
+        db_session,
+        user_id=assignee_id,
+        branch_id=branch_a.id,
+        assigned_user_id=assignee_id,
+    )
+    assert detail.branch_id == branch_a.id
+    assert detail.assigned_user_id == assignee_id
+
+
+@pytest.mark.asyncio
+async def test_stock_count_cancel_draft(db_session) -> None:
+    from app.services.stock_count_session_service import cancel_stock_count_session
+
+    branch = Branch(
+        name="Cancel Branch",
+        code=f"CB-{uuid.uuid4().hex[:6]}",
+        address=None,
+        timezone="UTC",
+        is_active=True,
+    )
+    db_session.add(branch)
+    await db_session.flush()
+
+    assignee_id = await _stock_count_assignee(db_session, branch_id=branch.id)
+    detail = await create_stock_count_session(
+        db_session,
+        user_id=assignee_id,
+        branch_id=branch.id,
+        assigned_user_id=assignee_id,
+    )
+    assert detail.status == "draft"
+
+    await cancel_stock_count_session(db_session, session_id=detail.id)
+    await db_session.flush()
+
+    refreshed = await get_my_stock_count_session(
+        db_session, session_id=detail.id, user_id=assignee_id
+    )
+    assert refreshed.status == "cancelled"
+
+    with pytest.raises(ValidationError, match="stock_count_cannot_edit_cancelled"):
+        await patch_stock_count_lines(
+            db_session,
+            session_id=detail.id,
+            updates=[],
+        )

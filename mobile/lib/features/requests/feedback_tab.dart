@@ -7,7 +7,9 @@ import '../../shared/widgets/mezan_badge.dart';
 import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
 import '../../shared/widgets/mezan_error_state.dart';
+import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'requests_controller.dart';
 
 class FeedbackTab extends StatefulWidget {
@@ -20,6 +22,7 @@ class FeedbackTab extends StatefulWidget {
 class _FeedbackTabState extends State<FeedbackTab> {
   final _messageController = TextEditingController();
   String? _category = 'issue';
+  String? _validationError;
 
   @override
   void dispose() {
@@ -28,21 +31,15 @@ class _FeedbackTabState extends State<FeedbackTab> {
   }
 
   Future<void> _submit() async {
+    final strings = AppStrings(Localizations.localeOf(context).languageCode);
     final message = _messageController.text.trim();
     if (message.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppStrings(Localizations.localeOf(context).languageCode)
-                .feedbackMessageTooShort,
-          ),
-        ),
-      );
+      setState(() => _validationError = strings.feedbackMessageTooShort);
       return;
     }
 
     final controller = context.read<RequestsController>();
-    final strings = AppStrings(Localizations.localeOf(context).languageCode);
+    setState(() => _validationError = null);
     final ok = await controller.submitFeedback(
       message: message,
       category: _category,
@@ -50,9 +47,7 @@ class _FeedbackTabState extends State<FeedbackTab> {
     if (!mounted || !ok) return;
 
     _messageController.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(strings.feedbackSubmitSuccess)),
-    );
+    MezanNotify.success(context, strings.feedbackSubmitSuccess);
   }
 
   @override
@@ -125,6 +120,10 @@ class _FeedbackTabState extends State<FeedbackTab> {
                   maxLines: 5,
                 ),
                 const SizedBox(height: 16),
+                if (_validationError != null) ...[
+                  MezanValidationAlert(message: _validationError!),
+                  const SizedBox(height: 12),
+                ],
                 MezanButton(
                   label: strings.feedbackSubmitButton,
                   expand: true,

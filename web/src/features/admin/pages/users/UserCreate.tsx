@@ -12,9 +12,18 @@ import {
   floatingFormCloseButtonClassName,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { notify } from '@/lib/toast';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import { getUserRoles, listPendingOnboarding } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';
@@ -64,6 +73,9 @@ export default function UserCreate() {
     enabled: createdId != null,
   });
   const onboardingForUser = pending.find((p) => p.user_id === createdId);
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['first_name', 'email', 'father_name', 'family_name', 'branch_id', 'role_code'],
+  });
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4 md:p-6">
@@ -89,7 +101,7 @@ export default function UserCreate() {
               } catch (error) {
                 setFormError(applyApiErrorToForm(form, error) ?? tc('errors.validation'));
               }
-            })}
+            }, onInvalid)}
             className="space-y-4"
           >
             <FormField
@@ -189,11 +201,7 @@ export default function UserCreate() {
                 </FormItem>
               )}
             />
-            {formError ? (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {formError}
-              </p>
-            ) : null}
+            <FormValidationAlert message={formError} />
             <div className="flex gap-[5px]">
               <Button type="submit" className={floatingFormApproveButtonClassName} disabled={create.isPending}>
                 {t('actions.save')}

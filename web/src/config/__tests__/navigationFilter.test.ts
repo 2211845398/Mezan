@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canAccess, filterNav } from '@/config/navigationFilter';
+import { canAccess } from '@/config/navigationFilter';
 import { navigation } from '@/config/navigation';
 
 describe('navigationFilter', () => {
@@ -48,6 +48,15 @@ describe('navigationFilter', () => {
     expect(canAccess(correspondence!, hasEmployees, ['WAREHOUSE_MANAGER'])).toBe(true);
     expect(canAccess(correspondence!, hasEmployees, ['ACCOUNTANT'])).toBe(false);
     expect(canAccess(correspondence!, hasEmployees, ['CASHIER'])).toBe(false);
+  });
+
+  it('orders catalog sidebar children as classifications, products, attributes', () => {
+    const catalog = navigation.find((n) => n.key === 'catalog');
+    expect(catalog?.children?.map((c) => c.key)).toEqual([
+      'catalog-categories',
+      'catalog-products',
+      'catalog-attributes',
+    ]);
   });
 
   it('hides customer directory for marketing and floor staff role codes', () => {

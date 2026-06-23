@@ -3,24 +3,31 @@
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_permission
+from app.api.deps import get_current_user, require_any_permission, require_permission
 from app.db.database import get_db
 from app.models.branch import Branch
 from app.models.users import User
 from app.schemas.inventory_reorder import (
+    CommercialRestockAlertRow,
     CreatePurchaseOrdersFromReorderRequest,
     CreatePurchaseOrdersFromReorderResponse,
+    ReorderAlertCountRead,
     ReorderAlertRow,
 )
 from app.schemas.inventory_stock import (
+    StockCardRead,
     StockFinderBranchBrief,
     StockFinderResultRead,
     StockOnHandRowRead,
 )
+from app.services.inventory_stock_card_service import get_product_stock_card
 from app.schemas.pagination import clamp_pagination
 from app.services import audit_service
 from app.services.inventory_reorder_service import (
+    count_commercial_restock_alerts,
+    count_reorder_alerts,
     create_purchase_orders_from_reorder,
+    list_commercial_restock_alerts,
     list_reorder_alerts,
 )
 from app.services.inventory_reporting_service import (
@@ -40,6 +47,7 @@ router = APIRouter()
 )
 async def list_stock_on_hand_endpoint(
     branch_id: int | None = None,
+    branch_kind: str | None = None,
     category_id: int | None = None,
     variant_id: int | None = None,
     q: str | None = None,
@@ -57,6 +65,7 @@ async def list_stock_on_hand_endpoint(
     return await list_stock_on_hand(
         db,
         branch_id=branch_id,
+        branch_kind=branch_kind,
         category_id=category_id,
         variant_id=variant_id,
         q=q,
@@ -109,6 +118,19 @@ async def stock_finder_endpoint(
 
 
 @router.get(
+    "/inventory/products/{product_id}/stock-card",
+    response_model=StockCardRead,
+)
+async def get_product_stock_card_endpoint(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("inventory", "read"),
+) -> StockCardRead:
+    return await get_product_stock_card(db, product_id=product_id)
+
+
+@router.get(
     "/inventory/reorder-alerts",
     response_model=list[ReorderAlertRow],
 )
@@ -119,6 +141,50 @@ async def list_reorder_alerts_endpoint(
     __: None = require_permission("inventory", "read"),
 ) -> list[ReorderAlertRow]:
     return await list_reorder_alerts(db, branch_id=branch_id)
+
+
+@router.get(
+    "/inventory/reorder-alerts/count",
+    response_model=ReorderAlertCountRead,
+)
+async def count_reorder_alerts_endpoint(
+    branch_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_any_permission(
+        ("inventory", "read"),
+        ("purchase_orders", "read"),
+    ),
+) -> ReorderAlertCountRead:
+    return ReorderAlertCountRead(count=await count_reorder_alerts(db, branch_id=branch_id))
+
+
+@router.get(
+    "/inventory/commercial-restock-alerts",
+    response_model=list[CommercialRestockAlertRow],
+)
+async def list_commercial_restock_alerts_endpoint(
+    branch_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("inventory", "read"),
+) -> list[CommercialRestockAlertRow]:
+    return await list_commercial_restock_alerts(db, branch_id=branch_id)
+
+
+@router.get(
+    "/inventory/commercial-restock-alerts/count",
+    response_model=ReorderAlertCountRead,
+)
+async def count_commercial_restock_alerts_endpoint(
+    branch_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("inventory", "read"),
+) -> ReorderAlertCountRead:
+    return ReorderAlertCountRead(
+        count=await count_commercial_restock_alerts(db, branch_id=branch_id),
+    )
 
 
 @router.post(

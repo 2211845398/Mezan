@@ -41,6 +41,8 @@ from app.services.user_lifecycle_service import (
     update_pending_onboarding_subject,
     upsert_user_permission_override,
 )
+from app.services.realtime_nav_badges import emit_onboarding_nav_badges_invalidate
+
 router = APIRouter()
 
 
@@ -102,6 +104,7 @@ async def create_user(
         request=request,
     )
     await db.commit()
+    await emit_onboarding_nav_badges_invalidate()
     return bootstrap_admin_protection.user_read_with_protection_flag(user)
 
 
@@ -515,6 +518,7 @@ async def complete_onboarding(
         request=request,
     )
     await db.commit()
+    await emit_onboarding_nav_badges_invalidate()
     return UserOnboardingRead.model_validate(row)
 
 

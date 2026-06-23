@@ -8011,6 +8011,19 @@ export interface components {
             /** Unread Count */
             unread_count: number;
         };
+        /** ApSupplierBalanceRead */
+        ApSupplierBalanceRead: {
+            /** Supplier Id */
+            supplier_id: number;
+            /** Supplier Name */
+            supplier_name: string;
+            /** Supplier Code */
+            supplier_code: string;
+            /** Open Balance */
+            open_balance: string;
+            /** Currency Code */
+            currency_code: string;
+        };
         /** OpenItemRead */
         OpenItemRead: {
             /** Id */
@@ -10152,6 +10165,16 @@ export interface components {
             source_id?: string | null;
             /** Journal Entry Id */
             journal_entry_id?: number | null;
+            /** Purchase Order Id */
+            purchase_order_id?: number | null;
+            /** Open Item Id */
+            open_item_id?: number | null;
+            /** Amount Total */
+            amount_total?: string | null;
+            /** Amount Paid */
+            amount_paid?: string | null;
+            /** Amount Open */
+            amount_open?: string | null;
         };
         /** SupplierStatementRead */
         SupplierStatementRead: {
@@ -10171,6 +10194,14 @@ export interface components {
             opening_balance: string;
             /** Closing Balance */
             closing_balance: string;
+            /** Total Purchases */
+            total_purchases: string;
+            /** Total Paid */
+            total_paid: string;
+            /** Balance Due */
+            balance_due: string;
+            /** Currency Code */
+            currency_code?: string;
             /** Lines */
             lines?: components["schemas"]["SupplierStatementLineRead"][];
         };

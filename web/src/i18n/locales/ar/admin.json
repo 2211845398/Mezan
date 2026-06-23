@@ -117,7 +117,7 @@
       "HR_MANAGER": "مدير الموارد البشرية",
       "ACCOUNTANT": "محاسب",
       "CASHIER": "أمين صندوق",
-      "WAREHOUSE_MANAGER": "مدير المستودع",
+      "WAREHOUSE_MANAGER": "مسؤول المخازن",
       "MARKETING_MANAGER": "مدير التسويق",
       "FLOOR_STAFF": "موظف المبيعات",
       "ATTENDANCE_KIOSK": "جهاز حضور وانصراف"
@@ -231,7 +231,7 @@
       "fallback": "المستلمون (راجع القالب)"
     },
     "target_group_kind": {
-      "warehouse_and_floor": "مدير المستودع وموظفو المبيعات",
+      "warehouse_and_floor": "مسؤول المخازن وموظفو المبيعات",
       "payroll_approvers": "مدير الموارد البشرية والمحاسب والمالك",
       "it_and_admin": "مسؤول تقنية المعلومات ومسؤول النظام",
       "shift_operator": "مسؤول الوردية"

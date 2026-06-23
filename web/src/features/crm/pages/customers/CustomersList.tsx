@@ -2,10 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { paginatedParams } from '@/api/pagination';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { Eye } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -99,17 +97,6 @@ export default function CustomersList() {
               </span>
             );
           },
-        },
-        {
-          id: 'a',
-          header: '',
-          cell: ({ row }) => (
-            <Button type="button" size="icon" variant="ghost" asChild>
-              <Link to={`/crm/customers/${row.original.id}`} aria-label={t('customers.view')}>
-                <Eye className="size-4" />
-              </Link>
-            </Button>
-          ),
         },
       ]),
     [t],
@@ -226,6 +213,7 @@ export default function CustomersList() {
         isError={isError}
         onRetry={() => void refetch()}
         tableDir={i18n.dir() === 'rtl' ? 'rtl' : 'ltr'}
+        getRowHref={(row) => `/crm/customers/${row.id}`}
       />
 
       <FloatingFormDialog

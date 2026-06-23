@@ -5,7 +5,6 @@ import AdminLayoutOutlet from '@/components/layout/AdminLayoutOutlet';
 import AuthLayoutOutlet from '@/components/layout/AuthLayoutOutlet';
 
 import {
-  RequireAnyPermission,
   RequireAuth,
   RequireBranchContext,
   RequireCorrespondenceInboxAccess,
@@ -74,7 +73,9 @@ const AdminUserPermissionOverrides = lazy(
 const AdminRolesList = lazy(() => import('@/features/admin/pages/roles/RolesList'));
 const AdminRoleEdit = lazy(() => import('@/features/admin/pages/roles/RoleEdit'));
 const AdminBranchesList = lazy(() => import('@/features/admin/pages/branches/BranchesList'));
+const AdminBranchDetail = lazy(() => import('@/features/admin/pages/branches/BranchDetail'));
 const AdminTerminalsList = lazy(() => import('@/features/admin/pages/terminals/TerminalsList'));
+const AdminTerminalDetail = lazy(() => import('@/features/admin/pages/terminals/TerminalDetailPage'));
 const AdminBackupsList = lazy(() => import('@/features/admin/pages/backups/BackupsList'));
 const AdminNotificationsIndexRedirect = lazy(
   () => import('@/features/admin/pages/notifications/AdminNotificationsIndexRedirect'),
@@ -95,6 +96,7 @@ const AdminNotificationsLayout = lazy(
 const CatalogProductsList = lazy(() => import('@/features/catalog/pages/products/ProductsList'));
 const CatalogProductFormPage = lazy(() => import('@/features/catalog/pages/products/ProductFormPage'));
 const CatalogTaxesList = lazy(() => import('@/features/catalog/pages/taxes/TaxesList'));
+const CatalogTaxDetailPage = lazy(() => import('@/features/catalog/pages/taxes/TaxDetailPage'));
 const CatalogCategoriesTree = lazy(() => import('@/features/catalog/pages/categories/CategoriesTree'));
 const CatalogAttributesPage = lazy(() => import('@/features/catalog/pages/attributes/AttributesPage'));
 const CatalogCategoryProperties = lazy(
@@ -108,6 +110,7 @@ const CatalogPricingEvaluationDetailPage = lazy(
 );
 const InventoryStockOnHand = lazy(() => import('@/features/inventory/pages/stock/StockOnHand'));
 const InventoryProductStockCard = lazy(() => import('@/features/inventory/pages/stock/ProductStockCard'));
+const InventoryProductMovements = lazy(() => import('@/features/inventory/pages/stock/ProductMovementsPage'));
 const InventoryAdjustmentsList = lazy(
   () => import('@/features/inventory/pages/adjustments/AdjustmentsList'),
 );
@@ -115,6 +118,9 @@ const InventoryAdjustmentForm = lazy(
   () => import('@/features/inventory/pages/adjustments/AdjustmentForm'),
 );
 const InventoryTransfersList = lazy(() => import('@/features/inventory/pages/transfers/TransfersList'));
+const InventoryCommercialRestockAlerts = lazy(
+  () => import('@/features/inventory/pages/alerts/CommercialRestockAlertsPage'),
+);
 const InventoryTransferForm = lazy(() => import('@/features/inventory/pages/transfers/TransferForm'));
 const InventoryAdhocReceiptPage = lazy(
   () => import('@/features/inventory/pages/receipts/AdhocReceiptPage'),
@@ -147,6 +153,9 @@ const InventoryProductionOrderDetail = lazy(
 );
 const InventoryStockCountFillPage = lazy(
   () => import('@/features/inventory/pages/stock-count/StockCountFillPage'),
+);
+const MyStockCountListPage = lazy(
+  () => import('@/features/inventory/pages/stock-count/MyStockCountListPage'),
 );
 const InventoryScansIndexRedirect = lazy(
   () => import('@/features/invoice_scans/pages/InventoryScansIndexRedirect'),
@@ -250,7 +259,6 @@ const AiInvoiceMatchReview = lazy(() => import('@/features/ai/pages/InvoiceMatch
 
 const PayrollRunsList = lazy(() => import('@/features/payroll/pages/runs/RunsList'));
 const PayrollRunDetail = lazy(() => import('@/features/payroll/pages/runs/RunDetail'));
-const PayrollApprovalsQueue = lazy(() => import('@/features/payroll/pages/approvals/ApprovalsQueue'));
 const PayrollOverview = lazy(() => import('@/features/payroll/pages/overview/PayrollOverview'));
 const PayrollDeductionPolicies = lazy(() => import('@/features/payroll/pages/policies/DeductionPolicies'));
 
@@ -342,6 +350,13 @@ export const router = createBrowserRouter([
           {
             path: '/my-leaves',
             element: withSuspense(MyLeavesPage),
+          },
+          {
+            path: '/my-stock-count',
+            children: [
+              { index: true, element: withSuspense(MyStockCountListPage) },
+              { path: ':sessionId', element: withSuspense(InventoryStockCountFillPage) },
+            ],
           },
           {
             path: '/correspondence',
@@ -462,22 +477,44 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: ':productId/edit',
-                    element: (
-                      <RequirePermission resource="catalog" action="update">
-                        {withSuspense(CatalogProductFormPage)}
-                      </RequirePermission>
-                    ),
+                    path: ':productId',
+                    children: [
+                      {
+                        index: true,
+                        element: (
+                          <RequirePermission resource="catalog" action="read">
+                            {withSuspense(CatalogProductFormPage)}
+                          </RequirePermission>
+                        ),
+                      },
+                      {
+                        path: 'edit',
+                        element: <Navigate to=".." replace />,
+                      },
+                    ],
                   },
                 ],
               },
               {
                 path: 'taxes',
-                element: (
-                  <RequirePermission resource="catalog" action="read">
-                    {withSuspense(CatalogTaxesList)}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="catalog" action="read">
+                        {withSuspense(CatalogTaxesList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="catalog" action="read">
+                        {withSuspense(CatalogTaxDetailPage)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'attributes',
@@ -529,6 +566,14 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="/inventory/stock" replace /> },
               {
+                path: 'stock/:productId/movements',
+                element: (
+                  <RequirePermission resource="inventory" action="read">
+                    {withSuspense(InventoryProductMovements)}
+                  </RequirePermission>
+                ),
+              },
+              {
                 path: 'stock/:productId',
                 element: (
                   <RequirePermission resource="inventory" action="read">
@@ -564,6 +609,14 @@ export const router = createBrowserRouter([
                     ),
                   },
                 ],
+              },
+              {
+                path: 'alerts',
+                element: (
+                  <RequirePermission resource="inventory" action="read">
+                    {withSuspense(InventoryCommercialRestockAlerts)}
+                  </RequirePermission>
+                ),
               },
               {
                 path: 'transfers',
@@ -1491,19 +1544,45 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'branches',
-                element: (
-                  <RequirePermission resource="branches" action="read">
-                    {withSuspense(AdminBranchesList)}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="branches" action="read">
+                        {withSuspense(AdminBranchesList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="branches" action="read">
+                        {withSuspense(AdminBranchDetail)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'terminals',
-                element: (
-                  <RequirePermission resource="terminals" action="read">
-                    {withSuspense(AdminTerminalsList)}
-                  </RequirePermission>
-                ),
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <RequirePermission resource="terminals" action="read">
+                        {withSuspense(AdminTerminalsList)}
+                      </RequirePermission>
+                    ),
+                  },
+                  {
+                    path: ':id',
+                    element: (
+                      <RequirePermission resource="terminals" action="read">
+                        {withSuspense(AdminTerminalDetail)}
+                      </RequirePermission>
+                    ),
+                  },
+                ],
               },
               {
                 path: 'backups',

@@ -59,6 +59,7 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
       className,
       disabled,
       invalid,
+      readOnly,
       ...rest
     },
     ref,
@@ -74,7 +75,9 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
       if (!focused) setDraft(value);
     }, [value, focused]);
 
-    const display = focused ? draft : formatDisplay(draft || value, locale, fractionDigits);
+    const display = readOnly || !focused
+      ? formatDisplay(draft || value, locale, fractionDigits)
+      : draft;
 
     return (
       <div className="relative w-full" {...(currency ? { dir: 'ltr' as const } : {})}>
@@ -88,21 +91,31 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
         ) : null}
         <Input
           ref={ref}
+          {...rest}
           inputMode="decimal"
           type="text"
           dir="ltr"
           value={display}
-          disabled={disabled}
+          readOnly={readOnly}
+          disabled={readOnly ? false : disabled}
+          tabIndex={readOnly ? 0 : rest.tabIndex}
           aria-invalid={invalid || rest['aria-invalid'] || undefined}
           className={cn(currency ? 'ps-[3.5rem] pe-2 text-end' : 'text-end', className)}
-          onFocus={() => {
+          onFocus={(e) => {
+            if (readOnly) {
+              rest.onFocus?.(e);
+              return;
+            }
             setFocused(true);
             setDraft(value);
+            rest.onFocus?.(e);
           }}
           onBlur={(e) => {
+            if (readOnly) {
+              rest.onBlur?.(e);
+              return;
+            }
             setFocused(false);
-            // Quantise to the requested fraction digits on blur so the
-            // canonical value always matches backend `Decimal q2`.
             try {
               const d = new Decimal(draft || '0');
               const quantised = d.toFixed(fractionDigits, Decimal.ROUND_HALF_UP);
@@ -114,11 +127,11 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
             rest.onBlur?.(e);
           }}
           onChange={(e) => {
+            if (readOnly) return;
             const next = sanitiseInput(e.target.value);
             setDraft(next);
             emit?.(next);
           }}
-          {...rest}
         />
       </div>
     );

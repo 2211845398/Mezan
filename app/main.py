@@ -48,6 +48,7 @@ from app.api.v1 import (
     health_router,
     hr_router,
     inventory_adjustments_router,
+    inventory_policies_router,
     inventory_operations_router,
     inventory_reporting_router,
     invoice_scans_router,
@@ -64,6 +65,7 @@ from app.api.v1 import (
     pricing_evaluation_router,
     production_orders_router,
     purchase_orders_router,
+    realtime_router,
     returns_router,
     roles_router,
     sales_router,
@@ -121,6 +123,8 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("POST", "/api/v1/auth/2fa/verify"),
     ("POST", "/api/v1/auth/change-password-required"),
     ("POST", "/api/v1/customers/onboarding/complete"),
+    # SSE: EventSource cannot send Authorization; JWT is validated via access_token query param.
+    ("GET", "/api/v1/realtime/events"),
 }
 
 PUBLIC_ROUTE_PATH_PREFIXES: tuple[str, ...] = (
@@ -344,6 +348,7 @@ app.include_router(pos_shifts_router, prefix="/api/v1", tags=["pos_shifts"])
 app.include_router(pos_proforma_router, prefix="/api/v1", tags=["pos_proforma"])
 app.include_router(production_orders_router, prefix="/api/v1", tags=["production_orders"])
 app.include_router(inventory_adjustments_router, prefix="/api/v1", tags=["inventory"])
+app.include_router(inventory_policies_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(inventory_reporting_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(inventory_operations_router, prefix="/api/v1", tags=["inventory"])
 app.include_router(customers_router, prefix="/api/v1", tags=["customers"])
@@ -361,6 +366,7 @@ app.include_router(loyalty_rules_router, prefix="/api/v1", tags=["loyalty"])
 app.include_router(discounts_router, prefix="/api/v1", tags=["discounts"])
 app.include_router(marketing_router, prefix="/api/v1", tags=["marketing"])
 app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])
+app.include_router(realtime_router, prefix="/api/v1", tags=["realtime"])
 app.include_router(ai_advisory_router, prefix="/api/v1", tags=["ai_advisory"])
 app.include_router(accounting_router, prefix="/api/v1", tags=["accounting"])
 app.include_router(executive_bi_router, prefix="/api/v1", tags=["executive_bi"])

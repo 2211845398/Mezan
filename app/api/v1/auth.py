@@ -388,6 +388,11 @@ async def update_me(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is required",
             )
+        if code == "first_name_required":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="First name is required",
+            )
         if code == "invalid_current_password":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -27,6 +27,9 @@ class StockCountSession(Base):
     )
     product_ids_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     responsible_name: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    assigned_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )

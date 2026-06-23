@@ -96,21 +96,52 @@ export default function ReservationsListPage() {
         { id: 'open', accessorKey: 'qty_open', header: t('movement.reserve.open_qty') },
         { id: 'reserved', accessorKey: 'qty_reserved', header: t('movement.reserve.reserved_qty') },
         {
+          id: 'source',
+          header: t('movement.reserve.source'),
+          cell: ({ row }) => {
+            const r = row.original;
+            const isTransfer = r.movement_kind === 'transfer_reserve';
+            return (
+              <div className="flex flex-col gap-0.5 text-sm">
+                <span>{isTransfer ? t('movement.reserve.source_transfer') : t('movement.reserve.source_manual')}</span>
+                {isTransfer && r.transfer_batch_id != null ? (
+                  <Link
+                    to={`/inventory/transfers/${r.transfer_batch_id}`}
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    {t('movement.reserve.transfer_link', { batchId: r.transfer_batch_id })}
+                  </Link>
+                ) : null}
+              </div>
+            );
+          },
+        },
+        {
           id: 'a',
           header: '',
-          cell: ({ row }) => (
+          cell: ({ row }) => {
+            const r = row.original;
+            if (r.releasable === false) {
+              return (
+                <span className="text-xs text-muted-foreground" title={t('movement.reserve.transfer_hint')}>
+                  {t('movement.reserve.transfer_hint')}
+                </span>
+              );
+            }
+            return (
             <Button
               type="button"
               size="sm"
               variant="outline"
               onClick={() => {
-                setReleaseRow(row.original);
-                setReleaseQty(String(row.original.qty_open));
+                setReleaseRow(r);
+                setReleaseQty(String(r.qty_open));
               }}
             >
               {t('movement.reserve.release')}
             </Button>
-          ),
+            );
+          },
         },
       ]),
     [t],

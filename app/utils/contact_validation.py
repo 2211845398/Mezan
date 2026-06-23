@@ -31,3 +31,12 @@ def validate_supplier_contact_dict(contact: dict[str, Any] | None) -> None:
     raw_email = contact.get("email")
     if raw_email is not None and str(raw_email).strip():
         parse_optional_email(raw_email)
+
+
+def require_supplier_email(contact: dict[str, Any] | None) -> None:
+    """Suppliers must have a valid contact email."""
+    if not contact:
+        raise ValueError("supplier_email_required")
+    email = parse_optional_email(contact.get("email"))
+    if not email:
+        raise ValueError("supplier_email_required")

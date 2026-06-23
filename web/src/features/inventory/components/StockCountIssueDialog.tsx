@@ -19,7 +19,7 @@ import { handleDialogFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 
 import { createStockCountSession, downloadStockCountSessionPdf } from '../api';
 import { inventoryKeys } from '../queries';
-import { WarehouseManagerCombobox } from './WarehouseManagerCombobox';
+import { StockCountAssigneeCombobox, type StockCountAssignee } from './StockCountAssigneeCombobox';
 
 const ISSUE_FORM_ID = 'stock-count-issue-form';
 
@@ -47,25 +47,26 @@ export function StockCountIssueDialog({ open, onOpenChange }: StockCountIssueDia
   const [branchId, setBranchId] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [categorySubtree, setCategorySubtree] = useState(false);
-  const [responsible, setResponsible] = useState('');
+  const [assignee, setAssignee] = useState<StockCountAssignee | null>(null);
 
   useEffect(() => {
     if (!open) {
       setBranchId(null);
       setCategoryId(null);
       setCategorySubtree(false);
-      setResponsible('');
+      setAssignee(null);
     }
   }, [open]);
 
   const issueM = useMutation({
     mutationFn: async () => {
-      if (branchId == null) throw new Error('branch');
+      if (branchId == null || assignee == null) throw new Error('branch');
       const detail = await createStockCountSession({
         branch_id: branchId,
         category_id: categoryId,
         category_include_descendants: categorySubtree,
-        responsible_name: responsible.trim(),
+        assigned_user_id: assignee.userId,
+        responsible_name: assignee.name,
       });
       await downloadStockCountSessionPdf(detail.id);
       return detail;
@@ -89,7 +90,7 @@ export function StockCountIssueDialog({ open, onOpenChange }: StockCountIssueDia
           <Button
             type="submit"
             form={ISSUE_FORM_ID}
-            disabled={issueM.isPending || branchId == null}
+            disabled={issueM.isPending || branchId == null || assignee == null}
             className={floatingFormApproveButtonClassName}
           >
             {t('movement.stock_count.issue_submit')}
@@ -111,7 +112,7 @@ export function StockCountIssueDialog({ open, onOpenChange }: StockCountIssueDia
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (issueM.isPending || branchId == null) return;
+          if (issueM.isPending || branchId == null || assignee == null) return;
           void issueM.mutate();
         }}
         onKeyDown={handleDialogFormEnterSubmit}
@@ -119,13 +120,15 @@ export function StockCountIssueDialog({ open, onOpenChange }: StockCountIssueDia
         <BranchCombobox
           label={t('adjustments.field.branch')}
           value={branchId}
-          onChange={setBranchId}
+          onChange={(id) => {
+            setBranchId(id);
+          }}
           showCode={false}
         />
-        <WarehouseManagerCombobox
+        <StockCountAssigneeCombobox
           label={t('movement.stock_count.responsible')}
-          value={responsible}
-          onChange={setResponsible}
+          value={assignee}
+          onChange={setAssignee}
         />
         <div className="space-y-2">
           <Label className="text-sm">{t('stock.filter.category')}</Label>

@@ -40,6 +40,11 @@ class AppStrings {
       );
   String get profileTwoFactorConfirm => t('تأكيد', 'Confirm');
   String get profileTwoFactorCancel => t('إلغاء', 'Cancel');
+  String get actionEdit => t('تعديل', 'Edit');
+  String get actionSave => t('حفظ', 'Save');
+  String get actionCancel => t('إلغاء', 'Cancel');
+  String get actionArchive => t('أرشفة', 'Archive');
+  String get actionDelete => t('حذف', 'Delete');
   String get signOut => t('تسجيل الخروج', 'Sign out');
 
   String get kioskTitle =>
@@ -74,6 +79,13 @@ class AppStrings {
   String get loginEmailInvalid => t('بريد غير صالح', 'Invalid email');
   String get loginPasswordRequired =>
       t('أدخل كلمة المرور', 'Enter your password');
+  String get fieldRequired => t('هذا الحقل مطلوب.', 'This field is required.');
+  String get correspondenceSubjectRequired =>
+      t('أدخل موضوع المراسلة', 'Enter a subject');
+  String get correspondenceBodyRequired =>
+      t('أدخل نص المراسلة', 'Enter a message');
+  String get twoFactorCodeRequired =>
+      t('أدخل رمز التحقق', 'Enter the verification code');
   String get loginShowPassword => t('إظهار', 'Show');
   String get loginHidePassword => t('إخفاء', 'Hide');
 
@@ -287,6 +299,8 @@ class AppStrings {
   String get leaveStatusRejected => t('مرفوض', 'Rejected');
   String leaveReviewNotes(String notes) =>
       t('ملاحظة المراجع: $notes', 'Reviewer note: $notes');
+  String get leaveReviewNotesFieldLabel =>
+      t('ملاحظة المراجع', 'Reviewer note');
 
   String get feedbackFormTitle => t('ملاحظة للموارد البشرية', 'HR feedback');
   String get feedbackCategoryLabel => t('التصنيف', 'Category');

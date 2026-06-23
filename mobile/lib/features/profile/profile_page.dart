@@ -15,7 +15,9 @@ import '../../shared/widgets/mezan_card.dart';
 import '../../shared/widgets/mezan_empty_state.dart';
 import '../../shared/widgets/mezan_error_state.dart';
 import '../../shared/widgets/mezan_loading_state.dart';
+import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'models/employee_profile.dart';
 import 'profile_controller.dart';
 import 'profile_cache.dart';
@@ -115,6 +117,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final session = context.read<AuthSession>();
     final passwordController = TextEditingController();
     var submitting = false;
+    String? sheetError;
 
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
@@ -152,6 +155,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       obscureText: true,
                     ),
                     const SizedBox(height: 16),
+                    if (sheetError != null) ...[
+                      MezanValidationAlert(message: sheetError!),
+                      const SizedBox(height: 12),
+                    ],
                     MezanButton(
                       label: strings.profileTwoFactorConfirm,
                       expand: true,
@@ -160,16 +167,15 @@ class _ProfilePageState extends State<ProfilePage> {
                           ? null
                           : () async {
                               if (passwordController.text.isEmpty) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      strings.profileTwoFactorPasswordHint,
-                                    ),
-                                  ),
-                                );
+                                setSheetState(() {
+                                  sheetError = strings.profileTwoFactorPasswordHint;
+                                });
                                 return;
                               }
-                              setSheetState(() => submitting = true);
+                              setSheetState(() {
+                                submitting = true;
+                                sheetError = null;
+                              });
                               try {
                                 await session.toggleTwoFactor(
                                   enabled: enabled,
@@ -182,10 +188,10 @@ class _ProfilePageState extends State<ProfilePage> {
                                 final message = e is ApiException
                                     ? e.message
                                     : strings.profileTwoFactorFailed;
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(content: Text(message)),
-                                );
-                                setSheetState(() => submitting = false);
+                                setSheetState(() {
+                                  sheetError = message;
+                                  submitting = false;
+                                });
                               }
                             },
                     ),
@@ -210,14 +216,11 @@ class _ProfilePageState extends State<ProfilePage> {
     passwordController.dispose();
 
     if (!mounted || confirmed != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          enabled
-              ? strings.profileTwoFactorEnabled
-              : strings.profileTwoFactorDisabled,
-        ),
-      ),
+    MezanNotify.success(
+      context,
+      enabled
+          ? strings.profileTwoFactorEnabled
+          : strings.profileTwoFactorDisabled,
     );
   }
 
@@ -277,7 +280,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _IdentityCard(profile: profile, strings: strings, ext: ext),
         const SizedBox(height: 12),
         MezanButton(
-          label: strings.profileEditTitle,
+          label: strings.actionEdit,
           icon: Icons.edit_outlined,
           variant: MezanButtonVariant.outline,
           expand: true,
@@ -395,17 +398,13 @@ class _IdentityCardState extends State<_IdentityCard> {
       await authRepo.uploadAvatar(bytes, filename);
       await profileController.load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.strings.profileAvatarUploadSuccess)),
-      );
+      MezanNotify.success(context, widget.strings.profileAvatarUploadSuccess);
     } catch (e) {
       if (!mounted) return;
       final message = e is ApiException
           ? e.message
           : widget.strings.profileAvatarUploadFailed;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      MezanNotify.error(context, message);
     } finally {
       if (mounted) setState(() => _uploading = false);
     }

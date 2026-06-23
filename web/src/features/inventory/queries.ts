@@ -1,12 +1,15 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  getInventoryPolicyOrNull,
   getProductStockCard,
   getTransferBatch,
+  listCommercialRestockAlerts,
   listReorderAlerts,
   listStockMovements,
   listStockOnHand,
   listTransferBatches,
+  patchInventoryPolicy,
 } from './api';
 import * as productionApi from './api/production';
 
@@ -17,7 +20,11 @@ export const inventoryKeys = {
   transfers: (q: Record<string, unknown>) => [...inventoryKeys.root, 'transfers', q] as const,
   transfer: (id: number) => [...inventoryKeys.root, 'transfer', id] as const,
   reorderAlerts: (q: Record<string, unknown>) => [...inventoryKeys.root, 'reorderAlerts', q] as const,
+  commercialRestockAlerts: (q: Record<string, unknown>) =>
+    [...inventoryKeys.root, 'commercialRestockAlerts', q] as const,
   stockCard: (productId: number) => [...inventoryKeys.root, 'stockCard', productId] as const,
+  policy: (branchId: number, productId: number) =>
+    [...inventoryKeys.root, 'policy', branchId, productId] as const,
   boms: () => [...inventoryKeys.root, 'production', 'boms'] as const,
   bom: (id: number) => [...inventoryKeys.root, 'production', 'bom', id] as const,
   productionOrders: (q: Record<string, unknown>) =>
@@ -41,6 +48,9 @@ export function stockOnHandQueryOptions(params: Record<string, unknown>) {
           : {}),
         ...(params.q ? { q: String(params.q) } : {}),
         ...(params.reorder_only ? { reorder_only: true } : {}),
+        ...(params.branch_kind === 'commercial' || params.branch_kind === 'warehouse'
+          ? { branch_kind: params.branch_kind as 'commercial' | 'warehouse' }
+          : {}),
         ...(params.status && params.status !== 'all' ? { status: String(params.status) } : {}),
         ...(params.sort ? { sort: String(params.sort) } : {}),
         limit: Math.min(params.limit != null ? Number(params.limit) : 100, 2000),
@@ -56,6 +66,13 @@ export function reorderAlertsQueryOptions(params: { branch_id?: number } = {}) {
   });
 }
 
+export function commercialRestockAlertsQueryOptions(params: { branch_id?: number } = {}) {
+  return queryOptions({
+    queryKey: inventoryKeys.commercialRestockAlerts(params),
+    queryFn: () => listCommercialRestockAlerts(params),
+  });
+}
+
 export function stockCardQueryOptions(productId: number) {
   return queryOptions({
     queryKey: inventoryKeys.stockCard(productId),
@@ -67,7 +84,48 @@ export function useStockOnHandQuery(params: Record<string, unknown>) {
   return useQuery(stockOnHandQueryOptions(params));
 }
 
-export function useMovementsQuery(params: { branch_id?: number; product_id?: number; limit?: number; offset?: number }) {
+export function inventoryPolicyQueryOptions(branchId: number, productId: number) {
+  return queryOptions({
+    queryKey: inventoryKeys.policy(branchId, productId),
+    queryFn: () => getInventoryPolicyOrNull(branchId, productId),
+    enabled: branchId > 0 && productId > 0,
+  });
+}
+
+export function useInventoryPolicyQuery(branchId: number | null, productId: number) {
+  const bid = branchId ?? 0;
+  return useQuery({
+    ...inventoryPolicyQueryOptions(bid, productId),
+    enabled: branchId != null && branchId > 0 && productId > 0,
+  });
+}
+
+export function usePatchInventoryPolicyMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      branchId,
+      productId,
+      body,
+    }: {
+      branchId: number;
+      productId: number;
+      body: Parameters<typeof patchInventoryPolicy>[2];
+    }) => patchInventoryPolicy(branchId, productId, body),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: inventoryKeys.policy(vars.branchId, vars.productId) });
+      void qc.invalidateQueries({ queryKey: inventoryKeys.root });
+    },
+  });
+}
+
+export function useMovementsQuery(params: {
+  branch_id?: number;
+  product_id?: number;
+  variant_id?: number;
+  limit?: number;
+  offset?: number;
+}) {
   return useQuery({
     queryKey: inventoryKeys.movements(params),
     queryFn: () => listStockMovements({ ...params, limit: params.limit ?? 100, offset: params.offset ?? 0 }),
@@ -91,6 +149,10 @@ export function useTransferQuery(id: number | null) {
 
 export function useReorderAlertsQuery(params: { branch_id?: number } = {}) {
   return useQuery(reorderAlertsQueryOptions(params));
+}
+
+export function useCommercialRestockAlertsQuery(params: { branch_id?: number } = {}) {
+  return useQuery(commercialRestockAlertsQueryOptions(params));
 }
 
 export function useStockCardQuery(productId: number | null) {

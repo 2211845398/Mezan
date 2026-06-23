@@ -10,7 +10,15 @@ import {
   FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -20,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { handleDialogFormEnterSubmit } from '@/lib/formSubmitOnEnter';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import type { BranchRead } from '../../types';
 
@@ -72,6 +81,10 @@ export function BranchForm({
     }
   }, [branch, mode, form, open]);
 
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['code', 'name', 'kind', 'timezone', 'address'],
+  });
+
   return (
     <FloatingFormDialog
       open={open}
@@ -104,7 +117,7 @@ export function BranchForm({
         <form
           id={BRANCH_FORM_ID}
           onKeyDown={handleDialogFormEnterSubmit}
-          onSubmit={form.handleSubmit((v) => onSubmit({ ...v, address: v.address || null }))}
+          onSubmit={form.handleSubmit((v) => onSubmit({ ...v, address: v.address || null }), onInvalid)}
           className="space-y-3"
         >
           <FormField
@@ -179,6 +192,7 @@ export function BranchForm({
               </FormItem>
             )}
           />
+          <FormValidationAlert />
         </form>
       </Form>
     </FloatingFormDialog>

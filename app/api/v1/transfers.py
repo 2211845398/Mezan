@@ -32,6 +32,7 @@ from app.services.transfer_service import (
     receive_batch,
     update_pending_batch,
 )
+from app.services.realtime_nav_badges import emit_inventory_stock_badges_invalidate
 from app.utils.person_name import person_name_sql_expr
 from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 
@@ -173,6 +174,7 @@ async def create_transfer_batch_endpoint(
         request=request,
     )
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
     enriched = await _transfer_batches_to_read(db, [batch])
     return enriched[0]
 
@@ -209,6 +211,7 @@ async def update_transfer_batch_endpoint(
         request=request,
     )
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
     enriched = await _transfer_batches_to_read(db, [batch])
     return enriched[0]
 
@@ -248,6 +251,7 @@ async def cancel_transfer_batch_endpoint(
         request=request,
     )
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
 
 
 @router.post("/transfers/{batch_id}/dispatch", response_model=TransferBatchRead)
@@ -274,6 +278,7 @@ async def dispatch_transfer_batch_endpoint(
         request=request,
     )
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
     enriched = await _transfer_batches_to_read(db, [batch])
     return enriched[0]
 

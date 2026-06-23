@@ -17,6 +17,8 @@ class MezanTextField extends StatelessWidget {
     this.errorText,
     this.textInputAction,
     this.suffixIcon,
+    this.readOnly = false,
+    this.enabled = true,
   });
 
   final TextEditingController? controller;
@@ -31,10 +33,13 @@ class MezanTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final String? errorText;
   final TextInputAction? textInputAction;
+  final bool readOnly;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final ext = MezanThemeExtension.of(context);
+    final ext = Theme.of(context).extension<MezanThemeExtension>();
+    final flatReadOnly = readOnly || !enabled;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -51,14 +56,22 @@ class MezanTextField extends StatelessWidget {
           onFieldSubmitted: onSubmitted,
           textInputAction: textInputAction,
           validator: validator,
+          readOnly: readOnly,
+          enabled: enabled,
           style: Theme.of(context).textTheme.bodyMedium,
           decoration: InputDecoration(
             hintText: hint,
             suffixIcon: suffixIcon,
             errorText: errorText,
-            errorStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: ext.destructive,
-                ),
+            errorStyle: const TextStyle(fontSize: 0, height: 0),
+            filled: flatReadOnly,
+            fillColor: flatReadOnly
+                ? ext?.muted.withValues(alpha: 0.35)
+                : null,
+            border: flatReadOnly ? InputBorder.none : null,
+            enabledBorder: flatReadOnly ? InputBorder.none : null,
+            focusedBorder: flatReadOnly ? InputBorder.none : null,
+            disabledBorder: flatReadOnly ? InputBorder.none : null,
           ),
         ),
       ],

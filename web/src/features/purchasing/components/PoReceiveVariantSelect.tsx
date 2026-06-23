@@ -36,7 +36,7 @@ export default function PoReceiveVariantSelect({
         product_id: productId,
         q: search,
         limit: 200,
-        priced_only: pricedOnly || undefined,
+        priced_only: !!pricedOnly,
       }),
     enabled: productId > 0,
     staleTime: 15_000,

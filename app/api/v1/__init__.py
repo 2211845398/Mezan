@@ -24,6 +24,7 @@ from app.api.v1.goods_receipts import router as goods_receipts_router
 from app.api.v1.health import router as health_router
 from app.api.v1.hr import router as hr_router
 from app.api.v1.inventory_adjustments import router as inventory_adjustments_router
+from app.api.v1.inventory_policies import router as inventory_policies_router
 from app.api.v1.inventory_operations import router as inventory_operations_router
 from app.api.v1.inventory_reporting import router as inventory_reporting_router
 from app.api.v1.invoice_scans import router as invoice_scans_router
@@ -40,6 +41,7 @@ from app.api.v1.price_lists import router as price_lists_router
 from app.api.v1.pricing_evaluation import router as pricing_evaluation_router
 from app.api.v1.production_orders import router as production_orders_router
 from app.api.v1.purchase_orders import router as purchase_orders_router
+from app.api.v1.realtime import router as realtime_router
 from app.api.v1.returns import router as returns_router
 from app.api.v1.roles import router as roles_router
 from app.api.v1.sales import router as sales_router
@@ -72,6 +74,7 @@ __all__ = [
     "health_router",
     "hr_router",
     "inventory_adjustments_router",
+    "inventory_policies_router",
     "inventory_operations_router",
     "inventory_reporting_router",
     "invoice_scans_router",
@@ -88,6 +91,7 @@ __all__ = [
     "pos_shifts_router",
     "production_orders_router",
     "purchase_orders_router",
+    "realtime_router",
     "returns_router",
     "roles_router",
     "sales_router",

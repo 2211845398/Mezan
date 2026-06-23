@@ -47,6 +47,11 @@ from app.schemas.employees import (
 )
 from app.core.errors import StateTransitionError, ValidationError
 from app.utils.request_locale import resolve_request_locale
+from app.schemas.stock_count import (
+    StockCountLinesPatch,
+    StockCountSessionDetailRead,
+    StockCountSessionRead,
+)
 from app.services import audit_service
 from app.services.attendance_device_service import (
     consume_attendance_qr_device,
@@ -84,6 +89,14 @@ from app.services.employee_service import (
     soft_delete_leave_request,
     update_employee_profile,
     update_weekly_schedule,
+)
+from app.services.realtime_nav_badges import emit_leave_nav_badges_invalidate
+from app.services.stock_count_pdf_service import export_stock_count_pdf_from_session
+from app.utils.content_disposition import attachment_content_disposition
+from app.services.stock_count_session_service import (
+    get_my_stock_count_session,
+    list_my_stock_count_sessions,
+    patch_my_stock_count_lines,
 )
 from app.services.notifications.service import (
     dispatch_delivery_after_commit,
@@ -156,6 +169,7 @@ async def _finalize_created_leave_request(
         await dispatch_delivery_after_commit(
             delivery_id, default_push_provider=settings.PUSH_PROVIDER
         )
+    await emit_leave_nav_badges_invalidate()
     return reads[0]
 
 
@@ -823,7 +837,7 @@ async def export_attendance_pdf_endpoint(
     return Response(
         content=content,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_content_disposition(filename)},
     )
 
 
@@ -850,7 +864,7 @@ async def export_attendance_xlsx_endpoint(
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_content_disposition(filename)},
     )
 
 
@@ -929,7 +943,7 @@ async def export_leave_requests_pdf_endpoint(
     return Response(
         content=content,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_content_disposition(filename)},
     )
 
 
@@ -952,7 +966,7 @@ async def export_leave_requests_xlsx_endpoint(
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_content_disposition(filename)},
     )
 
 
@@ -1013,6 +1027,7 @@ async def review_leave_request_endpoint(
         await dispatch_delivery_after_commit(
             delivery_id, default_push_provider=settings.PUSH_PROVIDER
         )
+    await emit_leave_nav_badges_invalidate()
     return reads[0]
 
 
@@ -1034,3 +1049,73 @@ async def delete_leave_request_endpoint(
         request=request,
     )
     await db.commit()
+    await emit_leave_nav_badges_invalidate()
+
+
+@router.get(
+    "/employees/me/stock-count-sessions",
+    response_model=list[StockCountSessionRead],
+)
+async def list_my_stock_count_sessions_endpoint(
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> list[StockCountSessionRead]:
+    return await list_my_stock_count_sessions(db, user_id=current_user.id, limit=limit)
+
+
+@router.get(
+    "/employees/me/stock-count-sessions/{session_id}",
+    response_model=StockCountSessionDetailRead,
+)
+async def get_my_stock_count_session_endpoint(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> StockCountSessionDetailRead:
+    return await get_my_stock_count_session(
+        db, session_id=session_id, user_id=current_user.id
+    )
+
+
+@router.patch(
+    "/employees/me/stock-count-sessions/{session_id}/lines",
+    response_model=StockCountSessionDetailRead,
+)
+async def patch_my_stock_count_lines_endpoint(
+    session_id: int,
+    body: StockCountLinesPatch,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> StockCountSessionDetailRead:
+    detail = await patch_my_stock_count_lines(
+        db,
+        session_id=session_id,
+        user_id=current_user.id,
+        updates=body.lines,
+    )
+    await db.commit()
+    return detail
+
+
+@router.get("/employees/me/stock-count-sessions/{session_id}/pdf")
+async def export_my_stock_count_session_pdf_endpoint(
+    session_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> Response:
+    await get_my_stock_count_session(db, session_id=session_id, user_id=current_user.id)
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    pdf_bytes, filename = await export_stock_count_pdf_from_session(
+        db, session_id=session_id, locale=locale
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": attachment_content_disposition(filename)},
+    )

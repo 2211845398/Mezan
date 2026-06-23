@@ -14,6 +14,7 @@ from app.db.database import get_db
 from app.models.users import User
 from app.schemas.accounting import (
     ApOpenItemCreate,
+    ApSupplierBalanceRead,
     ArOpenItemCreate,
     BalanceSheetRead,
     BranchFinancialSnapshotRead,
@@ -83,6 +84,7 @@ from app.services.subledger_service import (
     create_ap_open_item,
     create_ar_open_item,
     list_ap_open_items,
+    list_ap_supplier_balances,
     list_ar_open_items,
     serialize_ap_item,
     serialize_ar_item,
@@ -529,15 +531,29 @@ async def create_ap_open_item_endpoint(
     return OpenItemRead.model_validate(serialized)
 
 
+@router.get("/accounting/ap/supplier-balances", response_model=list[ApSupplierBalanceRead])
+async def list_ap_supplier_balances_endpoint(
+    branch_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("accounting", "read"),
+) -> list[ApSupplierBalanceRead]:
+    rows = await list_ap_supplier_balances(db, branch_id=branch_id)
+    return [ApSupplierBalanceRead.model_validate(r) for r in rows]
+
+
 @router.get("/accounting/ap/open-items", response_model=list[OpenItemRead])
 async def list_ap_open_items_endpoint(
     branch_id: int | None = Query(default=None),
     status: str | None = Query(default=None),
+    supplier_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
     __: None = require_permission("accounting", "read"),
 ) -> list[OpenItemRead]:
-    rows = await list_ap_open_items(db, branch_id=branch_id, status=status)
+    rows = await list_ap_open_items(
+        db, branch_id=branch_id, status=status, supplier_id=supplier_id
+    )
     return [OpenItemRead.model_validate(serialize_ap_item(r)) for r in rows]
 
 

@@ -1,47 +1,74 @@
 import { describe, expect, it } from 'vitest';
 
-import { getFirstErrorFieldName, hasFieldError, invalidFieldClass } from '../formValidation';
+import { localizedValidationItemMessage } from '@/api/errorMessages';
+import {
+  collectValidationToasts,
+  mapClientFieldErrorMessage,
+} from '@/lib/formValidation';
+import i18n from '@/i18n';
 
-describe('getFirstErrorFieldName', () => {
-  it('returns first field in display order', () => {
-    const errors = {
-      bank_account: { message: 'iban_invalid', type: 'custom' },
-      hire_date: { message: 'Required', type: 'too_small' },
-    };
-    const order = ['hire_date', 'base_salary', 'hourly_rate', 'bank_account'];
-    expect(getFirstErrorFieldName(errors, order)).toBe('hire_date');
+describe('localizedValidationItemMessage', () => {
+  it('maps normalized required code to validation_required', () => {
+    const t = i18n.getFixedT('ar', 'common');
+    const msg = localizedValidationItemMessage(
+      { code: 'required', field: 'email', path: 'email', msg: 'Field required', type: 'missing' },
+      t,
+    );
+    expect(msg).toBe(t('errors.validation_required'));
   });
 
-  it('skips fields without errors in order list', () => {
-    const errors = {
-      bank_account: { message: 'iban_invalid', type: 'custom' },
-    };
-    const order = ['hire_date', 'bank_account'];
-    expect(getFirstErrorFieldName(errors, order)).toBe('bank_account');
-  });
-
-  it('falls back to object key order when no order provided', () => {
-    const errors = {
-      hourly_rate: { message: 'base_or_hourly', type: 'custom' },
-    };
-    expect(getFirstErrorFieldName(errors)).toBe('hourly_rate');
+  it('maps normalized invalid_email code', () => {
+    const t = i18n.getFixedT('en', 'common');
+    const msg = localizedValidationItemMessage(
+      {
+        code: 'invalid_email',
+        field: 'email',
+        path: 'email',
+        msg: 'value is not a valid email',
+        type: 'value_error.email',
+      },
+      t,
+    );
+    expect(msg).toBe(t('errors.validation_email'));
   });
 });
 
-describe('invalidFieldClass', () => {
-  it('returns destructive border classes after failed submit', () => {
-    const errors = { bank_account: { message: 'iban_invalid', type: 'custom' } };
-    expect(invalidFieldClass(errors, 'bank_account', true)).toContain('border-destructive');
-    expect(invalidFieldClass(errors, 'bank_account', true)).toContain('focus-visible:border-destructive');
-    expect(hasFieldError(errors, 'bank_account')).toBe(true);
+describe('formValidation helpers', () => {
+  it('maps client required messages', () => {
+    const t = i18n.getFixedT('ar', 'common');
+    expect(mapClientFieldErrorMessage({ type: 'custom', message: 'Required' }, t)).toBe(
+      t('errors.validation_required'),
+    );
   });
 
-  it('returns empty before submit even if errors exist', () => {
-    const errors = { bank_account: { message: 'iban_invalid', type: 'custom' } };
-    expect(invalidFieldClass(errors, 'bank_account', false)).toBe('');
+  it('maps client email invalid messages', () => {
+    const t = i18n.getFixedT('ar', 'common');
+    expect(
+      mapClientFieldErrorMessage({ type: 'custom', message: 'Invalid email' }, t),
+    ).toBe(t('errors.validation_email_invalid'));
   });
 
-  it('returns empty string when field has no error', () => {
-    expect(invalidFieldClass({}, 'bank_account', true)).toBe('');
+  it('collects localized email invalid messages from schema copy', () => {
+    const tc = i18n.getFixedT('ar', 'common');
+    const message = tc('errors.validation_email_invalid');
+    const messages = collectValidationToasts(
+      { contact_email: { type: 'custom', message } },
+      tc,
+      ['contact_email'],
+    );
+    expect(messages).toEqual([message]);
+  });
+
+  it('collects unique validation messages in field order', () => {
+    const t = i18n.getFixedT('en', 'common');
+    const messages = collectValidationToasts(
+      {
+        email: { type: 'custom', message: 'Required' },
+        password: { type: 'custom', message: 'Required' },
+      },
+      t,
+      ['email', 'password'],
+    );
+    expect(messages).toEqual([t('errors.validation_required')]);
   });
 });

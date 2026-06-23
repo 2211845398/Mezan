@@ -12,9 +12,19 @@ import {
   FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { notify } from '@/lib/toast';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import type { AttendanceDeviceRead } from '../../attendanceDevices/api';
 import { useCreateAttendanceDevice, useUpdateAttendanceDevice } from '../../attendanceDevices/queries';
@@ -92,6 +102,10 @@ export function AttendanceDeviceForm({ open, onOpenChange, device }: Props) {
     }
   }, [open, device, form]);
 
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['name', 'branch_id', 'kiosk_email', 'kiosk_password'],
+  });
+
   return (
     <FloatingFormDialog
       open={open}
@@ -154,7 +168,7 @@ export function AttendanceDeviceForm({ open, onOpenChange, device }: Props) {
               applyApiErrorToForm(form, error);
               notifyApiError(error, t('attendanceDevices.createFailed'));
             }
-          })}
+          }, onInvalid)}
         >
           <FormField
             control={form.control}
@@ -211,13 +225,14 @@ export function AttendanceDeviceForm({ open, onOpenChange, device }: Props) {
                       : t('attendanceDevices.kioskPassword')}
                   </FormLabel>
                   <FormControl>
-                    <Input {...field} type="password" autoComplete="new-password" />
+                    <PasswordInput {...field} autoComplete="new-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
+          <FormValidationAlert />
         </form>
       </Form>
     </FloatingFormDialog>

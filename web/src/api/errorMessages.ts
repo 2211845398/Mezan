@@ -9,6 +9,10 @@ type BackendFieldError = {
   loc?: unknown;
   msg?: unknown;
   type?: unknown;
+  code?: unknown;
+  path?: unknown;
+  field?: unknown;
+  params?: unknown;
 };
 
 type FieldErrorMap = Record<string, string>;
@@ -48,8 +52,21 @@ export function localizedValidationItemMessage(
   item: BackendFieldError,
   t: TFunction<'common'>,
 ): string {
+  const stableCode = typeof item.code === 'string' ? item.code : '';
+  if (stableCode === 'required') return t('errors.validation_required');
+  if (stableCode === 'invalid_email') return t('errors.validation_email');
+  if (stableCode === 'min_length') return t('errors.validation_password_short');
+
+  const pathField =
+    typeof item.field === 'string' && item.field
+      ? item.field
+      : typeof item.path === 'string' && item.path
+        ? item.path.split('.').pop() ?? ''
+        : '';
   const loc = item.loc;
-  const field = Array.isArray(loc) ? String(loc[loc.length - 1] ?? '') : '';
+  const field =
+    pathField ||
+    (Array.isArray(loc) ? String(loc[loc.length - 1] ?? '') : '');
   const typ = typeof item.type === 'string' ? item.type : '';
   const rawMsg = typeof item.msg === 'string' ? item.msg : '';
 
@@ -90,12 +107,17 @@ function fieldPathFromLoc(loc: unknown): string | null {
   return parts.map(String).join('.');
 }
 
+function fieldPathFromItem(item: BackendFieldError): string | null {
+  if (typeof item.path === 'string' && item.path.trim()) return item.path.trim();
+  return fieldPathFromLoc(item.loc);
+}
+
 export function fieldErrorsFromApiError(error: unknown): FieldErrorMap {
   if (!(error instanceof ValidationError)) return {};
 
   const out: FieldErrorMap = {};
   for (const item of validationItems(error.details)) {
-    const path = fieldPathFromLoc(item.loc);
+    const path = fieldPathFromItem(item);
     const message = typeof item.msg === 'string' ? item.msg : null;
     if (path && message) out[path] = message;
   }
@@ -111,7 +133,7 @@ export function fieldErrorsFromApiErrorLocalized(
 
   const out: FieldErrorMap = {};
   for (const item of validationItems(error.details)) {
-    const path = fieldPathFromLoc(item.loc);
+    const path = fieldPathFromItem(item);
     if (!path) continue;
     out[path] = localizedValidationItemMessage(item, t);
   }

@@ -234,7 +234,11 @@
     "apply_ok": "Payment applied"
   },
   "ap": {
-    "title": "AP open items",
+    "title": "Accounts payable",
+    "tab": {
+      "suppliers": "Supplier balances",
+      "items": "Open items"
+    },
     "col": {
       "ref": "Reference",
       "description": "Description",
@@ -243,9 +247,16 @@
       "days_overdue": "Days overdue",
       "open": "Open amount",
       "source": "Source",
-      "status": "Status"
+      "status": "Status",
+      "supplier": "Supplier",
+      "supplier_code": "Code",
+      "balance": "Balance due"
     },
     "filter_status": "Status",
+    "filter_supplier": "Supplier",
+    "all_suppliers": "All suppliers",
+    "view_statement": "View statement",
+    "empty_suppliers": "No open supplier balances",
     "status": {
       "open": "Open",
       "closed": "Closed",

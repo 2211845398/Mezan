@@ -14,6 +14,7 @@ class InventoryPolicyRead(BaseModel):
     preferred_supplier_id: int | None
     lead_time_days: int | None
     is_active: bool
+    is_custom_policy: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -8,7 +8,9 @@ import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
 import '../../shared/widgets/mezan_empty_state.dart';
 import '../../shared/widgets/mezan_loading_state.dart';
+import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'correspondence_repository.dart';
 import 'correspondence_thread_page.dart';
 import 'models/correspondence_thread.dart';
@@ -30,6 +32,7 @@ class _CorrespondenceTabState extends State<CorrespondenceTab> {
   String _targetRole = 'HR_MANAGER';
   var _showForm = false;
   var _sending = false;
+  String? _validationError;
 
   @override
   void initState() {
@@ -67,8 +70,20 @@ class _CorrespondenceTabState extends State<CorrespondenceTab> {
 
   Future<void> _submit() async {
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
-    if (_subject.text.trim().length < 2 || _body.text.trim().length < 3) return;
-    setState(() => _sending = true);
+    final subject = _subject.text.trim();
+    final body = _body.text.trim();
+    if (subject.length < 2) {
+      setState(() => _validationError = strings.correspondenceSubjectRequired);
+      return;
+    }
+    if (body.length < 3) {
+      setState(() => _validationError = strings.correspondenceBodyRequired);
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _validationError = null;
+    });
     try {
       await context.read<CorrespondenceRepository>().createThread(
             subject: _subject.text.trim(),
@@ -81,16 +96,10 @@ class _CorrespondenceTabState extends State<CorrespondenceTab> {
       setState(() => _showForm = false);
       await _load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.correspondenceSent)),
-      );
+      MezanNotify.success(context, strings.correspondenceSent);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e is ApiException ? e.message : 'Network error'),
-        ),
-      );
+      setState(() => _validationError = e is ApiException ? e.message : strings.errorNetwork);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -150,6 +159,10 @@ class _CorrespondenceTabState extends State<CorrespondenceTab> {
                   maxLines: 4,
                 ),
                 const SizedBox(height: 12),
+                if (_validationError != null) ...[
+                  MezanValidationAlert(message: _validationError!),
+                  const SizedBox(height: 12),
+                ],
                 MezanButton(
                   label: strings.correspondenceSend,
                   expand: true,

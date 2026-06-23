@@ -9,7 +9,9 @@ import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
 import '../../shared/widgets/mezan_error_state.dart';
 import '../../shared/widgets/mezan_number_text.dart';
+import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import '../requests/requests_controller.dart';
 
 class CreateLeaveRequestPage extends StatefulWidget {
@@ -25,6 +27,7 @@ class _CreateLeaveRequestPageState extends State<CreateLeaveRequestPage> {
   String _leaveType = 'vacation';
   DateTime? _startDate;
   DateTime? _endDate;
+  String? _validationError;
 
   @override
   void dispose() {
@@ -63,14 +66,12 @@ class _CreateLeaveRequestPageState extends State<CreateLeaveRequestPage> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
     if (_startDate == null || _endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.leaveDatesRequired)),
-      );
+      setState(() => _validationError = strings.leaveDatesRequired);
       return;
     }
+    setState(() => _validationError = null);
     final controller = context.read<RequestsController>();
     final ok = await controller.submitLeave(
       leaveType: _leaveType,
@@ -80,9 +81,7 @@ class _CreateLeaveRequestPageState extends State<CreateLeaveRequestPage> {
     );
     if (!mounted || !ok) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(strings.leaveSubmitSuccess)),
-    );
+    MezanNotify.success(context, strings.leaveSubmitSuccess);
     context.pop(true);
   }
 
@@ -178,6 +177,10 @@ class _CreateLeaveRequestPageState extends State<CreateLeaveRequestPage> {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 16),
+                  if (_validationError != null) ...[
+                    MezanValidationAlert(message: _validationError!),
+                    const SizedBox(height: 12),
+                  ],
                   MezanButton(
                     label: strings.leaveSubmitButton,
                     expand: true,

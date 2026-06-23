@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/i18n/app_strings.dart';
+import '../../core/validation/form_validation.dart';
 import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
-import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'auth_repository.dart';
 import 'password_reset_otp_page.dart';
 
@@ -19,6 +20,7 @@ class ForgotPasswordPage extends StatefulWidget {
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _emailController = TextEditingController();
   var _submitting = false;
+  String? _validationError;
 
   @override
   void dispose() {
@@ -27,12 +29,27 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Future<void> _submit() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty || !email.contains('@')) return;
-    setState(() => _submitting = true);
+    final strings = AppStrings(Localizations.localeOf(context).languageCode);
+    final validationError = FormValidation.firstError([
+      FormValidation.email(
+        _emailController.text,
+        requiredMessage: strings.loginEmailRequired,
+        invalidMessage: strings.loginEmailInvalid,
+      ),
+    ]);
+    if (validationError != null) {
+      setState(() => _validationError = validationError);
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _validationError = null;
+    });
     try {
       final challengeToken =
-          await context.read<AuthRepository>().requestPasswordReset(email);
+          await context.read<AuthRepository>().requestPasswordReset(
+                _emailController.text.trim(),
+              );
       if (!mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
@@ -41,10 +58,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       );
     } catch (_) {
       if (!mounted) return;
-      MezanNotify.error(
-        context,
-        AppStrings(Localizations.localeOf(context).languageCode).forgotPasswordFailed,
-      );
+      setState(() => _validationError = strings.forgotPasswordFailed);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -75,6 +89,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 16),
+                    if (_validationError != null) ...[
+                      MezanValidationAlert(message: _validationError!),
+                      const SizedBox(height: 12),
+                    ],
                     MezanButton(
                       label: strings.forgotPasswordSubmit,
                       expand: true,

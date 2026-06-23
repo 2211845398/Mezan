@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
@@ -15,6 +16,7 @@ import { AttendanceDeviceForm } from './AttendanceDeviceForm';
 
 export default function AttendanceDevicesList() {
   const { t } = useTranslation('hr');
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: devices = [], isLoading, isError, refetch } = useAttendanceDevices();
   const canCreate = usePermission('attendance_devices', 'create');
   const canUpdate = usePermission('attendance_devices', 'update');
@@ -22,6 +24,19 @@ export default function AttendanceDevicesList() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editDevice, setEditDevice] = useState<AttendanceDeviceRead | null>(null);
+
+  const rawEdit = searchParams.get('edit');
+  const editIdFromUrl =
+    rawEdit && /^\d+$/.test(rawEdit) ? Number.parseInt(rawEdit, 10) : null;
+
+  useEffect(() => {
+    if (editIdFromUrl == null || editIdFromUrl <= 0) return;
+    const device = devices.find((d) => d.id === editIdFromUrl);
+    if (device) {
+      setEditDevice(device);
+      setFormOpen(true);
+    }
+  }, [editIdFromUrl, devices]);
 
   const columns = useMemo(
     () =>
@@ -44,6 +59,7 @@ export default function AttendanceDevicesList() {
           cell: ({ row }) =>
             canUpdate ? (
               <Switch
+                data-stop-row-click
                 checked={row.original.is_active}
                 onCheckedChange={(checked) => {
                   void updateMutation
@@ -58,29 +74,24 @@ export default function AttendanceDevicesList() {
               t('attendanceDevices.no')
             ),
         },
-        ...(canUpdate
-          ? [
-              {
-                id: 'edit',
-                header: '',
-                cell: ({ row }: { row: { original: AttendanceDeviceRead } }) => (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditDevice(row.original);
-                      setFormOpen(true);
-                    }}
-                  >
-                    {t('attendanceDevices.edit')}
-                  </Button>
-                ),
-              },
-            ]
-          : []),
       ]),
     [t, canUpdate, updateMutation],
   );
+
+  function closeForm() {
+    setFormOpen(false);
+    setEditDevice(null);
+    if (searchParams.has('edit')) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('edit');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }
 
   return (
     <div className="p-4">
@@ -107,11 +118,15 @@ export default function AttendanceDevicesList() {
         isError={isError}
         onRetry={() => void refetch()}
         emptyState={<p className="text-muted-foreground text-sm">{t('attendanceDevices.empty')}</p>}
+        getRowHref={(row) => `/hr/attendance/devices?edit=${row.id}`}
       />
 
       <AttendanceDeviceForm
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={(open) => {
+          if (!open) closeForm();
+          else setFormOpen(true);
+        }}
         device={editDevice}
       />
     </div>

@@ -6,8 +6,9 @@ import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
 import { cn } from '@/lib/utils';
 
 const PasswordInput = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
-  ({ className, dir = 'ltr', ...props }, ref) => {
-    const { t } = useTranslation('auth');
+  ({ className, dir, ...props }, ref) => {
+    const { t, i18n } = useTranslation('auth');
+    const resolvedDir = dir ?? i18n.dir();
     const [visible, setVisible] = React.useState(false);
 
     const showLabel = t('password.show');
@@ -18,15 +19,20 @@ const PasswordInput = React.forwardRef<HTMLInputElement, React.ComponentProps<'i
         <input
           type={visible ? 'text' : 'password'}
           data-password-input=""
-          dir={dir}
-          className={cn(MEZ_AUTH_INPUT_CLASS, 'pr-10', className)}
+          dir={resolvedDir}
+          className={cn(
+            MEZ_AUTH_INPUT_CLASS,
+            'pe-10',
+            resolvedDir === 'rtl' && 'text-end',
+            className,
+          )}
           ref={ref}
           {...props}
         />
         <button
           type="button"
           tabIndex={-1}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+          className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? hideLabel : showLabel}
           aria-pressed={visible}

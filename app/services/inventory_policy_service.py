@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
 from app.models.inventory_policy import InventoryPolicy
+from app.schemas.inventory_policy import InventoryPolicyRead
 
 
 async def get_policy(
@@ -67,6 +68,25 @@ async def upsert_policy(
     await db.flush()
     await db.refresh(row)
     return row
+
+
+def default_policy_read(*, branch_id: int, product_id: int) -> InventoryPolicyRead:
+    """Synthetic policy when no branch+product row exists yet."""
+    return InventoryPolicyRead(
+        id=0,
+        branch_id=branch_id,
+        product_id=product_id,
+        reorder_point=0,
+        reorder_qty=0,
+        preferred_supplier_id=None,
+        lead_time_days=None,
+        is_active=True,
+        is_custom_policy=False,
+    )
+
+
+def policy_to_read(row: InventoryPolicy) -> InventoryPolicyRead:
+    return InventoryPolicyRead.model_validate(row).model_copy(update={"is_custom_policy": True})
 
 
 async def require_policy(db: AsyncSession, *, branch_id: int, product_id: int) -> InventoryPolicy:

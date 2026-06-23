@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -8,7 +9,7 @@ import {
 
 describe('formSubmitOnEnter', () => {
   it('handleFormEnterSubmit submits when form is inside a dialog', () => {
-    const onSubmit = vi.fn((e: SubmitEvent) => e.preventDefault());
+    const onSubmit = vi.fn((e: FormEvent<HTMLFormElement>) => e.preventDefault());
     render(
       <div role="dialog">
         <form onSubmit={onSubmit} onKeyDown={handleFormEnterSubmit}>
@@ -23,7 +24,7 @@ describe('formSubmitOnEnter', () => {
   });
 
   it('handleFormEnterSubmit ignores Enter in textarea', () => {
-    const onSubmit = vi.fn((e: SubmitEvent) => e.preventDefault());
+    const onSubmit = vi.fn((e: FormEvent<HTMLFormElement>) => e.preventDefault());
     render(
       <form onSubmit={onSubmit} onKeyDown={handleFormEnterSubmit}>
         <textarea aria-label="notes" />
@@ -35,7 +36,7 @@ describe('formSubmitOnEnter', () => {
   });
 
   it('handleContainerEnterSubmit finds nested form and submits', () => {
-    const onSubmit = vi.fn((e: SubmitEvent) => e.preventDefault());
+    const onSubmit = vi.fn((e: FormEvent<HTMLFormElement>) => e.preventDefault());
     render(
       <div role="dialog" onKeyDown={handleContainerEnterSubmit}>
         <form onSubmit={onSubmit}>

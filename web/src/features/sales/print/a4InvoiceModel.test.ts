@@ -20,6 +20,7 @@ describe('a4ModelFromInvoiceDetail', () => {
       discount_total: '0',
       tax_total: '10.00',
       total: '110.00',
+      amount_paid: '110.00',
       created_at: '2026-05-01T12:00:00Z',
       voided_at: null,
       void_reason: null,

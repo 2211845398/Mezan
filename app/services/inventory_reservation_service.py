@@ -10,12 +10,22 @@ from app.models.branch import Branch
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.stock_movement import StockMovement
+from app.models.transfer_batch import TransferBatch
 from app.schemas.inventory_operations import ReservationRead
 from app.services.inventory_human_movement_service import (
     _released_qty_for_reserve,
     apply_human_inventory_movement,
 )
 from app.utils.variant_display import variant_value_labels_summary
+
+
+def _transfer_batch_id(mv: StockMovement) -> int | None:
+    if mv.ref_type != "transfer_batch" or not mv.ref_id:
+        return None
+    try:
+        return int(mv.ref_id)
+    except (TypeError, ValueError):
+        return None
 
 
 async def list_open_reservations(
@@ -30,7 +40,7 @@ async def list_open_reservations(
         .join(Product, Product.id == StockMovement.product_id)
         .join(ProductVariant, ProductVariant.id == StockMovement.variant_id)
         .where(
-            StockMovement.movement_kind == "reserve",
+            StockMovement.movement_kind.in_(["reserve", "transfer_reserve"]),
             StockMovement.reserved_delta.isnot(None),
             StockMovement.reserved_delta > 0,
         )
@@ -44,8 +54,22 @@ async def list_open_reservations(
     out: list[ReservationRead] = []
     for mv, branch_name, product_name, pv in res.all():
         reserved = int(mv.reserved_delta or 0)
-        released = await _released_qty_for_reserve(db, reserve_movement_id=mv.id)
-        open_qty = reserved - released
+        kind = (mv.movement_kind or "").strip()
+        transfer_batch_id = _transfer_batch_id(mv)
+        releasable = kind == "reserve"
+
+        if kind == "transfer_reserve":
+            if transfer_batch_id is None:
+                continue
+            batch = await db.get(TransferBatch, transfer_batch_id)
+            if batch is None or batch.status != "pending_dispatch":
+                continue
+            released = 0
+            open_qty = reserved
+        else:
+            released = await _released_qty_for_reserve(db, reserve_movement_id=mv.id)
+            open_qty = reserved - released
+
         if open_qty <= 0:
             continue
         ref = (pv.reference_code or "").strip()
@@ -64,6 +88,11 @@ async def list_open_reservations(
                 qty_open=open_qty,
                 created_at=mv.created_at.isoformat(),
                 notes=mv.notes,
+                movement_kind=kind,
+                ref_type=mv.ref_type,
+                ref_id=mv.ref_id,
+                transfer_batch_id=transfer_batch_id,
+                releasable=releasable,
             )
         )
     return out
@@ -79,7 +108,19 @@ async def release_reservation(
     notes: str | None = None,
 ) -> StockMovement:
     reserve_mv = await db.get(StockMovement, reserve_movement_id)
-    if reserve_mv is None or reserve_mv.movement_kind != "reserve":
+    if reserve_mv is None:
+        not_found_error(
+            "reserve_movement_not_found",
+            "Reserve movement not found",
+            reserve_movement_id=reserve_movement_id,
+        )
+    if reserve_mv.movement_kind == "transfer_reserve":
+        validation_error(
+            "transfer_reserve_not_releasable",
+            "Transfer reservations cannot be released here; cancel or dispatch the transfer batch",
+            transfer_batch_id=_transfer_batch_id(reserve_mv),
+        )
+    if reserve_mv.movement_kind != "reserve":
         not_found_error(
             "reserve_movement_not_found",
             "Reserve movement not found",

@@ -3,10 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../core/i18n/app_strings.dart';
 import '../../core/theme/mezan_theme.dart';
+import '../../core/validation/form_validation.dart';
 import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
-import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'auth_session.dart';
 
 class TwoFactorVerifyPage extends StatefulWidget {
@@ -19,6 +20,7 @@ class TwoFactorVerifyPage extends StatefulWidget {
 class _TwoFactorVerifyPageState extends State<TwoFactorVerifyPage> {
   final _codeController = TextEditingController();
   var _submitting = false;
+  String? _validationError;
 
   @override
   void dispose() {
@@ -27,18 +29,28 @@ class _TwoFactorVerifyPageState extends State<TwoFactorVerifyPage> {
   }
 
   Future<void> _submit() async {
-    final code = _codeController.text.trim();
-    if (code.length != 6) return;
-    setState(() => _submitting = true);
-    await context.read<AuthSession>().verifyTwoFactor(code);
+    final strings = AppStrings(Localizations.localeOf(context).languageCode);
+    final validationError = FormValidation.firstError([
+      FormValidation.minLength(
+        _codeController.text.trim(),
+        6,
+        strings.twoFactorCodeRequired,
+      ),
+    ]);
+    if (validationError != null) {
+      setState(() => _validationError = validationError);
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _validationError = null;
+    });
+    await context.read<AuthSession>().verifyTwoFactor(_codeController.text.trim());
     if (!mounted) return;
     setState(() => _submitting = false);
     final error = context.read<AuthSession>().lastError;
     if (error != null) {
-      MezanNotify.error(
-        context,
-        AppStrings(Localizations.localeOf(context).languageCode).twoFactorInvalid,
-      );
+      setState(() => _validationError = strings.twoFactorInvalid);
     }
   }
 
@@ -76,6 +88,10 @@ class _TwoFactorVerifyPageState extends State<TwoFactorVerifyPage> {
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 16),
+                  if (_validationError != null) ...[
+                    MezanValidationAlert(message: _validationError!),
+                    const SizedBox(height: 12),
+                  ],
                   MezanButton(
                     label: strings.twoFactorSubmit,
                     expand: true,

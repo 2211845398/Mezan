@@ -332,8 +332,24 @@ export async function listArOpenItems(params?: {
   return data;
 }
 
-export async function listApOpenItems(params?: { branch_id?: number; status?: string }): Promise<OpenItemRead[]> {
+export type ApSupplierBalanceRead = components['schemas']['ApSupplierBalanceRead'];
+
+export async function listApOpenItems(params?: {
+  branch_id?: number;
+  status?: string;
+  supplier_id?: number;
+}): Promise<OpenItemRead[]> {
   const { data } = await apiClient.get<OpenItemRead[]>('/accounting/ap/open-items', { params });
+  return data;
+}
+
+export async function listApSupplierBalances(params?: {
+  branch_id?: number;
+}): Promise<ApSupplierBalanceRead[]> {
+  const { data } = await apiClient.get<ApSupplierBalanceRead[]>(
+    '/accounting/ap/supplier-balances',
+    { params },
+  );
   return data;
 }
 

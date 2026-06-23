@@ -11,10 +11,8 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
 import { ProductSearch } from '@/features/pos/components/ProductSearch';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { newIdempotencyKey } from '@/lib/idempotency';
 
 import { addBomLine, createBom } from '../../api/production';
 import { inventoryKeys } from '../../queries';
@@ -85,7 +83,7 @@ export default function BomFormPage() {
           <div className="grid gap-1 md:col-span-2">
             <Label>{t('production.col.finished_product')}</Label>
             <ProductSearch
-              value={finishedProductId}
+              value={finishedProductId?.toString() ?? ''}
               onChange={(id) => setFinishedProductId(id)}
             />
           </div>
@@ -103,7 +101,7 @@ export default function BomFormPage() {
               <div className="grid gap-1">
                 <Label>{t('production.col.component')}</Label>
                 <ProductSearch
-                  value={row.productId}
+                  value={row.productId?.toString() ?? ''}
                   onChange={(id) =>
                     setComponents((prev) =>
                       prev.map((r, i) => (i === idx ? { ...r, productId: id } : r)),

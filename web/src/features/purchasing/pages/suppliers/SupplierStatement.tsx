@@ -22,17 +22,13 @@ import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { format, now } from '@/lib/date';
-import { formatCurrency, formatMoney } from '@/lib/format';
+import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import type { SupplierStatementLineRead } from '../../api';
 import { formatSupplierStatementDescription } from '../../lib/supplierStatementDescription';
-import {
-  supplierEvaluationQueryOptions,
-  supplierStatementQueryOptions,
-} from '../../queries';
-
-const DISPLAY_CURRENCY = 'USD';
+import { supplierStatementQueryOptions } from '../../queries';
+import SupplierStatementLineDrawer from './SupplierStatementLineDrawer';
 
 export default function SupplierStatement() {
   const { id } = useParams<{ id: string }>();
@@ -50,6 +46,8 @@ export default function SupplierStatement() {
   const [branchFilter, setBranchFilter] = useState<string>(
     activeBranchId != null ? String(activeBranchId) : '__all',
   );
+  const [selectedLine, setSelectedLine] = useState<SupplierStatementLineRead | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { data: branches = [] } = useQuery({
     queryKey: adminKeys.branches(false),
@@ -72,13 +70,7 @@ export default function SupplierStatement() {
     enabled: !Number.isNaN(supplierId) && supplierId > 0,
   });
 
-  const { data: evaluation } = useQuery({
-    ...supplierEvaluationQueryOptions(supplierId, {
-      period_days: 365,
-      ...(branchId != null && !Number.isNaN(branchId) ? { branch_id: branchId } : {}),
-    }),
-    enabled: !Number.isNaN(supplierId) && supplierId > 0,
-  });
+  const currencyCode = statement?.currency_code ?? 'USD';
 
   const columns = useMemo(
     () =>
@@ -107,7 +99,7 @@ export default function SupplierStatement() {
           header: t('suppliers.statement.col.debit'),
           cell: ({ getValue }) => (
             <span dir="ltr" className="tabular-nums">
-              {formatMoney(String(getValue() ?? '0'))}
+              {formatCurrency(String(getValue() ?? '0'), currencyCode)}
             </span>
           ),
         },
@@ -117,7 +109,7 @@ export default function SupplierStatement() {
           header: t('suppliers.statement.col.credit'),
           cell: ({ getValue }) => (
             <span dir="ltr" className="tabular-nums">
-              {formatMoney(String(getValue() ?? '0'))}
+              {formatCurrency(String(getValue() ?? '0'), currencyCode)}
             </span>
           ),
         },
@@ -127,40 +119,32 @@ export default function SupplierStatement() {
           header: t('suppliers.statement.col.balance'),
           cell: ({ getValue }) => (
             <span dir="ltr" className="tabular-nums font-medium">
-              {formatMoney(String(getValue() ?? '0'))}
+              {formatCurrency(String(getValue() ?? '0'), currencyCode)}
             </span>
           ),
         },
       ]),
-    [i18n.language, t],
+    [currencyCode, i18n.language, t],
   );
 
   if (Number.isNaN(supplierId)) return null;
 
-  const openBalance = formatCurrency(
-    evaluation?.open_balance ?? statement?.closing_balance ?? '0',
-    DISPLAY_CURRENCY,
-  );
-  const totalPurchases = formatCurrency(evaluation?.total_purchases ?? '0', DISPLAY_CURRENCY);
-  const totalPaid = formatCurrency(evaluation?.total_paid ?? '0', DISPLAY_CURRENCY);
-  const receiptsPayments = t('suppliers.statement.metric.receipts_payments_value', {
-    receipts: evaluation?.receipt_count ?? 0,
-    payments: evaluation?.payment_count ?? 0,
-  });
+  const balanceDue = formatCurrency(statement?.balance_due ?? '0', currencyCode);
+  const totalPurchases = formatCurrency(statement?.total_purchases ?? '0', currencyCode);
+  const totalPaid = formatCurrency(statement?.total_paid ?? '0', currencyCode);
 
   const metricCards = [
-    { key: 'open', title: t('suppliers.statement.metric.open_balance'), value: openBalance },
+    {
+      key: 'due',
+      title: t('suppliers.statement.metric.balance_due'),
+      value: balanceDue,
+    },
     {
       key: 'purchases',
       title: t('suppliers.statement.metric.total_purchases'),
       value: totalPurchases,
     },
     { key: 'paid', title: t('suppliers.statement.metric.total_paid'), value: totalPaid },
-    {
-      key: 'rp',
-      title: t('suppliers.statement.metric.receipts_payments'),
-      value: receiptsPayments,
-    },
   ];
 
   return (
@@ -219,13 +203,13 @@ export default function SupplierStatement() {
           <span>
             {t('suppliers.statement.opening')}:{' '}
             <span dir="ltr" className="tabular-nums font-medium">
-              {formatCurrency(statement?.opening_balance ?? '0', DISPLAY_CURRENCY)}
+              {formatCurrency(statement?.opening_balance ?? '0', currencyCode)}
             </span>
           </span>
           <span>
             {t('suppliers.statement.closing')}:{' '}
             <span dir="ltr" className="tabular-nums font-medium">
-              {formatCurrency(statement?.closing_balance ?? '0', DISPLAY_CURRENCY)}
+              {formatCurrency(statement?.closing_balance ?? '0', currencyCode)}
             </span>
           </span>
         </div>
@@ -235,8 +219,21 @@ export default function SupplierStatement() {
           data={statement?.lines ?? []}
           isLoading={stmtLoading}
           emptyMessage={t('suppliers.statement.empty')}
+          onRowClick={(row) => {
+            setSelectedLine(row);
+            setDrawerOpen(true);
+          }}
         />
       </SectionCard>
+
+      <SupplierStatementLineDrawer
+        line={selectedLine}
+        supplierId={supplierId}
+        currencyCode={currencyCode}
+        branchId={branchId}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+      />
     </div>
   );
 }

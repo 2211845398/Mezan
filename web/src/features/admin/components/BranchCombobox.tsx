@@ -40,6 +40,8 @@ export type BranchComboboxProps = {
   namesOnly?: boolean;
   /** Highlight trigger when validation failed. */
   invalid?: boolean;
+  /** When set, only branches of this kind are listed. */
+  kind?: 'commercial' | 'warehouse';
 };
 
 export function BranchCombobox({
@@ -55,12 +57,16 @@ export function BranchCombobox({
   showCode = true,
   namesOnly = false,
   invalid = false,
+  kind,
 }: BranchComboboxProps) {
   const { t } = useTranslation('admin');
   const { t: tc } = useTranslation('common');
   const { i18n } = useTranslation();
   const [open, setOpen] = useState(false);
-  const { data: branches = [], isLoading } = useBranches(includeArchived);
+  const { data: branches = [], isLoading } = useBranches(
+    includeArchived,
+    kind ? { kind } : {},
+  );
 
   const labelText = useMemo(() => {
     if (value == null || value === 0) {

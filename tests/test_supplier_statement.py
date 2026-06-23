@@ -18,7 +18,7 @@ from app.models.product_variant import ProductVariant
 from app.services.goods_receipt_service import receive_goods_for_purchase_order
 from app.services.purchase_order_service import create_po, mark_po_sent
 from app.services.seed_service import seed_accounting_defaults
-from app.services.subledger_service import apply_ap_payment, create_ap_open_item
+from app.services.subledger_service import apply_ap_payment, find_ap_open_item_by_source
 from app.services.supplier_service import create_supplier
 from app.services.supplier_statement_service import get_supplier_evaluation, get_supplier_statement
 
@@ -40,7 +40,7 @@ async def test_supplier_statement_gr_and_payment(db_session) -> None:
         family_name="Vendor",
         currency_id=settings.base_currency_id,
         payables_account_id=ap_leaf.id,
-        contact={},
+        contact={"email": "stmt-vendor@example.com"},
     )
 
     branch = Branch(
@@ -103,6 +103,16 @@ async def test_supplier_statement_gr_and_payment(db_session) -> None:
     )
     assert receipt.supplier_id == supplier.id
 
+    gr_item = await find_ap_open_item_by_source(
+        db_session,
+        source_type="goods_receipt",
+        source_id=str(receipt.id),
+    )
+    assert gr_item is not None
+    assert gr_item.amount_total == Decimal("100.00")
+
+    from app.services.subledger_service import create_ap_open_item
+
     ap_item = await create_ap_open_item(
         db_session,
         data={
@@ -136,7 +146,16 @@ async def test_supplier_statement_gr_and_payment(db_session) -> None:
         branch_id=branch.id,
     )
     assert stmt.closing_balance > Decimal("0")
+    assert stmt.total_purchases > Decimal("0")
+    assert stmt.total_paid > Decimal("0")
+    assert stmt.balance_due == stmt.closing_balance
+    assert stmt.currency_code
     assert len(stmt.lines) >= 2
+    gr_lines = [ln for ln in stmt.lines if ln.source_type == "goods_receipt"]
+    assert gr_lines
+    assert gr_lines[0].open_item_id == gr_item.id
+    assert gr_lines[0].purchase_order_id == po.id
+    assert gr_lines[0].amount_open == gr_item.amount_open
     credits = [ln for ln in stmt.lines if ln.credit > 0]
     debits = [ln for ln in stmt.lines if ln.debit > 0]
     assert credits

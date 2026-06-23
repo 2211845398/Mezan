@@ -50,18 +50,9 @@ def _is_restricted_session_allowed(request: Request) -> bool:
     return (request.method.upper(), request.url.path) in _RESTRICTED_SESSION_PATHS
 
 
-async def get_current_user_optional(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-) -> User | None:
-    """
-    Optional current user from Bearer JWT. Returns None if no/invalid token.
-    Use for routes that behave differently when authenticated.
-    """
-    if not credentials or credentials.credentials is None:
-        return None
-    payload = decode_token(credentials.credentials)
+async def user_from_access_token(db: AsyncSession, token: str) -> User | None:
+    """Resolve an active user from a raw access JWT (SSE query param, etc.)."""
+    payload = decode_token(token)
     if not payload or payload.get("type") != "access":
         return None
     sub = payload.get("sub")
@@ -74,6 +65,23 @@ async def get_current_user_optional(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user or user.status not in LOGIN_ALLOWED_STATUSES:
+        return None
+    return user
+
+
+async def get_current_user_optional(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> User | None:
+    """
+    Optional current user from Bearer JWT. Returns None if no/invalid token.
+    Use for routes that behave differently when authenticated.
+    """
+    if not credentials or credentials.credentials is None:
+        return None
+    user = await user_from_access_token(db, credentials.credentials)
+    if user is None:
         return None
     if _path_requires_full_session(request, user) and not _is_restricted_session_allowed(request):
         raise HTTPException(

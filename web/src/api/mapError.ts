@@ -127,7 +127,12 @@ export function notAuthenticatedFromAxios(error: AxiosError): NotAuthenticatedEr
   });
 }
 
-type ValidationDetailItem = { loc?: unknown; msg?: unknown };
+type ValidationDetailItem = {
+  loc?: unknown;
+  msg?: unknown;
+  path?: unknown;
+  code?: unknown;
+};
 
 /** Maps FastAPI-style `details.errors[]` into RHF `setError` field paths. */
 export function fieldErrorsFromValidationError(err: ValidationError): Record<string, string> {
@@ -139,12 +144,17 @@ export function fieldErrorsFromValidationError(err: ValidationError): Record<str
   const out: Record<string, string> = {};
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
-    const { loc, msg } = item as ValidationDetailItem;
-    if (typeof msg !== 'string' || !Array.isArray(loc)) continue;
-    const path = loc
-      .filter((x) => typeof x === 'string' && x !== 'body')
-      .join('.');
-    if (path) out[path] = msg;
+    const { loc, msg, path } = item as ValidationDetailItem;
+    if (typeof msg !== 'string') continue;
+    const resolvedPath =
+      typeof path === 'string' && path.trim()
+        ? path.trim()
+        : Array.isArray(loc)
+          ? loc
+              .filter((x) => typeof x === 'string' && x !== 'body')
+              .join('.')
+          : '';
+    if (resolvedPath) out[resolvedPath] = msg;
   }
   return out;
 }

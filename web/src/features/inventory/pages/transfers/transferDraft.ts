@@ -20,6 +20,7 @@ export type DraftTransferLine = {
   variant_name: string;
   reference_code: string;
   category_id: number;
+  product_image_url?: string | null;
 };
 
 export type DraftLineDisplayNames = {

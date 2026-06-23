@@ -120,7 +120,7 @@
       "HR_MANAGER": "HR manager",
       "ACCOUNTANT": "Accountant",
       "CASHIER": "Cashier",
-      "WAREHOUSE_MANAGER": "Warehouse manager",
+      "WAREHOUSE_MANAGER": "Warehouses custodian",
       "MARKETING_MANAGER": "Marketing manager",
       "FLOOR_STAFF": "Sales staff",
       "ATTENDANCE_KIOSK": "Attendance QR device (non-employee account)"
@@ -253,7 +253,7 @@
       "fallback": "Recipients (see template)"
     },
     "target_group_kind": {
-      "warehouse_and_floor": "Warehouse manager & sales staff",
+      "warehouse_and_floor": "Warehouses custodian & sales staff",
       "payroll_approvers": "HR manager, accountant & owner",
       "it_and_admin": "IT administrator & system administrator",
       "shift_operator": "Shift operator"

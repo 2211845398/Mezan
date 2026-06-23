@@ -52,6 +52,7 @@ export default function TwoFactorVerifyPage() {
         navigate('/change-password-required', { replace: true });
         return;
       }
+      notify.success(t('auth:login.success'));
       const target = sanitizeNextPath(nextRaw);
       const path =
         target === '/'

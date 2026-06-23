@@ -64,7 +64,9 @@ export type NavBadgeKind =
   | 'leave_pending'
   | 'onboarding_pending'
   | 'notifications_unread'
-  | 'hr_attention_rollup';
+  | 'hr_attention_rollup'
+  | 'reorder_alerts'
+  | 'commercial_restock';
 
 export type NavItem = {
   key: string;
@@ -83,6 +85,8 @@ export type NavItem = {
   children?: NavItem[];
   /** Sidebar badge count (pending work, unread, etc.). */
   badge?: NavBadgeKind;
+  /** Multiple sidebar badges (e.g. warehouse PO + commercial transfer). */
+  badges?: NavBadgeKind[];
 };
 
 export const navigation: NavItem[] = [
@@ -127,17 +131,17 @@ export const navigation: NavItem[] = [
     section: 'ops',
     children: [
       {
-        key: 'catalog-products',
-        labelKey: 'nav.catalog_products',
-        icon: Package,
-        href: '/catalog/products',
-        permission: { resource: 'catalog', action: 'read' },
-      },
-      {
         key: 'catalog-categories',
         labelKey: 'nav.catalog_categories',
         icon: Tags,
         href: '/catalog/categories',
+        permission: { resource: 'catalog', action: 'read' },
+      },
+      {
+        key: 'catalog-products',
+        labelKey: 'nav.catalog_products',
+        icon: Package,
+        href: '/catalog/products',
         permission: { resource: 'catalog', action: 'read' },
       },
       {
@@ -155,6 +159,7 @@ export const navigation: NavItem[] = [
     icon: Warehouse,
     href: '/inventory',
     section: 'ops',
+    badges: ['reorder_alerts', 'commercial_restock'],
     children: [
       {
         key: 'inventory-stock',
@@ -162,6 +167,7 @@ export const navigation: NavItem[] = [
         icon: Boxes,
         href: '/inventory/stock',
         permission: { resource: 'inventory', action: 'read' },
+        badge: 'reorder_alerts',
       },
       {
         key: 'inventory-adjustments',
@@ -169,6 +175,14 @@ export const navigation: NavItem[] = [
         icon: SlidersHorizontal,
         href: '/inventory/adjustments',
         permission: { resource: 'stock_adjustments', action: 'read' },
+      },
+      {
+        key: 'inventory-alerts',
+        labelKey: 'nav.inventory_alerts',
+        icon: Bell,
+        href: '/inventory/alerts',
+        permission: { resource: 'inventory', action: 'read' },
+        badge: 'commercial_restock',
       },
       {
         key: 'inventory-transfers',
@@ -199,6 +213,7 @@ export const navigation: NavItem[] = [
     icon: Truck,
     href: '/purchasing',
     section: 'ops',
+    badge: 'reorder_alerts',
     children: [
       {
         key: 'purchasing-orders',
@@ -206,6 +221,7 @@ export const navigation: NavItem[] = [
         icon: ClipboardList,
         href: '/purchasing/orders',
         permission: { resource: 'purchase_orders', action: 'read' },
+        badge: 'reorder_alerts',
       },
       {
         key: 'purchasing-suppliers',

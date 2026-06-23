@@ -5,8 +5,8 @@ import '../../core/i18n/app_strings.dart';
 import '../../core/theme/mezan_theme.dart';
 import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
-import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'auth_session.dart';
 
 class RequiredPasswordChangePage extends StatefulWidget {
@@ -22,6 +22,7 @@ class _RequiredPasswordChangePageState extends State<RequiredPasswordChangePage>
   final _newPw = TextEditingController();
   final _confirm = TextEditingController();
   var _submitting = false;
+  String? _validationError;
 
   @override
   void dispose() {
@@ -34,14 +35,17 @@ class _RequiredPasswordChangePageState extends State<RequiredPasswordChangePage>
   Future<void> _submit() async {
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
     if (_newPw.text.length < 8) {
-      MezanNotify.error(context, strings.requiredPasswordTooShort);
+      setState(() => _validationError = strings.requiredPasswordTooShort);
       return;
     }
     if (_newPw.text != _confirm.text) {
-      MezanNotify.error(context, strings.profilePasswordMismatch);
+      setState(() => _validationError = strings.profilePasswordMismatch);
       return;
     }
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _validationError = null;
+    });
     await context.read<AuthSession>().completeRequiredPasswordChange(
           currentPassword: _current.text,
           newPassword: _newPw.text,
@@ -50,7 +54,7 @@ class _RequiredPasswordChangePageState extends State<RequiredPasswordChangePage>
     setState(() => _submitting = false);
     final error = context.read<AuthSession>().lastError;
     if (error != null) {
-      MezanNotify.error(context, error);
+      setState(() => _validationError = error);
     }
   }
 
@@ -100,6 +104,10 @@ class _RequiredPasswordChangePageState extends State<RequiredPasswordChangePage>
                     obscureText: true,
                   ),
                   const SizedBox(height: 16),
+                  if (_validationError != null) ...[
+                    MezanValidationAlert(message: _validationError!),
+                    const SizedBox(height: 12),
+                  ],
                   MezanButton(
                     label: strings.requiredPasswordSubmit,
                     expand: true,

@@ -4,11 +4,14 @@ import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/i18n/app_strings.dart';
 import '../../core/i18n/locale_controller.dart';
+import '../../core/validation/form_validation.dart';
 import '../../features/auth/auth_repository.dart';
 import '../../features/auth/auth_session.dart';
 import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
+import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'models/profile_update.dart';
 import 'profile_controller.dart';
 
@@ -20,7 +23,6 @@ class ProfileEditPage extends StatefulWidget {
 }
 
 class _ProfileEditPageState extends State<ProfileEditPage> {
-  final _formKey = GlobalKey<FormState>();
   final _firstName = TextEditingController();
   final _fatherName = TextEditingController();
   final _familyName = TextEditingController();
@@ -28,7 +30,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   final _phone = TextEditingController();
   final _city = TextEditingController();
   var _saving = false;
-  String? _error;
+  String? _validationError;
 
   @override
   void initState() {
@@ -64,12 +66,27 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
+    final phoneRaw = _phone.text.trim();
+    final checks = <({bool ok, String message})>[
+      FormValidation.email(
+        _email.text,
+        requiredMessage: strings.fieldRequired,
+        invalidMessage: strings.profileEmailInvalid,
+      ),
+    ];
+    if (phoneRaw.isNotEmpty && !_isLibyanMobile(phoneRaw)) {
+      checks.add((ok: false, message: strings.profilePhoneInvalid));
+    }
+    final validationError = FormValidation.firstError(checks);
+    if (validationError != null) {
+      setState(() => _validationError = validationError);
+      return;
+    }
+
     setState(() {
       _saving = true;
-      _error = null;
+      _validationError = null;
     });
 
     try {
@@ -78,7 +95,6 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       final locale = context.read<LocaleController>();
       final profileController = context.read<ProfileController>();
 
-      final phoneRaw = _phone.text.trim();
       final body = ProfileUpdate(
         email: _email.text.trim(),
         firstName: _firstName.text.trim().isEmpty ? null : _firstName.text.trim(),
@@ -98,13 +114,12 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       await profileController.load();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.profileEditSaved)),
-      );
+      MezanNotify.success(context, strings.profileEditSaved);
       Navigator.of(context).pop();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = e is ApiException ? e.message : 'Network error';
+        _validationError = e is ApiException ? e.message : strings.errorNetwork;
         _saving = false;
       });
     }
@@ -122,70 +137,49 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
         padding: const EdgeInsets.all(16),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          if (_error != null) ...[
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-            const SizedBox(height: 12),
-          ],
           MezanCard(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  MezanTextField(
-                    controller: _firstName,
-                    label: strings.profileFirstName,
-                  ),
-                  const SizedBox(height: 12),
-                  MezanTextField(
-                    controller: _fatherName,
-                    label: strings.profileFatherName,
-                  ),
-                  const SizedBox(height: 12),
-                  MezanTextField(
-                    controller: _familyName,
-                    label: strings.profileFamilyName,
-                  ),
-                  const SizedBox(height: 12),
-                  MezanTextField(
-                    controller: _email,
-                    label: strings.profileEmail,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) {
-                      final email = v?.trim() ?? '';
-                      if (email.isEmpty || !email.contains('@')) {
-                        return strings.profileEmailInvalid;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  MezanTextField(
-                    controller: _phone,
-                    label: strings.profilePhone,
-                    keyboardType: TextInputType.phone,
-                    validator: (v) {
-                      final phone = v?.trim() ?? '';
-                      if (phone.isEmpty) return null;
-                      if (!_isLibyanMobile(phone)) {
-                        return strings.profilePhoneInvalid;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  MezanTextField(
-                    controller: _city,
-                    label: strings.profileCity,
-                  ),
-                ],
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                MezanTextField(
+                  controller: _firstName,
+                  label: strings.profileFirstName,
+                ),
+                const SizedBox(height: 12),
+                MezanTextField(
+                  controller: _fatherName,
+                  label: strings.profileFatherName,
+                ),
+                const SizedBox(height: 12),
+                MezanTextField(
+                  controller: _familyName,
+                  label: strings.profileFamilyName,
+                ),
+                const SizedBox(height: 12),
+                MezanTextField(
+                  controller: _email,
+                  label: strings.profileEmail,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
+                MezanTextField(
+                  controller: _phone,
+                  label: strings.profilePhone,
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                MezanTextField(
+                  controller: _city,
+                  label: strings.profileCity,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
+          if (_validationError != null) ...[
+            MezanValidationAlert(message: _validationError!),
+            const SizedBox(height: 12),
+          ],
           MezanButton(
             label: strings.profileEditSave,
             expand: true,

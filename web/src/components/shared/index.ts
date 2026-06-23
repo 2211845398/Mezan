@@ -12,6 +12,7 @@ export {
   Form,
   handleFormApiError,
   MoneyInput,
+  ReadOnlyCopyableField,
   Select,
   UnsavedChangesPrompt,
 } from './form';
@@ -48,6 +49,11 @@ export {
 } from './FloatingFormDialog';
 export type { BackButtonProps,CreateButtonProps, PageHeaderProps } from './PageHeader';
 export { BackButton,CreateButton, PageHeader } from './PageHeader';
+export type {
+  DetailFormActionBarProps,
+  DetailFormSecondaryAction,
+} from './DetailFormActionBar';
+export { DetailFormActionBar } from './DetailFormActionBar';
 
 // Permission-based rendering
 export { Can } from './Can';

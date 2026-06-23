@@ -1,7 +1,7 @@
-import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { MezanLogoLoader } from '@/components/shared/MezanLogoLoader';
 import { setRefreshFn } from '@/api/interceptors/handle401Refresh';
 import { getMe, refresh as refreshTokenApi } from '@/features/auth/api';
 import { applyFullAuthSession, applyRestrictedAuthSession } from '@/lib/authSessionHydrate';
@@ -121,10 +121,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
         aria-live="polite"
         className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background"
       >
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <Loader2 className="size-8 animate-spin" aria-hidden="true" />
-          <span>{t('layout.app_name')}</span>
-        </div>
+        <MezanLogoLoader label={t('layout.app_name')} />
       </div>
     );
   }

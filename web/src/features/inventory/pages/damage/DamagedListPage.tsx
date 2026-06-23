@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -37,6 +37,7 @@ type ActionKind = 'scrap' | 'unmark';
 export default function DamagedListPage() {
   const { t } = useTranslation('inventory');
   const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: rows = [], isLoading, refetch, isError } = useQuery({
     queryKey: [...inventoryKeys.root, 'damaged'],
     queryFn: () => listDamagedPositions({ limit: 200 }),
@@ -46,6 +47,20 @@ export default function DamagedListPage() {
   const [actionKind, setActionKind] = useState<ActionKind | null>(null);
   const [actionQty, setActionQty] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
+
+  const selParam = searchParams.get('sel');
+
+  useEffect(() => {
+    if (!selParam || rows.length === 0) return;
+    const row = rows.find(
+      (r) => `${r.branch_id}-${r.product_id}-${r.variant_id}` === selParam,
+    );
+    if (row) {
+      setActionRow(row);
+      setActionKind(null);
+      setActionQty(String(row.qty_damaged));
+    }
+  }, [selParam, rows]);
 
   const filteredRows = useMemo(() => {
     const q = searchDraft.trim().toLowerCase();
@@ -77,6 +92,16 @@ export default function DamagedListPage() {
     setActionRow(null);
     setActionKind(null);
     setActionQty('');
+    if (searchParams.has('sel')) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('sel');
+          return next;
+        },
+        { replace: true },
+      );
+    }
   };
 
   const actionM = useMutation({
@@ -129,30 +154,6 @@ export default function DamagedListPage() {
         },
         { id: 'qty', accessorKey: 'qty_damaged', header: t('movement.damage.qty_damaged') },
         {
-          id: 'actions',
-          header: '',
-          cell: ({ row }) => (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => openAction(row.original, 'unmark')}
-              >
-                {t('movement.damage.unmark')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={() => openAction(row.original, 'scrap')}
-              >
-                {t('movement.damage.scrap')}
-              </Button>
-            </div>
-          ),
-        },
-        {
           id: 'reason',
           header: t('adjustments.col.reason'),
           cell: ({ row }) => formatMovementReason(row.original.reason, t),
@@ -201,12 +202,17 @@ export default function DamagedListPage() {
         isError={isError}
         onRetry={() => void refetch()}
         getRowId={(r) => `${r.branch_id}-${r.product_id}-${r.variant_id}`}
+        getRowHref={(row) =>
+          `/inventory/damage?sel=${row.branch_id}-${row.product_id}-${row.variant_id}`
+        }
       />
 
       <Dialog open={actionRow != null} onOpenChange={(o) => !o && closeAction()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogTitle>
+              {dialogTitle || t('movement.damage.list_title')}
+            </DialogTitle>
           </DialogHeader>
           {actionRow ? (
             <p className="text-sm text-muted-foreground">
@@ -214,31 +220,45 @@ export default function DamagedListPage() {
               {actionRow.qty_damaged})
             </p>
           ) : null}
-          <div>
-            <Label>{t('movement.damage.action_qty')}</Label>
-            <Input
-              type="number"
-              min={1}
-              max={actionRow?.qty_damaged}
-              value={actionQty}
-              onChange={(e) => setActionQty(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={closeAction}>
-              {t('actions.cancel')}
-            </Button>
-            <Button
-              type="button"
-              variant={actionKind === 'scrap' ? 'destructive' : 'default'}
-              disabled={actionM.isPending}
-              onClick={() => void actionM.mutate()}
-            >
-              {actionKind === 'scrap'
-                ? t('movement.damage.scrap_confirm')
-                : t('movement.damage.unmark_confirm')}
-            </Button>
-          </DialogFooter>
+          {actionRow && actionKind == null ? (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => openAction(actionRow, 'unmark')}>
+                {t('movement.damage.unmark')}
+              </Button>
+              <Button type="button" size="sm" variant="destructive" onClick={() => openAction(actionRow, 'scrap')}>
+                {t('movement.damage.scrap')}
+              </Button>
+            </div>
+          ) : null}
+          {actionKind != null ? (
+            <>
+              <div>
+                <Label>{t('movement.damage.action_qty')}</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={actionRow?.qty_damaged}
+                  value={actionQty}
+                  onChange={(e) => setActionQty(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={closeAction}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant={actionKind === 'scrap' ? 'destructive' : 'default'}
+                  disabled={actionM.isPending}
+                  onClick={() => void actionM.mutate()}
+                >
+                  {actionKind === 'scrap'
+                    ? t('movement.damage.scrap_confirm')
+                    : t('movement.damage.unmark_confirm')}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

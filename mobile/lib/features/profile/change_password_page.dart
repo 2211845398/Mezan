@@ -3,11 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/i18n/app_strings.dart';
+import '../../core/validation/form_validation.dart';
 import '../../features/auth/auth_repository.dart';
 import '../../features/auth/auth_session.dart';
 import '../../shared/widgets/mezan_button.dart';
 import '../../shared/widgets/mezan_card.dart';
+import '../../shared/widgets/mezan_notify.dart';
 import '../../shared/widgets/mezan_text_field.dart';
+import '../../shared/widgets/mezan_validation_alert.dart';
 import 'models/profile_update.dart';
 
 class ChangePasswordPage extends StatefulWidget {
@@ -22,7 +25,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   final _newPw = TextEditingController();
   final _confirm = TextEditingController();
   var _saving = false;
-  String? _error;
+  String? _validationError;
 
   @override
   void dispose() {
@@ -35,39 +38,43 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   Future<void> _save() async {
     final strings = AppStrings(Localizations.localeOf(context).languageCode);
     final newPw = _newPw.text.trim();
-    if (newPw.length < 8) {
-      setState(() => _error = strings.requiredPasswordTooShort);
-      return;
-    }
-    if (newPw != _confirm.text.trim()) {
-      setState(() => _error = strings.profilePasswordMismatch);
+    final validationError = FormValidation.firstError([
+      FormValidation.required(_current.text, strings.loginPasswordRequired),
+      FormValidation.minLength(newPw, 8, strings.requiredPasswordTooShort),
+      FormValidation.matches(
+        newPw,
+        _confirm.text.trim(),
+        strings.profilePasswordMismatch,
+      ),
+    ]);
+    if (validationError != null) {
+      setState(() => _validationError = validationError);
       return;
     }
 
     setState(() {
       _saving = true;
-      _error = null;
+      _validationError = null;
     });
 
     try {
       final authRepo = context.read<AuthRepository>();
       final session = context.read<AuthSession>();
       await authRepo.updateMe(
-            ProfileUpdate(
-              currentPassword: _current.text,
-              newPassword: newPw,
-            ).toJson(),
-          );
+        ProfileUpdate(
+          currentPassword: _current.text,
+          newPassword: newPw,
+        ).toJson(),
+      );
       if (!mounted) return;
       await session.refreshUser();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.profilePasswordUpdated)),
-      );
+      MezanNotify.success(context, strings.profilePasswordUpdated);
       Navigator.of(context).pop();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = e is ApiException ? e.message : 'Network error';
+        _validationError = e is ApiException ? e.message : strings.errorNetwork;
         _saving = false;
       });
     }
@@ -82,13 +89,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (_error != null) ...[
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-            const SizedBox(height: 12),
-          ],
           MezanCard(
             child: Column(
               children: [
@@ -113,6 +113,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             ),
           ),
           const SizedBox(height: 16),
+          if (_validationError != null) ...[
+            MezanValidationAlert(message: _validationError!),
+            const SizedBox(height: 12),
+          ],
           MezanButton(
             label: strings.profileChangePassword,
             expand: true,

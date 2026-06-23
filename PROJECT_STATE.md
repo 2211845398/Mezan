@@ -61,13 +61,14 @@
 |------|--------|------------------|
 | W-1 to W-5 | Completed | Scaffold, routing, design system, API layer, feature modules (POS, catalog, inventory, purchasing, HR, payroll, accounting, CRM, BI, admin) |
 | W-5.1 | Completed | Auth completion: login, forgot password, reset password, onboarding flows with polished UI matching design system |
-| W-5 UI Reimplementation | Completed | Visual refresh of all feature modules using shared PageHeader, CreateButton, BackButton, SectionCard, FormContainer, FloatingFormDialog patterns |
+| W-5 UI Reimplementation | Completed | Visual refresh + read-only-first CRUD detail views, clickable `DataTable` rows, shared `DetailFormActionBar` / `useEditableFormMode` |
 | W-6 to W-10 | Planned | Quality gates, security, build/deploy, PWA/offline, notifications |
+| W-RT-Badges | Completed | SSE realtime nav badges: HR, notifications, warehouse reorder PO, commercial restock transfer |
 
 ### Mobile/Flutter Status
 | Epic | Status | Key Deliverables |
 |------|--------|------------------|
-| M-1 to M-5 | In Progress | Scaffold, auth, profile settings, leaves self-service, attendance kiosk QR + mobile scan flow |
+| M-1 to M-5 | In Progress | Scaffold, auth, profile settings, leaves self-service, attendance kiosk QR + mobile scan flow; unified submit-time validation alerts with AR/EN copy |
 
 ### Documentation Status
 | Document | Status | Action |
@@ -231,6 +232,7 @@
 - [x] **W-5.9.1** User creation form: always create pending onboarding, simplified field order.
 - [x] **W-5.9.2** Enriched pending onboarding list with user details for HR review.
 - [x] **W-5.9.3** Frontend error visibility hardening: backend validation and business-rule failures surface as field messages or actionable toasts.
+- [x] **W-5.9.4** Unified required-field validation alerts: web RHF `onInvalid` stores a form-level inline alert, mobile uses inline validation cards, and backend Pydantic errors normalize to stable `code` values (`required`, `invalid_email`, …) in `details.errors`.
 
 #### Epic W-5 UI Reimplementation — Visual System Refresh
 - [x] **W-5.UI.1** Shared UI foundation: `PageHeader`, `CreateButton`, `BackButton`, `FloatingFormDialog`, `ContentSurface`, `SectionCard`, `FormContainer` components.
@@ -239,6 +241,7 @@
 - [x] **W-5.UI.4** Form pages: `EmployeeForm` updated with `PageHeader`, `BackButton`, `SectionCard`, `FormContainer` for consistent vertical rhythm.
 - [x] **W-5.UI.5** Dashboard polish: `DashboardHomeFallback` updated with `PageHeader` component.
 - [x] **W-5.UI.6** Frontend UI correction pass: dashboard chart/card usability, collapsed neutral sidebar, POS screen refresh, and floating dialogs for key product/user/employee actions.
+- [x] **W-5.UI.7** Read-only-first detail views + clickable table rows: shared `useEditableFormMode`, `DetailFormActionBar`, `DataTable` `getRowHref`/`onRowClick`, CRUD lists navigate on row click, detail pages start in view mode with Edit/Save/Cancel; mobile `MezanReadOnlyField`, `MezanDetailScaffold`, `MezanFormModeBar`, leave request detail route.
 
 ---
 
@@ -453,6 +456,14 @@ Resolves `GAP-AI-001..009`.
 - [x] **W-5.1.4** Customer onboarding completion with token-based profile setup.
 - [x] **W-5.1.5** Visual polish: All auth screens use consistent centered card style matching UI reference, SPA `Link` navigation, RTL support, focus rings.
 - [x] **W-5.1.6** Staff `/profile`: editable email, display name, phone, preferred language, avatar picture URL, optional password change (`PATCH /auth/me`), sidebar avatar preview.
+
+#### Epic W-RT-Badges — Real-time Nav Badges (SSE)
+- [x] **W-RT-1** In-process `RealtimeBroadcaster` + `GET /api/v1/realtime/events` (SSE, JWT query token, heartbeat).
+- [x] **W-RT-2** `RealtimeProvider` + `EventSource` + React Query invalidation by badge kind.
+- [x] **W-RT-3** Emit after HR commits (leave create/review/delete, user onboarding create/complete).
+- [x] **W-RT-4** `GET /inventory/reorder-alerts/count` + sidebar `reorder_alerts` badge + inventory emit hooks.
+- [x] **W-RT-4.1** Warehouse-only reorder alerts/PO; `commercial_restock` badge + `GET /inventory/commercial-restock-alerts/count`; parent nav badges; stock KPI split; `/inventory/alerts` tab + transfer prefill from alert.
+- [x] **W-RT-5** Notification dispatch emit + Vite/nginx SSE notes + `tests/test_realtime_sse.py`.
 
 #### Epic W-6 — Code Quality and DX
 - [ ] **W-6.1** ESLint 9 flat with `typescript-eslint`, `jsx-a11y`, `simple-import-sort`.

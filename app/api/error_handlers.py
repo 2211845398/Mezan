@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import settings
 from app.core.errors import AppError
+from app.utils.validation_errors import normalize_pydantic_errors
 
 
 def _request_id(request: Request) -> str | None:
@@ -78,14 +79,14 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 async def request_validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
-    # FastAPI provides structured errors via exc.errors()
+    raw_errors = exc.errors()
     return JSONResponse(
         status_code=422,
         content=_envelope(
             request=request,
             code="validation_error",
             message="Invalid request",
-            details={"errors": exc.errors()},
+            details={"errors": normalize_pydantic_errors(raw_errors)},
         ),
     )
 

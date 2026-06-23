@@ -10,12 +10,21 @@ import {
   FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import { useNotificationTemplates, useUpsertTemplate } from '../../queries';
 
@@ -74,6 +83,10 @@ export function TemplateEdit({ kind, open, onOpenChange }: Props) {
     }
   }, [row, open, form, kind]);
 
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['kind', 'title_template', 'body_template', 'default_data_json'],
+  });
+
   const title = kind ? t('notifications.edit_template') : t('notifications.create_template');
 
   return (
@@ -126,7 +139,7 @@ export function TemplateEdit({ kind, open, onOpenChange }: Props) {
               });
               notify.success(t('notifications.template_saved'));
               onOpenChange(false);
-            })}
+            }, onInvalid)}
             className="space-y-3"
           >
             <FormField
@@ -193,6 +206,7 @@ export function TemplateEdit({ kind, open, onOpenChange }: Props) {
                 </FormItem>
               )}
             />
+            <FormValidationAlert />
           </form>
         </Form>
       ) : null}

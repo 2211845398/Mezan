@@ -51,11 +51,19 @@
       },
       "metric": {
         "open_balance": "الرصيد المفتوح",
+        "balance_due": "مستحق للمورد",
         "total_purchases": "إجمالي المشتريات (الفترة)",
         "total_paid": "إجمالي المدفوعات (الفترة)",
         "receipts_payments": "الاستلامات والمدفوعات",
         "receipts_payments_value": "{{receipts}} استلام · {{payments}} دفعة"
-      }
+      },
+      "line_detail_title": "تفاصيل الحركة",
+      "line_total": "الإجمالي",
+      "line_paid": "مدفوع",
+      "line_remaining": "متبقي",
+      "view_po": "أمر الشراء",
+      "view_journal": "قيد اليومية",
+      "apply_payment": "إجراء سند صرف"
     },
     "form": {
       "code": "الرمز",

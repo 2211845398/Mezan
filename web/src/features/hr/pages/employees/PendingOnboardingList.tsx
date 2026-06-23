@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, UserCheck } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -95,19 +95,6 @@ export default function PendingOnboardingList() {
         cell: ({ row }) =>
           row.original.created_at ? formatIso(row.original.created_at, 'yyyy-MM-dd') : '—',
       },
-      {
-        id: 'actions',
-        header: t('pending.review_header'),
-        enableGlobalFilter: false,
-        cell: ({ row }) => (
-          <Button type="button" size="sm" variant="outline" asChild>
-            <Link to={`/hr/employees/pending/${row.original.id}`}>
-              <UserCheck className="me-2 size-4" />
-              {t('pending.review')}
-            </Link>
-          </Button>
-        ),
-      },
     ]);
   }, [branches, i18n, t, tAdmin]);
 
@@ -133,6 +120,7 @@ export default function PendingOnboardingList() {
         isError={isError}
         onRetry={() => void refetch()}
         emptyState={<p className="text-sm text-muted-foreground">{t('pending.empty')}</p>}
+        getRowHref={(row) => `/hr/employees/pending/${row.id}`}
       />
     </div>
   );

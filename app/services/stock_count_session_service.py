@@ -11,7 +11,10 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import not_found_error, validation_error
 from app.models.branch import Branch
+from app.models.role import Role
 from app.models.stock_count_session import StockCountLine, StockCountSession
+from app.models.user_role import UserRole
+from app.models.users import User
 from app.schemas.stock_count import (
     StockCountLineRead,
     StockCountLineUpdate,
@@ -22,6 +25,117 @@ from app.schemas.stock_count import (
 from app.services.catalog_service import _category_descendant_ids
 from app.services.inventory_human_movement_service import apply_human_inventory_movement
 from app.services.inventory_reporting_service import list_stock_on_hand
+from app.utils.person_name import person_name_sql_expr
+
+_STOCK_COUNT_ASSIGNEE_ROLES = frozenset({"CASHIER", "FLOOR_STAFF", "WAREHOUSE_MANAGER"})
+
+
+async def _user_role_codes(db: AsyncSession, user_id: int) -> set[str]:
+    res = await db.execute(
+        select(Role.code)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == user_id)
+    )
+    return {str(c).strip().upper() for c, in res.all() if c}
+
+
+async def validate_stock_count_assignee(
+    db: AsyncSession,
+    *,
+    assigned_user_id: int,
+) -> str:
+    user = await db.get(User, user_id := assigned_user_id)
+    if user is None or (user.status or "").lower() != "active":
+        validation_error(
+            "stock_count_assignee_inactive",
+            "Assigned user must be active",
+            assigned_user_id=assigned_user_id,
+        )
+    codes = await _user_role_codes(db, user_id)
+    if not codes & _STOCK_COUNT_ASSIGNEE_ROLES:
+        validation_error(
+            "stock_count_assignee_invalid_role",
+            "Assigned user must be cashier, sales staff, or warehouses custodian",
+            assigned_user_id=assigned_user_id,
+            role_codes=sorted(codes),
+        )
+    res = await db.execute(
+        select(
+            person_name_sql_expr(User.first_name, User.father_name, User.family_name),
+            User.email,
+        ).where(User.id == user_id)
+    )
+    row = res.one()
+    name = (str(row[0]).strip() if row[0] else "") or (str(row[1]).strip() if row[1] else "")
+    if not name:
+        validation_error(
+            "stock_count_assignee_name_missing",
+            "Assigned user has no display name",
+            assigned_user_id=assigned_user_id,
+        )
+    return name
+
+
+async def _assert_session_assignee(
+    db: AsyncSession,
+    *,
+    session_id: int,
+    user_id: int,
+) -> StockCountSession:
+    session = await db.get(StockCountSession, session_id)
+    if session is None:
+        not_found_error(
+            "stock_count_session_not_found",
+            "Stock count session not found",
+            session_id=session_id,
+        )
+    if session.assigned_user_id != user_id:
+        not_found_error(
+            "stock_count_session_not_found",
+            "Stock count session not found",
+            session_id=session_id,
+        )
+    return session
+
+
+async def list_my_stock_count_sessions(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    limit: int = 100,
+) -> list[StockCountSessionRead]:
+    stmt = (
+        select(StockCountSession, Branch.name, func.count(StockCountLine.id))
+        .join(Branch, Branch.id == StockCountSession.branch_id)
+        .outerjoin(StockCountLine, StockCountLine.session_id == StockCountSession.id)
+        .where(
+            StockCountSession.assigned_user_id == user_id,
+            StockCountSession.status.in_(("draft", "in_progress")),
+        )
+        .group_by(StockCountSession.id, Branch.name)
+        .order_by(StockCountSession.id.desc())
+        .limit(min(max(limit, 1), 500))
+    )
+    res = await db.execute(stmt)
+    out: list[StockCountSessionRead] = []
+    for sess, branch_name, line_count in res.all():
+        out.append(
+            StockCountSessionRead(
+                id=sess.id,
+                branch_id=sess.branch_id,
+                branch_name=str(branch_name),
+                version_no=sess.version_no,
+                status=sess.status,
+                category_id=sess.category_id,
+                responsible_name=sess.responsible_name,
+                assigned_user_id=sess.assigned_user_id,
+                created_by=sess.created_by,
+                created_at=sess.created_at,
+                posted_at=sess.posted_at,
+                line_count=int(line_count or 0),
+            )
+        )
+    return out
 
 
 async def _stock_count_category_filter(
@@ -79,9 +193,20 @@ async def create_stock_count_session(
     category_include_descendants: bool = False,
     product_ids: list[int] | None = None,
     responsible_name: str = "",
+    assigned_user_id: int | None = None,
 ) -> StockCountSessionDetailRead:
+    if assigned_user_id is None:
+        validation_error(
+            "stock_count_assignee_required",
+            "assigned_user_id is required",
+        )
+    assignee_name = await validate_stock_count_assignee(
+        db,
+        assigned_user_id=assigned_user_id,
+    )
     version_no = await _next_version_no(db, branch_id=branch_id)
     product_ids_json = json.dumps(product_ids) if product_ids else None
+    display_name = (responsible_name or "").strip() or assignee_name
 
     session = StockCountSession(
         branch_id=branch_id,
@@ -89,7 +214,8 @@ async def create_stock_count_session(
         status="draft",
         category_id=category_id,
         product_ids_json=product_ids_json,
-        responsible_name=(responsible_name or "").strip(),
+        responsible_name=display_name,
+        assigned_user_id=assigned_user_id,
         created_by=user_id,
     )
     db.add(session)
@@ -159,6 +285,7 @@ async def list_stock_count_sessions(
                 status=sess.status,
                 category_id=sess.category_id,
                 responsible_name=sess.responsible_name,
+                assigned_user_id=sess.assigned_user_id,
                 created_by=sess.created_by,
                 created_at=sess.created_at,
                 posted_at=sess.posted_at,
@@ -198,6 +325,7 @@ async def get_stock_count_session(
         status=session.status,
         category_id=session.category_id,
         responsible_name=session.responsible_name,
+        assigned_user_id=session.assigned_user_id,
         created_by=session.created_by,
         created_at=session.created_at,
         posted_at=session.posted_at,
@@ -223,6 +351,10 @@ async def patch_stock_count_lines(
         validation_error(
             "stock_count_cannot_edit_posted", "Cannot edit a posted stock count session"
         )
+    if session.status == "cancelled":
+        validation_error(
+            "stock_count_cannot_edit_cancelled", "Cannot edit a cancelled stock count session"
+        )
 
     if session.status == "draft":
         session.status = "in_progress"
@@ -242,6 +374,65 @@ async def patch_stock_count_lines(
 
     await db.flush()
     return await get_stock_count_session(db, session_id=session_id)
+
+
+async def get_my_stock_count_session(
+    db: AsyncSession,
+    *,
+    session_id: int,
+    user_id: int,
+) -> StockCountSessionDetailRead:
+    await _assert_session_assignee(db, session_id=session_id, user_id=user_id)
+    return await get_stock_count_session(db, session_id=session_id)
+
+
+async def patch_my_stock_count_lines(
+    db: AsyncSession,
+    *,
+    session_id: int,
+    user_id: int,
+    updates: list[StockCountLineUpdate],
+) -> StockCountSessionDetailRead:
+    await _assert_session_assignee(db, session_id=session_id, user_id=user_id)
+    return await patch_stock_count_lines(db, session_id=session_id, updates=updates)
+
+
+_CANCELLABLE_STOCK_COUNT_STATUSES = frozenset({"draft", "in_progress"})
+
+
+async def cancel_stock_count_session(
+    db: AsyncSession,
+    *,
+    session_id: int,
+) -> None:
+    session = await db.get(StockCountSession, session_id)
+    if session is None:
+        not_found_error(
+            "stock_count_session_not_found",
+            "Stock count session not found",
+            session_id=session_id,
+        )
+    if session.status == "posted":
+        validation_error(
+            "stock_count_cannot_cancel_posted",
+            "Cannot cancel a posted stock count session",
+            session_id=session_id,
+        )
+    if session.status == "cancelled":
+        validation_error(
+            "stock_count_already_cancelled",
+            "Stock count session is already cancelled",
+            session_id=session_id,
+        )
+    if session.status not in _CANCELLABLE_STOCK_COUNT_STATUSES:
+        validation_error(
+            "stock_count_cannot_cancel",
+            "Stock count session cannot be cancelled in its current state",
+            session_id=session_id,
+            status=session.status,
+        )
+    session.status = "cancelled"
+    await db.flush()
 
 
 async def post_stock_count_session(

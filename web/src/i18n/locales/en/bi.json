@@ -143,7 +143,7 @@
     "category_mix": "Revenue by category",
     "category_mix_hint": "Revenue share by product category for the period.",
     "trend_view_invoices": "Sales invoice register",
-    "mix_view_catalog": "Review catalog"
+    "mix_view_catalog": "View categories"
   },
   "empty": { "trend": "No sales in this period.", "mix": "No category data." },
   "tables": {

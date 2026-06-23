@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { NavItem, NavSection } from '@/config/navigation';
+import type { NavItem, NavSection, NavBadgeKind } from '@/config/navigation';
 import { navBadgeCount, type NavBadgeCounts, useNavBadges } from '@/hooks/useNavBadges';
 import { cn } from '@/lib/utils';
 
@@ -71,6 +71,42 @@ function isItemActive(item: NavItem, pathname: string): boolean {
   return item.children?.some((child) => isItemActive(child, pathname)) ?? false;
 }
 
+function navItemBadgeKinds(item: NavItem): NavBadgeKind[] {
+  if (item.badges?.length) return item.badges;
+  if (item.badge) return [item.badge];
+  return [];
+}
+
+function NavBadgeGroup({
+  kinds,
+  badges,
+  navItemActive,
+  className,
+}: {
+  kinds: NavBadgeKind[];
+  badges: NavBadgeCounts;
+  navItemActive?: boolean;
+  className?: string;
+}) {
+  const visible = kinds
+    .map((kind) => ({ kind, count: navBadgeCount(badges, kind) }))
+    .filter((entry) => entry.count > 0);
+  if (!visible.length) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-0.5">
+      {visible.map(({ kind, count }) => (
+        <NavAttentionBadge
+          key={kind}
+          kind={kind}
+          count={count}
+          navItemActive={navItemActive}
+          className={className}
+        />
+      ))}
+    </span>
+  );
+}
+
 function NavRowExpanded({
   item,
   onItemNavigate,
@@ -92,7 +128,7 @@ function NavRowExpanded({
   }, [active, item.children?.length]);
 
   if (!item.children?.length) {
-    const n = navBadgeCount(badges, item.badge);
+    const kinds = navItemBadgeKinds(item);
     return (
       <NavLeafLink
         to={item.href}
@@ -104,7 +140,7 @@ function NavRowExpanded({
           <>
             <Icon className="size-4 shrink-0" />
             <span className="min-w-0 flex-1 truncate">{label}</span>
-            <NavAttentionBadge count={n} navItemActive={isActive} />
+            <NavBadgeGroup kinds={kinds} badges={badges} navItemActive={isActive} />
           </>
         )}
       </NavLeafLink>
@@ -126,7 +162,7 @@ function NavRowExpanded({
           <span className="truncate">{label}</span>
         </span>
         <span className="flex shrink-0 items-center gap-1">
-          <NavAttentionBadge count={navBadgeCount(badges, item.badge)} />
+          <NavBadgeGroup kinds={navItemBadgeKinds(item)} badges={badges} />
           <ChevronDown className={cn('size-4 shrink-0 transition-transform', open ? 'rotate-180' : '')} />
         </span>
       </button>
@@ -146,8 +182,9 @@ function NavRowExpanded({
                     <>
                       <ChildIcon className="size-3.5 shrink-0" />
                       <span className="min-w-0 flex-1 truncate">{t(child.labelKey)}</span>
-                      <NavAttentionBadge
-                        count={navBadgeCount(badges, child.badge)}
+                      <NavBadgeGroup
+                        kinds={navItemBadgeKinds(child)}
+                        badges={badges}
                         navItemActive={isActive}
                       />
                     </>
@@ -178,7 +215,8 @@ function NavRowCollapsed({
   const active = isItemActive(item, location.pathname);
 
   if (!item.children?.length) {
-    const n = navBadgeCount(badges, item.badge);
+    const kinds = navItemBadgeKinds(item);
+    const collapsedCount = kinds.reduce((sum, kind) => sum + navBadgeCount(badges, kind), 0);
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -197,7 +235,7 @@ function NavRowCollapsed({
               <span className="relative inline-flex size-9 shrink-0 items-center justify-center">
                 <Icon className="size-5 shrink-0" aria-hidden />
                 <NavAttentionBadge
-                  count={n}
+                  count={collapsedCount}
                   navItemActive={isActive}
                   className={cn(
                     'absolute z-20 h-4 min-w-4 px-1 text-[9px] -end-1 -top-1',
@@ -229,7 +267,10 @@ function NavRowCollapsed({
           <span className="relative inline-flex size-9 shrink-0 items-center justify-center">
             <Icon className="size-5 shrink-0" aria-hidden />
             <NavAttentionBadge
-              count={navBadgeCount(badges, item.badge)}
+              count={navItemBadgeKinds(item).reduce(
+                (sum, kind) => sum + navBadgeCount(badges, kind),
+                0,
+              )}
               navItemActive={active}
               className={cn(
                 'absolute z-20 h-4 min-w-4 px-1 text-[9px] -end-1 -top-1',
@@ -254,8 +295,9 @@ function NavRowCollapsed({
               {({ isActive }) => (
                 <>
                   <span className="min-w-0 flex-1 truncate">{t(child.labelKey)}</span>
-                  <NavAttentionBadge
-                    count={navBadgeCount(badges, child.badge)}
+                  <NavBadgeGroup
+                    kinds={navItemBadgeKinds(child)}
+                    badges={badges}
                     navItemActive={isActive}
                   />
                 </>

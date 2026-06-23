@@ -1,19 +1,26 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
-import { useEffect } from 'react';
-import { type FieldErrors, useForm } from 'react-hook-form';
+import { useCallback, useEffect } from 'react';
+import { type FieldError, type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
+import { AuthFieldError } from '@/features/auth/components/AuthFieldError';
 import { login as loginApi } from '@/features/auth/api';
+import {
+  LOGIN_FIELD_ORDER,
+  loginFieldErrorMessage,
+} from '@/features/auth/lib/loginFormValidationUi';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { finalizeAuthSession } from '@/lib/finalizeAuthSession';
 import { PasswordInput } from '@/components/ui/password-input';
 import { MEZ_AUTH_INPUT_CLASS } from '@/lib/fieldFocus';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { canAccessPath } from '@/lib/canAccessPath';
+import { focusFirstFormError, useFormValidationDisplay } from '@/lib/formValidation';
 import { sanitizeNextPath } from '@/lib/nextPath';
 import { notify } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 
 import { classifyLoginError } from './loginErrors';
 import { type LoginFormValues, loginSchema } from './loginSchema';
@@ -31,8 +38,18 @@ function resolvePostLoginPath(
   return canAccessPath(target, permissions, roleCodes) ? target : '/dashboard';
 }
 
+function rootCredentialsError(root: unknown): FieldError | undefined {
+  if (root == null || typeof root !== 'object') return undefined;
+  const credentials = (root as Record<string, unknown>).credentials;
+  if (credentials != null && typeof credentials === 'object' && 'message' in credentials) {
+    return credentials as FieldError;
+  }
+  return undefined;
+}
+
 export default function LoginPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { t: tAuth } = useTranslation('auth');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const nextRaw = searchParams.get('next');
@@ -43,9 +60,21 @@ export default function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
+  const { errors, showError, invalidClass } = useFormValidationDisplay(form.control);
+  const credentialsError = rootCredentialsError(errors.root);
+  const hasCredentialsError = Boolean(credentialsError?.message);
+
   const permissions = useAuthStore((s) => s.permissions);
   const roleCodes = useAuthStore((s) => s.roleCodes);
   const user = useAuthStore((s) => s.user);
+
+  const clearFieldError = useCallback(
+    (field: 'email' | 'password') => {
+      form.clearErrors(field);
+      form.clearErrors('root.credentials');
+    },
+    [form],
+  );
 
   useEffect(() => {
     if (status !== 'authenticated' || !useAuthStore.getState().permissionsLoaded) {
@@ -59,6 +88,8 @@ export default function LoginPage() {
   }, [status, navigate, nextRaw, permissions, roleCodes, user?.must_change_password]);
 
   async function onSubmit(values: LoginFormValues) {
+    form.clearErrors('root.credentials');
+
     try {
       const tokens = await loginApi({ email: values.email, password: values.password });
 
@@ -78,9 +109,18 @@ export default function LoginPage() {
         return;
       }
 
+      notify.success(t('auth:login.success'));
       navigate(resolvePostLoginPath(nextRaw, permSet, roleCodes), { replace: true });
     } catch (err) {
       const key = classifyLoginError(err);
+      if (key === 'auth:errors.invalid_credentials') {
+        (document.activeElement as HTMLElement | null)?.blur();
+        form.setError('root.credentials', {
+          type: 'server',
+          message: t('auth:login.invalid_credentials'),
+        });
+        return;
+      }
       if (key) {
         notify.error(t(key));
       }
@@ -90,22 +130,28 @@ export default function LoginPage() {
   const submitting = form.formState.isSubmitting;
 
   const onInvalid = (errs: FieldErrors<LoginFormValues>) => {
-    if (errs.email) {
-      notify.error(t('auth:login.email_invalid'));
-      void form.setFocus('email');
-      return;
-    }
-    if (errs.password) {
-      notify.error(t('auth:login.password_required'));
-      void form.setFocus('password');
-      return;
-    }
-    notify.error(t('common:errors.validation_required'));
+    focusFirstFormError(form, errs, LOGIN_FIELD_ORDER);
   };
 
+  const { ref: emailRef, ...emailRegister } = form.register('email', {
+    onChange: () => clearFieldError('email'),
+  });
+
+  const { ref: passwordRef, ...passwordRegister } = form.register('password', {
+    onChange: () => clearFieldError('password'),
+  });
+
+  const emailMessage = loginFieldErrorMessage(errors.email, tAuth) ?? '';
+  const passwordMessage = loginFieldErrorMessage(errors.password, tAuth) ?? '';
+
+  const emailInvalid = showError('email') || hasCredentialsError;
+  const passwordInvalid = showError('password') || hasCredentialsError;
+
+  const inputTransition = 'transition-all duration-300 ease-in-out';
+
   return (
-    <div className="space-y-6" dir="auto">
-      <div className="space-y-1 text-center">
+    <div className="space-y-6" dir={i18n.dir()}>
+      <div className="space-y-1 text-start">
         <h1 className="text-2xl font-bold tracking-tight">{t('auth:login.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('auth:login.subtitle')}</p>
       </div>
@@ -127,9 +173,22 @@ export default function LoginPage() {
             type="email"
             autoComplete="username"
             dir="ltr"
-            className={MEZ_AUTH_INPUT_CLASS}
-            aria-invalid={form.formState.errors.email ? true : undefined}
-            {...form.register('email')}
+            className={cn(
+              MEZ_AUTH_INPUT_CLASS,
+              inputTransition,
+              invalidClass('email'),
+              hasCredentialsError && 'border-destructive',
+            )}
+            aria-invalid={emailInvalid || undefined}
+            aria-describedby={showError('email') ? 'login-email-error' : undefined}
+            {...emailRegister}
+            ref={emailRef}
+            onFocus={() => clearFieldError('email')}
+          />
+          <AuthFieldError
+            id="login-email-error"
+            message={emailMessage}
+            visible={showError('email')}
           />
         </div>
 
@@ -140,22 +199,40 @@ export default function LoginPage() {
           <PasswordInput
             id="login-password"
             autoComplete="current-password"
-            aria-invalid={form.formState.errors.password ? true : undefined}
-            {...form.register('password')}
+            className={cn(
+              inputTransition,
+              invalidClass('password'),
+              hasCredentialsError && 'border-destructive',
+            )}
+            aria-invalid={passwordInvalid || undefined}
+            aria-describedby={showError('password') ? 'login-password-error' : undefined}
+            {...passwordRegister}
+            ref={passwordRef}
+            onFocus={() => clearFieldError('password')}
+          />
+          <AuthFieldError
+            id="login-password-error"
+            message={passwordMessage}
+            visible={showError('password')}
           />
         </div>
+
+        <AuthFieldError
+          message={credentialsError?.message ?? ''}
+          visible={hasCredentialsError}
+        />
 
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-md transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
           {t('auth:login.submit')}
         </button>
       </form>
 
-      <div className="flex items-center justify-center text-sm">
+      <div className="flex items-center justify-start text-sm">
         <Link
           to="/forgot-password"
           className="text-primary underline-offset-4 hover:underline"

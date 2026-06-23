@@ -1,6 +1,6 @@
 import { useQueries, useQuery } from '@tanstack/react-query';
 import Decimal from 'decimal.js';
-import { ClipboardList, Eye, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -12,7 +12,6 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -50,7 +49,6 @@ const KPI_STATUSES = ['draft', 'sent', 'tracked', 'closed'] as const;
 export default function OrdersList() {
   const { t } = useTranslation('purchasing');
   const canCreate = usePermission('purchase_orders', 'create');
-  const canUpdate = usePermission('purchase_orders', 'update');
   const [status, setStatus] = useState<string>('');
 
   const [urlQuery] = useTableUrlState({ pageSize: 20 });
@@ -77,12 +75,7 @@ export default function OrdersList() {
           id: 'po_number',
           header: t('orders.col.po_number'),
           cell: ({ row }) => (
-            <Link
-              to={`/purchasing/orders/${row.original.id}`}
-              className="font-mono font-medium text-primary hover:underline num-latin"
-            >
-              PO-{row.original.id}
-            </Link>
+            <span className="font-mono font-medium num-latin">PO-{row.original.id}</span>
           ),
         },
         {
@@ -131,46 +124,8 @@ export default function OrdersList() {
             );
           },
         },
-        {
-          id: 'actions',
-          header: t('orders.col.actions'),
-          cell: ({ row }) => {
-            const po = row.original;
-            return (
-              <TooltipProvider>
-                <div className="flex items-center gap-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button type="button" variant="ghost" size="icon" asChild>
-                        <Link to={`/purchasing/orders/${po.id}`} aria-label={t('orders.actions.view')}>
-                          <Eye className="size-4" />
-                        </Link>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t('orders.actions.view')}</TooltipContent>
-                  </Tooltip>
-                  {canUpdate && po.status === 'sent' ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon" asChild>
-                          <Link
-                            to={`/purchasing/orders/${po.id}/receive`}
-                            aria-label={t('orders.actions.receive')}
-                          >
-                            <ClipboardList className="size-4" />
-                          </Link>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>{t('orders.actions.receive')}</TooltipContent>
-                    </Tooltip>
-                  ) : null}
-                </div>
-              </TooltipProvider>
-            );
-          },
-        },
       ]),
-    [t, canUpdate],
+    [t],
   );
 
   type KpiItem = { key: string; label: string; count: number; statusVal: string };
@@ -224,6 +179,7 @@ export default function OrdersList() {
           isError={isError}
           onRetry={() => void refetch()}
           showSearch={false}
+          getRowHref={(po) => `/purchasing/orders/${po.id}`}
           toolbarExtras={
             <div className="flex flex-wrap items-center gap-2">
               <Label className="shrink-0 text-sm leading-none">{t('orders.filter_status')}</Label>

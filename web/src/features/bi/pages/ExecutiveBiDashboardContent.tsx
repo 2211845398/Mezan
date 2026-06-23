@@ -25,15 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { listBranches } from '@/features/admin/api';
-import { adminKeys } from '@/features/admin/queries';
+import { BranchCombobox } from '@/features/admin/components/BranchCombobox';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { MARKETING_SALES_INVOICES_PATH } from '@/features/marketing/paths';
 import { usePermission } from '@/hooks/usePermission';
@@ -72,26 +64,18 @@ export default function ExecutiveBiDashboardContent() {
   const [periodStart, setPeriodStart] = useState(() =>
     format(subDays(now(), 30), 'yyyy-MM-dd'),
   );
-  const [branchFilter, setBranchFilter] = useState<string>(
-    activeBranchId != null ? String(activeBranchId) : 'all',
-  );
+  const [branchFilter, setBranchFilter] = useState<number | null>(activeBranchId ?? null);
 
   const qArgs = useMemo(() => {
     const args: { period_start?: string; period_end?: string; branch_id?: number } = {
       period_start: periodStart,
       period_end: periodEnd,
     };
-    if (branchFilter !== 'all' && branchFilter !== '') {
-      const id = Number(branchFilter);
-      if (!Number.isNaN(id)) args.branch_id = id;
+    if (branchFilter != null) {
+      args.branch_id = branchFilter;
     }
     return args;
   }, [periodStart, periodEnd, branchFilter]);
-
-  const { data: branches = [] } = useQuery({
-    queryKey: adminKeys.branches(false),
-    queryFn: () => listBranches({ include_archived: false }),
-  });
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     ...executiveKpisQueryOptions(qArgs),
@@ -183,20 +167,16 @@ export default function ExecutiveBiDashboardContent() {
             toLabel={<span className="text-sm font-medium">{t('filters.period_end')}</span>}
           />
           <div className="grid min-w-[200px] gap-1">
-            <span className="text-sm font-medium">{t('filters.branch')}</span>
-            <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('filters.branch_all')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('filters.branch_all')}</SelectItem>
-                {branches.map((b) => (
-                  <SelectItem key={b.id} value={String(b.id)}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <BranchCombobox
+              id="executive-bi-branch-filter"
+              label={t('filters.branch')}
+              value={branchFilter}
+              onChange={setBranchFilter}
+              allowClear
+              clearLabel={t('filters.branch_all')}
+              includeArchived={false}
+              showCode={false}
+            />
           </div>
           <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
             {t('filters.apply')}
@@ -294,7 +274,7 @@ export default function ExecutiveBiDashboardContent() {
               {canViewCatalog ? (
                 <CardFooter className="pt-0">
                   <Button variant="link" className="h-auto p-0 text-sm" asChild>
-                    <Link to="/catalog/products">{t('charts.mix_view_catalog')}</Link>
+                    <Link to="/catalog/categories">{t('charts.mix_view_catalog')}</Link>
                   </Button>
                 </CardFooter>
               ) : null}
@@ -314,6 +294,12 @@ export default function ExecutiveBiDashboardContent() {
                   data={data.top_products ?? []}
                   isLoading={false}
                   isError={false}
+                  showSearch={false}
+                  getRowHref={
+                    canViewCatalog
+                      ? (row) => `/catalog/products/${row.product_id}`
+                      : undefined
+                  }
                 />
               </CardContent>
             </Card>
@@ -329,6 +315,12 @@ export default function ExecutiveBiDashboardContent() {
                   data={data.recent_purchase_orders ?? []}
                   isLoading={false}
                   isError={false}
+                  showSearch={false}
+                  getRowHref={
+                    canViewPurchasing
+                      ? (row) => `/purchasing/orders/${row.id}`
+                      : undefined
+                  }
                 />
               </CardContent>
             </Card>

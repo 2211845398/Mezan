@@ -13,11 +13,20 @@ import {
   FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso } from '@/lib/date';
 import { notify } from '@/lib/toast';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import { BranchPicker } from '../../components/BranchPicker';
 import { useAuthorizeTerminal, useCreateTerminal, useDeauthorizeTerminal, useUpdateTerminal } from '../../queries';
@@ -73,6 +82,13 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
       cForm.reset({ branch_id: 0, name: '', terminal_code: '' });
     }
   }, [terminal, open, cForm, eForm]);
+
+  const onCreateInvalid = createFormInvalidHandler(cForm, {
+    fieldOrder: ['branch_id', 'name', 'terminal_code'],
+  });
+  const onEditInvalid = createFormInvalidHandler(eForm, {
+    fieldOrder: ['name', 'branch_id'],
+  });
 
   return (
     <FloatingFormDialog
@@ -135,7 +151,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                   const message = applyApiErrorToForm(eForm, error);
                   if (message) notifyApiError(error, tc('errors.generic'));
                 }
-              })}
+              }, onEditInvalid)}
               className="space-y-3"
             >
               <FormField
@@ -165,6 +181,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                   </FormItem>
                 )}
               />
+              <FormValidationAlert />
             </form>
           </Form>
           <div className="flex flex-wrap gap-2 border-t pt-4">
@@ -216,7 +233,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                 const message = applyApiErrorToForm(cForm, error);
                 if (message) notifyApiError(error, tc('errors.generic'));
               }
-            })}
+            }, onCreateInvalid)}
             className="space-y-3"
           >
             <FormField
@@ -259,6 +276,7 @@ export function TerminalForm({ open, onOpenChange, terminal }: Props) {
                 </FormItem>
               )}
             />
+            <FormValidationAlert />
           </form>
         </Form>
       )}

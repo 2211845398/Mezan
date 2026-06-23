@@ -1,11 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Pencil, RotateCcw } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
-
-import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -22,7 +18,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { usePermission } from '@/hooks/usePermission';
 
-import { listTaxDefinitions, postArchiveProduct, postUnarchiveProduct, type ProductRead } from '../../api';
+import { listTaxDefinitions, type ProductRead } from '../../api';
 import { CategoryCombobox } from '../../components/CategoryCombobox';
 import { ProductCategoryChips } from '../../components/ProductCategoryChips';
 import { ProductTaxChips } from '../../components/ProductTaxChips';
@@ -48,8 +44,6 @@ export default function ProductsList() {
   const { t } = useTranslation('catalog');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const qc = useQueryClient();
-  const canUpdate = usePermission('catalog', 'update');
   const canCreate = usePermission('catalog', 'create');
 
   const [status, setStatus] = useState<string | null>(null);
@@ -131,26 +125,6 @@ export default function ProductsList() {
     [taxDefinitions],
   );
 
-  const archiveProduct = useMutation({
-    mutationFn: async (row: ProductRead) =>
-      row.status === 'archived' ? postUnarchiveProduct(row.id) : postArchiveProduct(row.id),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: catalogKeys.root });
-    },
-  });
-
-  const handleArchiveToggle = useCallback(
-    async (product: ProductRead) => {
-      try {
-        await archiveProduct.mutateAsync(product);
-        toast.success(t('products.status_updated'));
-      } catch (e) {
-        notifyApiError(e, t('errors.generic'));
-      }
-    },
-    [archiveProduct, t],
-  );
-
   const { data, isLoading, isError, refetch } = useProductListQuery({
     limit: pageSize,
     offset,
@@ -228,39 +202,8 @@ export default function ProductsList() {
             />
           ),
         },
-        {
-          id: 'actions',
-          header: '',
-          cell: ({ row }) => {
-            const product = row.original;
-            const archived = product.status === 'archived';
-            return canUpdate ? (
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => navigate(`/catalog/products/${product.id}/edit`)}
-                  aria-label={t('products.edit')}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => void handleArchiveToggle(product)}
-                  disabled={archiveProduct.isPending}
-                  aria-label={archived ? t('products.unarchive') : t('products.archive')}
-                >
-                  {archived ? <RotateCcw className="size-4" /> : <Archive className="size-4" />}
-                </Button>
-              </div>
-            ) : null;
-          },
-        },
       ]),
-    [t, canUpdate, categoryNameById, taxById, archiveProduct, navigate, handleArchiveToggle],
+    [t, categoryNameById, taxById],
   );
 
   return (
@@ -346,6 +289,7 @@ export default function ProductsList() {
         onRetry={() => {
           void refetch();
         }}
+        getRowHref={(row) => `/catalog/products/${row.id}`}
       />
     </div>
   );

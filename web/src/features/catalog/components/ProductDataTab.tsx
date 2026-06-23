@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -15,12 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { readOnlyTextInputProps } from '@/lib/readOnlyFieldStyles';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { cn } from '@/lib/utils';
 
 import type { TaxDefinitionRead } from '../api';
 import { CategoryCombobox } from './CategoryCombobox';
 import { CategoryTagMultiSelect } from './CategoryTagMultiSelect';
 import { ProductImageUploadField } from './ProductImageUploadField';
+import { ProductTaxChips } from './ProductTaxChips';
 import { TaxDefinitionMultiSelect } from './TaxDefinitionMultiSelect';
 
 type CategoryOption = { id: number; label: string };
@@ -41,6 +44,7 @@ type Props = {
   flat: CategoryOption[];
   tagOptions: CategoryOption[];
   activeTaxOptions: TaxDefinitionRead[];
+  fieldsEnabled?: boolean;
   footer?: ReactNode;
 };
 
@@ -60,11 +64,24 @@ export function ProductDataTab({
   flat,
   tagOptions,
   activeTaxOptions,
+  fieldsEnabled = true,
   footer,
 }: Props) {
   const { t, i18n } = useTranslation('catalog');
+  const textRo = (extra?: string) => readOnlyTextInputProps(fieldsEnabled, extra);
   const [previewSrc, setPreviewSrc] = useState<string | undefined>();
   const tagIds = form.watch('tag_category_ids');
+  const imageUrl = form.watch('image_url');
+  const outputVatRate = form.watch('output_vat_rate');
+  const taxById = useMemo(
+    () => new Map(activeTaxOptions.map((d) => [d.id, d] as const)),
+    [activeTaxOptions],
+  );
+
+  useEffect(() => {
+    if (fieldsEnabled) return;
+    setPreviewSrc(resolveMediaUrl((imageUrl ?? '').trim() || undefined));
+  }, [fieldsEnabled, imageUrl]);
 
   return (
     <SectionCard
@@ -95,7 +112,11 @@ export function ProductDataTab({
                   <FormItem className="min-w-0">
                     <FormLabel className="text-sm">{t('products.field.name')}</FormLabel>
                     <FormControl>
-                      <Input {...field} className="h-9 w-full text-sm" dir={i18n.dir()} />
+                      <Input
+                        {...field}
+                        dir={i18n.dir()}
+                        {...textRo('h-9 w-full text-sm')}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -107,20 +128,26 @@ export function ProductDataTab({
                 render={({ field }) => (
                   <FormItem className="min-w-0">
                     <FormLabel className="text-sm">{t('products.field.status')}</FormLabel>
-                    <Select
-                      value={field.value ? 'active' : 'archived'}
-                      onValueChange={(v) => field.onChange(v === 'active')}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="h-9 w-full text-sm" dir={i18n.dir()}>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent dir={i18n.dir()}>
-                        <SelectItem value="active">{t('products.status.active')}</SelectItem>
-                        <SelectItem value="archived">{t('products.status.archived')}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {fieldsEnabled ? (
+                      <Select
+                        value={field.value ? 'active' : 'archived'}
+                        onValueChange={(v) => field.onChange(v === 'active')}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-9 w-full text-sm" dir={i18n.dir()}>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent dir={i18n.dir()}>
+                          <SelectItem value="active">{t('products.status.active')}</SelectItem>
+                          <SelectItem value="archived">{t('products.status.archived')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="flex h-9 items-center text-sm font-medium">
+                        {field.value ? t('products.status.active') : t('products.status.archived')}
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -133,14 +160,21 @@ export function ProductDataTab({
                 name="image_url"
                 render={({ field }) => (
                   <FormItem className="min-w-0">
+                    <FormLabel className="text-sm">{t('products.field.image_upload')}</FormLabel>
                     <FormControl>
-                      <ProductImageUploadField
-                        value={field.value ?? ''}
-                        onChange={field.onChange}
-                        inputId="product-form-image"
-                        layout="controls-only"
-                        onDisplaySrcChange={setPreviewSrc}
-                      />
+                      {fieldsEnabled ? (
+                        <ProductImageUploadField
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          inputId="product-form-image"
+                          layout="controls-only"
+                          onDisplaySrcChange={setPreviewSrc}
+                        />
+                      ) : (
+                        <p className="flex h-9 items-center text-sm font-medium">
+                          {(field.value ?? '').trim() !== '' ? t('products.image_uploaded') : '—'}
+                        </p>
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -170,11 +204,17 @@ export function ProductDataTab({
                 <FormItem className="min-w-0">
                   <FormLabel className="text-sm">{t('products.field.primary_category')}</FormLabel>
                   <FormControl>
-                    <CategoryCombobox
-                      value={field.value}
-                      onChange={field.onChange}
-                      options={flat}
-                    />
+                    {fieldsEnabled ? (
+                      <CategoryCombobox
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={flat}
+                      />
+                    ) : (
+                      <p className="flex h-9 items-center text-sm font-medium">
+                        {flat.find((c) => c.id === field.value)?.label ?? '—'}
+                      </p>
+                    )}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -182,18 +222,22 @@ export function ProductDataTab({
             />
             <div className="min-w-0 space-y-1">
               <Label className="text-sm">{t('products.field.additional_categories')}</Label>
-              <FormField
-                control={form.control}
-                name="tag_category_ids"
-                render={({ field }) => (
-                  <CategoryTagMultiSelect
-                    valueIds={field.value}
-                    onChange={field.onChange}
-                    options={tagOptions}
-                    hideTags
-                  />
-                )}
-              />
+              {fieldsEnabled ? (
+                <FormField
+                  control={form.control}
+                  name="tag_category_ids"
+                  render={({ field }) => (
+                    <CategoryTagMultiSelect
+                      valueIds={field.value}
+                      onChange={field.onChange}
+                      options={tagOptions}
+                      hideTags
+                    />
+                  )}
+                />
+              ) : tagIds.length === 0 ? (
+                <p className="flex h-9 items-center text-sm font-medium">—</p>
+              ) : null}
             </div>
           </div>
 
@@ -207,6 +251,7 @@ export function ProductDataTab({
                   onChange={field.onChange}
                   options={tagOptions}
                   hideTrigger
+                  disabled={!fieldsEnabled}
                 />
               )}
             />
@@ -217,13 +262,21 @@ export function ProductDataTab({
             <FormField
               control={form.control}
               name="tax_definition_ids"
-              render={({ field }) => (
-                <TaxDefinitionMultiSelect
-                  valueIds={field.value}
-                  onChange={field.onChange}
-                  options={activeTaxOptions}
-                />
-              )}
+              render={({ field }) =>
+                fieldsEnabled ? (
+                  <TaxDefinitionMultiSelect
+                    valueIds={field.value}
+                    onChange={field.onChange}
+                    options={activeTaxOptions}
+                  />
+                ) : (
+                  <ProductTaxChips
+                    taxDefinitionIds={field.value}
+                    outputVatRate={outputVatRate}
+                    taxById={taxById}
+                  />
+                )
+              }
             />
           </div>
         </InnerPanel>
