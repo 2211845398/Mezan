@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.branch import Branch
 from app.models.employee_profile import EmployeeProfile
-from app.models.leave_request import LeaveRequest
 from app.models.users import User
 from app.services.employee_service import (
     attendance_period_summary,
@@ -121,11 +120,20 @@ async def export_attendance_pdf(
     pdf.add_page()
     family = _register_unicode_font(pdf)
     pdf.set_font(family, size=12)
-    pdf.cell(0, 8, _txt(labels["attendance_title"], 120), align=align, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(
+        0, 8, _txt(labels["attendance_title"], 120), align=align, new_x="LMARGIN", new_y="NEXT"
+    )
     pdf.set_font(family, size=8)
     branch_name = await _branch_name(db, branch_id)
     if branch_name:
-        pdf.cell(0, 5, _txt(f"{labels['branch']}: {branch_name}", 80), align=align, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(
+            0,
+            5,
+            _txt(f"{labels['branch']}: {branch_name}", 80),
+            align=align,
+            new_x="LMARGIN",
+            new_y="NEXT",
+        )
     if date_from and date_to:
         pdf.cell(
             0,
@@ -168,8 +176,10 @@ async def export_attendance_pdf(
     pdf.ln()
 
     for log in logs:
-        name = log.get("employee_user_full_name") or log.get("employee_user_email") or str(
-            log.get("employee_profile_id", "")
+        name = (
+            log.get("employee_user_full_name")
+            or log.get("employee_user_email")
+            or str(log.get("employee_profile_id", ""))
         )
         row = [
             name,
@@ -233,8 +243,10 @@ async def export_attendance_xlsx(
 
     table_rows = []
     for log in logs:
-        name = log.get("employee_user_full_name") or log.get("employee_user_email") or str(
-            log.get("employee_profile_id", "")
+        name = (
+            log.get("employee_user_full_name")
+            or log.get("employee_user_email")
+            or str(log.get("employee_profile_id", ""))
         )
         table_rows.append(
             [
@@ -293,7 +305,9 @@ async def export_leave_summary_pdf(
         rows_data.append(
             [
                 name,
-                leave.leave_type.value if hasattr(leave.leave_type, "value") else str(leave.leave_type),
+                leave.leave_type.value
+                if hasattr(leave.leave_type, "value")
+                else str(leave.leave_type),
                 leave.start_date.isoformat(),
                 leave.end_date.isoformat(),
                 day_span,
@@ -365,7 +379,9 @@ async def export_leave_summary_xlsx(
         table_rows.append(
             [
                 name,
-                leave.leave_type.value if hasattr(leave.leave_type, "value") else str(leave.leave_type),
+                leave.leave_type.value
+                if hasattr(leave.leave_type, "value")
+                else str(leave.leave_type),
                 leave.start_date.isoformat(),
                 leave.end_date.isoformat(),
                 day_span,

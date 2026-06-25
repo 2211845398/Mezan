@@ -30,6 +30,10 @@ from app.models.suppliers import Supplier
 from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
+from app.services.attendance_device_service import (
+    create_attendance_device,
+    ensure_kiosk_role_for_user,
+)
 from app.services.customer_crm_service import create_staff_customer
 from app.services.document_posting_service import post_sales_invoice_gl
 from app.services.employee_service import (
@@ -41,7 +45,6 @@ from app.services.employee_service import (
     review_leave_request,
 )
 from app.services.goods_receipt_service import receive_goods_for_purchase_order
-from app.services.attendance_device_service import create_attendance_device, ensure_kiosk_role_for_user
 from app.services.hr_feedback_service import create_hr_feedback
 from app.services.payroll_service import (
     approve_and_pay_period,
@@ -468,12 +471,8 @@ async def seed_dev_full_month_attendance(
             elif day.day == 18:
                 clock_in_hour = 10  # late arrival
 
-            clock_in_at = datetime(
-                day.year, day.month, day.day, clock_in_hour, 0, tzinfo=UTC
-            )
-            clock_out_at = datetime(
-                day.year, day.month, day.day, clock_out_hour, 0, tzinfo=UTC
-            )
+            clock_in_at = datetime(day.year, day.month, day.day, clock_in_hour, 0, tzinfo=UTC)
+            clock_out_at = datetime(day.year, day.month, day.day, clock_out_hour, 0, tzinfo=UTC)
             await clock_in(
                 db,
                 employee_profile_id=employee.id,
@@ -718,7 +717,9 @@ async def seed_dev_attendance_kiosk(
     dev_password: str,
 ) -> None:
     email = "kiosk.dev@example.com"
-    res = await db.execute(select(AttendanceDevice).where(AttendanceDevice.device_code == "DEV-KIOSK-MAIN"))
+    res = await db.execute(
+        select(AttendanceDevice).where(AttendanceDevice.device_code == "DEV-KIOSK-MAIN")
+    )
     if res.scalar_one_or_none() is not None:
         return
 

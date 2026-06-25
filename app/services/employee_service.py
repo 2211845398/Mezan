@@ -472,9 +472,7 @@ async def clock_out(
     if not log:
         raise StateTransitionError("No open attendance log to clock out for today")
     if branch_id is not None and log.branch_id != branch_id:
-        raise StateTransitionError(
-            "Attendance QR branch does not match today's open check-in"
-        )
+        raise StateTransitionError("Attendance QR branch does not match today's open check-in")
 
     out_at = _to_utc(clock_out_at)
     if out_at <= log.clock_in_at:
@@ -638,9 +636,7 @@ async def enrich_leave_request_reads(
     reviewer_ids = {r.reviewed_by_user_id for r in rows if r.reviewed_by_user_id is not None}
     reviewer_map: dict[int, tuple[str | None, str | None]] = {}
     if reviewer_ids:
-        reviewer_name = person_name_sql_expr(
-            User.first_name, User.father_name, User.family_name
-        )
+        reviewer_name = person_name_sql_expr(User.first_name, User.father_name, User.family_name)
         reviewer_res = await db.execute(
             select(User.id, reviewer_name.label("full_name"), User.email).where(
                 User.id.in_(reviewer_ids)
@@ -664,9 +660,7 @@ async def enrich_leave_request_reads(
 MAX_PENDING_SELF_SERVICE_REQUESTS = 2
 
 
-async def count_pending_leave_requests(
-    db: AsyncSession, *, employee_profile_id: int
-) -> int:
+async def count_pending_leave_requests(db: AsyncSession, *, employee_profile_id: int) -> int:
     result = await db.execute(
         select(func.count())
         .select_from(LeaveRequest)

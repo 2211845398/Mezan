@@ -5,8 +5,6 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-import pytest
-
 from app.services.payroll_export_service import build_payroll_period_xlsx, build_payslip_xlsx
 from app.services.sales_invoice_export_service import _build_document_xlsx
 

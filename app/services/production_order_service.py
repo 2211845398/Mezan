@@ -64,9 +64,7 @@ async def list_production_orders(
 
 
 async def get_production_order(db: AsyncSession, *, production_order_id: int) -> ProductionOrder:
-    res = await db.execute(
-        select(ProductionOrder).where(ProductionOrder.id == production_order_id)
-    )
+    res = await db.execute(select(ProductionOrder).where(ProductionOrder.id == production_order_id))
     order = res.scalar_one_or_none()
     if not order:
         raise NotFoundError("Production order not found")

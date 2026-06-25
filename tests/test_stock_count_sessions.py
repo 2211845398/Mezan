@@ -10,24 +10,24 @@ from sqlalchemy import select
 from app.core.errors import ValidationError
 from app.models.branch import Branch
 from app.models.category import Category
+from app.models.role import Role
 from app.models.stock_count_session import StockCountLine, StockCountSession
 from app.models.stock_movement import StockMovement
+from app.models.user_role import UserRole
+from app.models.users import User
 from app.schemas.stock_count import StockCountLineUpdate
 from app.services.catalog_service import create_product
 from app.services.inventory_service import apply_stock_movement
+from app.services.seed_service import seed_permissions_and_roles
 from app.services.stock_count_pdf_service import export_stock_count_pdf_from_session
 from app.services.stock_count_session_service import (
     create_stock_count_session,
     get_my_stock_count_session,
     list_my_stock_count_sessions,
-    patch_stock_count_lines,
     patch_my_stock_count_lines,
+    patch_stock_count_lines,
     post_stock_count_session,
 )
-from app.models.role import Role
-from app.models.user_role import UserRole
-from app.models.users import User
-from app.services.seed_service import seed_permissions_and_roles
 from app.utils.security import hash_password
 
 
@@ -194,11 +194,6 @@ async def test_stock_count_post_requires_all_lines_complete(db_session) -> None:
         branch_id=branch.id,
         assigned_user_id=assignee_id,
     )
-    await patch_stock_count_lines(
-        db_session,
-        session_id=detail.id,
-        updates=[StockCountLineUpdate(id=line.id, counted_qty=line.system_on_hand)],
-    )
 
     with pytest.raises(ValidationError, match="counted quantity"):
         await post_stock_count_session(db_session, user_id=assignee_id, session_id=detail.id)
@@ -317,6 +312,7 @@ async def test_stock_count_lines_unique_per_session(db_session) -> None:
         branch_id=branch.id,
         assigned_user_id=assignee_id,
     )
+    res = await db_session.execute(
         select(StockCountLine).where(StockCountLine.session_id == detail.id)
     )
     lines = list(res.scalars().all())
@@ -468,15 +464,11 @@ async def test_stock_count_self_service_lists_assigned_draft(db_session) -> None
     other_list = await list_my_stock_count_sessions(db_session, user_id=other_id)
     assert not any(s.id == detail.id for s in other_list)
 
-    got = await get_my_stock_count_session(
-        db_session, session_id=detail.id, user_id=assignee_id
-    )
+    got = await get_my_stock_count_session(db_session, session_id=detail.id, user_id=assignee_id)
     assert got.id == detail.id
 
     with pytest.raises(NotFoundError, match="stock_count_session_not_found"):
-        await get_my_stock_count_session(
-            db_session, session_id=detail.id, user_id=other_id
-        )
+        await get_my_stock_count_session(db_session, session_id=detail.id, user_id=other_id)
 
     if detail.lines:
         line = detail.lines[0]

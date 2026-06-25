@@ -21,8 +21,8 @@ from app.schemas.sales_return import (
     ReturnEligibleLineRead,
     SalesInvoiceReturnLookupRead,
 )
-from app.services.document_posting_service import post_sales_return_gl
 from app.services.cart_service import _recalc_totals
+from app.services.document_posting_service import post_sales_return_gl
 from app.services.inventory_service import apply_stock_movement
 from app.services.shift_service import add_cash_event
 from app.utils.money import q2
@@ -254,9 +254,7 @@ async def create_return_and_credit(
         exchange_cart_has_sales_lines = int(rem_res.scalar() or 0) > 0
 
     should_apply_cash_refund = (
-        shift_id is not None
-        and total_refund > Decimal("0")
-        and not exchange_cart_has_sales_lines
+        shift_id is not None and total_refund > Decimal("0") and not exchange_cart_has_sales_lines
     )
     if should_apply_cash_refund:
         await add_cash_event(
@@ -347,9 +345,7 @@ async def lookup_sales_invoice_for_return(
     )
 
 
-async def read_credit_note_detail(
-    db: AsyncSession, *, credit_note_id: int
-) -> CreditNoteDetailRead:
+async def read_credit_note_detail(db: AsyncSession, *, credit_note_id: int) -> CreditNoteDetailRead:
     cn_res = await db.execute(select(CreditNote).where(CreditNote.id == credit_note_id))
     cn = cn_res.scalar_one_or_none()
     if cn is None:

@@ -23,6 +23,7 @@ from app.schemas.transfers import (
 )
 from app.services import audit_service
 from app.services.product_uom_service import uom_map_for_ids
+from app.services.realtime_nav_badges import emit_inventory_stock_badges_invalidate
 from app.services.transfer_service import (
     cancel_pending_batch,
     create_batch,
@@ -32,7 +33,6 @@ from app.services.transfer_service import (
     receive_batch,
     update_pending_batch,
 )
-from app.services.realtime_nav_badges import emit_inventory_stock_badges_invalidate
 from app.utils.person_name import person_name_sql_expr
 from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 

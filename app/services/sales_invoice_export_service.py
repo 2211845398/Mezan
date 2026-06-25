@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -21,13 +20,16 @@ from app.models.product_variant import ProductVariant
 from app.models.sales_invoice import SalesInvoice, SalesInvoiceLine
 from app.models.sales_return import CreditNote, SalesReturn, SalesReturnLine
 from app.schemas.sales_invoice import SalesInvoiceListItem
-from app.services.invoice_service import list_sales_invoices_register_page, read_sales_invoice_detail
+from app.services.invoice_service import (
+    list_sales_invoices_register_page,
+    read_sales_invoice_detail,
+)
 from app.services.payroll_pdf_service import _register_unicode_font, _txt
 from app.services.report_xlsx_utils import (
     append_meta_rows,
+    cell_alignment,
     configure_sheet_locale,
     header_font,
-    cell_alignment,
     workbook_to_bytes,
     write_table,
 )
@@ -135,7 +137,9 @@ def _resolve_mezan_logo_path() -> Path | None:
     return None
 
 
-def _draw_pdf_logo_banner(pdf: FPDF, *, locale: SalesLocale, family: str, labels: dict[str, str]) -> None:
+def _draw_pdf_logo_banner(
+    pdf: FPDF, *, locale: SalesLocale, family: str, labels: dict[str, str]
+) -> None:
     rtl = locale == "ar"
     logo_w, logo_h = 28.0, 18.0
     logo_x = pdf.l_margin if rtl else pdf.w - pdf.r_margin - logo_w
@@ -223,11 +227,19 @@ def _build_document_pdf(
     if customer_name:
         meta.append((labels["customer"], customer_name))
     for label, value in meta:
-        pdf.cell(page_w, 5, _txt(f"{label}: {value}", 120), align=align, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(
+            page_w, 5, _txt(f"{label}: {value}", 120), align=align, new_x="LMARGIN", new_y="NEXT"
+        )
     pdf.ln(3)
 
     col_w = [52, 38, 18, 28, 28]
-    headers = [labels["product"], labels["variant"], labels["qty"], labels["unit_price"], labels["line_total"]]
+    headers = [
+        labels["product"],
+        labels["variant"],
+        labels["qty"],
+        labels["unit_price"],
+        labels["line_total"],
+    ]
     if rtl:
         col_w = list(reversed(col_w))
         headers = list(reversed(headers))
@@ -329,7 +341,13 @@ def _build_document_xlsx(
     ]
     write_table(
         ws,
-        [labels["product"], labels["variant"], labels["qty"], labels["unit_price"], labels["line_total"]],
+        [
+            labels["product"],
+            labels["variant"],
+            labels["qty"],
+            labels["unit_price"],
+            labels["line_total"],
+        ],
         table_rows,
         locale=locale,
     )
@@ -448,7 +466,9 @@ async def export_credit_note_pdf(
     labels = _labels(locale)
     cust_disp = None
     if cust is not None:
-        cust_disp = display_person_name(cust.first_name, cust.father_name, cust.family_name) or cust.phone
+        cust_disp = (
+            display_person_name(cust.first_name, cust.father_name, cust.family_name) or cust.phone
+        )
 
     line_res = await db.execute(
         select(SalesReturnLine, SalesInvoiceLine, Product, ProductVariant)
@@ -497,7 +517,9 @@ async def export_credit_note_xlsx(
     labels = _labels(locale)
     cust_disp = None
     if cust is not None:
-        cust_disp = display_person_name(cust.first_name, cust.father_name, cust.family_name) or cust.phone
+        cust_disp = (
+            display_person_name(cust.first_name, cust.father_name, cust.family_name) or cust.phone
+        )
 
     line_res = await db.execute(
         select(SalesReturnLine, SalesInvoiceLine, Product, ProductVariant)
@@ -559,7 +581,9 @@ async def _register_rows_all(
     return items, str(branch_name) if branch_name else None
 
 
-def _register_table_rows(items: list[SalesInvoiceListItem], locale: SalesLocale) -> list[list[object]]:
+def _register_table_rows(
+    items: list[SalesInvoiceListItem], locale: SalesLocale
+) -> list[list[object]]:
     labels = _labels(locale)
     rows: list[list[object]] = []
     for item in items:
@@ -717,7 +741,9 @@ async def export_register_xlsx(
         _register_table_rows(items, locale),
         locale=locale,
     )
-    filename = f"sales-register-{branch_id}-{period_start.isoformat()}-{period_end.isoformat()}.xlsx"
+    filename = (
+        f"sales-register-{branch_id}-{period_start.isoformat()}-{period_end.isoformat()}.xlsx"
+    )
     return workbook_to_bytes(wb), filename
 
 
@@ -731,7 +757,9 @@ async def export_daily_sales_summary_pdf(
 ) -> tuple[bytes, str]:
     labels = _labels(locale)
     align = _cell_align(locale)
-    rows = await _daily_summary_rows(db, branch_id=branch_id, period_start=period_start, period_end=period_end)
+    rows = await _daily_summary_rows(
+        db, branch_id=branch_id, period_start=period_start, period_end=period_end
+    )
 
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=10)
@@ -750,7 +778,13 @@ async def export_daily_sales_summary_pdf(
     )
     pdf.ln(2)
 
-    headers = [labels["day"], labels["count"], labels["sales_total"], labels["returns_total"], labels["net_total"]]
+    headers = [
+        labels["day"],
+        labels["count"],
+        labels["sales_total"],
+        labels["returns_total"],
+        labels["net_total"],
+    ]
     col_w = [36, 24, 36, 36, 36]
     if locale == "ar":
         headers = list(reversed(headers))
@@ -780,7 +814,9 @@ async def export_daily_sales_summary_xlsx(
     locale: SalesLocale = "ar",
 ) -> tuple[bytes, str]:
     labels = _labels(locale)
-    rows = await _daily_summary_rows(db, branch_id=branch_id, period_start=period_start, period_end=period_end)
+    rows = await _daily_summary_rows(
+        db, branch_id=branch_id, period_start=period_start, period_end=period_end
+    )
     wb = Workbook()
     ws = wb.active
     ws.title = labels["daily_title"][:31]
@@ -797,7 +833,13 @@ async def export_daily_sales_summary_xlsx(
     ws.append([])
     write_table(
         ws,
-        [labels["day"], labels["count"], labels["sales_total"], labels["returns_total"], labels["net_total"]],
+        [
+            labels["day"],
+            labels["count"],
+            labels["sales_total"],
+            labels["returns_total"],
+            labels["net_total"],
+        ],
         rows,
         locale=locale,
     )

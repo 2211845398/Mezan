@@ -37,9 +37,7 @@ def upgrade() -> None:
         sa.Column("default_rounding_difference_account_id", sa.Integer(), nullable=True),
     )
     op.create_foreign_key(
-        op.f(
-            "fk_accounting_settings_default_rounding_difference_account_id_chart_accounts"
-        ),
+        op.f("fk_accounting_settings_default_rounding_difference_account_id_chart_accounts"),
         "accounting_settings",
         "chart_accounts",
         ["default_rounding_difference_account_id"],
@@ -53,9 +51,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_constraint(
-        op.f(
-            "fk_accounting_settings_default_rounding_difference_account_id_chart_accounts"
-        ),
+        op.f("fk_accounting_settings_default_rounding_difference_account_id_chart_accounts"),
         "accounting_settings",
         type_="foreignkey",
     )

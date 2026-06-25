@@ -29,6 +29,7 @@ from app.services.effective_permissions import (
     list_onboarding_assignee_users,
     user_can_act_as_onboarding_assignee,
 )
+from app.services.realtime_nav_badges import emit_onboarding_nav_badges_invalidate
 from app.services.user_admin_service import list_users_page
 from app.services.user_lifecycle_service import (
     assign_role_by_code,
@@ -41,7 +42,6 @@ from app.services.user_lifecycle_service import (
     update_pending_onboarding_subject,
     upsert_user_permission_override,
 )
-from app.services.realtime_nav_badges import emit_onboarding_nav_badges_invalidate
 
 router = APIRouter()
 

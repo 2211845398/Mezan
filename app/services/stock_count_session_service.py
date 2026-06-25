@@ -36,7 +36,7 @@ async def _user_role_codes(db: AsyncSession, user_id: int) -> set[str]:
         .join(UserRole, UserRole.role_id == Role.id)
         .where(UserRole.user_id == user_id)
     )
-    return {str(c).strip().upper() for c, in res.all() if c}
+    return {str(c).strip().upper() for (c,) in res.all() if c}
 
 
 async def validate_stock_count_assignee(

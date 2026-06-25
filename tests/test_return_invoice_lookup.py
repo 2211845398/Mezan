@@ -33,7 +33,12 @@ async def _finalize_pos_invoice(client, admin_auth_header, commercial_branch_id)
     cat = await client.post(
         "/api/v1/categories",
         headers=admin_auth_header,
-        json={"name": "Lookup Cat", "slug": f"lc-{uuid.uuid4().hex[:6]}", "sort_order": 0, "is_active": True},
+        json={
+            "name": "Lookup Cat",
+            "slug": f"lc-{uuid.uuid4().hex[:6]}",
+            "sort_order": 0,
+            "is_active": True,
+        },
     )
     assert cat.status_code == 201, cat.text
     prod = await client.post(

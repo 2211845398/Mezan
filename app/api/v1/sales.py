@@ -9,6 +9,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, require_permission
 from app.db.database import get_db
 from app.models.users import User
+from app.schemas.sales_invoice import (
+    FinalizeInvoiceRequest,
+    SalesInvoiceDetailRead,
+    SalesInvoiceListResponse,
+    SalesInvoiceRead,
+    SalesInvoiceRegisterPageRead,
+    VoidInvoiceRequest,
+)
+from app.schemas.sales_return import CreditNoteDetailRead
+from app.services import audit_service
+from app.services.invoice_service import (
+    finalize_paid_cart,
+    list_sales_invoices_for_terminal_window,
+    list_sales_invoices_register_page,
+    read_sales_invoice_detail,
+    void_sales_invoice,
+)
+from app.services.returns_service import read_credit_note_detail
 from app.services.sales_invoice_export_service import (
     export_credit_note_pdf,
     export_credit_note_xlsx,
@@ -20,24 +38,6 @@ from app.services.sales_invoice_export_service import (
     export_sales_invoice_xlsx,
 )
 from app.utils.request_locale import resolve_request_locale
-from app.schemas.sales_invoice import (
-    FinalizeInvoiceRequest,
-    SalesInvoiceDetailRead,
-    SalesInvoiceListResponse,
-    SalesInvoiceRead,
-    SalesInvoiceRegisterPageRead,
-    VoidInvoiceRequest,
-)
-from app.schemas.sales_return import CreditNoteDetailRead
-from app.services.returns_service import read_credit_note_detail
-from app.services import audit_service
-from app.services.invoice_service import (
-    finalize_paid_cart,
-    list_sales_invoices_for_terminal_window,
-    list_sales_invoices_register_page,
-    read_sales_invoice_detail,
-    void_sales_invoice,
-)
 
 router = APIRouter()
 
@@ -269,7 +269,9 @@ async def export_credit_note_pdf_endpoint(
     __: None = require_permission("sales_invoices", "read"),
 ) -> Response:
     locale = resolve_request_locale(request.headers.get("accept-language"))
-    content, filename = await export_credit_note_pdf(db, credit_note_id=credit_note_id, locale=locale)
+    content, filename = await export_credit_note_pdf(
+        db, credit_note_id=credit_note_id, locale=locale
+    )
     return Response(
         content=content,
         media_type="application/pdf",
@@ -286,7 +288,9 @@ async def export_credit_note_xlsx_endpoint(
     __: None = require_permission("sales_invoices", "read"),
 ) -> Response:
     locale = resolve_request_locale(request.headers.get("accept-language"))
-    content, filename = await export_credit_note_xlsx(db, credit_note_id=credit_note_id, locale=locale)
+    content, filename = await export_credit_note_xlsx(
+        db, credit_note_id=credit_note_id, locale=locale
+    )
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

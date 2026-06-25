@@ -52,16 +52,15 @@ from app.services.payroll_export_service import (
     payslip_dict_from_read,
 )
 from app.services.payroll_pdf_service import build_payroll_period_csv
-from app.utils.request_locale import resolve_request_locale
 from app.services.payroll_service import (
     approve_and_pay_period,
     approve_payslip,
     calendar_month_period_bounds,
     export_approved_payslips_csv,
     generate_payslip,
+    get_my_payslip_for_month_read,
     get_payroll_period_snapshot,
     get_payslip_read,
-    get_my_payslip_for_month_read,
     list_my_payslips_read,
     list_payroll_overview,
     list_payslips_read,
@@ -74,6 +73,7 @@ from app.utils.payroll_notifications import (
     normalize_notification_lang,
     payslip_paid_notification_copy,
 )
+from app.utils.request_locale import resolve_request_locale
 
 router = APIRouter()
 
@@ -198,9 +198,7 @@ async def list_payslips_endpoint(
     return PayslipListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
-async def _employee_profile_id_for_self_service(
-    db: AsyncSession, user_id: int
-) -> int:
+async def _employee_profile_id_for_self_service(db: AsyncSession, user_id: int) -> int:
     employee_profile_id = await get_employee_profile_id_for_user(db, user_id)
     if employee_profile_id is None:
         raise HTTPException(

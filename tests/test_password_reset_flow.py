@@ -85,7 +85,9 @@ async def test_request_password_reset_sends_email_and_stores_challenge(
 
 
 @pytest.mark.asyncio
-async def test_reset_password_updates_hash_and_marks_challenge_used(db_session, monkeypatch) -> None:
+async def test_reset_password_updates_hash_and_marks_challenge_used(
+    db_session, monkeypatch
+) -> None:
     user = await _create_user(db_session)
     challenge_token, otp = await _request_and_capture(db_session, monkeypatch, user.email)
 

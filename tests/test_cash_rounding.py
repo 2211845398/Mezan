@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from app.models.branch import Branch
 from app.models.category import Category
+from app.models.chart_accounts import ChartAccount
 from app.models.currency import Currency
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.pos_cart import PosCart, PosCartLine
@@ -21,7 +22,6 @@ from app.models.stock_level import StockLevel
 from app.models.users import User
 from app.services import invoice_service, payment_service
 from app.services.accounting_service import get_accounting_settings
-from app.models.chart_accounts import ChartAccount
 from app.services.seed_service import seed_accounting_defaults
 from app.utils.cash_rounding import round_cash_total
 
@@ -80,9 +80,7 @@ class _MockInStoreProvider:
 @pytest.mark.asyncio
 async def test_cash_payment_intent_uses_rounded_amount(db_session, monkeypatch) -> None:
     await _ensure_accounting(db_session)
-    usd = (
-        await db_session.execute(select(Currency).where(Currency.code == "USD"))
-    ).scalar_one()
+    usd = (await db_session.execute(select(Currency).where(Currency.code == "USD"))).scalar_one()
     usd.cash_rounding_increment = Decimal("0.05")
     await db_session.flush()
 
@@ -105,9 +103,7 @@ async def test_cash_payment_intent_uses_rounded_amount(db_session, monkeypatch) 
 @pytest.mark.asyncio
 async def test_card_payment_intent_keeps_exact_total(db_session, monkeypatch) -> None:
     await _ensure_accounting(db_session)
-    usd = (
-        await db_session.execute(select(Currency).where(Currency.code == "USD"))
-    ).scalar_one()
+    usd = (await db_session.execute(select(Currency).where(Currency.code == "USD"))).scalar_one()
     usd.cash_rounding_increment = Decimal("0.05")
     await db_session.flush()
 
@@ -130,9 +126,7 @@ async def test_card_payment_intent_keeps_exact_total(db_session, monkeypatch) ->
 @pytest.mark.asyncio
 async def test_partial_cash_skips_rounding_on_intent(db_session, monkeypatch) -> None:
     await _ensure_accounting(db_session)
-    usd = (
-        await db_session.execute(select(Currency).where(Currency.code == "USD"))
-    ).scalar_one()
+    usd = (await db_session.execute(select(Currency).where(Currency.code == "USD"))).scalar_one()
     usd.cash_rounding_increment = Decimal("0.05")
     await db_session.flush()
 
@@ -159,9 +153,7 @@ async def test_finalize_persists_amount_paid_and_rounding(db_session, monkeypatc
     settings = await get_accounting_settings(db_session)
     assert settings.default_rounding_difference_account_id is not None
 
-    usd = (
-        await db_session.execute(select(Currency).where(Currency.code == "USD"))
-    ).scalar_one()
+    usd = (await db_session.execute(select(Currency).where(Currency.code == "USD"))).scalar_one()
     usd.cash_rounding_increment = Decimal("0.05")
     await db_session.flush()
 
@@ -204,13 +196,17 @@ async def test_finalize_persists_amount_paid_and_rounding(db_session, monkeypatc
     assert invoice.rounding_difference == Decimal("-0.02")
 
     entries = (
-        await db_session.execute(
-            select(JournalEntry).where(
-                JournalEntry.source_type == "sales_invoice",
-                JournalEntry.source_id == str(invoice.id),
+        (
+            await db_session.execute(
+                select(JournalEntry).where(
+                    JournalEntry.source_type == "sales_invoice",
+                    JournalEntry.source_id == str(invoice.id),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert entries
     all_lines: list[JournalEntryLine] = []
     for je in entries:
@@ -219,7 +215,9 @@ async def test_finalize_persists_amount_paid_and_rounding(db_session, monkeypatc
                 await db_session.execute(
                     select(JournalEntryLine).where(JournalEntryLine.journal_entry_id == je.id)
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
     debits = sum(ln.debit for ln in all_lines)
     credits = sum(ln.credit for ln in all_lines)

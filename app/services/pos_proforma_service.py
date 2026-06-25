@@ -13,7 +13,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.utils.person_name import display_person_name
 from app.core.errors import NotFoundError, ValidationError
 from app.models.branch import Branch
 from app.models.currency import Currency
@@ -26,12 +25,12 @@ from app.schemas.pos_proforma import (
     ProformaQuoteResponse,
 )
 from app.services.accounting_service import get_accounting_settings
+from app.services.cart_service import _variant_tags_map
 from app.services.catalog_service import map_effective_output_tax_rates, resolve_default_variant_id
 from app.services.pos_proforma_pdf_service import ProformaLocale, build_proforma_pdf_bytes
 from app.services.pricing_service import get_active_sell_price
-from app.services.cart_service import _variant_tags_map
 from app.utils.money import q2
-
+from app.utils.person_name import display_person_name
 
 _XLSX_LABELS: dict[ProformaLocale, dict[str, str]] = {
     "en": {
@@ -176,9 +175,7 @@ async def _priced_lines(
     return line_reads, subtotal_net, tax_total, total
 
 
-async def quote_proforma(
-    db: AsyncSession, *, lines: list[ProformaLineIn]
-) -> ProformaQuoteResponse:
+async def quote_proforma(db: AsyncSession, *, lines: list[ProformaLineIn]) -> ProformaQuoteResponse:
     line_reads, subtotal, tax_total, total = await _priced_lines(db, lines_in=lines)
     currency_code = await _resolve_currency_code(db)
     return ProformaQuoteResponse(

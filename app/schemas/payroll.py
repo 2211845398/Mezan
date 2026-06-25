@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date as Date
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,21 +13,21 @@ from app.schemas.pagination import PaginatedListResponse
 
 class PayslipGenerateRequest(BaseModel):
     employee_profile_id: int
-    period_start: Date
-    period_end: Date
+    period_start: date
+    period_end: date
     deductions: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
         description="Manual deductions only; automatic attendance deductions are added server-side.",
     )
-    hourly_rate_override: Optional[Decimal] = Field(default=None, ge=0)
-    bonus_amount: Optional[Decimal] = Field(default=None, ge=0)
-    idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    hourly_rate_override: Decimal | None = Field(default=None, ge=0)
+    bonus_amount: Decimal | None = Field(default=None, ge=0)
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class PayslipApproveRequest(BaseModel):
     payslip_id: int
-    idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class PayslipRead(BaseModel):
@@ -36,8 +35,8 @@ class PayslipRead(BaseModel):
 
     id: int
     employee_profile_id: int
-    period_start: Date
-    period_end: Date
+    period_start: date
+    period_end: date
     hours_worked: Decimal
     hourly_rate: Decimal
     deductions: Decimal
@@ -45,21 +44,21 @@ class PayslipRead(BaseModel):
     net_amount: Decimal
     status: Literal["draft", "approved"]
     immutable_hash: str
-    approved_by_user_id: Optional[int] = None
-    approved_at: Optional[datetime] = None
-    generate_idempotency_key: Optional[str] = None
-    approve_idempotency_key: Optional[str] = None
+    approved_by_user_id: int | None = None
+    approved_at: datetime | None = None
+    generate_idempotency_key: str | None = None
+    approve_idempotency_key: str | None = None
     created_at: datetime
-    base_salary_amount: Optional[Decimal] = None
-    bonus_amount: Optional[Decimal] = None
-    overtime_amount: Optional[Decimal] = None
-    automatic_deductions_amount: Optional[Decimal] = None
-    manual_deductions_amount: Optional[Decimal] = None
-    calculation_details: Optional[dict] = None
-    paid_at: Optional[datetime] = None
-    paid_by_user_id: Optional[int] = None
-    user_full_name: Optional[str] = None
-    user_email: Optional[str] = None
+    base_salary_amount: Decimal | None = None
+    bonus_amount: Decimal | None = None
+    overtime_amount: Decimal | None = None
+    automatic_deductions_amount: Decimal | None = None
+    manual_deductions_amount: Decimal | None = None
+    calculation_details: dict | None = None
+    paid_at: datetime | None = None
+    paid_by_user_id: int | None = None
+    user_full_name: str | None = None
+    user_email: str | None = None
 
 
 class PayslipListResponse(PaginatedListResponse[PayslipRead]):
@@ -70,7 +69,7 @@ class PayslipDeductionLine(BaseModel):
     amount: Decimal
     reason: str
     source: Literal["automatic", "manual"] = "automatic"
-    date: Optional[Date] = None
+    date: date | None = None
 
 
 class PayslipSelfRead(PayslipRead):
@@ -85,40 +84,40 @@ class PayslipSelfListResponse(PaginatedListResponse[PayslipSelfRead]):
 
 
 class PayslipAdjustmentsPatch(BaseModel):
-    bonus_amount: Optional[Decimal] = Field(default=None, ge=0)
-    manual_deductions: Optional[Decimal] = Field(default=None, ge=0)
+    bonus_amount: Decimal | None = Field(default=None, ge=0)
+    manual_deductions: Decimal | None = Field(default=None, ge=0)
 
 
 class PayrollApproveAndPayRequest(BaseModel):
-    period_start: Date
-    period_end: Date
-    idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    period_start: date
+    period_end: date
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class PayrollIdempotencyBody(BaseModel):
     """Optional idempotency key in JSON body (header ``Idempotency-Key`` also accepted)."""
 
-    idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class PayrollOverviewRow(BaseModel):
     employee_profile_id: int
-    user_email: Optional[str] = None
-    user_full_name: Optional[str] = None
-    user_role_code: Optional[str] = None
-    base_salary: Optional[Decimal] = None
-    hourly_rate: Optional[Decimal] = None
-    payslip_id: Optional[int] = None
+    user_email: str | None = None
+    user_full_name: str | None = None
+    user_role_code: str | None = None
+    base_salary: Decimal | None = None
+    hourly_rate: Decimal | None = None
+    payslip_id: int | None = None
     payslip_status: str
-    paid_at: Optional[datetime] = None
-    gross_amount: Optional[Decimal] = None
-    net_amount: Optional[Decimal] = None
-    deductions_total: Optional[Decimal] = None
-    automatic_deductions_amount: Optional[Decimal] = None
-    manual_deductions_amount: Optional[Decimal] = None
-    bonus_amount: Optional[Decimal] = None
-    overtime_amount: Optional[Decimal] = None
-    base_salary_amount: Optional[Decimal] = None
+    paid_at: datetime | None = None
+    gross_amount: Decimal | None = None
+    net_amount: Decimal | None = None
+    deductions_total: Decimal | None = None
+    automatic_deductions_amount: Decimal | None = None
+    manual_deductions_amount: Decimal | None = None
+    bonus_amount: Decimal | None = None
+    overtime_amount: Decimal | None = None
+    base_salary_amount: Decimal | None = None
 
 
 class PayrollPeriodSummary(BaseModel):
@@ -137,9 +136,9 @@ class PayrollPeriodSummary(BaseModel):
 class PayrollPeriodRead(BaseModel):
     year: int
     month: int
-    period_start: Date
-    period_end: Date
-    approval_opens_on: Date
+    period_start: date
+    period_end: date
+    approval_opens_on: date
     is_approval_open: bool
     summary: PayrollPeriodSummary
     rows: list[PayrollOverviewRow]
@@ -148,14 +147,14 @@ class PayrollPeriodRead(BaseModel):
 class PayrollPeriodPrepareFailure(BaseModel):
     employee_profile_id: int
     message: str
-    code: Optional[str] = None
+    code: str | None = None
 
 
 class PayrollPeriodPrepareResult(BaseModel):
     year: int
     month: int
-    period_start: Date
-    period_end: Date
+    period_start: date
+    period_end: date
     created_count: int
     recalculated_count: int = 0
     skipped_existing_count: int

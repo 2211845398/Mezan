@@ -1,8 +1,8 @@
 """Category revenue breakdown BI endpoint."""
 
+import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient

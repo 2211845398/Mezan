@@ -44,9 +44,7 @@ def upgrade() -> None:
         ["employee_profile_id"],
         unique=False,
     )
-    op.create_index(
-        op.f("ix_hr_feedback_branch_id"), "hr_feedback", ["branch_id"], unique=False
-    )
+    op.create_index(op.f("ix_hr_feedback_branch_id"), "hr_feedback", ["branch_id"], unique=False)
 
 
 def downgrade() -> None:

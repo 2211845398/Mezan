@@ -21,8 +21,8 @@ from app.schemas.accounting import (
     ChartAccountRead,
     FiscalPeriodDetailRead,
     FiscalPeriodRead,
-    FiscalPeriodSubledgerRow,
     FiscalPeriodStatusUpdate,
+    FiscalPeriodSubledgerRow,
     GeneralLedgerLineRead,
     IncomeStatementRead,
     JournalEntryDetailRead,
@@ -551,9 +551,7 @@ async def list_ap_open_items_endpoint(
     _: User = Depends(get_current_user),
     __: None = require_permission("accounting", "read"),
 ) -> list[OpenItemRead]:
-    rows = await list_ap_open_items(
-        db, branch_id=branch_id, status=status, supplier_id=supplier_id
-    )
+    rows = await list_ap_open_items(db, branch_id=branch_id, status=status, supplier_id=supplier_id)
     return [OpenItemRead.model_validate(serialize_ap_item(r)) for r in rows]
 
 

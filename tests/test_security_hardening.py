@@ -226,7 +226,7 @@ def test_route_audit_passes_for_attendance_device_qr_routes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     main_module = _reload_main_module(monkeypatch)
-    from app.api.deps import require_any_permission, require_permission
+    from app.api.deps import require_permission
 
     app = FastAPI()
     router = APIRouter()

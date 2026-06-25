@@ -552,7 +552,7 @@ async def list_my_payslips_read(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list, int]:
-    from app.schemas.pagination import clamp_pagination
+
     filters = [Payslip.employee_profile_id == employee_profile_id]
     if year is not None:
         filters.append(Payslip.period_start >= date(year, 1, 1))

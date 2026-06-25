@@ -6,7 +6,6 @@ import uuid
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy import select
 
 from app.models.user_onboarding import UserOnboarding
 from app.models.users import User

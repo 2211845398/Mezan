@@ -8,6 +8,7 @@ Create Date: 2026-06-06
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "c4d5e6f7a8b9"
@@ -36,12 +37,7 @@ def upgrade() -> None:
         ),
     )
 
-    op.execute(
-        sa.text(
-            "UPDATE users SET status = 'suspended' "
-            "WHERE status = 'pending_onboarding'"
-        )
-    )
+    op.execute(sa.text("UPDATE users SET status = 'suspended' WHERE status = 'pending_onboarding'"))
 
     op.create_table(
         "two_factor_challenges",

@@ -1,7 +1,6 @@
 """Attendance kiosk device management and QR display APIs."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -25,7 +24,6 @@ from app.services import audit_service
 from app.services.attendance_device_service import (
     create_attendance_device,
     current_qr_payload_for_device,
-    ensure_kiosk_role_for_user,
     generate_fresh_qr_for_device,
     get_attendance_device,
     get_attendance_device_for_user,

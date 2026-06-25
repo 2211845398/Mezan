@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.branch import Branch
-from app.models.product import Product
 from app.models.category import Category
+from app.models.product import Product
 from app.services.seed_service import seed_permissions_and_roles
 
 
@@ -109,7 +109,9 @@ async def test_purchase_order_allowed_on_warehouse_branch(
     admin_auth_header: dict[str, str],
 ) -> None:
     await seed_permissions_and_roles(db_session)
-    cat = Category(name="Kind PO WH", slug=f"kw-{uuid.uuid4().hex[:6]}", sort_order=0, is_active=True)
+    cat = Category(
+        name="Kind PO WH", slug=f"kw-{uuid.uuid4().hex[:6]}", sort_order=0, is_active=True
+    )
     db_session.add(cat)
     await db_session.flush()
     product = Product(

@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.models.currency import Currency
-from app.schemas.pos_payment import CashRoundingConfigRead
 from app.models.pos_cart import PosCart
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.models.sales_invoice import SalesInvoice
+from app.schemas.pos_payment import CashRoundingConfigRead
 from app.services.accounting_service import get_accounting_settings
 from app.services.payments.providers.base import PaymentProvider
 from app.services.payments.providers.in_store import InStoreLedgerProvider
@@ -31,7 +31,9 @@ async def get_cash_rounding_config(db: AsyncSession, *, currency: str) -> CashRo
     row = cur_res.scalar_one_or_none()
     if row is None:
         raise NotFoundError("Unknown currency code", details={"currency": code})
-    return CashRoundingConfigRead(currency=code, cash_rounding_increment=row.cash_rounding_increment)
+    return CashRoundingConfigRead(
+        currency=code, cash_rounding_increment=row.cash_rounding_increment
+    )
 
 
 def get_provider(provider_name: str) -> PaymentProvider:

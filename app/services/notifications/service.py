@@ -42,7 +42,6 @@ from app.core.errors import ExternalServiceError, NotFoundError, ValidationError
 from app.core.notification_rbac import (
     ORG_NOTIFICATION_MANAGER_ROLE_CODES,
 )
-from app.services.realtime_nav_badges import emit_notifications_unread_for_user
 from app.db.database import AsyncSessionLocal
 from app.db.schema_check import notifications_schema_ready
 from app.models.notifications import (
@@ -65,6 +64,7 @@ from app.services.notifications.generators import (
 )
 from app.services.notifications.providers.base import PushProvider
 from app.services.notifications.providers.mock import MockPushProvider
+from app.services.realtime_nav_badges import emit_notifications_unread_for_user
 
 logger = logging.getLogger(__name__)
 

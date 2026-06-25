@@ -356,8 +356,7 @@ async def list_stock_finder_branches(db: AsyncSession) -> list[StockFinderBranch
         .order_by(Branch.name.asc())
     )
     return [
-        StockFinderBranchBrief(id=int(row.id), name=row.name, code=row.code)
-        for row in result.all()
+        StockFinderBranchBrief(id=int(row.id), name=row.name, code=row.code) for row in result.all()
     ]
 
 

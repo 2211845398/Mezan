@@ -11,13 +11,13 @@ from app.schemas.inventory_human_movement import (
     HumanInventoryMovementCreate,
     HumanInventoryMovementResponse,
 )
-from app.services.realtime_nav_badges import emit_inventory_stock_badges_invalidate
 from app.services import audit_service
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.inventory_adjustment_service import post_stock_movement_gl
 from app.services.inventory_human_movement_service import apply_human_inventory_movement
 from app.services.inventory_reporting_service import list_stock_movements_with_names
 from app.services.inventory_service import apply_stock_movement
+from app.services.realtime_nav_badges import emit_inventory_stock_badges_invalidate
 
 router = APIRouter()
 

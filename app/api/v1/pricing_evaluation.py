@@ -46,9 +46,7 @@ async def evaluate_pricing_matrix(
     ),
     ___: None = _PRICING_ROLES,
 ) -> PricingEvaluationResponse:
-    review_filter = (
-        pricing_review_only if pricing_review_only is not None else needs_pricing_only
-    )
+    review_filter = pricing_review_only if pricing_review_only is not None else needs_pricing_only
     return await get_pricing_evaluation_matrix(
         db,
         branch_id=branch_id,

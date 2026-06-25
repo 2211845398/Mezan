@@ -282,11 +282,7 @@ async def test_commercial_restock_alert_suggests_warehouse_when_stock_available(
         headers=admin_auth_header,
     )
     assert alerts_resp.status_code == 200
-    matches = [
-        a
-        for a in alerts_resp.json()
-        if a["variant_id"] == commercial_row["variant_id"]
-    ]
+    matches = [a for a in alerts_resp.json() if a["variant_id"] == commercial_row["variant_id"]]
     if not matches:
         pytest.skip("No commercial restock alert after policy setup")
 
@@ -357,11 +353,7 @@ async def test_commercial_restock_alert_clears_after_pending_transfer(
         headers=admin_auth_header,
     )
     assert alerts_resp.status_code == 200
-    matches = [
-        a
-        for a in alerts_resp.json()
-        if a["variant_id"] == commercial_row["variant_id"]
-    ]
+    matches = [a for a in alerts_resp.json() if a["variant_id"] == commercial_row["variant_id"]]
     if not matches:
         pytest.skip("No commercial restock alert after policy setup")
 
@@ -402,8 +394,6 @@ async def test_commercial_restock_alert_clears_after_pending_transfer(
     )
     assert alerts_after.status_code == 200
     matches_after = [
-        a
-        for a in alerts_after.json()
-        if a["variant_id"] == commercial_row["variant_id"]
+        a for a in alerts_after.json() if a["variant_id"] == commercial_row["variant_id"]
     ]
     assert matches_after == []

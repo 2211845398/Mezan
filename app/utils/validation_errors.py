@@ -27,9 +27,7 @@ def _field_path_from_loc(loc: object) -> tuple[str, str] | None:
     if not isinstance(loc, (list, tuple)):
         return None
     parts = [
-        str(part)
-        for part in loc
-        if not (isinstance(part, str) and part in _SKIP_LOC_PREFIXES)
+        str(part) for part in loc if not (isinstance(part, str) and part in _SKIP_LOC_PREFIXES)
     ]
     if not parts:
         return None

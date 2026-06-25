@@ -26,8 +26,8 @@ from app.api.error_handlers import (
 )
 from app.api.v1 import (
     accounting_router,
-    attendance_devices_router,
     ai_advisory_router,
+    attendance_devices_router,
     attributes_router,
     audit_router,
     auth_router,
@@ -48,8 +48,8 @@ from app.api.v1 import (
     health_router,
     hr_router,
     inventory_adjustments_router,
-    inventory_policies_router,
     inventory_operations_router,
+    inventory_policies_router,
     inventory_reporting_router,
     invoice_scans_router,
     loyalty_router,
@@ -127,9 +127,7 @@ PUBLIC_ROUTE_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", "/api/v1/realtime/events"),
 }
 
-PUBLIC_ROUTE_PATH_PREFIXES: tuple[str, ...] = (
-    "/api/v1/auth/password-reset/",
-)
+PUBLIC_ROUTE_PATH_PREFIXES: tuple[str, ...] = ("/api/v1/auth/password-reset/",)
 
 
 def _is_public_route(method: str, path: str) -> bool:

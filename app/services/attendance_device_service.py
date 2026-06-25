@@ -265,9 +265,7 @@ async def _assign_user_checks(
     if user is None or user.status != "active":
         raise ValidationError("Invalid kiosk user")
 
-    taken = await db.execute(
-        select(AttendanceDevice).where(AttendanceDevice.user_id == user_id)
-    )
+    taken = await db.execute(select(AttendanceDevice).where(AttendanceDevice.user_id == user_id))
     existing = taken.scalar_one_or_none()
     if existing is not None and existing.id != exclude_device_id:
         raise ConflictError("User is already assigned to another attendance device")
@@ -302,9 +300,7 @@ async def list_kiosk_user_candidates(
             AttendanceDevice.user_id.is_not(None)
         )
     )
-    taken_by_user: dict[int, int] = {
-        uid: did for uid, did in assigned.all() if uid is not None
-    }
+    taken_by_user: dict[int, int] = {uid: did for uid, did in assigned.all() if uid is not None}
 
     stmt = (
         select(User)

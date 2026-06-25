@@ -365,15 +365,11 @@ def _pricing_attention_predicate(*, branch_id: int | None, currency_id: int, as_
     return or_(no_sell, margin_drift)
 
 
-def _needs_pricing_review_filter(
-    *, branch_id: int | None, currency_id: int, as_of: datetime
-):
+def _needs_pricing_review_filter(*, branch_id: int | None, currency_id: int, as_of: datetime):
     return and_(
         _has_stock_intake_exists(branch_id=branch_id),
         _positive_valuation_cost_predicate(branch_id=branch_id),
-        _pricing_attention_predicate(
-            branch_id=branch_id, currency_id=currency_id, as_of=as_of
-        ),
+        _pricing_attention_predicate(branch_id=branch_id, currency_id=currency_id, as_of=as_of),
     )
 
 

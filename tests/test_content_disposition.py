@@ -13,4 +13,7 @@ def test_attachment_content_disposition_ascii_unchanged() -> None:
 def test_attachment_content_disposition_arabic_uses_rfc5987() -> None:
     filename = "تقرير_الجرد.pdf"
     value = attachment_content_disposition(filename)
-    assert value == f"attachment; filename=\"download.pdf\"; filename*=UTF-8''{quote(filename, safe='')}"
+    assert (
+        value
+        == f"attachment; filename=\"download.pdf\"; filename*=UTF-8''{quote(filename, safe='')}"
+    )

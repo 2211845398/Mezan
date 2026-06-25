@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.models.employee_profile import EmployeeProfile
 from app.models.permission import Permission
@@ -19,7 +20,6 @@ from app.models.user_permission_override import UserPermissionOverride
 from app.models.user_role import UserRole
 from app.models.users import User
 from app.models.weekly_schedule import WeeklySchedule
-from app.core.config import settings
 from app.schemas.users import UserOnboardingSubjectUpdate
 from app.services import email_service
 from app.services.account_invite_email import (

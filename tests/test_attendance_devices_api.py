@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from datetime import date
-from decimal import Decimal
 
 from app.core.errors import ValidationError
 from app.models.attendance_device import AttendanceDevice
@@ -17,7 +17,10 @@ from app.models.employee_profile import EmployeeProfile
 from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
-from app.services.attendance_device_service import create_attendance_device, ensure_kiosk_role_for_user
+from app.services.attendance_device_service import (
+    create_attendance_device,
+    ensure_kiosk_role_for_user,
+)
 from app.services.attendance_qr_service import (
     QR_PREFIX,
     QR_TTL_SECONDS,

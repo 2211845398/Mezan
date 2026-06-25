@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from typing import Iterable
+from collections.abc import Iterable
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font

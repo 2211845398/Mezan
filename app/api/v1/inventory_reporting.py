@@ -20,7 +20,6 @@ from app.schemas.inventory_stock import (
     StockFinderResultRead,
     StockOnHandRowRead,
 )
-from app.services.inventory_stock_card_service import get_product_stock_card
 from app.schemas.pagination import clamp_pagination
 from app.services import audit_service
 from app.services.inventory_reorder_service import (
@@ -37,6 +36,7 @@ from app.services.inventory_reporting_service import (
     list_stock_on_hand,
     stock_finder,
 )
+from app.services.inventory_stock_card_service import get_product_stock_card
 
 router = APIRouter()
 

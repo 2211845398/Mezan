@@ -8,7 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.role import Role
-from app.models.user_role import UserRole
 from app.models.users import User
 from app.utils.security import hash_password
 

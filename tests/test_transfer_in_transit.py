@@ -122,7 +122,10 @@ async def test_transfer_reserve_and_in_transit_flow(db_session) -> None:
     assert sl_from.on_hand - sl_from.reserved - sl_from.damaged == 20 - xfer_qty
 
     from app.core.errors import ValidationError
-    from app.services.inventory_reservation_service import list_open_reservations, release_reservation
+    from app.services.inventory_reservation_service import (
+        list_open_reservations,
+        release_reservation,
+    )
 
     open_rows = await list_open_reservations(db_session, branch_id=b_from.id)
     transfer_rows = [r for r in open_rows if r.transfer_batch_id == batch.id]

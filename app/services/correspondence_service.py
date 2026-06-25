@@ -205,7 +205,10 @@ async def add_message(
     )
     db.add(msg)
     thread.updated_at = datetime.now(UTC)
-    if sender.id != thread.initiator_user_id and thread.status == CorrespondenceThreadStatus.OPEN.value:
+    if (
+        sender.id != thread.initiator_user_id
+        and thread.status == CorrespondenceThreadStatus.OPEN.value
+    ):
         thread.status = CorrespondenceThreadStatus.ANSWERED.value
     await db.flush()
     await db.refresh(msg)

@@ -13,8 +13,8 @@ from sqlalchemy.types import Integer
 from app.core.errors import NotFoundError
 from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
-from app.models.goods_receipt import GoodsReceipt
 from app.models.currency import Currency
+from app.models.goods_receipt import GoodsReceipt
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.suppliers import Supplier
 from app.schemas.supplier_statement import (
@@ -251,7 +251,9 @@ async def _enrich_statement_lines(
             pay_apps[int(_app.id)] = item
 
     ap_items: dict[int, ApOpenItem] = {}
-    extra_ids = ap_item_ids | {it.id for it in pay_apps.values()} | {it.id for it in ap_by_gr.values()}
+    extra_ids = (
+        ap_item_ids | {it.id for it in pay_apps.values()} | {it.id for it in ap_by_gr.values()}
+    )
     if extra_ids:
         res = await db.execute(select(ApOpenItem).where(ApOpenItem.id.in_(extra_ids)))
         for item in res.scalars().all():

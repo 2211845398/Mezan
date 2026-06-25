@@ -26,9 +26,7 @@ async def test_login_with_2fa_returns_challenge(db_session, monkeypatch) -> None
 
     monkeypatch.setattr(email_service, "send_email", AsyncMock())
 
-    result = await auth_service.login_email_password(
-        db_session, user.email, "password123"
-    )
+    result = await auth_service.login_email_password(db_session, user.email, "password123")
     assert result["requires_2fa"] is True
     assert result["challenge_token"]
     assert result["access_token"] is None

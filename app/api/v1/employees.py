@@ -16,8 +16,7 @@ from app.api.deps import (
     require_permission,
 )
 from app.core.config import settings
-
-from app.schemas.pagination import clamp_pagination
+from app.core.errors import StateTransitionError, ValidationError
 from app.db.database import get_db
 from app.models.employee_profile import EmployeeProfile
 from app.models.leave_request import LeaveStatus, LeaveType
@@ -45,8 +44,7 @@ from app.schemas.employees import (
     WeeklyScheduleRead,
     WeeklyScheduleUpdate,
 )
-from app.core.errors import StateTransitionError, ValidationError
-from app.utils.request_locale import resolve_request_locale
+from app.schemas.pagination import clamp_pagination
 from app.schemas.stock_count import (
     StockCountLinesPatch,
     StockCountSessionDetailRead,
@@ -90,18 +88,19 @@ from app.services.employee_service import (
     update_employee_profile,
     update_weekly_schedule,
 )
+from app.services.notifications.service import (
+    dispatch_delivery_after_commit,
+    enqueue_direct_notification,
+)
 from app.services.realtime_nav_badges import emit_leave_nav_badges_invalidate
 from app.services.stock_count_pdf_service import export_stock_count_pdf_from_session
-from app.utils.content_disposition import attachment_content_disposition
 from app.services.stock_count_session_service import (
     get_my_stock_count_session,
     list_my_stock_count_sessions,
     patch_my_stock_count_lines,
 )
-from app.services.notifications.service import (
-    dispatch_delivery_after_commit,
-    enqueue_direct_notification,
-)
+from app.utils.content_disposition import attachment_content_disposition
+from app.utils.request_locale import resolve_request_locale
 
 router = APIRouter()
 
@@ -295,9 +294,7 @@ async def get_my_profile_endpoint(
     )
 
 
-async def _employee_profile_id_for_self_service(
-    db: AsyncSession, user_id: int
-) -> int:
+async def _employee_profile_id_for_self_service(db: AsyncSession, user_id: int) -> int:
     employee_profile_id = await get_employee_profile_id_for_user(db, user_id)
     if employee_profile_id is None:
         raise HTTPException(
@@ -328,9 +325,7 @@ async def list_my_attendance_endpoint(
 ) -> list[AttendanceLogRead]:
     """Self-service attendance history for the signed-in employee."""
     employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
-    rows = await list_attendance_logs(
-        db, employee_profile_id=employee_profile_id, limit=limit
-    )
+    rows = await list_attendance_logs(db, employee_profile_id=employee_profile_id, limit=limit)
     return [AttendanceLogRead.model_validate(r) for r in rows]
 
 
@@ -1075,9 +1070,7 @@ async def get_my_stock_count_session_endpoint(
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
 ) -> StockCountSessionDetailRead:
-    return await get_my_stock_count_session(
-        db, session_id=session_id, user_id=current_user.id
-    )
+    return await get_my_stock_count_session(db, session_id=session_id, user_id=current_user.id)
 
 
 @router.patch(

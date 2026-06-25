@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import date
 
 from fpdf import FPDF
 from openpyxl import Workbook
@@ -205,7 +204,9 @@ def build_payroll_period_xlsx(
 
     table_rows: list[list[object]] = []
     for r in rows:
-        name = r.get("user_full_name") or r.get("user_email") or str(r.get("employee_profile_id", ""))
+        name = (
+            r.get("user_full_name") or r.get("user_email") or str(r.get("employee_profile_id", ""))
+        )
         table_rows.append(
             [
                 name,
@@ -257,8 +258,10 @@ def build_payslip_pdf(
     family = _register_unicode_font(pdf)
     page_w = pdf.w - pdf.l_margin - pdf.r_margin
 
-    name = payslip.get("user_full_name") or payslip.get("user_email") or str(
-        payslip.get("employee_profile_id", "")
+    name = (
+        payslip.get("user_full_name")
+        or payslip.get("user_email")
+        or str(payslip.get("employee_profile_id", ""))
     )
     period = f"{payslip.get('period_start')} - {payslip.get('period_end')}"
 
@@ -280,7 +283,9 @@ def build_payslip_pdf(
         (labels["status"], payslip.get("status")),
         (labels["paid"], _fmt_paid(payslip.get("paid_at"))),
     ):
-        pdf.cell(page_w, 6, _txt(f"{label}: {value}", 100), align=align, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(
+            page_w, 6, _txt(f"{label}: {value}", 100), align=align, new_x="LMARGIN", new_y="NEXT"
+        )
 
     return bytes(pdf.output())
 
@@ -296,8 +301,10 @@ def build_payslip_xlsx(
     ws.title = labels["title"][:31]
     configure_sheet_locale(ws, locale)
 
-    name = payslip.get("user_full_name") or payslip.get("user_email") or str(
-        payslip.get("employee_profile_id", "")
+    name = (
+        payslip.get("user_full_name")
+        or payslip.get("user_email")
+        or str(payslip.get("employee_profile_id", ""))
     )
     period = f"{payslip.get('period_start')} - {payslip.get('period_end')}"
 

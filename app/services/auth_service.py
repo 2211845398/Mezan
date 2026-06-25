@@ -104,11 +104,7 @@ async def login_email_password(
     if not verify_password(password, user.password_hash):
         raise ValueError("Invalid email or password")
 
-    if (
-        user.two_factor_enabled
-        and not user.must_change_password
-        and user.status == ACTIVE_STATUS
-    ):
+    if user.two_factor_enabled and not user.must_change_password and user.status == ACTIVE_STATUS:
         from app.services.two_factor_service import create_login_challenge
 
         challenge_token, _otp = await create_login_challenge(db, user)
@@ -387,9 +383,7 @@ async def update_own_profile(db: AsyncSession, user: User, body: ProfileUpdate) 
     ):
         if field in data:
             v = getattr(body, field)
-            if field == "first_name" and (
-                v is None or (isinstance(v, str) and not v.strip())
-            ):
+            if field == "first_name" and (v is None or (isinstance(v, str) and not v.strip())):
                 raise ValueError("first_name_required")
             setattr(user, col, v.strip() if isinstance(v, str) and v.strip() else None)
 

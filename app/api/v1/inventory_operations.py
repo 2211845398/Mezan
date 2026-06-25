@@ -7,6 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
+from app.core.config import settings
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.inventory_human_movement import (
@@ -37,6 +38,11 @@ from app.services.inventory_damage_service import (
     unmark_damaged_position,
 )
 from app.services.inventory_reservation_service import list_open_reservations, release_reservation
+from app.services.notifications.service import (
+    dispatch_delivery_after_commit,
+    enqueue_direct_notification,
+)
+from app.services.realtime_nav_badges import emit_notifications_unread_for_user
 from app.services.stock_count_pdf_service import (
     export_stock_count_pdf,
     export_stock_count_pdf_from_session,
@@ -49,12 +55,6 @@ from app.services.stock_count_session_service import (
     patch_stock_count_lines,
     post_stock_count_session,
 )
-from app.core.config import settings
-from app.services.notifications.service import (
-    dispatch_delivery_after_commit,
-    enqueue_direct_notification,
-)
-from app.services.realtime_nav_badges import emit_notifications_unread_for_user
 from app.utils.content_disposition import attachment_content_disposition
 from app.utils.request_locale import resolve_request_locale
 

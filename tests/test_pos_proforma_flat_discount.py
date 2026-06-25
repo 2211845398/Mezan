@@ -12,13 +12,13 @@ from app.services.cart_service import FLAT_CART_DISCOUNT_CODE, apply_flat_discou
 
 @pytest.mark.asyncio
 async def test_apply_flat_discount_rejects_over_subtotal(db_session) -> None:
+    from app.core.errors import ValidationError
     from app.models.branch import Branch
     from app.models.category import Category
     from app.models.pos_terminal import POSTerminal
     from app.models.product import Product
     from app.models.product_variant import ProductVariant
     from app.models.users import User
-    from app.core.errors import ValidationError
     from app.services.cart_service import upsert_line
 
     branch = Branch(
@@ -74,7 +74,11 @@ async def test_apply_flat_discount_rejects_over_subtotal(db_session) -> None:
     db_session.add(pv)
     await db_session.flush()
     cart = await create_cart(
-        db_session, terminal_id=terminal.id, shift_id=None, customer_id=None, created_by_user_id=user.id
+        db_session,
+        terminal_id=terminal.id,
+        shift_id=None,
+        customer_id=None,
+        created_by_user_id=user.id,
     )
     await upsert_line(
         db_session,
@@ -130,7 +134,9 @@ async def test_proforma_quote_uses_active_sell_price(client, admin_auth_header) 
 
 
 @pytest.mark.asyncio
-async def test_proforma_export_pdf_and_xlsx(client, admin_auth_header, commercial_branch_id) -> None:
+async def test_proforma_export_pdf_and_xlsx(
+    client, admin_auth_header, commercial_branch_id
+) -> None:
     cat = await client.post(
         "/api/v1/categories",
         headers=admin_auth_header,

@@ -27,12 +27,8 @@ class User(Base):
     status: Mapped[str] = mapped_column(
         String(32), default="active", nullable=False
     )  # suspended, pending_onboarding, awaiting_verification, active, deactivated, banned
-    must_change_password: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
-    two_factor_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     phone: Mapped[str] = mapped_column(String(64), nullable=True)
     city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     preferred_language: Mapped[str] = mapped_column(String(16), default="en", nullable=True)

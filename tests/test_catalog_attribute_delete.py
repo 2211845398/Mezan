@@ -24,7 +24,9 @@ async def _leaf_category(db_session) -> Category:
     return cat
 
 
-async def _attribute_with_value(db_session, *, code: str, name: str, value_code: str, value_label: str):
+async def _attribute_with_value(
+    db_session, *, code: str, name: str, value_code: str, value_label: str
+):
     attr = await create_attribute(db_session, CatalogAttributeCreate(code=code, name=name))
     val = await create_attribute_value(
         db_session,

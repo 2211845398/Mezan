@@ -1,8 +1,8 @@
 """API v1 routers package."""
 
 from app.api.v1.accounting import router as accounting_router
-from app.api.v1.attendance_devices import router as attendance_devices_router
 from app.api.v1.ai_advisory import router as ai_advisory_router
+from app.api.v1.attendance_devices import router as attendance_devices_router
 from app.api.v1.attributes import router as attributes_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
@@ -24,8 +24,8 @@ from app.api.v1.goods_receipts import router as goods_receipts_router
 from app.api.v1.health import router as health_router
 from app.api.v1.hr import router as hr_router
 from app.api.v1.inventory_adjustments import router as inventory_adjustments_router
-from app.api.v1.inventory_policies import router as inventory_policies_router
 from app.api.v1.inventory_operations import router as inventory_operations_router
+from app.api.v1.inventory_policies import router as inventory_policies_router
 from app.api.v1.inventory_reporting import router as inventory_reporting_router
 from app.api.v1.invoice_scans import router as invoice_scans_router
 from app.api.v1.loyalty import router as loyalty_router

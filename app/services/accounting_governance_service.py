@@ -164,12 +164,12 @@ async def get_fiscal_period_detail(
     branch_id: int | None = None,
 ) -> dict:
     """Full fiscal period snapshot: metadata, TB, sub-ledgers, open items."""
+    from app.models.users import User
     from app.services.financial_reports_service import (
         subledger_activity_for_period,
         trial_balance_for_period,
     )
     from app.services.subledger_service import list_ap_open_items, list_ar_open_items
-    from app.models.users import User
     from app.utils.person_name import display_person_name
 
     result = await db.execute(select(FiscalPeriod).where(FiscalPeriod.period_key == period_key))
@@ -182,9 +182,10 @@ async def get_fiscal_period_detail(
         user_res = await db.execute(select(User).where(User.id == period.closed_by_user_id))
         user = user_res.scalar_one_or_none()
         if user is not None:
-            closed_by_name = display_person_name(
-                user.first_name, user.father_name, user.family_name
-            ) or user.email
+            closed_by_name = (
+                display_person_name(user.first_name, user.father_name, user.family_name)
+                or user.email
+            )
 
     can_post, posting_reason = await can_post_to_period(db, entry_date=period.period_end)
 

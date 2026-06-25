@@ -14,7 +14,11 @@ from app.db.database import get_db
 from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.users import User
-from app.services.auth_service import ACTIVE_STATUS, AWAITING_VERIFICATION_STATUS, LOGIN_ALLOWED_STATUSES
+from app.services.auth_service import (
+    ACTIVE_STATUS,
+    AWAITING_VERIFICATION_STATUS,
+    LOGIN_ALLOWED_STATUSES,
+)
 from app.services.effective_permissions import load_user_effective_permissions
 from app.utils.security import decode_token
 

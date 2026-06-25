@@ -285,9 +285,7 @@ async def void_sales_invoice(
 
     return_void_rejected_msg = "لا يمكن إلغاء الفواتير المرتجعة"
     if invoice_id is not None:
-        cn_chk = await db.execute(
-            select(CreditNote.id).where(CreditNote.id == invoice_id).limit(1)
-        )
+        cn_chk = await db.execute(select(CreditNote.id).where(CreditNote.id == invoice_id).limit(1))
         if cn_chk.scalar_one_or_none() is not None:
             raise ValidationError(return_void_rejected_msg)
     if invoice_barcode is not None:

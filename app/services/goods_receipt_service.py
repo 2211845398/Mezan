@@ -19,7 +19,6 @@ from app.models.stock_level import StockLevel
 from app.models.suppliers import Supplier
 from app.services.branch_scope import require_branch_open_for_operations
 from app.services.document_posting_service import post_goods_receipt_gl
-from app.services.subledger_service import ensure_ap_open_item_for_goods_receipt
 from app.services.fifo_valuation_service import create_cost_layer, get_valuation_policy
 from app.services.inventory_service import apply_stock_movement
 from app.services.inventory_valuation_service import apply_receipt_to_weighted_average
@@ -28,6 +27,7 @@ from app.services.product_uom_service import (
     convert_product_unit_cost_to_base,
 )
 from app.services.purchase_order_service import validate_variant_belongs_to_product
+from app.services.subledger_service import ensure_ap_open_item_for_goods_receipt
 from app.utils.person_name import display_person_name
 
 

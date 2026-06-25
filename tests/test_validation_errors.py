@@ -37,7 +37,11 @@ def test_string_too_short_maps_to_min_length() -> None:
 def test_normalize_pydantic_errors_batch() -> None:
     raw = [
         {"type": "missing", "loc": ("body", "first_name"), "msg": "Field required"},
-        {"type": "value_error.email", "loc": ("body", "email"), "msg": "value is not a valid email"},
+        {
+            "type": "value_error.email",
+            "loc": ("body", "email"),
+            "msg": "value is not a valid email",
+        },
     ]
     out = normalize_pydantic_errors(raw)
     assert len(out) == 2
