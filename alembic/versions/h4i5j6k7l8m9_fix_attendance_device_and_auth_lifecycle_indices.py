@@ -22,8 +22,16 @@ def upgrade() -> None:
     # attendance_devices: align unique indexes with ORM (drop legacy unique constraints)
     op.drop_index("ix_attendance_devices_device_code", table_name="attendance_devices")
     op.drop_index("ix_attendance_devices_user_id", table_name="attendance_devices")
-    op.drop_constraint("attendance_devices_device_code_key", "attendance_devices", type_="unique")
-    op.drop_constraint("attendance_devices_user_id_key", "attendance_devices", type_="unique")
+    try:
+        op.drop_constraint(
+            "attendance_devices_device_code_key", "attendance_devices", type_="unique"
+        )
+    except Exception:
+        pass
+    try:
+        op.drop_constraint("attendance_devices_user_id_key", "attendance_devices", type_="unique")
+    except Exception:
+        pass
     op.create_index(op.f("ix_attendance_devices_id"), "attendance_devices", ["id"], unique=False)
     op.create_index(
         op.f("ix_attendance_devices_device_code"),
