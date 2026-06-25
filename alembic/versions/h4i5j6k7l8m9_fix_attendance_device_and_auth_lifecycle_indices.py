@@ -24,9 +24,7 @@ def upgrade() -> None:
     op.drop_index("ix_attendance_devices_user_id", table_name="attendance_devices")
     op.drop_constraint("attendance_devices_device_code_key", "attendance_devices", type_="unique")
     op.drop_constraint("attendance_devices_user_id_key", "attendance_devices", type_="unique")
-    op.create_index(
-        op.f("ix_attendance_devices_id"), "attendance_devices", ["id"], unique=False
-    )
+    op.create_index(op.f("ix_attendance_devices_id"), "attendance_devices", ["id"], unique=False)
     op.create_index(
         op.f("ix_attendance_devices_device_code"),
         "attendance_devices",
@@ -73,13 +71,13 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_attendance_devices_user_id"), table_name="attendance_devices")
     op.drop_index(op.f("ix_attendance_devices_device_code"), table_name="attendance_devices")
     op.drop_index(op.f("ix_attendance_devices_id"), table_name="attendance_devices")
-    op.create_unique_constraint(
-        "attendance_devices_user_id_key", "attendance_devices", ["user_id"]
-    )
+    op.create_unique_constraint("attendance_devices_user_id_key", "attendance_devices", ["user_id"])
     op.create_unique_constraint(
         "attendance_devices_device_code_key", "attendance_devices", ["device_code"]
     )
-    op.create_index("ix_attendance_devices_user_id", "attendance_devices", ["user_id"], unique=False)
+    op.create_index(
+        "ix_attendance_devices_user_id", "attendance_devices", ["user_id"], unique=False
+    )
     op.create_index(
         "ix_attendance_devices_device_code", "attendance_devices", ["device_code"], unique=False
     )
