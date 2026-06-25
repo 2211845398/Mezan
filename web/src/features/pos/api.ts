@@ -2,6 +2,7 @@ import { apiClient } from '@/api/client';
 import type { PaginatedItem } from '@/api/listTypes';
 import type { PaginatedList } from '@/api/pagination';
 import type { paths } from '@/api/generated/schema';
+import { assertInvoicePkId } from '@/lib/salesInvoiceId';
 
 type CurrentShiftParams =
   paths['/api/v1/pos/shifts/current']['get']['parameters']['query'];
@@ -274,7 +275,8 @@ export async function voidSale(body: VoidSaleBody): Promise<SalesInvoiceRead> {
 }
 
 export async function getSalesInvoice(invoiceId: number): Promise<SalesInvoiceDetailRead> {
-  const { data } = await apiClient.get<SalesInvoiceDetailRead>(`/sales-invoices/${invoiceId}`);
+  const id = assertInvoicePkId(invoiceId);
+  const { data } = await apiClient.get<SalesInvoiceDetailRead>(`/sales-invoices/${id}`);
   return data;
 }
 

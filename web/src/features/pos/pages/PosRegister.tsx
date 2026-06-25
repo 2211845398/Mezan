@@ -827,7 +827,7 @@ export default function PosRegister() {
   }
   if (shiftLoading) {
     return (
-      <div className="flex h-full min-h-0 items-center justify-center bg-[#f8f7f4] p-4">
+      <div className="flex h-full min-h-0 items-center justify-center bg-[#f8f7f4] dark:bg-background p-4">
         <div className="rounded-2xl border bg-card px-6 py-5 text-sm text-muted-foreground shadow-sm">
           {t('register.loading_shift')}
         </div>
@@ -836,7 +836,7 @@ export default function PosRegister() {
   }
   if (shiftError) {
     return (
-      <div className="flex h-full min-h-0 items-center justify-center bg-[#f8f7f4] p-4">
+      <div className="flex h-full min-h-0 items-center justify-center bg-[#f8f7f4] dark:bg-background p-4">
         <div className="w-full max-w-md rounded-2xl border bg-card p-6 text-center shadow-sm">
           <h2 className="text-lg font-semibold">{t('register.shift_error_title')}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{t('register.need_shift')}</p>
@@ -901,7 +901,7 @@ export default function PosRegister() {
       className={`flex h-full min-h-0 w-full min-w-0 flex-col gap-2 px-2 py-2 transition-colors duration-200 sm:gap-3 sm:px-3 sm:py-3 ${
         returnExchangeSession
           ? 'bg-primary/5 ring-1 ring-primary/15 dark:bg-primary/10 dark:ring-primary/25'
-          : 'bg-[#f8f7f4]'
+          : 'bg-[#f8f7f4] dark:bg-background'
       }`}
     >
       <RegisterToolbar

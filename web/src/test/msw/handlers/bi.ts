@@ -15,7 +15,7 @@ const MOCK_KPIS: ExecutiveKpiRead = {
   gross_margin_ratio: '0.36',
   loyalty_points_accrued: 0,
   revenue_trend: [{ bucket_date: '2026-05-15', gross_sales: '1000' }],
-  category_mix: [{ category_name: 'Beverages', gross_sales: '500' }],
+  category_mix: [{ category_id: 1, category_name: 'Beverages', gross_sales: '500' }],
   top_products: [
     {
       product_id: 10,

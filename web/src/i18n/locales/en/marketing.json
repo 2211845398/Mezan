@@ -90,7 +90,7 @@
   },
   "salesRegister": {
     "title": "Sales invoice register",
-    "filters_title": "Filters",
+    "filters_title": "Report criteria",
     "branch": "Branch",
     "kpi_count": "Invoice count",
     "kpi_subtotal": "Subtotal (ex. tax)",

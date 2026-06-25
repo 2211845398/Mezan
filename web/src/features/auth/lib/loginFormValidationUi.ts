@@ -14,12 +14,8 @@ export function loginFieldErrorMessage(
   switch (code) {
     case LOGIN_ERROR.EMAIL_REQUIRED:
       return t('login.email_required');
-    case LOGIN_ERROR.EMAIL_INVALID:
-      return t('login.email_invalid');
     case LOGIN_ERROR.PASSWORD_REQUIRED:
       return t('login.password_required');
-    case LOGIN_ERROR.PASSWORD_TOO_SHORT:
-      return t('login.password_too_short');
     default:
       return code;
   }

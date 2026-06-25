@@ -14,6 +14,11 @@ import { cn } from '@/lib/utils';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+export type DateFieldHandle = {
+  /** Commit in-progress typed value and return the effective ISO date (or empty). */
+  commitPending: () => string;
+};
+
 /*
  * Locale-aware date field: manual YYYY-MM-DD entry + calendar picker.
  * Formats via `@/lib/date` (the only file allowed to use `new Date(`).
@@ -40,7 +45,7 @@ export type DateFieldProps = {
   rtlLayout?: boolean | undefined;
 };
 
-export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
+export const DateField = React.forwardRef<DateFieldHandle, DateFieldProps>(
   (
     {
       value,
@@ -76,34 +81,36 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
         ? startOfDay(safeParseIso(minSelectableDate)!)
         : undefined;
 
-    const commitDraft = () => {
+    const commitDraft = React.useCallback((): string => {
       const raw = draft.trim();
       if (raw === '') {
         setLocalInvalid(false);
         onChange('');
-        return;
+        return '';
       }
       if (!ISO_DATE_RE.test(raw) || !safeParseIso(raw)) {
         setLocalInvalid(true);
         setDraft(value ?? '');
-        return;
+        return value ?? '';
       }
       if (minDay) {
         const d = safeParseIso(raw)!;
         if (startOfDay(d) < minDay) {
           setLocalInvalid(true);
           setDraft(value ?? '');
-          return;
+          return value ?? '';
         }
       }
       setLocalInvalid(false);
       onChange(raw);
-    };
+      return raw;
+    }, [draft, minDay, onChange, value]);
+
+    React.useImperativeHandle(ref, () => ({ commitPending: commitDraft }), [commitDraft]);
 
     return (
       <div className={cn('flex gap-1', rtlLayout && 'flex-row-reverse', className)}>
         <Input
-          ref={ref}
           id={id}
           name={name}
           type="text"

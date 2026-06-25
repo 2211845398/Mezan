@@ -62,7 +62,7 @@ export function DetailFormActionBar({
       return;
     }
     if (formId) {
-      document.getElementById(formId)?.requestSubmit();
+      (document.getElementById(formId) as HTMLFormElement | null)?.requestSubmit();
     }
   };
 

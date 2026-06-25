@@ -110,7 +110,7 @@ function buildProfileSchema(t: (k: string) => string, tc: (k: string) => string)
 type ProfileFormValues = z.infer<ReturnType<typeof buildProfileSchema>>;
 
 export default function ProfilePage() {
-  const { t } = useTranslation('auth');
+  const { t, i18n } = useTranslation('auth');
   const { t: tCommon } = useTranslation('common');
   const { t: tHr } = useTranslation('hr');
   const { t: tInv } = useTranslation('inventory');

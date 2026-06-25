@@ -38,9 +38,9 @@ export function Sidebar() {
         )}
       >
         {collapsed ? (
-          <MezanLogo size={30} title={t('layout.app_name')} className="text-primary" />
+          <MezanLogo size={30} title={t('layout.app_name')} />
         ) : (
-          <MezanLogoWithName height={36} title={t('layout.app_name')} className="text-primary" />
+          <MezanLogoWithName height={36} title={t('layout.app_name')} />
         )}
       </div>
 

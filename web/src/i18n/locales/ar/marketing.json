@@ -90,7 +90,7 @@
   },
   "salesRegister": {
     "title": "سجل فواتير المبيعات",
-    "filters_title": "الفلاتر",
+    "filters_title": "معايير التقرير",
     "branch": "الفرع",
     "kpi_count": "عدد الفواتير",
     "kpi_subtotal": "إجمالي قبل الضريبة",

@@ -202,7 +202,7 @@ describe('W-5.9 admin', () => {
 
   it('role list rows are not row-click navigable; permissions button opens dialog', async () => {
     const user = userEvent.setup();
-    const { container } = renderWithProviders(<RolesList />, { initialEntries: ['/admin/roles'] });
+    const { container: _container } = renderWithProviders(<RolesList />, { initialEntries: ['/admin/roles'] });
     const adminCell = await screen.findByText('ADMIN');
     const row = adminCell.closest('tr');
     expect(row).toBeTruthy();

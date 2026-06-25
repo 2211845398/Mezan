@@ -80,7 +80,7 @@ const ProductTile = memo(function ProductTile({
           handleAdd(1);
         }, 280);
       }}
-      className="group flex min-h-0 flex-col overflow-hidden rounded-xl border bg-[#fcfbf8] text-start text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-background hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
+      className="group flex min-h-0 flex-col overflow-hidden rounded-xl border bg-[#fcfbf8] text-start text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-background hover:shadow-md dark:bg-muted dark:hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-50"
     >
       <div className="aspect-[3/2] w-full shrink-0 overflow-hidden bg-muted">
         {imgSrc ? (
@@ -132,7 +132,7 @@ export function ProductGrid({
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden rounded-2xl border bg-card p-4 shadow-sm">
       <div className="shrink-0">
-        <div className="flex items-center gap-2 overflow-hidden rounded-xl border bg-background px-3 py-2">
+        <div className="flex items-center gap-2 overflow-hidden rounded-xl border border-border bg-input-background px-3 py-2">
           <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           <Input
             value={q}

@@ -78,6 +78,134 @@ async def list_sales_invoices_register_endpoint(
     )
 
 
+@router.get("/sales-invoices/register/export.pdf")
+async def export_sales_register_pdf_endpoint(
+    request: Request,
+    branch_id: int = Query(...),
+    period_start: date = Query(...),
+    period_end: date = Query(...),
+    limit: int | None = Query(None, ge=1, le=10_000),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("sales_invoices", "read"),
+) -> Response:
+    if period_end < period_start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="period_end must be on or after period_start",
+        )
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content, filename = await export_register_pdf(
+        db,
+        branch_id=branch_id,
+        period_start=period_start,
+        period_end=period_end,
+        locale=locale,
+        limit=limit,
+        offset=offset,
+    )
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/sales-invoices/register/export.xlsx")
+async def export_sales_register_xlsx_endpoint(
+    request: Request,
+    branch_id: int = Query(...),
+    period_start: date = Query(...),
+    period_end: date = Query(...),
+    limit: int | None = Query(None, ge=1, le=10_000),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("sales_invoices", "read"),
+) -> Response:
+    if period_end < period_start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="period_end must be on or after period_start",
+        )
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content, filename = await export_register_xlsx(
+        db,
+        branch_id=branch_id,
+        period_start=period_start,
+        period_end=period_end,
+        locale=locale,
+        limit=limit,
+        offset=offset,
+    )
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/sales-invoices/daily-summary/export.pdf")
+async def export_daily_sales_summary_pdf_endpoint(
+    request: Request,
+    period_start: date = Query(...),
+    period_end: date = Query(...),
+    branch_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("sales_invoices", "read"),
+) -> Response:
+    if period_end < period_start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="period_end must be on or after period_start",
+        )
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content, filename = await export_daily_sales_summary_pdf(
+        db,
+        branch_id=branch_id,
+        period_start=period_start,
+        period_end=period_end,
+        locale=locale,
+    )
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/sales-invoices/daily-summary/export.xlsx")
+async def export_daily_sales_summary_xlsx_endpoint(
+    request: Request,
+    period_start: date = Query(...),
+    period_end: date = Query(...),
+    branch_id: int | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+    __: None = require_permission("sales_invoices", "read"),
+) -> Response:
+    if period_end < period_start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="period_end must be on or after period_start",
+        )
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content, filename = await export_daily_sales_summary_xlsx(
+        db,
+        branch_id=branch_id,
+        period_start=period_start,
+        period_end=period_end,
+        locale=locale,
+    )
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/sales-invoices/{invoice_id}", response_model=SalesInvoiceDetailRead)
 async def get_sales_invoice_endpoint(
     invoice_id: int,
@@ -159,126 +287,6 @@ async def export_credit_note_xlsx_endpoint(
 ) -> Response:
     locale = resolve_request_locale(request.headers.get("accept-language"))
     content, filename = await export_credit_note_xlsx(db, credit_note_id=credit_note_id, locale=locale)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@router.get("/sales-invoices/register/export.pdf")
-async def export_sales_register_pdf_endpoint(
-    request: Request,
-    branch_id: int = Query(...),
-    period_start: date = Query(...),
-    period_end: date = Query(...),
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-    __: None = require_permission("sales_invoices", "read"),
-) -> Response:
-    if period_end < period_start:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="period_end must be on or after period_start",
-        )
-    locale = resolve_request_locale(request.headers.get("accept-language"))
-    content, filename = await export_register_pdf(
-        db,
-        branch_id=branch_id,
-        period_start=period_start,
-        period_end=period_end,
-        locale=locale,
-    )
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@router.get("/sales-invoices/register/export.xlsx")
-async def export_sales_register_xlsx_endpoint(
-    request: Request,
-    branch_id: int = Query(...),
-    period_start: date = Query(...),
-    period_end: date = Query(...),
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-    __: None = require_permission("sales_invoices", "read"),
-) -> Response:
-    if period_end < period_start:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="period_end must be on or after period_start",
-        )
-    locale = resolve_request_locale(request.headers.get("accept-language"))
-    content, filename = await export_register_xlsx(
-        db,
-        branch_id=branch_id,
-        period_start=period_start,
-        period_end=period_end,
-        locale=locale,
-    )
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@router.get("/sales-invoices/daily-summary/export.pdf")
-async def export_daily_sales_summary_pdf_endpoint(
-    request: Request,
-    period_start: date = Query(...),
-    period_end: date = Query(...),
-    branch_id: int | None = Query(default=None),
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-    __: None = require_permission("sales_invoices", "read"),
-) -> Response:
-    if period_end < period_start:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="period_end must be on or after period_start",
-        )
-    locale = resolve_request_locale(request.headers.get("accept-language"))
-    content, filename = await export_daily_sales_summary_pdf(
-        db,
-        branch_id=branch_id,
-        period_start=period_start,
-        period_end=period_end,
-        locale=locale,
-    )
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@router.get("/sales-invoices/daily-summary/export.xlsx")
-async def export_daily_sales_summary_xlsx_endpoint(
-    request: Request,
-    period_start: date = Query(...),
-    period_end: date = Query(...),
-    branch_id: int | None = Query(default=None),
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-    __: None = require_permission("sales_invoices", "read"),
-) -> Response:
-    if period_end < period_start:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="period_end must be on or after period_start",
-        )
-    locale = resolve_request_locale(request.headers.get("accept-language"))
-    content, filename = await export_daily_sales_summary_xlsx(
-        db,
-        branch_id=branch_id,
-        period_start=period_start,
-        period_end=period_end,
-        locale=locale,
-    )
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

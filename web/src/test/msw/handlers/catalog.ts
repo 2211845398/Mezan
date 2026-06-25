@@ -49,7 +49,7 @@ export const MOCK_CATEGORY_TREE = [
 
 export const MOCK_CATEGORY = {
   id: 1,
-  parent_id: null,
+  parent_id: null as number | null,
   name: 'Beverages',
   slug: 'beverages',
   sort_order: 0,

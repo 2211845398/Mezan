@@ -22,6 +22,7 @@ import {
   exportSalesInvoiceXlsxBlob,
 } from '@/features/marketing/api';
 import { downloadBlob } from '@/lib/downloadBlob';
+import { isValidInvoicePkId } from '@/lib/salesInvoiceId';
 
 import { A4InvoiceDocument } from './A4InvoiceDocument';
 import { a4ModelFromInvoiceDetail } from './a4InvoiceModel';
@@ -38,14 +39,19 @@ export function A4InvoicePrintDialog({ invoiceId, open, onOpenChange }: A4Invoic
   const printRef = useRef<HTMLDivElement>(null);
   const print = useReactToPrint({ contentRef: printRef });
 
+  const validInvoiceId =
+    invoiceId != null && isValidInvoicePkId(invoiceId) ? invoiceId : null;
+
   const { data: invoice, isLoading, isError } = useQuery({
-    queryKey: invoiceKeys.detail(invoiceId ?? 0),
-    queryFn: () => getSalesInvoice(invoiceId!),
-    enabled: open && invoiceId != null && invoiceId > 0,
+    queryKey: invoiceKeys.detail(validInvoiceId ?? 0),
+    queryFn: () => getSalesInvoice(validInvoiceId!),
+    enabled: open && validInvoiceId != null,
   });
 
+  const invalidId = open && invoiceId != null && validInvoiceId == null;
+
   const exportPdf = useMutation({
-    mutationFn: () => exportSalesInvoicePdfBlob(invoiceId!),
+    mutationFn: () => exportSalesInvoicePdfBlob(validInvoiceId!),
     onSuccess: (blob) => {
       downloadBlob(blob, `invoice-${invoiceId}.pdf`);
       toast.success(tc('export.pdf_ok'));
@@ -54,7 +60,7 @@ export function A4InvoicePrintDialog({ invoiceId, open, onOpenChange }: A4Invoic
   });
 
   const exportExcel = useMutation({
-    mutationFn: () => exportSalesInvoiceXlsxBlob(invoiceId!),
+    mutationFn: () => exportSalesInvoiceXlsxBlob(validInvoiceId!),
     onSuccess: (blob) => {
       downloadBlob(blob, `invoice-${invoiceId}.xlsx`);
       toast.success(tc('export.excel_ok'));
@@ -70,7 +76,9 @@ export function A4InvoicePrintDialog({ invoiceId, open, onOpenChange }: A4Invoic
         <DialogHeader>
           <DialogTitle>{t('print.a4.dialog_title')}</DialogTitle>
         </DialogHeader>
-        {isLoading ? (
+        {invalidId ? (
+          <p className="text-sm text-destructive">{t('print.a4.invalid_id')}</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted-foreground">{t('loading')}</p>
         ) : isError || !model ? (
           <p className="text-sm text-destructive">{t('print.a4.load_error')}</p>
@@ -86,7 +94,7 @@ export function A4InvoicePrintDialog({ invoiceId, open, onOpenChange }: A4Invoic
           {model ? <A4InvoiceDocument ref={printRef} model={model} /> : null}
         </div>
         <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {invoiceId != null && invoiceId > 0 ? (
+          {validInvoiceId != null ? (
             <ReportExportButtons
               disabled={!model}
               pdfPending={exportPdf.isPending}
@@ -126,6 +134,14 @@ export function A4InvoicePrintButton({
   const { t } = useTranslation('pos');
   const [open, setOpen] = useState(false);
 
+  const handleOpen = () => {
+    if (!isValidInvoicePkId(invoiceId)) {
+      toast.error(t('print.a4.invalid_id'));
+      return;
+    }
+    setOpen(true);
+  };
+
   return (
     <>
       <Button
@@ -133,7 +149,7 @@ export function A4InvoicePrintButton({
         variant={variant}
         size={size}
         className={className}
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
       >
         <Printer className="me-1.5 size-4" aria-hidden />
         {t('print.a4.button')}

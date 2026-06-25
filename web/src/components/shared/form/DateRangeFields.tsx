@@ -1,9 +1,13 @@
-import type { ReactNode } from 'react';
+import { forwardRef, useImperativeHandle, useRef, type ReactNode } from 'react';
 
 import { useDateRangeConstraint } from '@/hooks/useDateRangeConstraint';
 import { cn } from '@/lib/utils';
 
-import { DateField } from './DateField';
+import { DateField, type DateFieldHandle } from './DateField';
+
+export type DateRangeFieldsHandle = {
+  commitPending: () => { from: string; to: string };
+};
 
 export type DateRangeFieldsProps = {
   fromValue: string;
@@ -22,44 +26,64 @@ export type DateRangeFieldsProps = {
   className?: string;
 };
 
-export function DateRangeFields({
-  fromValue,
-  toValue,
-  onFromChange,
-  onToChange,
-  fromLabel,
-  toLabel,
-  fromId,
-  toId,
-  fieldClassName,
-  cellClassName,
-  fromCellClassName,
-  toCellClassName,
-  className,
-}: DateRangeFieldsProps) {
-  const { minToDate } = useDateRangeConstraint(fromValue, toValue, onToChange);
+export const DateRangeFields = forwardRef<DateRangeFieldsHandle, DateRangeFieldsProps>(
+  function DateRangeFields(
+    {
+      fromValue,
+      toValue,
+      onFromChange,
+      onToChange,
+      fromLabel,
+      toLabel,
+      fromId,
+      toId,
+      fieldClassName,
+      cellClassName,
+      fromCellClassName,
+      toCellClassName,
+      className,
+    },
+    ref,
+  ) {
+    const fromRef = useRef<DateFieldHandle>(null);
+    const toRef = useRef<DateFieldHandle>(null);
+    const { minToDate } = useDateRangeConstraint(fromValue, toValue, onToChange);
 
-  return (
-    <div className={cn('flex flex-wrap items-end gap-3', className)}>
-      <div className={cn('grid gap-1', cellClassName, fromCellClassName)}>
-        {fromLabel}
-        <DateField
-          id={fromId}
-          value={fromValue}
-          onChange={onFromChange}
-          className={fieldClassName}
-        />
+    useImperativeHandle(
+      ref,
+      () => ({
+        commitPending: () => ({
+          from: fromRef.current?.commitPending() ?? fromValue,
+          to: toRef.current?.commitPending() ?? toValue,
+        }),
+      }),
+      [fromValue, toValue],
+    );
+
+    return (
+      <div className={cn('flex flex-wrap items-end gap-3', className)}>
+        <div className={cn('grid gap-1', cellClassName, fromCellClassName)}>
+          {fromLabel}
+          <DateField
+            ref={fromRef}
+            id={fromId}
+            value={fromValue}
+            onChange={onFromChange}
+            className={fieldClassName}
+          />
+        </div>
+        <div className={cn('grid gap-1', cellClassName, toCellClassName)}>
+          {toLabel}
+          <DateField
+            ref={toRef}
+            id={toId}
+            value={toValue}
+            onChange={onToChange}
+            minSelectableDate={minToDate}
+            className={fieldClassName}
+          />
+        </div>
       </div>
-      <div className={cn('grid gap-1', cellClassName, toCellClassName)}>
-        {toLabel}
-        <DateField
-          id={toId}
-          value={toValue}
-          onChange={onToChange}
-          minSelectableDate={minToDate}
-          className={fieldClassName}
-        />
-      </div>
-    </div>
-  );
-}
+    );
+  },
+);

@@ -65,7 +65,7 @@ function StockSnapshotAside({
   snapshot: StockSnapshot | null;
   isLoading: boolean;
 }) {
-  const { t, i18n } = useTranslation('inventory');
+  const { t } = useTranslation('inventory');
 
   const rows = [
     { label: t('stock.col.available'), value: snapshot != null ? String(snapshot.available) : '—' },

@@ -78,38 +78,6 @@ describe('LoginPage inline validation', () => {
     expect(await screen.findByText('البريد الإلكتروني مطلوب')).toBeInTheDocument();
   });
 
-  it('shows invalid email message for malformed address', async () => {
-    renderWithProviders(
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-      </Routes>,
-      { initialEntries: ['/login'] },
-    );
-
-    await userEvent.type(screen.getByLabelText('البريد الإلكتروني'), 'notanemail');
-    await userEvent.type(screen.getByLabelText('كلمة المرور'), 'password1');
-    await userEvent.click(screen.getByRole('button', { name: 'تسجيل الدخول' }));
-
-    expect(await screen.findByText('البريد الإلكتروني غير صالح')).toBeInTheDocument();
-  });
-
-  it('shows password too short message', async () => {
-    renderWithProviders(
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-      </Routes>,
-      { initialEntries: ['/login'] },
-    );
-
-    await userEvent.type(screen.getByLabelText('البريد الإلكتروني'), 'admin@example.com');
-    await userEvent.type(screen.getByLabelText('كلمة المرور'), 'abc');
-    await userEvent.click(screen.getByRole('button', { name: 'تسجيل الدخول' }));
-
-    expect(
-      await screen.findByText('كلمة المرور يجب أن لا تقل عن 8 أحرف'),
-    ).toBeInTheDocument();
-  });
-
   it('clears field error when user starts typing', async () => {
     renderWithProviders(
       <Routes>

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 from fpdf import FPDF
 from openpyxl import Workbook
@@ -43,7 +44,8 @@ _LABELS: dict[SalesLocale, dict[str, str]] = {
         "daily_title": "Daily sales summary",
         "company": "Company",
         "branch": "Branch",
-        "date": "Date / time",
+        "date": "Date",
+        "time": "Time",
         "document_no": "Document no.",
         "customer": "Customer",
         "logo": "LOGO",
@@ -76,7 +78,8 @@ _LABELS: dict[SalesLocale, dict[str, str]] = {
         "daily_title": "ملخص المبيعات اليومي",
         "company": "الشركة",
         "branch": "الفرع",
-        "date": "التاريخ والوقت",
+        "date": "التاريخ",
+        "time": "الوقت",
         "document_no": "رقم المستند",
         "customer": "العميل",
         "logo": "الشعار",
@@ -119,6 +122,46 @@ def _cell_align(locale: SalesLocale) -> str:
     return "R" if locale == "ar" else "L"
 
 
+def _resolve_mezan_logo_path() -> Path | None:
+    root = Path(__file__).resolve().parents[2]
+    for rel in (
+        "app/assets/branding/mezan_logo.png",
+        "mobile/web/icons/Icon-192.png",
+        "mobile/web/favicon.png",
+    ):
+        candidate = root / rel
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _draw_pdf_logo_banner(pdf: FPDF, *, locale: SalesLocale, family: str, labels: dict[str, str]) -> None:
+    rtl = locale == "ar"
+    logo_w, logo_h = 28.0, 18.0
+    logo_x = pdf.l_margin if rtl else pdf.w - pdf.r_margin - logo_w
+    y0 = pdf.get_y()
+    logo_path = _resolve_mezan_logo_path()
+    if logo_path is not None:
+        try:
+            pdf.image(str(logo_path), x=logo_x, y=y0, w=logo_w, h=logo_h)
+            pdf.set_y(y0 + logo_h + 2)
+            return
+        except Exception:
+            pass
+    pdf.set_draw_color(180, 180, 180)
+    pdf.rect(logo_x, y0, logo_w, logo_h)
+    pdf.set_font(family, size=8)
+    pdf.set_xy(logo_x, y0 + logo_h / 2 - 2)
+    pdf.cell(logo_w, 4, _txt(labels["logo"], 12), align="C")
+    pdf.set_y(y0 + logo_h + 2)
+
+
+def _register_datetime_parts(dt: datetime) -> tuple[str, str]:
+    aware = dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+    utc = aware.astimezone(UTC)
+    return utc.strftime("%Y-%m-%d"), utc.strftime("%H:%M")
+
+
 def _build_document_pdf(
     *,
     locale: SalesLocale,
@@ -147,12 +190,26 @@ def _build_document_pdf(
 
     logo_w, logo_h = 28.0, 18.0
     logo_x = pdf.l_margin if rtl else pdf.w - pdf.r_margin - logo_w
-    pdf.set_draw_color(180, 180, 180)
-    pdf.rect(logo_x, pdf.get_y(), logo_w, logo_h)
-    pdf.set_font(family, size=8)
-    pdf.set_xy(logo_x, pdf.get_y() + logo_h / 2 - 2)
-    pdf.cell(logo_w, 4, _txt(labels["logo"], 12), align="C")
-    pdf.ln(logo_h + 2)
+    y0 = pdf.get_y()
+    logo_path = _resolve_mezan_logo_path()
+    if logo_path is not None:
+        try:
+            pdf.image(str(logo_path), x=logo_x, y=y0, w=logo_w, h=logo_h)
+            pdf.set_y(y0 + logo_h + 2)
+        except Exception:
+            pdf.set_draw_color(180, 180, 180)
+            pdf.rect(logo_x, y0, logo_w, logo_h)
+            pdf.set_font(family, size=8)
+            pdf.set_xy(logo_x, y0 + logo_h / 2 - 2)
+            pdf.cell(logo_w, 4, _txt(labels["logo"], 12), align="C")
+            pdf.set_y(y0 + logo_h + 2)
+    else:
+        pdf.set_draw_color(180, 180, 180)
+        pdf.rect(logo_x, y0, logo_w, logo_h)
+        pdf.set_font(family, size=8)
+        pdf.set_xy(logo_x, y0 + logo_h / 2 - 2)
+        pdf.cell(logo_w, 4, _txt(labels["logo"], 12), align="C")
+        pdf.set_y(y0 + logo_h + 2)
 
     pdf.set_font(family, size=14)
     pdf.cell(page_w, 8, _txt(title, 80), align=align, new_x="LMARGIN", new_y="NEXT")
@@ -485,14 +542,17 @@ async def _register_rows_all(
     branch_id: int,
     start_inclusive: datetime,
     end_exclusive: datetime,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> tuple[list[SalesInvoiceListItem], str | None]:
+    page_limit = limit if limit is not None else 10_000
     items, _total, _sub, _tot = await list_sales_invoices_register_page(
         db,
         branch_id=branch_id,
         start_inclusive=start_inclusive,
         end_exclusive=end_exclusive,
-        limit=10_000,
-        offset=0,
+        limit=page_limit,
+        offset=offset,
     )
     bres = await db.execute(select(Branch.name).where(Branch.id == branch_id))
     branch_name = bres.scalar_one_or_none()
@@ -504,11 +564,13 @@ def _register_table_rows(items: list[SalesInvoiceListItem], locale: SalesLocale)
     rows: list[list[object]] = []
     for item in items:
         txn = labels["return"] if item.transaction_type == "return" else labels["sale"]
+        date_str, time_str = _register_datetime_parts(item.created_at)
         rows.append(
             [
                 item.invoice_number,
                 item.customer_display or labels["none"],
-                item.created_at.isoformat(),
+                date_str,
+                time_str,
                 float(item.subtotal),
                 float(item.total),
                 txn,
@@ -525,6 +587,8 @@ async def export_register_pdf(
     period_start: date,
     period_end: date,
     locale: SalesLocale = "ar",
+    limit: int | None = None,
+    offset: int = 0,
 ) -> tuple[bytes, str]:
     labels = _labels(locale)
     align = _cell_align(locale)
@@ -533,13 +597,19 @@ async def export_register_pdf(
         tzinfo=UTC,
     )
     items, branch_name = await _register_rows_all(
-        db, branch_id=branch_id, start_inclusive=start_inclusive, end_exclusive=end_exclusive
+        db,
+        branch_id=branch_id,
+        start_inclusive=start_inclusive,
+        end_exclusive=end_exclusive,
+        limit=limit,
+        offset=offset,
     )
 
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_page()
     family = _register_unicode_font(pdf)
+    _draw_pdf_logo_banner(pdf, locale=locale, family=family, labels=labels)
     pdf.set_font(family, size=12)
     pdf.cell(0, 8, _txt(labels["register_title"], 120), align=align, new_x="LMARGIN", new_y="NEXT")
     pdf.set_font(family, size=8)
@@ -565,12 +635,13 @@ async def export_register_pdf(
         labels["invoice_number"],
         labels["customer"],
         labels["date"],
+        labels["time"],
         labels["subtotal"],
         labels["total"],
         labels["txn_type"],
         labels["payment_status"],
     ]
-    col_w = [34, 40, 36, 24, 24, 22, 28]
+    col_w = [32, 38, 22, 16, 22, 22, 20, 24]
     if locale == "ar":
         headers = list(reversed(headers))
         col_w = list(reversed(col_w))
@@ -599,6 +670,8 @@ async def export_register_xlsx(
     period_start: date,
     period_end: date,
     locale: SalesLocale = "ar",
+    limit: int | None = None,
+    offset: int = 0,
 ) -> tuple[bytes, str]:
     labels = _labels(locale)
     start_inclusive = datetime.combine(period_start, datetime.min.time()).replace(tzinfo=UTC)
@@ -606,7 +679,12 @@ async def export_register_xlsx(
         tzinfo=UTC,
     )
     items, branch_name = await _register_rows_all(
-        db, branch_id=branch_id, start_inclusive=start_inclusive, end_exclusive=end_exclusive
+        db,
+        branch_id=branch_id,
+        start_inclusive=start_inclusive,
+        end_exclusive=end_exclusive,
+        limit=limit,
+        offset=offset,
     )
 
     wb = Workbook()
@@ -630,6 +708,7 @@ async def export_register_xlsx(
             labels["invoice_number"],
             labels["customer"],
             labels["date"],
+            labels["time"],
             labels["subtotal"],
             labels["total"],
             labels["txn_type"],

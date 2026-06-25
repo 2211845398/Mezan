@@ -295,11 +295,9 @@ export default function ExecutiveBiDashboardContent() {
                   isLoading={false}
                   isError={false}
                   showSearch={false}
-                  getRowHref={
-                    canViewCatalog
-                      ? (row) => `/catalog/products/${row.product_id}`
-                      : undefined
-                  }
+                  {...(canViewCatalog
+                    ? { getRowHref: (row: { product_id: number }) => `/catalog/products/${row.product_id}` }
+                    : {})}
                 />
               </CardContent>
             </Card>
@@ -316,11 +314,9 @@ export default function ExecutiveBiDashboardContent() {
                   isLoading={false}
                   isError={false}
                   showSearch={false}
-                  getRowHref={
-                    canViewPurchasing
-                      ? (row) => `/purchasing/orders/${row.id}`
-                      : undefined
-                  }
+                  {...(canViewPurchasing
+                    ? { getRowHref: (row: { id: number }) => `/purchasing/orders/${row.id}` }
+                    : {})}
                 />
               </CardContent>
             </Card>

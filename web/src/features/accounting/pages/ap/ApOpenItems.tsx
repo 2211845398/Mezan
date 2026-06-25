@@ -20,7 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
-import { listSuppliers } from '@/features/purchasing/api';
+import { listSuppliers, type SupplierRead } from '@/features/purchasing/api';
 import { purchasingKeys } from '@/features/purchasing/queries';
 import { usePermission } from '@/hooks/usePermission';
 import { formatCurrency, formatMoney } from '@/lib/format';
@@ -43,10 +43,15 @@ export default function ApOpenItems() {
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
   });
-  const { data: suppliers = [] } = useQuery({
+  const { data: suppliersData } = useQuery({
     queryKey: purchasingKeys.suppliers(),
     queryFn: () => listSuppliers({ limit: 500, offset: 0 }),
   });
+  const suppliersArray = useMemo(
+    () =>
+      Array.isArray(suppliersData) ? suppliersData : (suppliersData?.items ?? []),
+    [suppliersData],
+  );
   const b = branch === '__all' ? undefined : Number(branch);
   const statusQ = st === 'all' ? undefined : st;
   const supplierId = supplierFilter === '__all' ? undefined : Number(supplierFilter);
@@ -76,12 +81,12 @@ export default function ApOpenItems() {
 
   const supplierNameById = useMemo(() => {
     const map = new Map<number, string>();
-    for (const s of suppliers) {
+    for (const s of suppliersArray) {
       const parts = [s.first_name, s.father_name, s.family_name].filter(Boolean);
       map.set(s.id, parts.join(' ') || s.code);
     }
     return map;
-  }, [suppliers]);
+  }, [suppliersArray]);
 
   const selectedItems = useMemo(
     () => rows.filter((r) => sel.includes(r.id)),
@@ -259,7 +264,7 @@ export default function ApOpenItems() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all">{t('ap.all_suppliers')}</SelectItem>
-                  {suppliers.map((s) => (
+                  {suppliersArray.map((s: SupplierRead) => (
                     <SelectItem key={s.id} value={String(s.id)}>
                       {supplierNameById.get(s.id) ?? s.code}
                     </SelectItem>

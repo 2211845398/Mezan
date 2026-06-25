@@ -182,6 +182,7 @@
       "dialog_title": "A4 invoice preview",
       "print": "Print",
       "load_error": "Could not load invoice",
+      "invalid_id": "Invalid invoice id — cannot print or export",
       "title": "Tax invoice / B2B",
       "voided": "VOID",
       "invoice_no": "Invoice no.",

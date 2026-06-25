@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { StatusBadge } from '@/components/shared/StatusBadge';
@@ -101,7 +101,7 @@ export default function CommercialRestockAlertsPage() {
           product_name: alert.product_name,
           variant_name: alert.variant_name || alert.product_name,
           reference_code: alert.reference_code,
-          product_image_url: alert.product_image_url,
+          product_image_url: alert.product_image_url ?? null,
         },
       ],
     };
@@ -113,11 +113,15 @@ export default function CommercialRestockAlertsPage() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink to="/dashboard">{tc('nav.dashboard')}</BreadcrumbLink>
+            <BreadcrumbLink asChild>
+              <Link to="/dashboard">{tc('nav.dashboard')}</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink to="/inventory/stock">{tc('nav.inventory')}</BreadcrumbLink>
+            <BreadcrumbLink asChild>
+              <Link to="/inventory/stock">{tc('nav.inventory')}</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

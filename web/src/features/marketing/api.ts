@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client';
 import type { components } from '@/api/generated/schema';
+import { assertInvoicePkId, isValidInvoicePkId } from '@/lib/salesInvoiceId';
 
 export type MarketingAdvisoryRequest = components['schemas']['MarketingAdvisoryRequest'];
 export type MarketingAdvisoryResponse = components['schemas']['MarketingAdvisoryResponse'];
@@ -106,13 +107,22 @@ export async function getSalesInvoicesRegister(params: {
   const { data } = await apiClient.get<SalesInvoiceRegisterPageRead>('/sales-invoices/register', {
     params,
   });
-  return data;
+  const items = data.items.filter((item) => {
+    if (!isValidInvoicePkId(item.id)) {
+      console.warn('Sales register row skipped: invalid numeric id', item);
+      return false;
+    }
+    return true;
+  }) as SalesInvoiceRegisterRow[];
+  return { ...data, items };
 }
 
 export async function exportSalesRegisterPdfBlob(params: {
   branch_id: number;
   period_start: string;
   period_end: string;
+  limit?: number;
+  offset?: number;
 }): Promise<Blob> {
   const { data } = await apiClient.get<Blob>('/sales-invoices/register/export.pdf', {
     params,
@@ -125,6 +135,8 @@ export async function exportSalesRegisterXlsxBlob(params: {
   branch_id: number;
   period_start: string;
   period_end: string;
+  limit?: number;
+  offset?: number;
 }): Promise<Blob> {
   const { data } = await apiClient.get<Blob>('/sales-invoices/register/export.xlsx', {
     params,
@@ -158,14 +170,16 @@ export async function exportDailySalesSummaryXlsxBlob(params: {
 }
 
 export async function exportSalesInvoicePdfBlob(invoiceId: number): Promise<Blob> {
-  const { data } = await apiClient.get<Blob>(`/sales-invoices/${invoiceId}/export.pdf`, {
+  const id = assertInvoicePkId(invoiceId);
+  const { data } = await apiClient.get<Blob>(`/sales-invoices/${id}/export.pdf`, {
     responseType: 'blob',
   });
   return data;
 }
 
 export async function exportSalesInvoiceXlsxBlob(invoiceId: number): Promise<Blob> {
-  const { data } = await apiClient.get<Blob>(`/sales-invoices/${invoiceId}/export.xlsx`, {
+  const id = assertInvoicePkId(invoiceId);
+  const { data } = await apiClient.get<Blob>(`/sales-invoices/${id}/export.xlsx`, {
     responseType: 'blob',
   });
   return data;

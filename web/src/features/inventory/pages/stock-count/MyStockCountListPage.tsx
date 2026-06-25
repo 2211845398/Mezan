@@ -8,7 +8,7 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 
-import { listMyStockCountSessions, type StockCountSessionRead } from '../api';
+import { listMyStockCountSessions, type StockCountSessionRead } from '@/features/inventory/api';
 
 export default function MyStockCountListPage() {
   const { t } = useTranslation('inventory');

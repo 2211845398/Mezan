@@ -99,8 +99,8 @@ function NavBadgeGroup({
           key={kind}
           kind={kind}
           count={count}
-          navItemActive={navItemActive}
-          className={className}
+          navItemActive={navItemActive ?? false}
+          className={className ?? ''}
         />
       ))}
     </span>

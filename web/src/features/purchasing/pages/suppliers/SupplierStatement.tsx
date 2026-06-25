@@ -230,7 +230,7 @@ export default function SupplierStatement() {
         line={selectedLine}
         supplierId={supplierId}
         currencyCode={currencyCode}
-        branchId={branchId}
+        {...(branchId != null ? { branchId } : {})}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
       />

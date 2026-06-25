@@ -85,7 +85,7 @@ export function RegisterTotalsColumn({
             disabled={!editable}
             customerLoyaltyBalance={customerLoyaltyBalance}
             onApply={onApplyDiscount}
-            triggerClassName="min-h-11 w-full bg-[#82a2f7] text-white shadow-md shadow-blue-500/15 hover:bg-[#728fe0] hover:text-white"
+            triggerClassName="min-h-11 w-full bg-primary text-primary-foreground shadow-md shadow-primary/15 hover:bg-primary/90 hover:text-primary-foreground"
           />
         ) : null}
 
