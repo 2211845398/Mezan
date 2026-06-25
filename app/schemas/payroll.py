@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -69,7 +70,7 @@ class PayslipDeductionLine(BaseModel):
     amount: Decimal
     reason: str
     source: Literal["automatic", "manual"] = "automatic"
-    date: date | None = None
+    date: dt.date | None = None
 
 
 class PayslipSelfRead(PayslipRead):
