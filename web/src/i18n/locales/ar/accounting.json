@@ -234,7 +234,11 @@
     "apply_ok": "تم تطبيق الدفعة"
   },
   "ap": {
-    "title": "الذمم الدائنة المفتوحة",
+    "title": "الذمم الدائنة",
+    "tab": {
+      "suppliers": "ملخص الموردين",
+      "items": "البنود المفتوحة"
+    },
     "col": {
       "ref": "المرجع",
       "description": "البيان",
@@ -243,9 +247,16 @@
       "days_overdue": "أيام التأخير",
       "open": "المبلغ المفتوح",
       "source": "مرجع",
-      "status": "الحالة"
+      "status": "الحالة",
+      "supplier": "المورد",
+      "supplier_code": "الرمز",
+      "balance": "المستحق"
     },
     "filter_status": "الحالة",
+    "filter_supplier": "المورد",
+    "all_suppliers": "كل الموردين",
+    "view_statement": "كشف الحساب",
+    "empty_suppliers": "لا توجد أرصدة مفتوحة للموردين",
     "status": {
       "open": "مفتوح",
       "closed": "مغلق",
@@ -346,7 +357,27 @@
     "reopen_confirm_body": "يسمح بإعادة الترحيل في هذه الفترة.",
     "closed_ok": "تم الإقفال",
     "reopened_ok": "تم إعادة الفتح",
-    "transition_error": "لا يمكن تغيير حالة هذه الفترة بهذه الطريقة"
+    "transition_error": "لا يمكن تغيير حالة هذه الفترة بهذه الطريقة",
+    "detail_title": "تفاصيل الفترة {{key}}",
+    "back": "العودة للقائمة",
+    "posting_status": "حالة الترحيل",
+    "can_post_yes": "مسموح بالترحيل",
+    "can_post_no": "غير مسموح بالترحيل",
+    "closed_by": "أُغلقت بواسطة",
+    "trial_balance": "أرصدة الفترة",
+    "subledger_activity": "الأستاذ الفرعي",
+    "open_items": "بنود مفتوحة",
+    "ar_open": "ذمم مدينة مفتوحة",
+    "ap_open": "ذمم دائنة مفتوحة",
+    "soft_close": "إغلاق جزئي",
+    "col_tb_code": "الرمز",
+    "col_tb_name": "الحساب",
+    "col_tb_debit": "مدين",
+    "col_tb_credit": "دائن",
+    "col_tb_net": "صافي",
+    "col_sl_kind": "نوع الأستاذ",
+    "col_sl_lines": "القيود",
+    "view_detail": "عرض"
   },
   "currencies": {
     "title": "العملات",
@@ -366,6 +397,9 @@
     "yes": "نعم",
     "no": "لا",
     "edit_rate": "تعديل السعر",
+    "edit_rounding": "تقريب نقدي",
+    "edit_rounding_title": "تقريب نقدي — {{code}}",
+    "rounding_updated": "تم تحديث إعداد التقريب النقدي",
     "edit_rate_title": "سعر {{code}}",
     "set_base": "تعيين كأساسية",
     "created": "تمت إضافة العملة",
@@ -379,6 +413,8 @@
       "name": "الاسم",
       "rate": "سعر الصرف مقابل الأساسية",
       "rate_hint": "وحدات العملة الأساسية لكل 1 وحدة من هذه العملة.",
+      "cash_rounding_increment": "وحدة التقريب النقدي",
+      "rounding_hint": "مثال: 0.05 للتقريب لأقرب فلسة. اتركه فارغاً لتعطيل التقريب.",
       "save": "حفظ"
     }
   },
@@ -425,6 +461,12 @@
     "delete_checking": "جاري التحقق من إمكانية الحذف…",
     "delete_confirm": "حذف {{name}} ({{code}})؟ لا يمكن التراجع.",
     "delete_blocked": "لا يمكن حذف هذا الحساب: {{reason}}",
+    "delete_reason": {
+      "balance_not_zero": "الرصيد الحالي ليس صفراً",
+      "has_journal_entries": "يوجد قيود يومية على الحساب",
+      "system_account": "لا يمكن حذف حسابات النظام",
+      "not_found": "الحساب غير موجود"
+    },
     "name_en": "الاسم (إنجليزي)",
     "name_ar": "الاسم (عربي)",
     "as_of": "الأرصدة حتى",

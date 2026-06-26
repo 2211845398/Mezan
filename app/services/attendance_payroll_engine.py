@@ -24,6 +24,32 @@ def _q(value: Decimal) -> Decimal:
     return value.quantize(MONEY_Q, rounding=ROUND_HALF_UP)
 
 
+def _pay_basis_for_category(category: str) -> str:
+    """Operational staff are paid hourly; office/exempt staff use monthly base salary."""
+    if category == "operational":
+        return "hourly"
+    return "salary"
+
+
+def _apply_deduction_cap(
+    gross: Decimal,
+    auto: Decimal,
+    manual: Decimal,
+) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    """Cap applied deductions at gross so net is never negative and GL stays balanced."""
+    gross_q = _q(gross)
+    auto_q = _q(auto)
+    manual_q = _q(manual)
+    raw_total = _q(auto_q + manual_q)
+    if raw_total <= gross_q:
+        return auto_q, manual_q, raw_total, _q(gross_q - raw_total)
+    auto_applied = min(auto_q, gross_q)
+    remainder = _q(gross_q - auto_applied)
+    manual_applied = min(manual_q, remainder)
+    applied = _q(auto_applied + manual_applied)
+    return _q(auto_applied), _q(manual_applied), applied, _q(gross_q - applied)
+
+
 def _policy_rates(
     policy: AttendancePayrollPolicy | dict,
 ) -> tuple[str, Decimal, Decimal, Decimal]:
@@ -310,19 +336,35 @@ async def compute_period_payroll_components(
     base_salary = employee.base_salary or Decimal("0")
     billable_list = sorted(billable)
     paid_days = max(0, len(billable_list) - len(absent_days))
-    base_portion = Decimal("0")
-    if base_salary > 0 and len(billable_list) > 0:
-        daily = _q(base_salary / Decimal(len(billable_list)))
-        base_portion = _q(daily * Decimal(paid_days))
+    pay_basis = _pay_basis_for_category(category)
+    regular_hours = max(Decimal("0"), hours_worked - ot_hours)
 
-    hourly_earnings = _q(hours_worked * rate)
+    base_portion = Decimal("0")
+    hourly_earnings = Decimal("0")
+    if pay_basis == "salary":
+        if base_salary > 0 and len(billable_list) > 0:
+            daily = _q(base_salary / Decimal(len(billable_list)))
+            base_portion = _q(daily * Decimal(paid_days))
+        elif rate > 0:
+            hourly_earnings = _q(regular_hours * rate)
+    else:
+        if rate > 0:
+            hourly_earnings = _q(regular_hours * rate)
+        elif base_salary > 0 and len(billable_list) > 0:
+            daily = _q(base_salary / Decimal(len(billable_list)))
+            base_portion = _q(daily * Decimal(paid_days))
+
     gross = _q(base_portion + hourly_earnings + overtime_amount + bonus)
-    total_deductions = _q(auto + manual_deductions)
-    net = _q(gross - total_deductions)
+    raw_auto = _q(auto)
+    raw_manual = _q(manual_deductions)
+    auto_applied, manual_applied, total_deductions, net = _apply_deduction_cap(
+        gross, raw_auto, raw_manual
+    )
 
     details = {
         "role_code": role_code,
         "attendance_category": category,
+        "pay_basis": pay_basis,
         "policy_grace_minutes": grace,
         "scheduled_work_day_count": len(work_dates),
         "billable_work_day_count": len(billable),
@@ -332,15 +374,19 @@ async def compute_period_payroll_components(
         "operational_late_open_count": late_open_ops,
         "operational_early_close_count": early_close_events,
         "overtime_hours": str(ot_hours),
+        "regular_hours": str(regular_hours),
         "hours_worked": str(hours_worked),
+        "raw_automatic_deductions_amount": str(raw_auto),
+        "raw_manual_deductions_amount": str(raw_manual),
+        "deductions_capped": raw_auto + raw_manual > total_deductions,
     }
 
     return {
         "base_salary_amount": base_portion,
         "bonus_amount": bonus,
         "overtime_amount": overtime_amount,
-        "automatic_deductions_amount": auto,
-        "manual_deductions_amount": manual_deductions,
+        "automatic_deductions_amount": auto_applied,
+        "manual_deductions_amount": manual_applied,
         "hours_worked": hours_worked,
         "hourly_rate": _q(rate),
         "gross_amount": gross,

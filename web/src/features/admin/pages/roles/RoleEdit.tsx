@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 
 import { notifyApiError } from '@/api/errorMessages';
-import {
-  floatingFormApproveButtonClassName,
-  floatingFormCloseButtonClassName,
-} from '@/components/shared/FloatingFormDialog';
+import { DetailFormActionBar } from '@/components/shared/DetailFormActionBar';
+import { BackButton } from '@/components/shared/PageHeader';
+import { floatingFormCloseButtonClassName } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
@@ -22,12 +21,13 @@ export default function RoleEdit() {
   const { code } = useParams();
   const { data: roles = [], isLoading } = useRoles();
   const { data: perms = [] } = usePermissions();
-  const role: RoleWithPermissions | undefined = useMemo(
-    () => roles.find((r) => (r.code ?? '') === (code ?? '')),
-    [roles, code],
+  const role: RoleWithPermissions | undefined = roles.find(
+    (r) => (r.code ?? '') === (code ?? ''),
   );
   const canUpdate = usePermission('roles', 'update') && role && !role.is_system;
   const [ids, setIds] = useState<number[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const snapshotRef = useRef<number[]>([]);
   const setPerms = useSetRolePermissions(role?.id ?? 0);
 
   useEffect(() => {
@@ -47,42 +47,50 @@ export default function RoleEdit() {
     );
   }
 
+  const startEdit = () => {
+    snapshotRef.current = [...ids];
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setIds(snapshotRef.current);
+    setIsEditing(false);
+  };
+
   return (
     <div className="p-4">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">
           {t('roles.edit_title', { name: role.name })}
         </h1>
-        <Button variant="outline" className={floatingFormCloseButtonClassName} asChild>
-          <Link to="/admin/roles">{t('actions.back')}</Link>
-        </Button>
+        <div dir="ltr" className="flex flex-wrap items-center gap-[5px]">
+          <BackButton to="/admin/roles" label={t('roles.title')} />
+          <DetailFormActionBar
+            isEditing={isEditing}
+            canEdit={Boolean(canUpdate)}
+            isSubmitting={setPerms.isPending}
+            onStartEdit={startEdit}
+            onCancelEdit={cancelEdit}
+            onSave={() =>
+              void setPerms
+                .mutateAsync({ permission_ids: ids })
+                .then(() => {
+                  snapshotRef.current = [...ids];
+                  setIsEditing(false);
+                  notify.success(tc('toasts.saved'));
+                })
+                .catch((error) => notifyApiError(error, tc('errors.generic')))
+            }
+          />
+        </div>
       </div>
       <PermissionGrid
         permissions={perms}
         selectedIds={ids}
         onChange={setIds}
-        readOnly={!canUpdate}
+        readOnly={!isEditing}
         disabled={setPerms.isPending}
       />
-      {canUpdate ? (
-        <div className="mt-4">
-          <Button
-            type="button"
-            className={floatingFormApproveButtonClassName}
-            onClick={async () => {
-              try {
-                await setPerms.mutateAsync({ permission_ids: ids });
-                notify.success(tc('toasts.saved'));
-              } catch (error) {
-                notifyApiError(error, tc('errors.generic'));
-              }
-            }}
-            disabled={setPerms.isPending}
-          >
-            {t('actions.save')}
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -116,7 +116,10 @@ async def post_sales_invoice_gl(
     async def post_revenue_and_cash() -> None:
         paid = await _sum_invoice_payment_amounts(db, invoice.id)
         paid = q2(paid)
+        amount_paid = q2(invoice.amount_paid)
+        rounding_diff = q2(invoice.rounding_difference)
         remainder = q2(total - paid)
+        collected_equivalent = q2(amount_paid - rounding_diff)
 
         def _revenue_discount_tax_lines() -> list[dict]:
             payload: list[dict] = [
@@ -178,21 +181,50 @@ async def post_sales_invoice_gl(
                 ],
             )
 
+        def _rounding_line() -> dict | None:
+            if rounding_diff == Decimal("0.00"):
+                return None
+            rid = settings.default_rounding_difference_account_id
+            if rid is None:
+                raise ValidationError(
+                    "Cash rounding account is not configured",
+                    details={"invoice_id": invoice.id},
+                )
+            if rounding_diff < Decimal("0"):
+                return {
+                    "account_id": rid,
+                    "branch_id": branch_id,
+                    "debit": abs(rounding_diff),
+                    "credit": Decimal("0"),
+                    "memo": "Cash rounding",
+                }
+            return {
+                "account_id": rid,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": rounding_diff,
+                "memo": "Cash rounding",
+            }
+
         async def _post_full_settlement(*, idempotency_key: str, description: str) -> None:
             tender = await _first_invoice_payment_tender(db, invoice.id)
             settle_id = await _settlement_account_id(
                 db, settings, tender, branch_id=branch_id, terminal_id=terminal_id
             )
+            cash_debit = amount_paid if rounding_diff != Decimal("0.00") else total
             lines_payload: list[dict] = [
                 {
                     "account_id": settle_id,
                     "branch_id": branch_id,
-                    "debit": total,
+                    "debit": cash_debit,
                     "credit": Decimal("0"),
                     "memo": f"POS sale ({tender})",
                 },
                 *_revenue_discount_tax_lines(),
             ]
+            rounding_line = _rounding_line()
+            if rounding_line is not None:
+                lines_payload.append(rounding_line)
             if cogs_total > 0:
                 lines_payload.extend(
                     [
@@ -224,7 +256,12 @@ async def post_sales_invoice_gl(
             )
 
         # Walk-in, or customer cart settled in full at the register → settlement accounts (not full AR accrual).
-        if invoice.customer_id is None or paid >= total or remainder <= Decimal("0"):
+        if (
+            invoice.customer_id is None
+            or paid >= total
+            or remainder <= Decimal("0")
+            or collected_equivalent >= total
+        ):
             key = (
                 f"sales_invoice:{invoice.id}:pos_cash"
                 if invoice.customer_id is None
@@ -257,17 +294,21 @@ async def post_sales_invoice_gl(
         }
         if invoice.customer_id is not None:
             ar_line["customer_id"] = invoice.customer_id
+        tender_debit = amount_paid if rounding_diff != Decimal("0.00") else paid
         lines_payload = [
             {
                 "account_id": settle_id,
                 "branch_id": branch_id,
-                "debit": paid,
+                "debit": tender_debit,
                 "credit": Decimal("0"),
                 "memo": f"POS tender ({tender})",
             },
             ar_line,
             *_revenue_discount_tax_lines(),
         ]
+        rounding_line = _rounding_line()
+        if rounding_line is not None:
+            lines_payload.append(rounding_line)
         await post_journal_entry(
             db,
             entry_date=entry_date,
@@ -624,6 +665,55 @@ async def post_goods_receipt_gl(db: AsyncSession, *, receipt: GoodsReceipt) -> N
     )
 
 
+def build_payslip_approved_journal_lines(
+    *,
+    gross: Decimal,
+    deductions: Decimal,
+    net: Decimal,
+    salary_expense_account_id: int,
+    deductions_payable_account_id: int,
+    payroll_liability_account_id: int,
+    branch_id: int,
+) -> list[dict]:
+    """Dr salary expense (gross), Cr deductions payable + payroll liability (net).
+
+    Zero-amount lines are omitted — the ledger rejects lines with both debit and credit at 0.
+    """
+    gross_q = q2(gross)
+    ded = q2(deductions)
+    net_q = q2(net)
+    lines: list[dict] = [
+        {
+            "account_id": salary_expense_account_id,
+            "branch_id": branch_id,
+            "debit": gross_q,
+            "credit": Decimal("0"),
+            "memo": "Salary expense",
+        },
+    ]
+    if ded > 0:
+        lines.append(
+            {
+                "account_id": deductions_payable_account_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": ded,
+                "memo": "Deductions payable",
+            }
+        )
+    if net_q > 0:
+        lines.append(
+            {
+                "account_id": payroll_liability_account_id,
+                "branch_id": branch_id,
+                "debit": Decimal("0"),
+                "credit": net_q,
+                "memo": "Net payroll payable",
+            }
+        )
+    return lines
+
+
 async def post_payslip_approved_gl(db: AsyncSession, *, payslip: Payslip, branch_id: int) -> None:
     """Dr salary expense (gross), Cr deductions payable + payroll liability (net)."""
     settings = await get_accounting_settings(db)
@@ -632,35 +722,26 @@ async def post_payslip_approved_gl(db: AsyncSession, *, payslip: Payslip, branch
     net = q2(payslip.net_amount)
     if gross <= 0:
         return
+    if gross != q2(ded + net):
+        raise ValidationError(
+            "Payslip GL amounts are unbalanced",
+            details={
+                "code": "payroll_unbalanced_payslip",
+                "gross_amount": str(gross),
+                "deductions": str(ded),
+                "net_amount": str(net),
+            },
+        )
 
     entry_date = payslip.period_end
-    lines = [
-        {
-            "account_id": settings.default_salary_expense_account_id,
-            "branch_id": branch_id,
-            "debit": gross,
-            "credit": Decimal("0"),
-            "memo": "Salary expense",
-        },
-    ]
-    if ded > 0:
-        lines.append(
-            {
-                "account_id": settings.default_payroll_deductions_payable_account_id,
-                "branch_id": branch_id,
-                "debit": Decimal("0"),
-                "credit": ded,
-                "memo": "Deductions payable",
-            }
-        )
-    lines.append(
-        {
-            "account_id": settings.default_payroll_liability_account_id,
-            "branch_id": branch_id,
-            "debit": Decimal("0"),
-            "credit": net,
-            "memo": "Net payroll payable",
-        }
+    lines = build_payslip_approved_journal_lines(
+        gross=gross,
+        deductions=ded,
+        net=net,
+        salary_expense_account_id=settings.default_salary_expense_account_id,
+        deductions_payable_account_id=settings.default_payroll_deductions_payable_account_id,
+        payroll_liability_account_id=settings.default_payroll_liability_account_id,
+        branch_id=branch_id,
     )
 
     await post_journal_entry(

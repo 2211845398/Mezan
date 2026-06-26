@@ -27,6 +27,7 @@ from app.services.product_uom_service import (
     convert_product_unit_cost_to_base,
 )
 from app.services.purchase_order_service import validate_variant_belongs_to_product
+from app.services.subledger_service import ensure_ap_open_item_for_goods_receipt
 from app.utils.person_name import display_person_name
 
 
@@ -319,6 +320,7 @@ async def receive_goods_for_purchase_order(
             )
 
     await post_goods_receipt_gl(db, receipt=receipt)
+    await ensure_ap_open_item_for_goods_receipt(db, receipt=receipt)
     po_closed = await _auto_close_po_if_fully_received(db, purchase_order=purchase_order)
     await db.commit()
     await db.refresh(receipt)

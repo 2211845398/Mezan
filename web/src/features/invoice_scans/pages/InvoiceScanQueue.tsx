@@ -2,10 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { paginatedParams } from '@/api/pagination';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { Eye } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -105,20 +104,6 @@ export default function InvoiceScanQueue() {
           header: t('queue.col.created'),
           cell: ({ row }) => formatIso(String(row.original.created_at), 'yyyy-MM-dd HH:mm'),
         },
-        {
-          id: 'actions',
-          header: '',
-          cell: ({ row }) => (
-            <Button type="button" size="icon" variant="ghost" asChild>
-              <Link
-                to={`/purchasing/invoice-match/${row.original.id}`}
-                aria-label={t('queue.review')}
-              >
-                <Eye className="size-4" />
-              </Link>
-            </Button>
-          ),
-        },
       ]),
     [t],
   );
@@ -180,6 +165,7 @@ export default function InvoiceScanQueue() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        getRowHref={(row) => `/purchasing/invoice-match/${row.id}`}
       />
     </div>
   );

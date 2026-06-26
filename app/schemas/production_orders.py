@@ -58,6 +58,10 @@ class BomLineCreateRequest(BaseModel):
     notes: str | None = Field(None, max_length=255)
 
 
+class ProductionOrderCompleteRequest(BaseModel):
+    overhead_cost: Decimal = Field(default=Decimal("0"), ge=0)
+
+
 class ProductionOrderRead(BaseModel):
     id: int
     order_number: str
@@ -73,6 +77,7 @@ class ProductionOrderRead(BaseModel):
     actual_start: datetime | None = None
     actual_end: datetime | None = None
     total_cost_issued: Decimal
+    overhead_cost: Decimal = Decimal("0")
     finished_goods_value: Decimal
     notes: str | None = None
     created_at: datetime

@@ -53,9 +53,9 @@ logger = logging.getLogger(__name__)
 _ALEMBIC = "alembic_version"
 
 BRANCH_SPECS: list[dict[str, str | None]] = [
-    {"code": "MAIN", "name": "Main Store", "address": "100 Central Avenue"},
-    {"code": "NORTH", "name": "North Branch", "address": "20 North Road"},
-    {"code": "SOUTH", "name": "South Branch", "address": "5 South Market St"},
+    {"code": "MAIN", "name": "Main Store", "address": "100 Central Avenue", "kind": "commercial"},
+    {"code": "NORTH", "name": "North Branch", "address": "20 North Road", "kind": "commercial"},
+    {"code": "SOUTH", "name": "South Branch", "address": "5 South Market St", "kind": "commercial"},
 ]
 
 CATEGORY_SPECS: list[dict[str, str]] = [
@@ -155,6 +155,7 @@ async def _get_or_create_branches(db: AsyncSession) -> list[Branch]:
             address=spec.get("address") if spec.get("address") else None,
             timezone="UTC",
             is_active=True,
+            kind=str(spec.get("kind") or "commercial"),
         )
         db.add(b)
         await db.flush()

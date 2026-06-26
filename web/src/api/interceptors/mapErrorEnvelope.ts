@@ -1,7 +1,14 @@
 import type { AxiosError, AxiosInstance } from 'axios';
 
 import { getLocalizedApiErrorMessage } from '@/api/errorMessages';
-import { ApiError, ConflictError, ExternalServiceError, ServerError, ValidationError } from '@/api/errors';
+import {
+  ApiError,
+  ConflictError,
+  ExternalServiceError,
+  PasswordChangeRequiredError,
+  ServerError,
+  ValidationError,
+} from '@/api/errors';
 import { type BackendEnvelope, mapResponseToApiError } from '@/api/mapError';
 import i18n from '@/i18n';
 import { notify } from '@/lib/toast';
@@ -17,6 +24,9 @@ export function installMapErrorEnvelope(instance: AxiosInstance): void {
     (response) => response,
     (error: AxiosError<BackendEnvelope>) => {
       if (error instanceof ApiError) {
+        if (error instanceof PasswordChangeRequiredError) {
+          throw error;
+        }
         throw error;
       }
 

@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
@@ -9,7 +8,6 @@ import { defineColumns } from '@/components/shared/DataTable/columns';
 import {
   floatingFormApproveButtonClassName,
   floatingFormCloseButtonClassName,
-  floatingFormCloseButtonSmClassName,
   FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
@@ -87,19 +85,8 @@ export default function RolesList() {
             );
           },
         },
-        {
-          id: 'actions',
-          cell: ({ row }) =>
-            row.original.code && !row.original.is_system && canUpdate ? (
-              <Button asChild size="sm" className={floatingFormCloseButtonSmClassName}>
-                <Link to={`/admin/roles/${row.original.code}`}>{t('actions.edit')}</Link>
-              </Button>
-            ) : row.original.code && row.original.is_system ? (
-              <span className="text-muted-foreground text-xs">{t('roles.readonly_system')}</span>
-            ) : null,
-        },
       ]),
-    [t, canUpdate],
+    [t],
   );
 
   const dialogTitle =

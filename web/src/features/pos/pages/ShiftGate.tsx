@@ -46,7 +46,7 @@ export default function ShiftGate() {
   const termOptions: SelectOption[] =
     terminals?.map((x) => ({
       value: String(x.id),
-      label: x.name ?? `Terminal ${x.id}`,
+      label: x.name ?? t('gate.device_fallback', { id: x.id }),
     })) ?? [];
 
   async function onOpenShift() {

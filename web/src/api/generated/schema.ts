@@ -5149,6 +5149,12 @@ export interface components {
              * @default UTC
              */
             timezone: string;
+            /**
+             * @description commercial = retail/POS; warehouse = inventory/purchasing
+             * @default commercial
+             * @enum {string}
+             */
+            kind: "commercial" | "warehouse";
         };
         /**
          * BranchFinancialSnapshotRead
@@ -5201,6 +5207,8 @@ export interface components {
             address: string | null;
             /** Timezone */
             timezone: string;
+            /** @enum {string} */
+            kind: "commercial" | "warehouse";
             /** Is Active */
             is_active: boolean;
             /** Archived At */
@@ -5219,6 +5227,8 @@ export interface components {
             address?: string | null;
             /** Timezone */
             timezone?: string | null;
+            /** @enum {string} */
+            kind?: "commercial" | "warehouse" | null;
             /** Is Active */
             is_active?: boolean | null;
             /** Unarchive */
@@ -5927,6 +5937,8 @@ export interface components {
              * @default false
              */
             is_base: boolean;
+            /** Cash Rounding Increment */
+            cash_rounding_increment?: string | null;
         };
         /** CurrencyUpdate */
         CurrencyUpdate: {
@@ -5938,6 +5950,8 @@ export interface components {
             suffix?: string | null;
             /** Active */
             active?: boolean | null;
+            /** Cash Rounding Increment */
+            cash_rounding_increment?: number | string | null;
         };
         /** CustomerCompleteOnboardingRequest */
         CustomerCompleteOnboardingRequest: {
@@ -7997,6 +8011,19 @@ export interface components {
             /** Unread Count */
             unread_count: number;
         };
+        /** ApSupplierBalanceRead */
+        ApSupplierBalanceRead: {
+            /** Supplier Id */
+            supplier_id: number;
+            /** Supplier Name */
+            supplier_name: string;
+            /** Supplier Code */
+            supplier_code: string;
+            /** Open Balance */
+            open_balance: string;
+            /** Currency Code */
+            currency_code: string;
+        };
         /** OpenItemRead */
         OpenItemRead: {
             /** Id */
@@ -8165,6 +8192,10 @@ export interface components {
              * @default USD
              */
             currency: string;
+            /** Payment Method */
+            payment_method?: ("cash" | "card" | "transfer" | "other") | null;
+            /** Cash Tendered */
+            cash_tendered?: number | string | null;
         };
         /** PaymentIntentRead */
         PaymentIntentRead: {
@@ -9651,6 +9682,13 @@ export interface components {
             tax_total: string;
             /** Total */
             total: string;
+            /** Amount Paid */
+            amount_paid: string;
+            /**
+             * Rounding Difference
+             * @default 0.00
+             */
+            rounding_difference?: string;
             /**
              * Created At
              * Format: date-time
@@ -9765,6 +9803,13 @@ export interface components {
             tax_total: string;
             /** Total */
             total: string;
+            /** Amount Paid */
+            amount_paid: string;
+            /**
+             * Rounding Difference
+             * @default 0.00
+             */
+            rounding_difference?: string;
             /**
              * Created At
              * Format: date-time
@@ -10120,6 +10165,16 @@ export interface components {
             source_id?: string | null;
             /** Journal Entry Id */
             journal_entry_id?: number | null;
+            /** Purchase Order Id */
+            purchase_order_id?: number | null;
+            /** Open Item Id */
+            open_item_id?: number | null;
+            /** Amount Total */
+            amount_total?: string | null;
+            /** Amount Paid */
+            amount_paid?: string | null;
+            /** Amount Open */
+            amount_open?: string | null;
         };
         /** SupplierStatementRead */
         SupplierStatementRead: {
@@ -10139,6 +10194,14 @@ export interface components {
             opening_balance: string;
             /** Closing Balance */
             closing_balance: string;
+            /** Total Purchases */
+            total_purchases: string;
+            /** Total Paid */
+            total_paid: string;
+            /** Balance Due */
+            balance_due: string;
+            /** Currency Code */
+            currency_code?: string;
             /** Lines */
             lines?: components["schemas"]["SupplierStatementLineRead"][];
         };
@@ -10553,8 +10616,6 @@ export interface components {
             father_name?: string | null;
             /** Family Name */
             family_name?: string | null;
-            /** Password */
-            password?: string | null;
             /**
              * Status
              * @default pending_onboarding

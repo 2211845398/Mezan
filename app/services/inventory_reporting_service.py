@@ -20,7 +20,12 @@ from app.models.stock_level import StockLevel
 from app.models.stock_movement import StockMovement
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
-from app.schemas.inventory_stock import StockOnHandRowRead
+from app.schemas.inventory_stock import (
+    StockFinderBranchBrief,
+    StockFinderBranchQty,
+    StockFinderResultRead,
+    StockOnHandRowRead,
+)
 from app.services.inventory_valuation_service import get_unit_costs_for_sale
 from app.utils.variant_display import variant_attributes_summary, variant_value_labels_summary
 
@@ -91,6 +96,23 @@ async def _in_transit_in_map(db: AsyncSession) -> dict[tuple[int, int, int], int
     return {(int(b), int(p), int(v)): int(q) for b, p, v, q in res.all()}
 
 
+async def _pending_incoming_transfer_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
+    """Qty on pending_dispatch transfers inbound to each branch (not yet in transit)."""
+    stmt = (
+        select(
+            TransferBatch.to_branch_id,
+            TransferLine.product_id,
+            TransferLine.variant_id,
+            func.coalesce(func.sum(TransferLine.qty_base), 0),
+        )
+        .join(TransferLine, TransferLine.transfer_batch_id == TransferBatch.id)
+        .where(TransferBatch.status == "pending_dispatch")
+        .group_by(TransferBatch.to_branch_id, TransferLine.product_id, TransferLine.variant_id)
+    )
+    res = await db.execute(stmt)
+    return {(int(b), int(p), int(v)): int(q) for b, p, v, q in res.all()}
+
+
 async def _in_transit_out_map(db: AsyncSession) -> dict[tuple[int, int, int], int]:
     stmt = (
         select(
@@ -147,6 +169,7 @@ async def list_stock_on_hand(
     db: AsyncSession,
     *,
     branch_id: int | None = None,
+    branch_kind: str | None = None,
     category_id: int | None = None,
     category_ids: set[int] | None = None,
     variant_id: int | None = None,
@@ -159,6 +182,7 @@ async def list_stock_on_hand(
 ) -> list[StockOnHandRowRead]:
     on_order_m = await _open_po_qty_map(db)
     in_in_m = await _in_transit_in_map(db)
+    pending_in_m = await _pending_incoming_transfer_map(db)
     out_m = await _in_transit_out_map(db)
     cons_m = await _consumption_30d_map(db)
 
@@ -178,6 +202,8 @@ async def list_stock_on_hand(
     )
     if branch_id is not None:
         stmt = stmt.where(StockLevel.branch_id == branch_id)
+    if branch_kind is not None:
+        stmt = stmt.where(Branch.kind == branch_kind)
     if variant_id is not None:
         stmt = stmt.where(StockLevel.variant_id == variant_id)
     if category_ids is not None:
@@ -234,8 +260,9 @@ async def list_stock_on_hand(
                 on_order_m, branch_id=sl.branch_id, product_id=prod.id
             )
             in_in = in_in_m.get(key, 0)
+            pending_in = pending_in_m.get(key, 0)
             in_out = out_m.get(key, 0)
-            cover = available + on_order_product + in_in
+            cover = available + on_order_product + in_in + pending_in
             sold_30 = cons_m.get(key, 0)
             rate = sold_30 / 30.0 if sold_30 else 0.0
             days_cover: float | None = None
@@ -305,11 +332,122 @@ async def list_stock_on_hand(
     return out
 
 
+STOCK_FINDER_MAX_RESULTS = 25
+STOCK_FINDER_FETCH_LIMIT = 500
+
+
+def _row_to_branch_qty(row: StockOnHandRowRead) -> StockFinderBranchQty:
+    return StockFinderBranchQty(
+        branch_id=row.branch_id,
+        branch_name=row.branch_name,
+        available=row.available,
+        on_hand=row.on_hand,
+        reserved=row.reserved,
+        damaged=row.damaged,
+        in_transit_in=row.in_transit_in,
+    )
+
+
+async def list_stock_finder_branches(db: AsyncSession) -> list[StockFinderBranchBrief]:
+    """Active branches for mobile stock finder (no ``branches:read`` required)."""
+    result = await db.execute(
+        select(Branch.id, Branch.name, Branch.code)
+        .where(Branch.is_active.is_(True), Branch.archived_at.is_(None))
+        .order_by(Branch.name.asc())
+    )
+    return [
+        StockFinderBranchBrief(id=int(row.id), name=row.name, code=row.code) for row in result.all()
+    ]
+
+
+async def stock_finder(
+    db: AsyncSession,
+    *,
+    q: str,
+    current_branch_id: int | None = None,
+    current_branch_name: str | None = None,
+    limit: int = STOCK_FINDER_MAX_RESULTS,
+) -> list[StockFinderResultRead]:
+    """Group stock-on-hand rows by variant for mobile floor lookup."""
+    query = q.strip()
+    if not query:
+        return []
+
+    rows = await list_stock_on_hand(
+        db,
+        q=query,
+        limit=STOCK_FINDER_FETCH_LIMIT,
+        offset=0,
+    )
+    if not rows:
+        return []
+
+    by_variant: dict[int, list[StockOnHandRowRead]] = defaultdict(list)
+    for row in rows:
+        by_variant[row.variant_id].append(row)
+
+    results: list[StockFinderResultRead] = []
+    safe_limit = min(max(limit, 1), STOCK_FINDER_MAX_RESULTS)
+
+    for branch_rows in by_variant.values():
+        sample = branch_rows[0]
+        current: StockFinderBranchQty | None = None
+        others: list[StockFinderBranchQty] = []
+
+        for row in branch_rows:
+            qty = _row_to_branch_qty(row)
+            if current_branch_id is not None and row.branch_id == current_branch_id:
+                current = qty
+            else:
+                others.append(qty)
+
+        if current_branch_id is not None and current is None:
+            name = current_branch_name or ""
+            if not name:
+                br = await db.get(Branch, current_branch_id)
+                name = br.name if br else ""
+            current = StockFinderBranchQty(
+                branch_id=current_branch_id,
+                branch_name=name,
+                available=0,
+                on_hand=0,
+                reserved=0,
+                damaged=0,
+                in_transit_in=0,
+            )
+
+        others.sort(key=lambda b: (-b.available, b.branch_name.lower()))
+
+        results.append(
+            StockFinderResultRead(
+                product_id=sample.product_id,
+                variant_id=sample.variant_id,
+                product_name=sample.product_name,
+                variant_name=sample.variant_name or sample.product_name,
+                sku=sample.sku,
+                variant_sku=sample.variant_sku,
+                barcode=sample.reference_code,
+                current_branch=current,
+                other_branches=others,
+            )
+        )
+
+    def _sort_key(item: StockFinderResultRead) -> tuple[int, int, str]:
+        cur = item.current_branch.available if item.current_branch else -1
+        max_other = max((b.available for b in item.other_branches), default=0)
+        best = cur if cur >= 0 else max_other
+        return (-best, -cur if cur >= 0 else 0, item.product_name.lower())
+
+    results.sort(key=_sort_key)
+    return results[:safe_limit]
+
+
 async def list_stock_movements_with_names(
     db: AsyncSession,
     *,
     branch_id: int | None = None,
     product_id: int | None = None,
+    variant_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> list[dict]:
@@ -319,9 +457,11 @@ async def list_stock_movements_with_names(
             StockMovement,
             Branch.name.label("branch_name"),
             Product.name.label("product_name"),
+            ProductVariant,
         )
         .join(Branch, Branch.id == StockMovement.branch_id)
         .join(Product, Product.id == StockMovement.product_id)
+        .join(ProductVariant, ProductVariant.id == StockMovement.variant_id)
         .order_by(StockMovement.id.desc())
         .limit(limit)
         .offset(offset)
@@ -330,9 +470,12 @@ async def list_stock_movements_with_names(
         stmt = stmt.where(StockMovement.branch_id == branch_id)
     if product_id is not None:
         stmt = stmt.where(StockMovement.product_id == product_id)
+    if variant_id is not None:
+        stmt = stmt.where(StockMovement.variant_id == variant_id)
     res = await db.execute(stmt)
     rows: list[dict] = []
-    for r, branch_name, product_name in res.all():
+    for r, branch_name, product_name, pv in res.all():
+        variant_name = variant_value_labels_summary(pv.attribute_values) or product_name
         rows.append(
             {
                 "id": r.id,
@@ -340,6 +483,8 @@ async def list_stock_movements_with_names(
                 "branch_name": branch_name,
                 "product_id": r.product_id,
                 "product_name": product_name,
+                "variant_id": r.variant_id,
+                "variant_name": variant_name,
                 "qty_delta": r.qty_delta,
                 "reason": r.reason,
                 "ref_type": r.ref_type,

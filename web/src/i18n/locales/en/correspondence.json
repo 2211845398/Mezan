@@ -1,0 +1,43 @@
+{
+  "inbox_title": "Correspondence",
+  "inbox_subtitle": "Administrative requests routed to your role.",
+  "compose": "New message",
+  "compose_title": "Send correspondence",
+  "compose_subtitle": "Route the request to the appropriate management role.",
+  "empty_inbox": "No correspondence yet.",
+  "loading": "Loading…",
+  "refresh": "Refresh",
+  "subject": "Subject",
+  "message": "Message",
+  "request_type_label": "Request type",
+  "target_role": "Target role",
+  "send": "Send",
+  "created": "Correspondence sent.",
+  "reply_placeholder": "Write your reply…",
+  "send_reply": "Send reply",
+  "close_thread": "Close thread",
+  "thread_closed": "Thread closed.",
+  "thread_closed_hint": "This thread is closed.",
+  "reply_sent": "Reply sent.",
+  "back_inbox": "Back to correspondence",
+  "not_found": "Thread not found.",
+  "status": {
+    "open": "Open",
+    "answered": "Answered",
+    "closed": "Closed"
+  },
+  "request_type": {
+    "general": "General",
+    "administrative": "Administrative",
+    "hr": "Human resources",
+    "it": "IT",
+    "finance": "Finance"
+  },
+  "roles": {
+    "HR_MANAGER": "HR manager",
+    "IT_ADMIN": "IT administrator",
+    "OWNER": "Owner",
+    "MARKETING_MANAGER": "Sales/marketing manager",
+    "ACCOUNTANT": "Accountant"
+  }
+}

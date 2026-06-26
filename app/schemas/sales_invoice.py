@@ -24,6 +24,8 @@ class SalesInvoiceRead(BaseModel):
     discount_total: Decimal
     tax_total: Decimal
     total: Decimal
+    amount_paid: Decimal
+    rounding_difference: Decimal = Decimal("0.00")
     payment_status: str = "paid"
     created_at: datetime
     voided_at: datetime | None = None
@@ -72,6 +74,8 @@ class SalesInvoiceDetailRead(BaseModel):
     discount_total: Decimal
     tax_total: Decimal
     total: Decimal
+    amount_paid: Decimal
+    rounding_difference: Decimal = Decimal("0.00")
     created_at: datetime
     voided_at: datetime | None = None
     void_reason: str | None = None
@@ -85,7 +89,7 @@ class SalesInvoiceListItem(BaseModel):
     id: int
     invoice_number: str
     invoice_barcode: str
-    cart_id: int
+    cart_id: int | None = None
     terminal_id: int
     branch_id: int
     customer_id: int | None = None

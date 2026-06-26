@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { type FieldErrors, useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -9,13 +9,20 @@ import type { TFunction } from 'i18next';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { DetailFormActionBar } from '@/components/shared/DetailFormActionBar';
+import { ReadOnlyCopyableField } from '@/components/shared/form/ReadOnlyCopyableField';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import {
-  focusFirstFormError,
+  createFormInvalidHandler,
   useFormValidationDisplay,
 } from '@/lib/formValidation';
+import {
+  readOnlyTextInputProps,
+} from '@/lib/readOnlyFieldStyles';
+import { useEditableFormMode } from '@/lib/useEditableFormMode';
 import { Button } from '@/components/ui/button';
+import { FormValidationAlert } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -33,9 +40,11 @@ import {
 import {
   accountingSettingsQueryOptions,
   chartAccountsQueryOptions,
+  currenciesQueryOptions,
   paymentTermsQueryOptions,
 } from '@/features/accounting/queries';
-import { zodLibyanPhoneOptional, zodOptionalNonEmptyEmail, normalizeLyPhoneInput } from '@/lib/validation/contact';
+import { zodLibyanPhoneOptional, normalizeLyPhoneInput } from '@/lib/validation/contact';
+import { usePermission } from '@/hooks/usePermission';
 import { cn } from '@/lib/utils';
 
 import { createSupplier, updateSupplier } from '../../api';
@@ -51,7 +60,10 @@ function supplierFormSchema(tc: TFunction<'common'>) {
     tax_id: z.string().max(64).optional().nullable(),
     payment_terms_id: z.string().optional(),
     contact_phone: zodLibyanPhoneOptional(tc('errors.validation_phone_ly')),
-    contact_email: zodOptionalNonEmptyEmail(tc('errors.validation_email')),
+    contact_email: z
+      .string()
+      .min(1, tc('errors.validation_email'))
+      .email(tc('errors.validation_email_invalid')),
   });
 }
 
@@ -68,6 +80,9 @@ const SUPPLIER_FORM_FIELD_ORDER = [
   'contact_email',
   'payables_account_id',
 ] as const;
+
+export const SUPPLIER_DIALOG_FORM_ID = 'purchasing-supplier-dialog-form';
+export const SUPPLIER_PAGE_FORM_ID = 'purchasing-supplier-page-form';
 
 export type SupplierFormProps = {
   variant?: 'page' | 'dialog';
@@ -86,11 +101,13 @@ export default function SupplierForm({
 }: SupplierFormProps = {}) {
   const { id } = useParams<{ id: string }>();
   const { t, i18n } = useTranslation('purchasing');
+  const { t: tAccounting } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
   const isAr = i18n.language.startsWith('ar');
+  const canUpdate = usePermission('suppliers', 'update');
   const pathnameIsNew = /\/purchasing\/suppliers\/new\/?$/.test(location.pathname);
   const isNew = variant === 'dialog' ? editId == null : pathnameIsNew || id === 'new';
   const supplierId = editId != null ? editId : (!isNew && id ? Number(id) : NaN);
@@ -103,6 +120,7 @@ export default function SupplierForm({
   const { data: accounts = [] } = useQuery(chartAccountsQueryOptions());
   const payableAccounts = useMemo(() => filterPayableSupplierAccounts(accounts), [accounts]);
   const { data: paymentTerms = [] } = useQuery(paymentTermsQueryOptions(true));
+  const { data: currencies = [] } = useQuery(currenciesQueryOptions(false));
   const { data: settings } = useQuery(accountingSettingsQueryOptions());
 
   const defaultCurrency = settings?.base_currency_code ?? 'USD';
@@ -127,7 +145,37 @@ export default function SupplierForm({
   });
 
   const vd = useFormValidationDisplay(form.control);
+  const editMode = useEditableFormMode({
+    form,
+    canEdit: canUpdate,
+    isCreate: isNew,
+  });
+  const fieldsEnabled = variant === 'dialog' ? true : editMode.fieldsEnabled;
+  const textRo = (extraClass?: string) => readOnlyTextInputProps(fieldsEnabled, extraClass);
 
+  const currencyCode = form.watch('currency_code');
+  const paymentTermsId = form.watch('payment_terms_id');
+  const payablesAccountId = form.watch('payables_account_id');
+
+  const currencyDisplayLabel = useMemo(() => {
+    const c = currencies.find((row) => row.code === currencyCode);
+    if (!c) return currencyCode || '—';
+    return `${c.code} — ${c.name}${c.is_base ? ` (${tAccounting('currencies.base_badge')})` : ''}`;
+  }, [currencies, currencyCode, tAccounting]);
+
+  const paymentTermsDisplayLabel = useMemo(() => {
+    if (!paymentTermsId) return '—';
+    const pt = paymentTerms.find((row) => String(row.id) === paymentTermsId);
+    if (!pt) return '—';
+    return `${isAr ? pt.name_ar : pt.name_en} (${pt.days})`;
+  }, [isAr, paymentTerms, paymentTermsId]);
+
+  const payablesDisplayLabel = useMemo(() => {
+    if (!payablesAccountId) return '—';
+    const account = payableAccounts.find((row) => String(row.id) === payablesAccountId);
+    if (!account) return '—';
+    return formatPayableAccountOptionLabel(account, i18n.language);
+  }, [payableAccounts, payablesAccountId, i18n.language]);
   useEffect(() => {
     if (settings?.base_currency_code && isNew && !form.formState.isDirty) {
       form.setValue('currency_code', settings.base_currency_code);
@@ -156,7 +204,10 @@ export default function SupplierForm({
       contact_phone: c?.phone ?? '',
       contact_email: c?.email ?? '',
     });
-  }, [existing, form, defaultCurrency, payableAccounts]);
+    if (variant === 'page' && !isNew) {
+      editMode.syncSnapshot();
+    }
+  }, [existing, form, defaultCurrency, payableAccounts, variant, isNew, editMode.syncSnapshot]);
 
   const save = useMutation({
     mutationFn: async (values: SupplierFormValues) => {
@@ -193,90 +244,136 @@ export default function SupplierForm({
       }
       if (isNew) {
         navigate(`/purchasing/suppliers/${row.id}/data`, { replace: true });
+      } else if (variant === 'page') {
+        editMode.finishEdit();
       }
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
-  const onInvalid = (errs: FieldErrors<SupplierFormValues>) => {
-    toast.error(t('suppliers.form.validation_summary'));
-    focusFirstFormError(form, errs, SUPPLIER_FORM_FIELD_ORDER);
-  };
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: [...SUPPLIER_FORM_FIELD_ORDER],
+  });
 
   const useSectionLayout = embedded;
 
   const nameFields = (
-    <>
+    <div dir={i18n.dir()} className="contents">
       <div className="grid gap-2">
         <Label htmlFor="sup-fn">{t('suppliers.form.first_name')}</Label>
         <Input
           id="sup-fn"
-          className={vd.invalidClass('first_name')}
+          className={cn(vd.invalidClass('first_name'), textRo().className)}
           aria-invalid={vd.ariaInvalid('first_name')}
+          readOnly={textRo().readOnly}
+          disabled={textRo().disabled}
+          tabIndex={textRo().tabIndex}
           {...form.register('first_name')}
         />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="sup-father">{t('suppliers.form.father_name')}</Label>
-        <Input id="sup-father" {...form.register('father_name')} />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="sup-family">{t('suppliers.form.family_name')}</Label>
-        <Input id="sup-family" {...form.register('family_name')} />
-      </div>
-    </>
-  );
-
-  const financialFields = (
-    <>
-      <div className="grid gap-2">
-        <Label htmlFor="currency_code">{t('suppliers.form.currency_code')}</Label>
-        <CurrencySelect
-          value={form.watch('currency_code')}
-          onValueChange={(v) =>
-            form.setValue('currency_code', v, { shouldDirty: true, shouldValidate: true })
-          }
+        <Input
+          id="sup-father"
+          readOnly={textRo().readOnly}
+          disabled={textRo().disabled}
+          tabIndex={textRo().tabIndex}
+          className={textRo().className}
+          {...form.register('father_name')}
         />
       </div>
       <div className="grid gap-2">
+        <Label htmlFor="sup-family">{t('suppliers.form.family_name')}</Label>
+        <Input
+          id="sup-family"
+          readOnly={textRo().readOnly}
+          disabled={textRo().disabled}
+          tabIndex={textRo().tabIndex}
+          className={textRo().className}
+          {...form.register('family_name')}
+        />
+      </div>
+    </div>
+  );
+
+  const financialFields = (
+    <div dir={i18n.dir()} className="contents">
+      <div className="grid gap-2">
+        <Label htmlFor="currency_code">{t('suppliers.form.currency_code')}</Label>
+        {fieldsEnabled ? (
+          <CurrencySelect
+            value={currencyCode}
+            onValueChange={(v) =>
+              form.setValue('currency_code', v, { shouldDirty: true, shouldValidate: true })
+            }
+            dir={i18n.dir()}
+          />
+        ) : (
+          <ReadOnlyCopyableField
+            id="currency_code"
+            value={currencyDisplayLabel}
+            dir={i18n.dir()}
+          />
+        )}
+      </div>
+      <div className="grid gap-2">
         <Label htmlFor="tax_id">{t('suppliers.form.tax_id')}</Label>
-        <Input id="tax_id" {...form.register('tax_id')} />
+        <Input
+          id="tax_id"
+          readOnly={textRo().readOnly}
+          disabled={textRo().disabled}
+          tabIndex={textRo().tabIndex}
+          className={textRo().className}
+          {...form.register('tax_id')}
+        />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="payment_terms_id">{t('suppliers.form.payment_terms')}</Label>
-        <Select
-          value={form.watch('payment_terms_id') || '__none'}
-          onValueChange={(v) =>
-            form.setValue('payment_terms_id', v === '__none' ? '' : v, {
-              shouldDirty: true,
-              shouldValidate: true,
-            })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="—" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none">—</SelectItem>
-            {paymentTerms.map((pt) => (
-              <SelectItem key={pt.id} value={String(pt.id)}>
-                {isAr ? pt.name_ar : pt.name_en} ({pt.days})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {fieldsEnabled ? (
+          <Select
+            value={paymentTermsId || '__none'}
+            onValueChange={(v) =>
+              form.setValue('payment_terms_id', v === '__none' ? '' : v, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent dir={i18n.dir()} align={isAr ? 'end' : 'start'}>
+              <SelectItem value="__none">—</SelectItem>
+              {paymentTerms.map((pt) => (
+                <SelectItem key={pt.id} value={String(pt.id)}>
+                  {isAr ? pt.name_ar : pt.name_en} ({pt.days})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <ReadOnlyCopyableField
+            id="payment_terms_id"
+            value={paymentTermsDisplayLabel}
+            dir={i18n.dir()}
+          />
+        )}
       </div>
-    </>
+    </div>
   );
 
   const contactFields = (
-    <>
+    <div dir={i18n.dir()} className="contents">
       <div className="grid gap-2">
         <Label htmlFor="contact_phone">{t('suppliers.form.contact_phone')}</Label>
         <Input
           id="contact_phone"
-          className={vd.invalidClass('contact_phone')}
+          dir="ltr"
+          className={cn('num-latin', vd.invalidClass('contact_phone'), textRo().className)}
           aria-invalid={vd.ariaInvalid('contact_phone')}
+          readOnly={textRo().readOnly}
+          disabled={textRo().disabled}
+          tabIndex={textRo().tabIndex}
           {...form.register('contact_phone')}
         />
       </div>
@@ -285,61 +382,62 @@ export default function SupplierForm({
         <Input
           id="contact_email"
           type="email"
-          className={vd.invalidClass('contact_email')}
+          dir="ltr"
+          className={cn('num-latin', vd.invalidClass('contact_email'), textRo().className)}
           aria-invalid={vd.ariaInvalid('contact_email')}
+          readOnly={textRo().readOnly}
+          disabled={textRo().disabled}
+          tabIndex={textRo().tabIndex}
           {...form.register('contact_email')}
         />
       </div>
-      <div className="grid gap-2 sm:col-span-2" dir={i18n.dir()}>
+      <div className="grid gap-2 sm:col-span-2">
         <Label htmlFor="payables_account_id">{t('suppliers.form.payables_account_id')}</Label>
-        <Select
-          value={form.watch('payables_account_id') || '__none'}
-          onValueChange={(v) =>
-            form.setValue('payables_account_id', v === '__none' ? '' : v, {
-              shouldDirty: true,
-              shouldValidate: true,
-            })
-          }
-        >
-          <SelectTrigger
-            id="payables_account_id"
-            className={cn(
-              isAr && 'flex-row-reverse text-end [&>span]:w-full [&>span]:text-end',
-            )}
+        {fieldsEnabled ? (
+          <Select
+            value={payablesAccountId || '__none'}
+            onValueChange={(v) =>
+              form.setValue('payables_account_id', v === '__none' ? '' : v, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
           >
-            <SelectValue placeholder="—" />
-          </SelectTrigger>
-          <SelectContent dir={i18n.dir()} align={isAr ? 'end' : 'start'}>
-            <SelectItem value="__none" className={cn(isAr && 'text-end')}>
-              —
-            </SelectItem>
-            {payableAccounts.map((a) => (
-              <SelectItem
-                key={a.id}
-                value={String(a.id)}
-                className={cn(isAr && 'text-end')}
-              >
-                {formatPayableAccountOptionLabel(a, i18n.language)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger id="payables_account_id">
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent dir={i18n.dir()} align={isAr ? 'end' : 'start'}>
+              <SelectItem value="__none">—</SelectItem>
+              {payableAccounts.map((a) => (
+                <SelectItem key={a.id} value={String(a.id)}>
+                  {formatPayableAccountOptionLabel(a, i18n.language)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <ReadOnlyCopyableField
+            id="payables_account_id"
+            value={payablesDisplayLabel}
+            dir={i18n.dir()}
+          />
+        )}
       </div>
-    </>
-  );
-
-  const saveActions = (
-    <div className="flex flex-wrap gap-2">
-      <Button type="submit" disabled={save.isPending}>
-        {t('suppliers.form.save')}
-      </Button>
-      {variant === 'dialog' && onDismiss ? (
-        <Button type="button" variant="ghost" onClick={onDismiss} disabled={save.isPending}>
-          {t('actions.cancel', { ns: 'common' })}
-        </Button>
-      ) : null}
     </div>
   );
+
+  const pageActionBar =
+    variant === 'page' ? (
+      <DetailFormActionBar
+        isEditing={editMode.isEditing}
+        isCreate={isNew}
+        canEdit={canUpdate}
+        isSubmitting={save.isPending}
+        formId={SUPPLIER_PAGE_FORM_ID}
+        onStartEdit={editMode.startEdit}
+        onCancelEdit={editMode.cancelEdit}
+      />
+    ) : null;
 
   return (
     <div
@@ -350,51 +448,60 @@ export default function SupplierForm({
       )}
     >
       {variant === 'page' && !embedded ? (
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-semibold">{isNew ? t('suppliers.new') : t('suppliers.edit')}</h1>
           {!isNew && existing?.code ? (
             <span className="text-sm text-muted-foreground">
               {t('suppliers.form.code_display')}: {existing.code}
             </span>
           ) : null}
-          <Button type="button" variant="outline" asChild>
-            <Link to="/purchasing/suppliers">{t('suppliers.title')}</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-[5px]">
+            <Button type="button" variant="outline" asChild>
+              <Link to="/purchasing/suppliers">{t('suppliers.title')}</Link>
+            </Button>
+            {pageActionBar}
+          </div>
         </div>
       ) : null}
+      {variant === 'page' && embedded ? pageActionBar : null}
       {embedded && !isNew && existing?.code ? (
         <p className="text-sm text-muted-foreground">
           {t('suppliers.form.code_display')}: {existing.code}
         </p>
       ) : null}
+      <FormProvider {...form}>
       <form
+        id={variant === 'dialog' ? SUPPLIER_DIALOG_FORM_ID : SUPPLIER_PAGE_FORM_ID}
         className={cn('flex flex-col', useSectionLayout ? 'gap-6' : 'gap-3')}
         onKeyDown={handleFormEnterSubmit}
         onSubmit={form.handleSubmit((v) => save.mutate(v), onInvalid)}
         noValidate
+        dir={i18n.dir()}
       >
+        <fieldset disabled={save.isPending} className="contents">
         {useSectionLayout ? (
           <>
             <SectionCard {...(embedded ? {} : { title: t('suppliers.tabs.data') })}>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2" dir={i18n.dir()}>
                 {nameFields}
                 {financialFields}
               </div>
             </SectionCard>
             <SectionCard title={t('suppliers.form.contact_section')}>
-              <div className="grid gap-4 sm:grid-cols-2">{contactFields}</div>
+              <div className="grid gap-4 sm:grid-cols-2" dir={i18n.dir()}>{contactFields}</div>
             </SectionCard>
-            {saveActions}
           </>
         ) : (
           <>
             {nameFields}
             {financialFields}
             {contactFields}
-            {saveActions}
           </>
         )}
+        <FormValidationAlert />
+        </fieldset>
       </form>
+      </FormProvider>
     </div>
   );
 }

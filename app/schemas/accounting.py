@@ -40,6 +40,43 @@ class CategoryMixRow(BaseModel):
     model_config = ConfigDict(json_encoders={Decimal: str})
 
 
+class CategoryRevenueRow(BaseModel):
+    """Revenue and invoice count for one category (direct products only)."""
+
+    category_id: int
+    category_name: str
+    gross_sales: Decimal
+    invoice_count: int
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class CategoryProductRevenueRow(BaseModel):
+    """Per-product revenue for products directly assigned to a category."""
+
+    product_id: int
+    product_name: str
+    gross_sales: Decimal
+    qty_sold: int
+    invoice_count: int
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class CategoryRevenueBreakdownRead(BaseModel):
+    """Category revenue snapshot: self row, direct children, and direct products."""
+
+    category_id: int
+    period_start: str | None
+    period_end: str | None
+    branch_id: int | None
+    self_row: CategoryRevenueRow = Field(serialization_alias="self")
+    children: list[CategoryRevenueRow] = Field(default_factory=list)
+    products: list[CategoryProductRevenueRow] = Field(default_factory=list)
+
+    model_config = ConfigDict(json_encoders={Decimal: str}, populate_by_name=True)
+
+
 class TopProductRow(BaseModel):
     """Top seller by line revenue in the filtered period."""
 
@@ -103,6 +140,40 @@ class FiscalPeriodRead(BaseModel):
 
 class FiscalPeriodStatusUpdate(BaseModel):
     status: Literal["open", "soft_closed", "closed"]
+
+
+class FiscalPeriodSubledgerRow(BaseModel):
+    account_id: int
+    code: str
+    name: str
+    subledger_kind: str
+    line_count: int
+    total_debit: Decimal
+    total_credit: Decimal
+    net: Decimal
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
+
+
+class FiscalPeriodDetailRead(BaseModel):
+    id: int
+    period_key: str
+    period_start: date
+    period_end: date
+    status: Literal["open", "soft_closed", "closed"]
+    closed_at: datetime | None = None
+    closed_by_user_id: int | None = None
+    closed_by_name: str | None = None
+    can_post: bool
+    posting_reason: str
+    trial_balance: list[TrialBalanceRow] = Field(default_factory=list)
+    subledger_activity: list[FiscalPeriodSubledgerRow] = Field(default_factory=list)
+    ar_open_items_count: int = 0
+    ar_open_amount: Decimal = Decimal("0")
+    ap_open_items_count: int = 0
+    ap_open_amount: Decimal = Decimal("0")
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
 
 
 class JournalReversalRequest(BaseModel):
@@ -184,6 +255,16 @@ class PaymentApplicationRead(BaseModel):
     applied_at: datetime
 
     model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class ApSupplierBalanceRead(BaseModel):
+    supplier_id: int
+    supplier_name: str
+    supplier_code: str
+    open_balance: Decimal
+    currency_code: str
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
 
 
 class GeneralLedgerLineRead(BaseModel):

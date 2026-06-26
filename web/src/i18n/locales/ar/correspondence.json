@@ -1,0 +1,43 @@
+{
+  "inbox_title": "المراسلات",
+  "inbox_subtitle": "طلبات ومراسلات إدارية واردة إلى دورك.",
+  "compose": "مراسلة جديدة",
+  "compose_title": "إرسال مراسلة",
+  "compose_subtitle": "وجّه الطلب إلى الإدارة المناسبة.",
+  "empty_inbox": "لا توجد مراسلات حالياً.",
+  "loading": "جاري التحميل…",
+  "refresh": "تحديث",
+  "subject": "الموضوع",
+  "message": "النص",
+  "request_type_label": "نوع الطلب",
+  "target_role": "الجهة المستهدفة",
+  "send": "إرسال",
+  "created": "تم إرسال المراسلة.",
+  "reply_placeholder": "اكتب ردك…",
+  "send_reply": "إرسال الرد",
+  "close_thread": "إغلاق المراسلة",
+  "thread_closed": "تم إغلاق المراسلة.",
+  "thread_closed_hint": "هذه المراسلة مغلقة.",
+  "reply_sent": "تم إرسال الرد.",
+  "back_inbox": "العودة إلى المراسلات",
+  "not_found": "المراسلة غير موجودة.",
+  "status": {
+    "open": "مفتوحة",
+    "answered": "تم الرد",
+    "closed": "مغلقة"
+  },
+  "request_type": {
+    "general": "عام",
+    "administrative": "إداري",
+    "hr": "موارد بشرية",
+    "it": "تقنية معلومات",
+    "finance": "مالية"
+  },
+  "roles": {
+    "HR_MANAGER": "مدير الموارد البشرية",
+    "IT_ADMIN": "مدير تقنية المعلومات",
+    "OWNER": "المالك",
+    "MARKETING_MANAGER": "مدير المبيعات/التسويق",
+    "ACCOUNTANT": "المحاسب"
+  }
+}

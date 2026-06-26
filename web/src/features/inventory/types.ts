@@ -37,6 +37,8 @@ export type StockMovement = {
   branch_name?: string;
   product_id: number;
   product_name?: string;
+  variant_id?: number;
+  variant_name?: string;
   qty_delta: number;
   reason: string;
   ref_type: string | null;
@@ -91,6 +93,7 @@ export type InventoryPolicyRead = {
   preferred_supplier_id: number | null;
   lead_time_days: number | null;
   is_active: boolean;
+  is_custom_policy?: boolean;
 };
 
 export type ReorderAlertRow = {
@@ -108,6 +111,20 @@ export type ReorderAlertRow = {
   preferred_supplier_id: number | null;
   supplier_name: string | null;
   severity: string;
+};
+
+export type CommercialRestockAlertRow = ReorderAlertRow & {
+  variant_id: number;
+  variant_name: string;
+  variant_sku: string;
+  reference_code: string;
+  suggested_qty: number;
+  suggested_from_branch_id: number | null;
+  suggested_from_branch_name: string | null;
+  source_available: number;
+  can_prefill_transfer: boolean;
+  uom_id: number | null;
+  product_image_url?: string | null;
 };
 
 export type StockCardRead = {

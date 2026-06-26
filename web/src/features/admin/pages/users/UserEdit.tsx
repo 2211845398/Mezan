@@ -6,14 +6,20 @@ import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { applyApiErrorToForm, notifyApiError } from '@/api/errorMessages';
-import {
-  floatingFormApproveButtonClassName,
-  floatingFormCloseButtonClassName,
-  floatingFormDangerButtonClassName,
-} from '@/components/shared/FloatingFormDialog';
+import { DetailFormActionBar } from '@/components/shared/DetailFormActionBar';
+import { ReadOnlyCopyableField } from '@/components/shared/form/ReadOnlyCopyableField';
+import { BackButton } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -23,12 +29,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { usePermission } from '@/hooks/usePermission';
+import { createFormInvalidHandler } from '@/lib/formValidation';
+import { readOnlyTextInputProps } from '@/lib/readOnlyFieldStyles';
 import { notify } from '@/lib/toast';
+import { useEditableFormMode } from '@/lib/useEditableFormMode';
 import RouteLoader from '@/routes/RouteLoader';
 
 import { BranchCombobox } from '../../components/BranchCombobox';
+import { getBranchDisplayName } from '../../lib/branchLabels';
 import { DangerConfirmDialog } from '../../components/DangerConfirmDialog';
 import { RoleIdCombobox } from '../../components/RoleCodeCombobox';
 import { roleCodeLabel } from '../../lib/roleLabels';
@@ -39,6 +49,7 @@ import {
   useUpdateUser,
   useUser,
   useUserRoles,
+  useBranches,
 } from '../../queries';
 import type { UserRoleAssign } from '../../types';
 
@@ -52,7 +63,16 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const statusOptions = ['active', 'deactivated', 'suspended', 'banned', 'pending_onboarding'] as const;
+const statusOptions = [
+  'active',
+  'awaiting_verification',
+  'deactivated',
+  'suspended',
+  'banned',
+  'pending_onboarding',
+] as const;
+
+const USER_EDIT_FORM_ID = 'admin-user-edit-form';
 
 export default function UserEdit() {
   const { t, i18n } = useTranslation('admin');
@@ -68,13 +88,19 @@ export default function UserEdit() {
   const removeRole = useRemoveUserRole(userId);
   const requestReset = useRequestPasswordReset();
   const canUpdate = usePermission('users', 'update');
-  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const currentUserId = useAuthStore((s) => s.user?.id);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [addRoleId, setAddRoleId] = useState<string>('');
   const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
   });
+
+  const editMode = useEditableFormMode({ form, canEdit: canUpdate });
+  const { data: branches = [] } = useBranches(true);
+  const branchId = form.watch('branch_id');
+  const statusValue = form.watch('status');
 
   useEffect(() => {
     if (!user) return;
@@ -86,7 +112,8 @@ export default function UserEdit() {
       status: locked ? 'active' : user.status,
       branch_id: user.branch_id,
     });
-  }, [user, form]);
+    editMode.syncSnapshot();
+  }, [user, form, editMode.syncSnapshot]);
 
   if (!Number.isFinite(userId) || isError) {
     return <p className="p-4 text-destructive">{t('users.not_found')}</p>;
@@ -96,14 +123,43 @@ export default function UserEdit() {
   }
 
   const bootstrapLocked = user.bootstrap_admin_protected === true;
+  const isDeactivated = user.status === 'deactivated';
+  const isSelf = user.id === currentUserId;
+  const statusAction: 'activate' | 'deactivate' = isDeactivated ? 'activate' : 'deactivate';
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['first_name', 'father_name', 'family_name', 'status', 'branch_id'],
+  });
+
+  const textRo = (extra?: string) => readOnlyTextInputProps(editMode.fieldsEnabled, extra);
+  const branchDisplayLabel = getBranchDisplayName(branches, branchId ?? null, user.branch_name);
+  const statusDisplayLabel = t(`users.user_status.${statusValue}`, { defaultValue: statusValue });
+
+  const secondaryActions = [];
+  if (canUpdate && !bootstrapLocked && !isSelf) {
+    secondaryActions.push({
+      id: 'status',
+      label: isDeactivated ? t('users.activate') : t('users.deactivate'),
+      variant: isDeactivated ? ('outline' as const) : ('destructive' as const),
+      onClick: () => setStatusDialogOpen(true),
+    });
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-5 py-6 sm:px-8 sm:py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{t('users.edit_title')}</h1>
-        <Button variant="outline" className={floatingFormCloseButtonClassName} asChild>
-          <Link to="/admin/users">{t('actions.back')}</Link>
-        </Button>
+        <div dir="ltr" className="flex flex-wrap items-center gap-[5px]">
+          <BackButton to="/admin/users" label={t('users.title')} />
+          <DetailFormActionBar
+            isEditing={editMode.isEditing}
+            canEdit={canUpdate}
+            isSubmitting={update.isPending}
+            formId={USER_EDIT_FORM_ID}
+            onStartEdit={editMode.startEdit}
+            onCancelEdit={editMode.cancelEdit}
+            secondaryActions={secondaryActions}
+          />
+        </div>
       </div>
 
       <section className="bg-card space-y-5 rounded-2xl border px-6 py-6 shadow-sm sm:px-8 sm:py-8">
@@ -111,7 +167,9 @@ export default function UserEdit() {
 
         <Form {...form}>
           <form
+            id={USER_EDIT_FORM_ID}
             className="space-y-5"
+            dir={i18n.dir()}
             onSubmit={form.handleSubmit(async (v) => {
               setFormError(null);
               try {
@@ -123,11 +181,13 @@ export default function UserEdit() {
                   branch_id: v.branch_id == null ? null : v.branch_id,
                 });
                 notify.success(tc('toasts.saved'));
+                editMode.finishEdit();
               } catch (error) {
                 setFormError(applyApiErrorToForm(form, error) ?? tc('errors.validation'));
               }
-            })}
+            }, onInvalid)}
           >
+            <fieldset disabled={update.isPending} className="space-y-5">
             <div className="grid gap-5 sm:grid-cols-2">
               {/* Email - Read only, dark gray, paste only */}
               <div className="space-y-1 sm:col-span-2">
@@ -153,7 +213,14 @@ export default function UserEdit() {
                   <FormItem>
                     <FormLabel>{t('users.col.first_name')}</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} disabled={!canUpdate} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        readOnly={textRo().readOnly}
+                        disabled={textRo().disabled}
+                        tabIndex={textRo().tabIndex}
+                        className={textRo().className}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -167,7 +234,14 @@ export default function UserEdit() {
                   <FormItem>
                     <FormLabel>{t('users.col.father_name')}</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} disabled={!canUpdate} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        readOnly={textRo().readOnly}
+                        disabled={textRo().disabled}
+                        tabIndex={textRo().tabIndex}
+                        className={textRo().className}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -181,7 +255,14 @@ export default function UserEdit() {
                   <FormItem>
                     <FormLabel>{t('users.col.family_name')}</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} disabled={!canUpdate} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        readOnly={textRo().readOnly}
+                        disabled={textRo().disabled}
+                        tabIndex={textRo().tabIndex}
+                        className={textRo().className}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -204,20 +285,29 @@ export default function UserEdit() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('users.col.status')}</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={!canUpdate}>
+                      {editMode.fieldsEnabled ? (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent dir={i18n.dir()}>
+                            {statusOptions.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {t(`users.user_status.${s}`, { defaultValue: s })}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                          <ReadOnlyCopyableField
+                            value={statusDisplayLabel}
+                            dir={i18n.dir()}
+                          />
                         </FormControl>
-                        <SelectContent>
-                          {statusOptions.map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {t(`users.user_status.${s}`, { defaultValue: s })}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -229,24 +319,29 @@ export default function UserEdit() {
                 control={form.control}
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
-                    <BranchCombobox
-                      label={t('users.col.branch')}
-                      value={field.value}
-                      onChange={(b) => field.onChange(b)}
-                      allowClear
-                      disabled={!canUpdate}
-                    />
+                    {editMode.fieldsEnabled ? (
+                      <BranchCombobox
+                        label={t('users.col.branch')}
+                        value={field.value}
+                        onChange={(b) => field.onChange(b)}
+                        allowClear
+                      />
+                    ) : (
+                      <>
+                        <FormLabel>{t('users.col.branch')}</FormLabel>
+                        <FormControl>
+                          <ReadOnlyCopyableField
+                            value={branchDisplayLabel}
+                            dir={i18n.dir()}
+                          />
+                        </FormControl>
+                      </>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-            {formError ? (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {formError}
-              </p>
-            ) : null}
-
             {/* Roles Section */}
             <div className="border-border space-y-3 border-t pt-5">
               <div>
@@ -267,7 +362,8 @@ export default function UserEdit() {
                             {r.role_code}
                           </span>
                         ) : null}
-                        {canUpdate &&
+                        {editMode.fieldsEnabled &&
+                        canUpdate &&
                         !(bootstrapLocked && String(r.role_code).toUpperCase() === 'ADMIN') ? (
                           <Button
                             type="button"
@@ -297,7 +393,10 @@ export default function UserEdit() {
                 </div>
               </div>
 
-              {canUpdate && !bootstrapLocked ? (
+              {editMode.fieldsEnabled && canUpdate && !bootstrapLocked && isDeactivated ? (
+                <p className="text-muted-foreground text-sm">{t('users.roles_disabled_deactivated')}</p>
+              ) : null}
+              {editMode.fieldsEnabled && canUpdate && !bootstrapLocked && !isDeactivated ? (
                 <div className="bg-muted/30 flex flex-col gap-3 rounded-xl border border-dashed p-4 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1 space-y-1">
                     <Label className="text-sm">{t('users.add_role')}</Label>
@@ -305,7 +404,6 @@ export default function UserEdit() {
                   </div>
                   <Button
                     type="button"
-                    className={floatingFormApproveButtonClassName}
                     onClick={async () => {
                       if (!addRoleId) return;
                       try {
@@ -324,62 +422,59 @@ export default function UserEdit() {
               ) : null}
             </div>
 
-            {/* Action Buttons with separators */}
-            {canUpdate ? (
-              <div className="border-border flex flex-wrap items-center gap-[5px] border-t pt-5">
-                <Button type="submit" className={floatingFormApproveButtonClassName} disabled={update.isPending}>
-                  {t('actions.save')}
-                </Button>
-                {!bootstrapLocked ? (
-                  <>
-                    <Separator orientation="vertical" className="h-8" />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={floatingFormCloseButtonClassName}
-                      onClick={() =>
-                        void requestReset
-                          .mutateAsync(userId)
-                          .then(() => notify.success(tc('toasts.email_sent')))
-                          .catch((error) => notifyApiError(error, tc('errors.generic')))
-                      }
-                    >
-                      {t('users.reset_password')}
-                    </Button>
-                    <Separator orientation="vertical" className="h-8" />
-                    <Button type="button" variant="outline" className={floatingFormCloseButtonClassName} asChild>
-                      <Link to={`/admin/users/${userId}/permissions`}>{t('users.view_permissions')}</Link>
-                    </Button>
-                    <Separator orientation="vertical" className="h-8" />
-                    <Button
-                      type="button"
-                      className={floatingFormDangerButtonClassName}
-                      onClick={() => setDeactivateOpen(true)}
-                    >
-                      {t('users.deactivate')}
-                    </Button>
-                  </>
-                ) : null}
-              </div>
-            ) : null}
+            <FormValidationAlert message={formError} />
+            </fieldset>
           </form>
         </Form>
+
+        {!editMode.isEditing && canUpdate && !bootstrapLocked ? (
+          <div className="flex flex-wrap gap-2 border-t pt-5">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={requestReset.isPending}
+              onClick={() =>
+                void requestReset
+                  .mutateAsync(userId)
+                  .then(() => notify.success(tc('toasts.email_sent')))
+                  .catch((error) => notifyApiError(error, tc('errors.generic')))
+              }
+            >
+              {t('users.reset_password')}
+            </Button>
+            <Button type="button" variant="outline" asChild>
+              <Link to={`/admin/users/${userId}/permissions`}>{t('users.view_permissions')}</Link>
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       <DangerConfirmDialog
-        open={deactivateOpen && !bootstrapLocked}
+        open={statusDialogOpen && !bootstrapLocked && !isSelf}
         onOpenChange={(open) => {
-          if (!bootstrapLocked) setDeactivateOpen(open);
+          if (!bootstrapLocked && !isSelf) setStatusDialogOpen(open);
         }}
-        title={t('users.deactivate_title')}
-        description={t('users.deactivate_desc')}
-        confirmKeyword="DELETE"
+        title={
+          statusAction === 'activate' ? t('users.activate_title') : t('users.deactivate_title')
+        }
+        description={
+          statusAction === 'activate' ? t('users.activate_desc') : t('users.deactivate_desc')
+        }
+        confirmKeyword={
+          statusAction === 'activate'
+            ? t('users.activate_confirm_keyword')
+            : t('users.deactivate_confirm_keyword')
+        }
         isLoading={update.isPending}
         onConfirm={async () => {
           try {
-            await update.mutateAsync({ status: 'deactivated' });
-            notify.success(tc('toasts.deactivated'));
-            setDeactivateOpen(false);
+            await update.mutateAsync({
+              status: statusAction === 'activate' ? 'active' : 'deactivated',
+            });
+            notify.success(
+              statusAction === 'activate' ? tc('toasts.activated') : tc('toasts.deactivated'),
+            );
+            setStatusDialogOpen(false);
           } catch (error) {
             notifyApiError(error, tc('errors.generic'));
           }

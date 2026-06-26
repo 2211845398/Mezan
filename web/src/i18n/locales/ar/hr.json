@@ -151,6 +151,15 @@
   },
   "leave": {
     "title": "الإجازات",
+    "my_title": "إجازاتي",
+    "my_subtitle": "سجل طلباتك ورصيد الإجازة",
+    "balance_title": "رصيد الإجازة",
+    "no_employee_profile": "لا يوجد ملف موظف مرتبط بحسابك.",
+    "back_profile": "الملف الشخصي",
+    "search_placeholder": "بحث في طلباتك…",
+    "filter": {
+      "all": "كل الحالات"
+    },
     "self_service_profile": "يتم تقديم الطلب لملف الموظف المرتبط بحسابك.",
     "new": "طلب جديد",
     "review": "مراجعة",
@@ -190,6 +199,8 @@
       "status": "الحالة",
       "from": "من",
       "to": "إلى",
+      "start": "من",
+      "end": "إلى",
       "days": "الأيام",
       "reason": "السبب",
       "reviewed_by": "تمت المراجعة بواسطة",
@@ -210,6 +221,11 @@
       "approved": "معتمد",
       "rejected": "مرفوض",
       "all": "الكل"
+    },
+    "status": {
+      "pending": "معلّق",
+      "approved": "معتمد",
+      "rejected": "مرفوض"
     },
     "form": {
       "employee": "الموظف",
@@ -304,7 +320,8 @@
     "hours": "الساعات",
     "missing_clock_out": "تسجيل خروج مفقود",
     "leave_summary": "ملخص الإجازات",
-    "no_leave": "لا طلبات إجازة"
+    "no_leave": "لا طلبات إجازة",
+    "review_pending_leave": "مراجعة الطلبات المعلّقة"
   },
   "schedule": {
     "current": "الجدول الحالي",
@@ -339,5 +356,40 @@
     "mark_workday": "تعليم كيوم عمل",
     "mark_day_off": "تعليم كيوم عطلة",
     "empty": "لم يتم إعداد الجدول بعد"
+  },
+  "attendanceDevices": {
+    "title": "شاشات الحضور",
+    "create": "إضافة جهاز",
+    "createTitle": "إضافة جهاز حضور",
+    "editTitle": "تعديل جهاز حضور",
+    "edit": "تعديل",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "created": "تم إنشاء الجهاز",
+    "createdWithLogin": "تم إنشاء الجهاز. حساب الشاشة: {{email}}",
+    "createFailed": "تعذر إنشاء الجهاز",
+    "saved": "تم تحديث الجهاز",
+    "saveFailed": "تعذر تحديث الجهاز",
+    "empty": "لا توجد أجهزة حضور بعد",
+    "selectBranch": "اختر الفرع",
+    "kioskAccountSection": "حساب الشاشة",
+    "kioskEmail": "البريد الإلكتروني",
+    "kioskPassword": "كلمة المرور",
+    "kioskPasswordOptional": "كلمة مرور جديدة (اختياري)",
+    "yes": "نعم",
+    "no": "لا",
+    "retry": "إعادة المحاولة",
+    "kioskTitle": "امسح لتسجيل الحضور أو الانصراف",
+    "kioskSubtitle": "الفرع رقم {{branchId}}",
+    "kioskRefresh": "يتجدد الرمز كل {{seconds}} ثانية",
+    "kioskLoading": "جاري تحميل رمز QR…",
+    "kioskError": "تعذر تحميل رمز الحضور",
+    "col": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "branch": "الفرع",
+      "user": "المستخدم المعيّن",
+      "active": "نشط"
+    }
   }
 }

@@ -64,6 +64,7 @@ from app.services.notifications.generators import (
 )
 from app.services.notifications.providers.base import PushProvider
 from app.services.notifications.providers.mock import MockPushProvider
+from app.services.realtime_nav_badges import emit_notifications_unread_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -388,6 +389,7 @@ async def mark_delivery_read(
         row.read_at = datetime.now(UTC)
         await db.commit()
         await db.refresh(row)
+        await emit_notifications_unread_for_user(user_id)
     return row
 
 
@@ -400,7 +402,10 @@ async def mark_all_deliveries_read(db: AsyncSession, *, user_id: int) -> int:
         .values(read_at=now)
     )
     await db.commit()
-    return int(result.rowcount or 0)
+    updated = int(result.rowcount or 0)
+    if updated > 0:
+        await emit_notifications_unread_for_user(user_id)
+    return updated
 
 
 async def delete_read_deliveries(db: AsyncSession, *, user_id: int) -> int:
@@ -647,7 +652,9 @@ async def dispatch_delivery_after_commit(
         delivery_row = res.scalar_one_or_none()
         if delivery_row is None:
             return
+        user_id = delivery_row.user_id
         await _dispatch_delivery(db, delivery=delivery_row, provider=provider)
+    await emit_notifications_unread_for_user(user_id)
 
 
 async def broadcast_notification(

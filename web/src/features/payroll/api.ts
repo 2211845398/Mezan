@@ -216,7 +216,21 @@ export async function exportPayrollPeriodPdfBlob(year: number, month: number): P
 }
 
 export async function exportPayrollPeriodExcelBlob(year: number, month: number): Promise<Blob> {
-  const { data } = await apiClient.get<Blob>(`/payroll/periods/${year}/${month}/export.csv`, {
+  const { data } = await apiClient.get<Blob>(`/payroll/periods/${year}/${month}/export.xlsx`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportPayslipPdfBlob(payslipId: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/payroll/payslips/${payslipId}/export.pdf`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportPayslipXlsxBlob(payslipId: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/payroll/payslips/${payslipId}/export.xlsx`, {
     responseType: 'blob',
   });
   return data;

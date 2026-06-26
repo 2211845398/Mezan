@@ -1,28 +1,26 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-import type { PaginatedList } from '@/api/pagination';
+import { useQuery } from '@tanstack/react-query';
 import { paginatedParams } from '@/api/pagination';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { Pencil, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { notifyApiError } from '@/api/errorMessages';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 import { fromISO } from '@/lib/date';
-import { notify } from '@/lib/toast';
 
 import type { DiscountRuleRead } from '../../api';
-import { updateDiscountRule } from '../../api';
-import { crmKeys, discountsListQueryOptions } from '../../queries';
-import DiscountForm from './DiscountForm';
+import { discountsListQueryOptions } from '../../queries';
+import DiscountForm, { DISCOUNT_DIALOG_FORM_ID } from './DiscountForm';
 
 function sortDiscounts(rows: DiscountRuleRead[]): DiscountRuleRead[] {
   return [...rows].sort((a, b) => {
@@ -52,9 +50,7 @@ export default function DiscountsList() {
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const qc = useQueryClient();
   const canCreate = usePermission('discounts', 'create');
-  const canUpdate = usePermission('discounts', 'update');
   const [urlQuery] = useTableUrlState({ pageSize: 20 });
   const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
   const listArgs = { limit, offset };
@@ -73,37 +69,6 @@ export default function DiscountsList() {
   function closeDiscountForm() {
     void navigate('/crm/discounts', { replace: true });
   }
-
-  const mToggle = useMutation({
-    mutationFn: async (r: DiscountRuleRead) => {
-      const next = r.status === 'active' ? 'disabled' : 'active';
-      return updateDiscountRule(r.id, { status: next });
-    },
-    onMutate: async (r) => {
-      await qc.cancelQueries({ queryKey: crmKeys.discounts(listArgs) });
-      const prev = qc.getQueryData<PaginatedList<DiscountRuleRead>>(crmKeys.discounts(listArgs));
-      qc.setQueryData<PaginatedList<DiscountRuleRead>>(crmKeys.discounts(listArgs), (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          items: old.items.map((x) =>
-            x.id === r.id ? { ...x, status: x.status === 'active' ? 'disabled' : 'active' } : x,
-          ),
-        };
-      });
-      return { prev };
-    },
-    onError: (error, _r, ctx) => {
-      if (ctx?.prev) qc.setQueryData(crmKeys.discounts(listArgs), ctx.prev);
-      notifyApiError(error, t('errors.generic'));
-    },
-    onSuccess: () => {
-      notify.success(tc('toasts.saved'));
-    },
-    onSettled: async () => {
-      await qc.invalidateQueries({ queryKey: crmKeys.root });
-    },
-  });
 
   const columns = useMemo(
     () =>
@@ -131,37 +96,8 @@ export default function DiscountsList() {
           header: t('discounts.col.start'),
           cell: ({ row }) => row.original.start_date.slice(0, 10),
         },
-        {
-          id: 'to',
-          header: '',
-          cell: ({ row }) =>
-            canUpdate ? (
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={mToggle.isPending}
-                  onClick={() => void mToggle.mutate(row.original)}
-                >
-                  {row.original.status === 'active' ? t('discounts.deactivate') : t('discounts.activate')}
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label={t('discounts.edit')}
-                  onClick={() => {
-                    void navigate(`/crm/discounts?edit=${row.original.id}`);
-                  }}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-              </div>
-            ) : null,
-        },
       ]),
-    [canUpdate, mToggle, navigate, t],
+    [t],
   );
 
   return (
@@ -190,6 +126,7 @@ export default function DiscountsList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        getRowHref={(row) => `/crm/discounts/${row.id}/edit`}
       />
 
       <FloatingFormDialog
@@ -199,6 +136,14 @@ export default function DiscountsList() {
         }}
         title={openNew ? t('discounts.new_title') : t('discounts.edit_title')}
         maxWidth="md"
+        footer={
+          <FloatingFormDialogFooter
+            formId={DISCOUNT_DIALOG_FORM_ID}
+            onCancel={closeDiscountForm}
+            saveLabel={tc('actions.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {formOpen ? (
           <DiscountForm

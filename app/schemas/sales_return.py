@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -17,6 +18,9 @@ class SalesReturnRequest(BaseModel):
     reason: str | None = None
     lines: list[SalesReturnLineRequest]
     exchange_cart_id: int | None = None
+    shift_id: int | None = None
+    return_cart_line_ids: list[int] = Field(default_factory=list)
+    payment_intent_id: int | None = None
 
 
 class ReturnEligibleLineRead(BaseModel):
@@ -26,6 +30,7 @@ class ReturnEligibleLineRead(BaseModel):
     product_name: str
     product_sku: str
     unit_price: Decimal
+    line_gross_per_unit: Decimal
     qty_sold: int
     qty_already_returned: int
     qty_remaining: int
@@ -41,6 +46,25 @@ class SalesInvoiceReturnLookupRead(BaseModel):
     lines: list[ReturnEligibleLineRead]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CreditNoteLineRead(BaseModel):
+    product_name: str
+    qty: int
+    unit_price: Decimal
+    line_total: Decimal
+
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
+
+
+class CreditNoteDetailRead(BaseModel):
+    id: int
+    credit_number: str
+    total_amount: Decimal
+    created_at: datetime
+    lines: list[CreditNoteLineRead]
+
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: str})
 
 
 class ExchangeLinkDetailRead(BaseModel):

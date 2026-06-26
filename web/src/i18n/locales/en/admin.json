@@ -35,6 +35,7 @@
     "password_too_short": "Password must be at least 8 characters.",
     "user_status": {
       "pending_onboarding": "Pending onboarding",
+      "awaiting_verification": "Awaiting verification",
       "active": "Active",
       "deactivated": "Deactivated",
       "suspended": "Suspended",
@@ -49,6 +50,12 @@
     "deactivate": "Deactivate",
     "deactivate_title": "Deactivate user",
     "deactivate_desc": "The user will no longer be able to sign in.",
+    "deactivate_confirm_keyword": "DEACTIVATE",
+    "activate": "Activate",
+    "activate_title": "Reactivate user",
+    "activate_desc": "The user will be able to sign in again.",
+    "activate_confirm_keyword": "ACTIVATE",
+    "roles_disabled_deactivated": "Roles cannot be added to a deactivated account.",
     "reset_password": "Send password reset",
     "user_information": "User information",
     "view_permissions": "Permission overrides",
@@ -113,9 +120,10 @@
       "HR_MANAGER": "HR manager",
       "ACCOUNTANT": "Accountant",
       "CASHIER": "Cashier",
-      "WAREHOUSE_MANAGER": "Warehouse manager",
+      "WAREHOUSE_MANAGER": "Warehouses custodian",
       "MARKETING_MANAGER": "Marketing manager",
-      "FLOOR_STAFF": "Sales staff"
+      "FLOOR_STAFF": "Sales staff",
+      "ATTENDANCE_KIOSK": "Attendance QR device (non-employee account)"
     }
   },
   "branches": {
@@ -128,16 +136,21 @@
     "archive": "Archive",
     "unarchive": "Unarchive",
     "archive_title": "Archive branch",
-    "archive_desc": "The branch is soft-deleted and hidden from default lists.",
+    "archive_confirm_keyword": "ARCHIVE",
     "picker_placeholder": "Select branch",
     "picker_clear": "None",
     "archived_badge": "archived",
     "col": {
       "code": "Code",
       "name": "Name",
+      "kind": "Type",
       "timezone": "Timezone",
       "address": "Address",
       "state": "State"
+    },
+    "kind": {
+      "commercial": "Commercial",
+      "warehouse": "Warehouse"
     },
     "state": {
       "active": "Active",
@@ -145,11 +158,11 @@
     }
   },
   "terminals": {
-    "title": "Terminals",
-    "empty": "No terminals",
-    "create": "Register terminal",
-    "create_title": "Register terminal",
-    "edit_title": "Edit terminal",
+    "title": "POS devices",
+    "empty": "No devices",
+    "create": "Register POS device",
+    "create_title": "Register POS device",
+    "edit_title": "Edit POS device",
     "authorize": "Authorize",
     "deauthorize": "De-authorize",
     "last_seen": "Last seen",
@@ -219,6 +232,7 @@
     "delete_routine": "Delete routine",
     "delete_routine_title": "Delete this routine?",
     "delete_routine_desc": "This removes the schedule. Related runs are removed; delivery history may be kept for audit.",
+    "delete_confirm_keyword": "DELETE",
     "routine_deleted": "Routine deleted",
     "history_title": "Notification history",
     "history_lead": "Review sent messages, routine runs, and delivery status.",
@@ -239,7 +253,7 @@
       "fallback": "Recipients (see template)"
     },
     "target_group_kind": {
-      "warehouse_and_floor": "Warehouse manager & sales staff",
+      "warehouse_and_floor": "Warehouses custodian & sales staff",
       "payroll_approvers": "HR manager, accountant & owner",
       "it_and_admin": "IT administrator & system administrator",
       "shift_operator": "Shift operator"

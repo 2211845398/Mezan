@@ -5,7 +5,7 @@ import { useFieldArray } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { SectionCard } from '@/components/shared/ContentSurface';
-import { cn } from '@/lib/utils';
+import { readOnlyTextInputProps } from '@/lib/readOnlyFieldStyles';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -69,11 +69,13 @@ export type ProductUnitsFormValues = {
 type Props = {
   form: UseFormReturn<ProductUnitsFormValues & Record<string, unknown>>;
   uoms: UnitOfMeasureRead[];
+  fieldsEnabled?: boolean;
   footer?: ReactNode;
 };
 
-export function ProductUnitsTab({ form, uoms, footer }: Props) {
+export function ProductUnitsTab({ form, uoms, fieldsEnabled = true, footer }: Props) {
   const { t, i18n } = useTranslation('catalog');
+  const textRo = (extra?: string) => readOnlyTextInputProps(fieldsEnabled, extra);
   const baseUomId = form.watch('uom_id');
   const baseUom = uoms.find((u) => u.id === baseUomId);
   const baseCategory = baseUom?.measurement_category ?? 'discrete';
@@ -118,26 +120,32 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
         render={({ field }) => (
           <FormItem className="w-full max-w-[10.5rem]">
             <FormLabel>{t('products.units.base_unit')}</FormLabel>
-            <Select
-              value={field.value > 0 ? String(field.value) : ''}
-              onValueChange={(v) => {
-                field.onChange(Number(v));
-                form.setValue('alternative_uoms', [], { shouldDirty: true });
-              }}
-            >
-              <FormControl>
-                <SelectTrigger dir={i18n.dir()} className="h-9 w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent dir={i18n.dir()}>
-                {uoms.map((u) => (
-                  <SelectItem key={u.id} value={String(u.id)}>
-                    {localizedUomLabel(t, u)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {fieldsEnabled ? (
+              <Select
+                value={field.value > 0 ? String(field.value) : ''}
+                onValueChange={(v) => {
+                  field.onChange(Number(v));
+                  form.setValue('alternative_uoms', [], { shouldDirty: true });
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger dir={i18n.dir()} className="h-9 w-full">
+                    <SelectValue placeholder="—" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent dir={i18n.dir()}>
+                  {uoms.map((u) => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {localizedUomLabel(t, u)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="flex h-9 items-center text-sm font-medium">
+                {baseUom ? localizedUomLabel(t, baseUom) : '—'}
+              </p>
+            )}
             <FormMessage />
           </FormItem>
         )}
@@ -163,6 +171,7 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
                   : null;
 
               const canSwap =
+                fieldsEnabled &&
                 rowUom &&
                 baseUom &&
                 packagingRank(rowUom) !== packagingRank(baseUom) &&
@@ -181,23 +190,29 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
                       render={({ field: f }) => (
                         <FormItem className="w-full min-w-[9rem] max-w-[11rem] shrink-0 space-y-1">
                           <FormLabel className="text-xs">{t('products.units.alt_unit')}</FormLabel>
-                          <Select
-                            value={f.value > 0 ? String(f.value) : ''}
-                            onValueChange={(v) => f.onChange(Number(v))}
-                          >
-                            <FormControl>
-                              <SelectTrigger dir={i18n.dir()} className="h-9 w-full">
-                                <SelectValue placeholder="—" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent dir={i18n.dir()}>
-                              {rowOptions.map((u) => (
-                                <SelectItem key={u.id} value={String(u.id)}>
-                                  {localizedUomLabel(t, u)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {fieldsEnabled ? (
+                            <Select
+                              value={f.value > 0 ? String(f.value) : ''}
+                              onValueChange={(v) => f.onChange(Number(v))}
+                            >
+                              <FormControl>
+                                <SelectTrigger dir={i18n.dir()} className="h-9 w-full">
+                                  <SelectValue placeholder="—" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent dir={i18n.dir()}>
+                                {rowOptions.map((u) => (
+                                  <SelectItem key={u.id} value={String(u.id)}>
+                                    {localizedUomLabel(t, u)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <p className="flex h-9 items-center text-sm font-medium">
+                              {rowUom ? localizedUomLabel(t, rowUom) : '—'}
+                            </p>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -216,10 +231,7 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
                               inputMode="numeric"
                               autoComplete="off"
                               dir={i18n.dir()}
-                              className={cn(
-                                'num-latin h-9 w-full',
-                                i18n.dir() === 'rtl' && 'text-end',
-                              )}
+                              {...textRo('num-latin h-9 w-full')}
                               value={f.value}
                               onChange={(e) => f.onChange(parseConversionFactorInput(e.target.value))}
                               onBlur={f.onBlur}
@@ -240,31 +252,33 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
                         />
                       </div>
                     ) : null}
-                    <div className="flex h-9 shrink-0 items-center gap-0.5">
-                      {canSwap ? (
+                    {fieldsEnabled ? (
+                      <div className="flex h-9 shrink-0 items-center gap-0.5">
+                        {canSwap ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 shrink-0"
+                            aria-label={t('products.units.swap_units')}
+                            title={t('products.units.swap_units')}
+                            onClick={() => swapRowWithBase(index)}
+                          >
+                            <ArrowLeftRight className="size-4" />
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="size-8 shrink-0"
-                          aria-label={t('products.units.swap_units')}
-                          title={t('products.units.swap_units')}
-                          onClick={() => swapRowWithBase(index)}
+                          aria-label={t('products.units.remove_alt')}
+                          onClick={() => remove(index)}
                         >
-                          <ArrowLeftRight className="size-4" />
+                          <Trash2 className="size-4" />
                         </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0"
-                        aria-label={t('products.units.remove_alt')}
-                        onClick={() => remove(index)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -272,16 +286,18 @@ export function ProductUnitsTab({ form, uoms, footer }: Props) {
           </div>
         )}
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={altUomOptions.length <= usedAltIds.size}
-          onClick={() => append({ uom_id: 0, factor_to_base: '' })}
-        >
-          <Plus className="me-1 size-4" />
-          {t('products.units.add_alt')}
-        </Button>
+        {fieldsEnabled ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={altUomOptions.length <= usedAltIds.size}
+            onClick={() => append({ uom_id: 0, factor_to_base: '' })}
+          >
+            <Plus className="me-1 size-4" />
+            {t('products.units.add_alt')}
+          </Button>
+        ) : null}
       </div>
 
       {footer ? <div className="flex flex-wrap justify-end gap-2 border-t pt-4">{footer}</div> : null}

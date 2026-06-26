@@ -78,6 +78,11 @@ DEFAULT_PERMISSIONS = [
     ("employees", "update"),
     ("employees", "delete"),
     ("employees", "approve"),
+    ("attendance_devices", "read"),
+    ("attendance_devices", "create"),
+    ("attendance_devices", "update"),
+    ("attendance_devices", "delete"),
+    ("attendance_kiosk", "read"),
     ("payroll", "create"),
     ("payroll", "read"),
     ("payroll", "approve"),
@@ -128,6 +133,7 @@ SYSTEM_ROLE_SPECS = [
             ("employees", "*"),
             ("payroll", "*"),
             ("onboarding", "*"),
+            ("attendance_devices", "*"),
             ("accounting", "*"),
             ("discounts", "*"),
             ("analytics", "read"),
@@ -169,6 +175,7 @@ SYSTEM_ROLE_SPECS = [
             ("employees", "*"),
             ("payroll", "*"),
             ("onboarding", "*"),
+            ("attendance_devices", "*"),
             ("ai_advisory", "run"),
             ("notifications", "read"),
             ("notifications", "update"),
@@ -214,7 +221,7 @@ SYSTEM_ROLE_SPECS = [
     },
     {
         "code": "WAREHOUSE_MANAGER",
-        "name": "Warehouse Manager",
+        "name": "Warehouses Custodian",
         "description": "Logistics, catalog, stock, and procurement execution",
         "selectors": [
             ("catalog", "*"),
@@ -243,6 +250,14 @@ SYSTEM_ROLE_SPECS = [
             ("ai_advisory", "run"),
             ("catalog", "read"),
             ("notifications", "read"),
+        ],
+    },
+    {
+        "code": "ATTENDANCE_KIOSK",
+        "name": "Attendance Kiosk",
+        "description": "Device account for branch attendance QR display (not an employee; no payroll)",
+        "selectors": [
+            ("attendance_kiosk", "read"),
         ],
     },
     {
@@ -382,8 +397,6 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
 
     res = await db.execute(select(AccountingSettings).where(AccountingSettings.id == 1))
     if res.scalar_one_or_none():
-        if await accounting_bootstrap_complete(db):
-            return
         await upgrade_coa_skeleton(db)
         await db.commit()
         return
@@ -394,6 +407,7 @@ async def seed_accounting_defaults(db: AsyncSession) -> None:
         decimal_places=2,
         suffix=None,
         exchange_rate_to_base=Decimal("1"),
+        cash_rounding_increment=Decimal("0.05"),
     )
     db.add(cur)
     await db.flush()

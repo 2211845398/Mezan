@@ -24,6 +24,7 @@ from app.services.inventory_valuation_service import apply_receipt_to_weighted_a
 from app.services.ocr.providers.base import ExtractedInvoice, OcrProvider
 from app.services.ocr.providers.basic import BasicOcrProvider
 from app.services.ocr.providers.fake import FakeOcrProvider
+from app.services.subledger_service import ensure_ap_open_item_for_goods_receipt
 from app.utils.money import q2, to_decimal
 
 
@@ -328,6 +329,7 @@ async def validate_scan_and_receive_goods(
         )
 
     await post_goods_receipt_gl(db, receipt=receipt)
+    await ensure_ap_open_item_for_goods_receipt(db, receipt=receipt)
     scan.status = "validated"
     await db.commit()
     await db.refresh(scan)

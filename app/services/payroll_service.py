@@ -173,6 +173,25 @@ def _make_immutable_hash(
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _assert_payslip_amounts_balanced(
+    *,
+    gross: Decimal,
+    deductions: Decimal,
+    net: Decimal,
+) -> None:
+    """Ensure stored payslip amounts are internally consistent before approval/GL."""
+    g = _q(gross)
+    d = _q(deductions)
+    n = _q(net)
+    if n < Decimal("0"):
+        validation_error("payroll_negative_net", "Net amount cannot be negative")
+    if g != _q(d + n):
+        validation_error(
+            "payroll_unbalanced_payslip",
+            "Payslip amounts must satisfy gross = deductions + net",
+        )
+
+
 def _prepare_failure_from_validation(
     employee_profile_id: int, exc: ValidationError
 ) -> dict[str, object]:
@@ -241,11 +260,11 @@ async def validate_employee_payroll_ready(
         manual_deductions=manual_deductions,
         hourly_rate_override=hourly_rate_override,
     )
-    if comp["net_amount"] < Decimal("0"):
-        validation_error(
-            "payroll_negative_net",
-            "Net amount cannot be negative for this period (check attendance and absences)",
-        )
+    _assert_payslip_amounts_balanced(
+        gross=comp["gross_amount"],
+        deductions=comp["total_deductions"],
+        net=comp["net_amount"],
+    )
     return comp
 
 
@@ -465,6 +484,119 @@ async def list_payslips_read(
     return out, total
 
 
+def _payslip_display_status(payslip: Payslip | PayslipRead) -> str:
+    if getattr(payslip, "paid_at", None) is not None:
+        return "paid"
+    return str(getattr(payslip, "status", "draft"))
+
+
+def _build_deduction_lines(payslip: Payslip | PayslipRead) -> list:
+    from app.schemas.payroll import PayslipDeductionLine
+
+    lines: list[PayslipDeductionLine] = []
+    manual = getattr(payslip, "manual_deductions_amount", None) or Decimal("0")
+    auto = getattr(payslip, "automatic_deductions_amount", None) or Decimal("0")
+    details = getattr(payslip, "calculation_details", None) or {}
+
+    if auto > 0:
+        lines.append(
+            PayslipDeductionLine(
+                amount=auto,
+                reason="Automatic attendance deductions",
+                source="automatic",
+            )
+        )
+        absent_dates = details.get("absent_dates") or []
+        if isinstance(absent_dates, list):
+            for raw_day in absent_dates:
+                try:
+                    day = date.fromisoformat(str(raw_day))
+                except ValueError:
+                    continue
+                lines.append(
+                    PayslipDeductionLine(
+                        amount=Decimal("0"),
+                        reason="Absence",
+                        source="automatic",
+                        date=day,
+                    )
+                )
+
+    if manual > 0:
+        lines.append(
+            PayslipDeductionLine(
+                amount=manual,
+                reason="Manual deductions",
+                source="manual",
+            )
+        )
+    return lines
+
+
+def to_payslip_self_read(payslip: PayslipRead):
+    from app.schemas.payroll import PayslipSelfRead
+
+    display = _payslip_display_status(payslip)
+    return PayslipSelfRead(
+        **payslip.model_dump(),
+        display_status=display,  # type: ignore[arg-type]
+        deduction_lines=_build_deduction_lines(payslip),
+    )
+
+
+async def list_my_payslips_read(
+    db: AsyncSession,
+    *,
+    employee_profile_id: int,
+    year: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list, int]:
+
+    filters = [Payslip.employee_profile_id == employee_profile_id]
+    if year is not None:
+        filters.append(Payslip.period_start >= date(year, 1, 1))
+        filters.append(Payslip.period_start <= date(year, 12, 31))
+
+    count_stmt = select(func.count()).select_from(Payslip).where(and_(*filters))
+    total = int(await db.scalar(count_stmt) or 0)
+
+    stmt = (
+        select(Payslip)
+        .where(and_(*filters))
+        .order_by(Payslip.period_start.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    res = await db.execute(stmt)
+    items = [to_payslip_self_read(PayslipRead.model_validate(p)) for p in res.scalars().all()]
+    return items, total
+
+
+async def get_my_payslip_for_month_read(
+    db: AsyncSession,
+    *,
+    employee_profile_id: int,
+    year: int,
+    month: int,
+):
+    period_start, period_end = calendar_month_period_bounds(year, month)
+    res = await db.execute(
+        select(Payslip).where(
+            Payslip.employee_profile_id == employee_profile_id,
+            Payslip.period_start == period_start,
+            Payslip.period_end == period_end,
+        )
+    )
+    payslip = res.scalar_one_or_none()
+    if payslip is None:
+        raise NotFoundError(
+            "Payslip not found for this period",
+            details={"year": year, "month": month},
+        )
+    return to_payslip_self_read(PayslipRead.model_validate(payslip))
+
+
 async def approve_payslip(
     db: AsyncSession,
     *,
@@ -486,6 +618,11 @@ async def approve_payslip(
         raise StateTransitionError("Payslip is already approved")
     if payslip.status != PayslipStatus.DRAFT:
         raise StateTransitionError("Only draft payslips can be approved")
+    _assert_payslip_amounts_balanced(
+        gross=payslip.gross_amount,
+        deductions=payslip.deductions,
+        net=payslip.net_amount,
+    )
     payslip.status = PayslipStatus.APPROVED
     payslip.approved_by_user_id = approver_user_id
     payslip.approved_at = datetime.now(UTC)

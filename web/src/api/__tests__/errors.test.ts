@@ -318,4 +318,140 @@ describe('API error message extraction', () => {
     const t = i18n.getFixedT('ar', 'common');
     expect(getLocalizedApiErrorMessage(err, t)).toBe(t('errors.generic'));
   });
+
+  it('translates opaque client validation codes', () => {
+    const tAr = i18n.getFixedT('ar', 'common');
+    const tEn = i18n.getFixedT('en', 'common');
+    expect(getLocalizedApiErrorMessage(new Error('branch'), tAr)).toBe(
+      tAr('clientValidation.branch_required'),
+    );
+    expect(getLocalizedApiErrorMessage(new Error('branch'), tEn)).toBe(
+      tEn('clientValidation.branch_required'),
+    );
+  });
+
+  it('returns pre-localized client error messages as-is', () => {
+    const t = i18n.getFixedT('ar', 'common');
+    const msg = 'أدخل اسم الحساب.';
+    expect(getLocalizedApiErrorMessage(new Error(msg), t)).toBe(msg);
+  });
+
+  it('translates POS product sell price errors via legacy English message', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'Product has no sellable price',
+            details: { product_id: 1, variant_id: 2 },
+          },
+        },
+      },
+      null,
+    );
+    const tAr = i18n.getFixedT('ar', 'common');
+    const tEn = i18n.getFixedT('en', 'common');
+    expect(getLocalizedApiErrorMessage(err, tAr)).toBe(tAr('apiErrors.product_no_sellable_price'));
+    expect(getLocalizedApiErrorMessage(err, tEn)).toBe(tEn('apiErrors.product_no_sellable_price'));
+  });
+
+  it('translates POS product sell price errors via details.code', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'المنتج ليس له سعر بيع محدد',
+            details: {
+              code: 'product_no_sellable_price',
+              product_id: 4,
+              variant_id: 6,
+            },
+          },
+        },
+      },
+      null,
+    );
+    const tAr = i18n.getFixedT('ar', 'common');
+    expect(getLocalizedApiErrorMessage(err, tAr)).toBe('المنتج ليس له سعر بيع محدد');
+  });
+
+  it('localizes normalized required validation code from details.errors', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 422,
+        data: {
+          error: {
+            code: 'validation_error',
+            message: 'Invalid request',
+            details: {
+              errors: [
+                {
+                  code: 'required',
+                  field: 'first_name',
+                  path: 'first_name',
+                  msg: 'Field required',
+                  type: 'missing',
+                  loc: ['body', 'first_name'],
+                },
+              ],
+            },
+          },
+        },
+      },
+      null,
+    );
+    const t = i18n.getFixedT('ar', 'common');
+    expect(getLocalizedApiErrorMessage(err, t)).toBe(t('errors.validation_required'));
+    const fields = fieldErrorsFromValidationError(err as ValidationError);
+    expect(fields.first_name).toBe('Field required');
+  });
+
+  it('translates catalog attribute value in-use delete errors via details.code', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 409,
+        data: {
+          error: {
+            code: 'conflict',
+            message: 'catalog attribute value in use',
+            details: {
+              code: 'catalog_attribute_value_in_use',
+              attribute_value_id: 12,
+            },
+          },
+        },
+      },
+      null,
+    );
+    const tAr = i18n.getFixedT('ar', 'common');
+    const tEn = i18n.getFixedT('en', 'common');
+    expect(getLocalizedApiErrorMessage(err, tAr)).toBe(tAr('apiErrors.catalog_attribute_value_in_use'));
+    expect(getLocalizedApiErrorMessage(err, tEn)).toBe(tEn('apiErrors.catalog_attribute_value_in_use'));
+  });
+
+  it('translates catalog attribute in-use delete errors via details.code', () => {
+    const err = mapResponseToApiError(
+      {
+        status: 409,
+        data: {
+          error: {
+            code: 'conflict',
+            message: 'catalog attribute in use',
+            details: {
+              code: 'catalog_attribute_in_use',
+              attribute_id: 3,
+            },
+          },
+        },
+      },
+      null,
+    );
+    const tAr = i18n.getFixedT('ar', 'common');
+    const tEn = i18n.getFixedT('en', 'common');
+    expect(getLocalizedApiErrorMessage(err, tAr)).toBe(tAr('apiErrors.catalog_attribute_in_use'));
+    expect(getLocalizedApiErrorMessage(err, tEn)).toBe(tEn('apiErrors.catalog_attribute_in_use'));
+  });
 });

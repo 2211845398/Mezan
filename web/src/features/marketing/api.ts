@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client';
 import type { components } from '@/api/generated/schema';
+import { assertInvoicePkId, isValidInvoicePkId } from '@/lib/salesInvoiceId';
 
 export type MarketingAdvisoryRequest = components['schemas']['MarketingAdvisoryRequest'];
 export type MarketingAdvisoryResponse = components['schemas']['MarketingAdvisoryResponse'];
@@ -105,6 +106,95 @@ export async function getSalesInvoicesRegister(params: {
 }): Promise<SalesInvoiceRegisterPageRead> {
   const { data } = await apiClient.get<SalesInvoiceRegisterPageRead>('/sales-invoices/register', {
     params,
+  });
+  const items = data.items.filter((item) => {
+    if (!isValidInvoicePkId(item.id)) {
+      console.warn('Sales register row skipped: invalid numeric id', item);
+      return false;
+    }
+    return true;
+  }) as SalesInvoiceRegisterRow[];
+  return { ...data, items };
+}
+
+export async function exportSalesRegisterPdfBlob(params: {
+  branch_id: number;
+  period_start: string;
+  period_end: string;
+  limit?: number;
+  offset?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/sales-invoices/register/export.pdf', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportSalesRegisterXlsxBlob(params: {
+  branch_id: number;
+  period_start: string;
+  period_end: string;
+  limit?: number;
+  offset?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/sales-invoices/register/export.xlsx', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportDailySalesSummaryPdfBlob(params: {
+  period_start: string;
+  period_end: string;
+  branch_id?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/sales-invoices/daily-summary/export.pdf', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportDailySalesSummaryXlsxBlob(params: {
+  period_start: string;
+  period_end: string;
+  branch_id?: number;
+}): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/sales-invoices/daily-summary/export.xlsx', {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportSalesInvoicePdfBlob(invoiceId: number): Promise<Blob> {
+  const id = assertInvoicePkId(invoiceId);
+  const { data } = await apiClient.get<Blob>(`/sales-invoices/${id}/export.pdf`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportSalesInvoiceXlsxBlob(invoiceId: number): Promise<Blob> {
+  const id = assertInvoicePkId(invoiceId);
+  const { data } = await apiClient.get<Blob>(`/sales-invoices/${id}/export.xlsx`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportCreditNotePdfBlob(creditNoteId: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/credit-notes/${creditNoteId}/export.pdf`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportCreditNoteXlsxBlob(creditNoteId: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/credit-notes/${creditNoteId}/export.xlsx`, {
+    responseType: 'blob',
   });
   return data;
 }

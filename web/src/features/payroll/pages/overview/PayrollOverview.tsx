@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Eye, FileSpreadsheet, Play, RefreshCw } from 'lucide-react';
+import { Eye, Play, RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -10,12 +10,14 @@ import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { MonthYearField } from '@/components/shared/form';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ReportExportButtons } from '@/components/shared/ReportExportButtons';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { roleCodeLabel } from '@/features/admin/lib/roleLabels';
 import { usePermission } from '@/hooks/usePermission';
 import { formatIso, now } from '@/lib/date';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { formatMoney } from '@/lib/format';
 import { newIdempotencyKey } from '@/lib/idempotency';
 import { previewQuietPanelClassName } from '@/lib/uiSurface';
@@ -63,6 +65,7 @@ function formatOverviewMoney(
 
 export default function PayrollOverview() {
   const { t } = useTranslation('payroll');
+  const { t: tc } = useTranslation('common');
   const { t: tAdmin } = useTranslation('admin');
   const qc = useQueryClient();
   const canApprove = usePermission('payroll', 'approve');
@@ -119,13 +122,8 @@ export default function PayrollOverview() {
   const exportPdf = useMutation({
     mutationFn: () => exportPayrollPeriodPdfBlob(year, month),
     onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `payroll-${year}-${String(month).padStart(2, '0')}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(t('overview.export_pdf_ok'));
+      downloadBlob(blob, `payroll-${year}-${String(month).padStart(2, '0')}.pdf`);
+      toast.success(tc('export.pdf_ok'));
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
@@ -133,13 +131,8 @@ export default function PayrollOverview() {
   const exportExcel = useMutation({
     mutationFn: () => exportPayrollPeriodExcelBlob(year, month),
     onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `payroll-${year}-${String(month).padStart(2, '0')}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(t('overview.export_excel_ok'));
+      downloadBlob(blob, `payroll-${year}-${String(month).padStart(2, '0')}.xlsx`);
+      toast.success(tc('export.excel_ok'));
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
@@ -280,26 +273,12 @@ export default function PayrollOverview() {
         actions={
           <div className="flex flex-wrap gap-2">
             {canExport ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={exportExcel.isPending}
-                  onClick={() => void exportExcel.mutate()}
-                >
-                  <FileSpreadsheet className="me-2 size-4" />
-                  {t('overview.export_excel')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={exportPdf.isPending}
-                  onClick={() => void exportPdf.mutate()}
-                >
-                  <Download className="me-2 size-4" />
-                  {t('overview.export_pdf')}
-                </Button>
-              </>
+              <ReportExportButtons
+                pdfPending={exportPdf.isPending}
+                excelPending={exportExcel.isPending}
+                onExportPdf={() => exportPdf.mutate()}
+                onExportExcel={() => exportExcel.mutate()}
+              />
             ) : null}
             {canCreate ? (
               <Button

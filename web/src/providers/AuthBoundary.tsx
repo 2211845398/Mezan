@@ -1,13 +1,12 @@
-import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { MezanLogoLoader } from '@/components/shared/MezanLogoLoader';
 import { setRefreshFn } from '@/api/interceptors/handle401Refresh';
-import { getMe, getMyPermissions, getMyRoles, refresh as refreshTokenApi } from '@/features/auth/api';
-import { hydrateAuthAndPrefetchShell } from '@/lib/shellPrefetch';
+import { getMe, refresh as refreshTokenApi } from '@/features/auth/api';
+import { applyFullAuthSession, applyRestrictedAuthSession } from '@/lib/authSessionHydrate';
 import { resetClientSessionState } from '@/features/auth/signOutSession';
 import {
-  type AuthUser,
   getRefreshStorageKey,
   getRefreshTokenSync,
   setRefreshTokenSync,
@@ -34,9 +33,6 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
   const status = useAuthStore((s) => s.status);
   const setStatus = useAuthStore((s) => s.setStatus);
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
-  const setUser = useAuthStore((s) => s.setUser);
-  const setPermissions = useAuthStore((s) => s.setPermissions);
-  const setRoleCodes = useAuthStore((s) => s.setRoleCodes);
   const setStatusUnauthenticated = useAuthStore((s) => s.setStatus);
 
   useEffect(() => {
@@ -97,14 +93,14 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         setAccessToken(tokens.access_token);
 
-        const [me, perms, roles] = await Promise.all([getMe(), getMyPermissions(), getMyRoles()]);
+        const me = await getMe();
         if (cancelled) return;
-        await hydrateAuthAndPrefetchShell(me, perms);
+        if (me.must_change_password) {
+          applyRestrictedAuthSession(me);
+        } else {
+          await applyFullAuthSession(me);
+        }
         if (cancelled) return;
-        setUser(me as AuthUser);
-        setPermissions(perms);
-        setRoleCodes(roles.codes);
-        setStatus('authenticated');
       } catch {
         if (cancelled) return;
         setRefreshTokenSync(null);
@@ -116,7 +112,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [setAccessToken, setPermissions, setRoleCodes, setStatus, setUser]);
+  }, [setAccessToken, setStatus]);
 
   if (status === 'idle' || status === 'booting') {
     return (
@@ -125,10 +121,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
         aria-live="polite"
         className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background"
       >
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <Loader2 className="size-8 animate-spin" aria-hidden="true" />
-          <span>{t('layout.app_name')}</span>
-        </div>
+        <MezanLogoLoader label={t('layout.app_name')} />
       </div>
     );
   }

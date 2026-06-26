@@ -19,7 +19,7 @@ type Props = {
   onQtyChange: (value: string) => void;
   onUnitCostChange: (value: string) => void;
   actions?: ReactNode;
-  /** Shown under unit cost (e.g. per-base-unit conversion hint). */
+  /** Shown beside unit cost label (e.g. per-base-unit conversion hint). */
   unitCostFooter?: ReactNode;
   /** Override label for unit cost column. */
   unitCostLabel?: string;
@@ -66,7 +66,10 @@ export default function PoReceiveLineRow({
         {uomControl ?? <ReceiveLineReadonlyValue value={uomDisplay} />}
       </div>
       <div className={actions ? 'md:col-span-3' : 'md:col-span-4'}>
-        <Label>{unitCostLabel ?? t('orders.receive.unit_cost')}</Label>
+        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+          <Label className="shrink-0">{unitCostLabel ?? t('orders.receive.unit_cost')}</Label>
+          {unitCostFooter ? <div className="min-w-0 text-start">{unitCostFooter}</div> : null}
+        </div>
         <MoneyInput
           className="h-9"
           fractionDigits={4}
@@ -74,7 +77,6 @@ export default function PoReceiveLineRow({
           value={unitCost}
           onChange={onUnitCostChange}
         />
-        {unitCostFooter}
       </div>
       {actions ? (
         <div className="flex items-end justify-end md:col-span-1">{actions}</div>

@@ -249,6 +249,8 @@ async def test_pos_sale_debits_terminal_cash_account(db_session) -> None:
         discount_total=Decimal("0.00"),
         tax_total=Decimal("0.00"),
         total=Decimal("50.00"),
+        amount_paid=Decimal("50.00"),
+        rounding_difference=Decimal("0.00"),
         created_by_user_id=user.id,
     )
     db_session.add(invoice)

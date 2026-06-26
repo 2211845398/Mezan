@@ -8,7 +8,7 @@ from typing import Any, Self
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.pagination import PaginatedListResponse
-from app.utils.contact_validation import validate_supplier_contact_dict
+from app.utils.contact_validation import require_supplier_email, validate_supplier_contact_dict
 
 
 class SupplierCreate(BaseModel):
@@ -32,6 +32,7 @@ class SupplierCreate(BaseModel):
         if self.currency_id is None and not self.currency_code:
             raise ValueError("currency_id or currency_code is required")
         validate_supplier_contact_dict(self.contact)
+        require_supplier_email(self.contact)
         return self
 
 
@@ -49,7 +50,9 @@ class SupplierUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_update_contact(self) -> Self:
-        validate_supplier_contact_dict(self.contact)
+        if self.contact is not None:
+            validate_supplier_contact_dict(self.contact)
+            require_supplier_email(self.contact)
         return self
 
 

@@ -60,6 +60,17 @@ async def test_patch_me_wrong_current_password(client, admin_auth_header):
 
 
 @pytest.mark.anyio
+async def test_patch_me_rejects_empty_first_name(client, admin_auth_header):
+    res = await client.patch(
+        "/api/v1/auth/me",
+        headers=admin_auth_header,
+        json={"first_name": ""},
+    )
+    assert res.status_code == 400
+    assert "First name" in api_error_detail_text(res.json())
+
+
+@pytest.mark.anyio
 async def test_patch_me_password_change(client, admin_auth_header, db_session):
     res = await client.patch(
         "/api/v1/auth/me",

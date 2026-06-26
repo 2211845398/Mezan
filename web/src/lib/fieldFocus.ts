@@ -32,7 +32,7 @@ export const MEZ_COMBOBOX_FOCUS_CLASS = MEZ_COMBOBOX_BORDER_CLASS;
 
 /** Native `<input>` on auth pages (same border chrome as `<Input />`). */
 export const MEZ_AUTH_INPUT_CLASS = [
-  'flex h-10 w-full rounded-md bg-background px-3 py-2 text-sm shadow-sm',
+  'flex h-10 w-full rounded-md bg-input-background px-3 py-2 text-sm shadow-sm',
   'placeholder:text-muted-foreground',
   'disabled:cursor-not-allowed disabled:opacity-50',
   MEZ_FIELD_BORDER_CLASS,

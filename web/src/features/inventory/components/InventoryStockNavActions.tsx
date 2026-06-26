@@ -6,8 +6,11 @@ import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { floatingFormCloseButtonSmClassName } from '@/components/shared/FloatingFormDialog';
+import { NavAttentionBadge } from '@/components/layout/NavAttentionBadge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { purchasingKeys } from '@/features/purchasing/queries';
+import { navBadgeCount, useNavBadges } from '@/hooks/useNavBadges';
 import { usePermission } from '@/hooks/usePermission';
 
 import { postCreatePurchaseOrdersFromReorder } from '../api';
@@ -22,6 +25,8 @@ export type InventoryStockNavActionsProps = {
 export function InventoryStockNavActions({ onOpenMovementDialog, trailing }: InventoryStockNavActionsProps) {
   const { t } = useTranslation('inventory');
   const qc = useQueryClient();
+  const badges = useNavBadges();
+  const reorderCount = navBadgeCount(badges, 'reorder_alerts');
   const canCreatePo = usePermission('purchase_orders', 'create');
   const canRecordMovement = usePermission('stock_adjustments', 'create');
   const canCreateTransfer = usePermission('inventory', 'update');
@@ -35,6 +40,20 @@ export function InventoryStockNavActions({ onOpenMovementDialog, trailing }: Inv
     },
     onError: (e) => notifyApiError(e, t('errors.generic')),
   });
+
+  const poButton = (
+    <Button
+      type="button"
+      size="sm"
+      disabled={createPoM.isPending || reorderCount <= 0}
+      onClick={() => void createPoM.mutate()}
+    >
+      <span className="flex items-center gap-1.5">
+        {t('stock.action.create_po_alerts')}
+        <NavAttentionBadge count={reorderCount} kind="reorder_alerts" />
+      </span>
+    </Button>
+  );
 
   return (
     <>
@@ -70,14 +89,16 @@ export function InventoryStockNavActions({ onOpenMovementDialog, trailing }: Inv
         </Button>
       ) : null}
       {canCreatePo ? (
-        <Button
-          type="button"
-          size="sm"
-          disabled={createPoM.isPending}
-          onClick={() => void createPoM.mutate()}
-        >
-          {t('stock.action.create_po_alerts')}
-        </Button>
+        reorderCount <= 0 ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">{poButton}</span>
+            </TooltipTrigger>
+            <TooltipContent>{t('stock.action.create_po_alerts_empty')}</TooltipContent>
+          </Tooltip>
+        ) : (
+          poButton
+        )
       ) : null}
       {trailing}
     </>

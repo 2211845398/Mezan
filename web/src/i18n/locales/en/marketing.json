@@ -90,7 +90,7 @@
   },
   "salesRegister": {
     "title": "Sales invoice register",
-    "filters_title": "Filters",
+    "filters_title": "Report criteria",
     "branch": "Branch",
     "kpi_count": "Invoice count",
     "kpi_subtotal": "Subtotal (ex. tax)",
@@ -122,7 +122,8 @@
     "repay_no_balance": "No open balance for this invoice",
     "page_range": "{{from}}–{{to}} of {{total}}",
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "daily_summary_export": "Daily sales summary"
   },
   "inventoryInsights": {
     "title": "Inventory & promotion insight",

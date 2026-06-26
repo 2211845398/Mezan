@@ -1,9 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, MailCheck } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
 import { isAxiosError } from '@/api/client';
@@ -18,7 +17,7 @@ type Values = z.infer<typeof schema>;
 
 export default function ForgotPasswordPage() {
   const { t } = useTranslation();
-  const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { email: '' },
@@ -26,8 +25,11 @@ export default function ForgotPasswordPage() {
 
   async function onSubmit(values: Values) {
     try {
-      await requestPasswordReset({ email: values.email });
-      setSubmitted(true);
+      const { challenge_token } = await requestPasswordReset({ email: values.email });
+      navigate('/password-reset-otp', {
+        replace: true,
+        state: { challengeToken: challenge_token },
+      });
     } catch (err) {
       if (isAxiosError(err)) {
         notify.error(t('auth:errors.generic'));
@@ -46,33 +48,10 @@ export default function ForgotPasswordPage() {
     notify.error(t('common:errors.validation_required'));
   };
 
-  if (submitted) {
-    return (
-      <div className="space-y-6 text-center" dir="auto">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10">
-          <MailCheck className="size-6 text-primary" aria-hidden="true" />
-        </div>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {t('auth:forgot.sent_title')}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t('auth:forgot.sent_body')}</p>
-        </div>
-        <Link
-          to="/login"
-          className="inline-block text-sm text-primary underline-offset-4 hover:underline"
-        >
-          {t('auth:actions.back_to_login')}
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6" dir="auto">
       <div className="space-y-1 text-center">
         <h1 className="text-2xl font-bold tracking-tight">{t('auth:forgot.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('auth:forgot.subtitle')}</p>
       </div>
 
       <form

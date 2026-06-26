@@ -2,6 +2,7 @@ import { apiClient } from '@/api/client';
 import type { PaginatedItem } from '@/api/listTypes';
 import type { PaginatedList } from '@/api/pagination';
 import type { paths } from '@/api/generated/schema';
+import { assertInvoicePkId } from '@/lib/salesInvoiceId';
 
 type CurrentShiftParams =
   paths['/api/v1/pos/shifts/current']['get']['parameters']['query'];
@@ -21,13 +22,19 @@ type CartLineBody =
   paths['/api/v1/pos/carts/{cart_id}/lines']['post']['requestBody']['content']['application/json'] & {
     uom_id?: number | null;
   };
-export type CartDiscountBody =
+type CartDiscountBodyGenerated =
   paths['/api/v1/pos/carts/{cart_id}/discounts']['post']['requestBody']['content']['application/json'];
+export type CartDiscountBody =
+  | CartDiscountBodyGenerated
+  | { mode: 'flat'; amount: string | number };
 type CartStateBody =
   paths['/api/v1/pos/carts/{cart_id}/state']['post']['requestBody']['content']['application/json'];
 
-type PaymentIntentBody =
+type PaymentIntentBodyBase =
   paths['/api/v1/pos/payments/intents']['post']['requestBody']['content']['application/json'];
+type PaymentIntentBody = PaymentIntentBodyBase & {
+  exchange_credit_amount?: string | number | null;
+};
 type PaymentIntentRead =
   paths['/api/v1/pos/payments/intents']['post']['responses']['201']['content']['application/json'];
 type PaymentCaptureBody =
@@ -41,7 +48,10 @@ type SalesInvoiceRead =
   paths['/api/v1/pos/sales/finalize']['post']['responses']['200']['content']['application/json'];
 type SalesInvoiceDetailRead =
   paths['/api/v1/sales-invoices/{invoice_id}']['get']['responses']['200']['content']['application/json'];
-type SalesInvoiceListItem = PaginatedItem<'/api/v1/sales-invoices'>;
+type SalesInvoiceListItemBase = PaginatedItem<'/api/v1/sales-invoices'>;
+type SalesInvoiceListItem = SalesInvoiceListItemBase & {
+  transaction_type?: 'sale' | 'return' | string;
+};
 
 type ListInvoicesParams = paths['/api/v1/sales-invoices']['get']['parameters']['query'];
 
@@ -50,13 +60,34 @@ type ReturnLookupParams =
 type ReturnLookupRead =
   paths['/api/v1/pos/returns/invoice-lookup']['get']['responses']['200']['content']['application/json'];
 
-type ReturnBody = paths['/api/v1/pos/returns']['post']['requestBody']['content']['application/json'];
+type ReturnBodyBase =
+  paths['/api/v1/pos/returns']['post']['requestBody']['content']['application/json'];
+type ReturnBody = ReturnBodyBase & {
+  shift_id?: number | null;
+  return_cart_line_ids?: number[];
+  payment_intent_id?: number | null;
+};
 /** OpenAPI types this as open object; server returns a fixed shape. */
 export type ReturnResponse = {
   sales_return_id: number;
   credit_note_id: number;
   credit_number: string;
   total_amount: string;
+};
+
+export type CreditNoteLineRead = {
+  product_name: string;
+  qty: number;
+  unit_price: string;
+  line_total: string;
+};
+
+export type CreditNoteDetailRead = {
+  id: number;
+  credit_number: string;
+  total_amount: string;
+  created_at: string;
+  lines: CreditNoteLineRead[];
 };
 
 type TerminalRead = paths['/api/v1/terminals']['get']['responses']['200']['content']['application/json'][number];
@@ -210,6 +241,19 @@ export async function updateCartCustomer(cartId: number, customerId: number | nu
   return data;
 }
 
+export type CashRoundingConfigRead = {
+  currency: string;
+  cash_rounding_increment: string | null;
+};
+
+export async function getCashRoundingConfig(currency: string): Promise<CashRoundingConfigRead> {
+  const { data } = await apiClient.get<CashRoundingConfigRead>(
+    '/pos/payments/cash-rounding-config',
+    { params: { currency } },
+  );
+  return data;
+}
+
 export async function createPaymentIntent(body: PaymentIntentBody): Promise<PaymentIntentRead> {
   const { data } = await apiClient.post<PaymentIntentRead>('/pos/payments/intents', body);
   return data;
@@ -231,7 +275,13 @@ export async function voidSale(body: VoidSaleBody): Promise<SalesInvoiceRead> {
 }
 
 export async function getSalesInvoice(invoiceId: number): Promise<SalesInvoiceDetailRead> {
-  const { data } = await apiClient.get<SalesInvoiceDetailRead>(`/sales-invoices/${invoiceId}`);
+  const id = assertInvoicePkId(invoiceId);
+  const { data } = await apiClient.get<SalesInvoiceDetailRead>(`/sales-invoices/${id}`);
+  return data;
+}
+
+export async function getCreditNote(creditNoteId: number): Promise<CreditNoteDetailRead> {
+  const { data } = await apiClient.get<CreditNoteDetailRead>(`/credit-notes/${creditNoteId}`);
   return data;
 }
 
@@ -261,6 +311,58 @@ export async function submitReturn(body: ReturnBody): Promise<ReturnResponse> {
 export async function listTerminals(branchId: number): Promise<TerminalRead[]> {
   const { data } = await apiClient.get<TerminalRead[]>('/terminals', {
     params: { branch_id: branchId },
+  });
+  return data;
+}
+
+export type ProformaLineIn = {
+  product_id: number;
+  variant_id?: number | null;
+  qty: number;
+};
+
+export type ProformaLineRead = {
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  variant_id: number | null;
+  variant_label: string | null;
+  qty: number;
+  unit_price: string;
+  line_total: string;
+  tax_rate: string;
+  line_tax_amount: string;
+};
+
+export type ProformaQuoteResponse = {
+  lines: ProformaLineRead[];
+  subtotal: string;
+  tax_total: string;
+  total: string;
+  currency_code: string;
+};
+
+export type ProformaExportBody = {
+  lines: ProformaLineIn[];
+  branch_id?: number | null;
+  locale?: 'ar' | 'en';
+};
+
+export async function quoteProforma(lines: ProformaLineIn[]): Promise<ProformaQuoteResponse> {
+  const { data } = await apiClient.post<ProformaQuoteResponse>('/pos/proforma/quote', { lines });
+  return data;
+}
+
+export async function exportProformaPdfBlob(body: ProformaExportBody): Promise<Blob> {
+  const { data } = await apiClient.post<Blob>('/pos/proforma/export.pdf', body, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+export async function exportProformaXlsxBlob(body: ProformaExportBody): Promise<Blob> {
+  const { data } = await apiClient.post<Blob>('/pos/proforma/export.xlsx', body, {
+    responseType: 'blob',
   });
   return data;
 }

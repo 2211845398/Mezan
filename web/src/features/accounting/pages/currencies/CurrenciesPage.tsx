@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
@@ -30,6 +29,7 @@ import type { CurrencyRead } from '../../api';
 import {
   createCurrency,
   updateAccountingSettings,
+  updateCurrency,
   updateCurrencyRate,
 } from '../../api';
 import {
@@ -96,6 +96,8 @@ export default function CurrenciesPage() {
   const [addKey, setAddKey] = useState(0);
   const [rateEdit, setRateEdit] = useState<CurrencyRead | null>(null);
   const [rateValue, setRateValue] = useState('');
+  const [roundingEdit, setRoundingEdit] = useState<CurrencyRead | null>(null);
+  const [roundingValue, setRoundingValue] = useState('');
   const [baseConfirm, setBaseConfirm] = useState<number | null>(null);
 
   const { data: rows = [], isLoading, isError, refetch } = useQuery(currenciesQueryOptions(true));
@@ -107,6 +109,19 @@ export default function CurrenciesPage() {
       void qc.invalidateQueries({ queryKey: accountingKeys.currencies() });
       toast.success(t('currencies.rate_updated'));
       setRateEdit(null);
+    },
+    onError: (e) => notifyApiError(e, t('errors.generic')),
+  });
+
+  const roundingMutation = useMutation({
+    mutationFn: () =>
+      updateCurrency(roundingEdit!.id, {
+        cash_rounding_increment: roundingValue.trim() === '' ? null : roundingValue.trim(),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: accountingKeys.currencies() });
+      toast.success(t('currencies.rounding_updated'));
+      setRoundingEdit(null);
     },
     onError: (e) => notifyApiError(e, t('errors.generic')),
   });
@@ -151,6 +166,17 @@ export default function CurrenciesPage() {
           cell: ({ row }) =>
             canUpdate ? (
               <div className="flex gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setRoundingEdit(row.original);
+                    setRoundingValue(String(row.original.cash_rounding_increment ?? ''));
+                  }}
+                >
+                  {t('currencies.edit_rounding')}
+                </Button>
                 {!row.original.is_base ? (
                   <Button
                     type="button"
@@ -162,7 +188,7 @@ export default function CurrenciesPage() {
                     }}
                   >
                     {t('currencies.edit_rate')}
-                  </Button>
+                    </Button>
                 ) : null}
                 {!row.original.is_base && row.original.active ? (
                   <Button
@@ -186,23 +212,18 @@ export default function CurrenciesPage() {
       <PageHeader
         title={t('currencies.title')}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" asChild>
-              <Link to="/accounting/operations">{t('currencies.link_fx')}</Link>
+          canUpdate ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setAddKey((k) => k + 1);
+                setAddOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              {t('currencies.add')}
             </Button>
-            {canUpdate ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  setAddKey((k) => k + 1);
-                  setAddOpen(true);
-                }}
-              >
-                <Plus className="size-4" />
-                {t('currencies.add')}
-              </Button>
-            ) : null}
-          </div>
+          ) : null
         }
       />
 
@@ -231,6 +252,29 @@ export default function CurrenciesPage() {
         key={addKey}
       >
         <CurrencyAddForm onDone={() => setAddOpen(false)} />
+      </FloatingFormDialog>
+
+      <FloatingFormDialog
+        open={roundingEdit != null}
+        onOpenChange={(o) => !o && setRoundingEdit(null)}
+        title={t('currencies.edit_rounding_title', { code: roundingEdit?.code ?? '' })}
+      >
+        <form
+          className="flex flex-col gap-3 p-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            roundingMutation.mutate();
+          }}
+        >
+          <div className="grid gap-2">
+            <Label>{t('currencies.form.cash_rounding_increment')}</Label>
+            <MoneyInput value={roundingValue} onValueChange={setRoundingValue} />
+            <p className="text-xs text-muted-foreground">{t('currencies.form.rounding_hint')}</p>
+          </div>
+          <Button type="submit" disabled={roundingMutation.isPending}>
+            {t('currencies.form.save')}
+          </Button>
+        </form>
       </FloatingFormDialog>
 
       <FloatingFormDialog

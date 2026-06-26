@@ -3,8 +3,11 @@ import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { DateField } from '@/components/shared/form/DateField';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,10 +28,11 @@ import { InventoryStockNavActions } from '../../components/InventoryStockNavActi
 import type { StockMovement } from '../../api';
 import { useMovementsQuery } from '../../queries';
 import { formatMovementKind, formatMovementReason } from '../../utils/movementLabels';
-import AdjustmentForm from './AdjustmentForm';
+import AdjustmentForm, { ADJUSTMENT_DIALOG_FORM_ID } from './AdjustmentForm';
 
 export default function AdjustmentsList() {
   const { t } = useTranslation('inventory');
+  const { t: tc } = useTranslation('common');
   const canCreate = usePermission('stock_adjustments', 'create');
   const { data: rows = [], isLoading, isError, refetch } = useMovementsQuery({ limit: 200, offset: 0 });
 
@@ -184,14 +188,15 @@ export default function AdjustmentsList() {
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-1">
-          <Label>{t('adjustments.filter.date_from')}</Label>
-          <DateField value={dateFrom} onChange={setDateFrom} className="w-[160px]" />
-        </div>
-        <div className="grid gap-1">
-          <Label>{t('adjustments.filter.date_to')}</Label>
-          <DateField value={dateTo} onChange={setDateTo} className="w-[160px]" />
-        </div>
+        <DateRangeFields
+          fromValue={dateFrom}
+          toValue={dateTo}
+          onFromChange={setDateFrom}
+          onToChange={setDateTo}
+          fromLabel={<Label>{t('adjustments.filter.date_from')}</Label>}
+          toLabel={<Label>{t('adjustments.filter.date_to')}</Label>}
+          fieldClassName="w-[160px]"
+        />
         {(branchFilter != null || kindFilter !== '__all' || dateFrom || dateTo || searchDraft) ? (
           <Button
             type="button"
@@ -225,6 +230,14 @@ export default function AdjustmentsList() {
         onOpenChange={setMovementDialogOpen}
         title={t('adjustments.new')}
         maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={ADJUSTMENT_DIALOG_FORM_ID}
+            onCancel={() => setMovementDialogOpen(false)}
+            saveLabel={t('actions.submit')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {movementDialogOpen ? (
           <AdjustmentForm

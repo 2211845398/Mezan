@@ -70,4 +70,33 @@
   .mezan-scrollbar::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground) / 0.6);
   }
+
+  /* Custom password reveal — hide Edge/IE native control to avoid duplicate toggles. */
+  input[data-password-input]::-ms-reveal,
+  input[data-password-input]::-ms-clear {
+    display: none;
+  }
+
+  /*
+   * Loading logo: static Mezan glyph with a gentle opacity pulse.
+   */
+  @keyframes mezan-logo-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+
+  .mezan-logo-pulse {
+    animation: mezan-logo-pulse 1.6s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mezan-logo-pulse {
+      animation: none;
+    }
+  }
 }

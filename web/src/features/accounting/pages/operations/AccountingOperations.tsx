@@ -1,8 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { BookOpen, Coins, Factory, FileText } from 'lucide-react';
+import { BookOpen, FileText } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
@@ -22,43 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { notifyApiError } from '@/api/errorMessages';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { listCustomers } from '@/features/crm/api';
 import { listSuppliers } from '@/features/purchasing/api';
 import { now, utcCalendarDayKey } from '@/lib/date';
-import { formatMoney } from '@/lib/format';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
 import PostableAccountPicker from '../../components/PostableAccountPicker';
 import {
-  listBoms,
   postOpeningBalance,
   postPaymentVoucher,
   postReceiptVoucher,
-  previewFxRevaluation,
-  runFxRevaluation,
 } from '../../api';
-import { accountingKeys } from '../../queries';
 
-type OperationsTab = 'vouchers' | 'opening' | 'fx' | 'production';
-
-type FxPreviewLine = {
-  account_id?: number;
-  code?: string;
-  name?: string;
-  book_amount?: string | number;
-  revalued_amount?: string | number;
-  fx_gain_loss?: string | number;
-};
+type OperationsTab = 'vouchers' | 'opening';
 
 export default function AccountingOperations() {
   const { t } = useTranslation('accounting');
@@ -73,12 +50,7 @@ export default function AccountingOperations() {
   const [debitAccountId, setDebitAccountId] = useState<number | null>(null);
   const [creditAccountId, setCreditAccountId] = useState<number | null>(null);
   const [description, setDescription] = useState('');
-  const [fxDate, setFxDate] = useState(today);
 
-  const boms = useQuery({
-    queryKey: accountingKeys.boms(),
-    queryFn: listBoms,
-  });
   const customers = useQuery({
     queryKey: ['crm', 'customers', 'list'],
     queryFn: async () => {
@@ -151,30 +123,6 @@ export default function AccountingOperations() {
     onError: (error) => notifyApiError(error, tc('errors.generic')),
   });
 
-  const fxPreview = useMutation({
-    mutationFn: () => previewFxRevaluation({ as_of: fxDate, branch_id: branchId || null }),
-    onSuccess: () => toast.success(t('operations.fx.preview_ok')),
-    onError: (error) => notifyApiError(error, tc('errors.generic')),
-  });
-
-  const fxRun = useMutation({
-    mutationFn: () => runFxRevaluation({ as_of: fxDate, branch_id: branchId || null }, newIdempotencyKey()),
-    onSuccess: () => toast.success(t('operations.fx.run_ok')),
-    onError: (error) => notifyApiError(error, tc('errors.generic')),
-  });
-
-  // Parse FX preview result into a renderable array
-  const fxLines: FxPreviewLine[] = useMemo(() => {
-    const data = fxPreview.data;
-    if (!data) return [];
-    if (Array.isArray(data)) return data as FxPreviewLine[];
-    if (typeof data === 'object' && data !== null) {
-      const d = data as Record<string, unknown>;
-      if (Array.isArray(d.lines)) return d.lines as FxPreviewLine[];
-    }
-    return [];
-  }, [fxPreview.data]);
-
   return (
     <div className="flex flex-col gap-4 p-4">
       <PageHeader title={t('operations.title')} />
@@ -185,8 +133,6 @@ export default function AccountingOperations() {
         items={[
           { id: 'vouchers', label: t('operations.tab.vouchers'), icon: FileText },
           { id: 'opening', label: t('operations.tab.opening'), icon: BookOpen },
-          { id: 'fx', label: t('operations.tab.fx'), icon: Coins },
-          { id: 'production', label: t('operations.tab.production'), icon: Factory },
         ]}
       />
 
@@ -208,7 +154,6 @@ export default function AccountingOperations() {
               </div>
             </div>
 
-            {/* Receipt: customer picker */}
             <div className="mt-4 space-y-2 rounded-lg border p-3">
               <p className="text-sm font-medium">{t('operations.voucher.receipt_section')}</p>
               <div className="grid gap-1">
@@ -237,7 +182,6 @@ export default function AccountingOperations() {
               </Button>
             </div>
 
-            {/* Payment: supplier picker */}
             <div className="mt-3 space-y-2 rounded-lg border p-3">
               <p className="text-sm font-medium">{t('operations.voucher.payment_section')}</p>
               <div className="grid gap-1">
@@ -311,80 +255,6 @@ export default function AccountingOperations() {
             >
               {t('operations.opening.post')}
             </Button>
-          </SectionCard>
-        </div>
-      ) : null}
-
-      {tab === 'fx' ? (
-        <div className="mt-4">
-          <SectionCard title={t('operations.fx.title')}>
-            <p className="mb-3 text-sm text-muted-foreground">
-              <Link className="underline" to="/accounting/currencies">
-                {t('currencies.link_fx', { ns: 'accounting' })}
-              </Link>
-            </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="grid gap-1">
-                <Label>{t('operations.fx.as_of')}</Label>
-                <DateField value={fxDate} onChange={setFxDate} />
-              </div>
-              <Button type="button" variant="outline" onClick={() => fxPreview.mutate()} disabled={fxPreview.isPending}>
-                {t('operations.fx.preview')}
-              </Button>
-              <Button type="button" onClick={() => fxRun.mutate()} disabled={fxRun.isPending}>
-                {t('operations.fx.post')}
-              </Button>
-            </div>
-
-            {fxLines.length > 0 ? (
-              <div className="mt-4 overflow-x-auto rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('operations.fx.col.code')}</TableHead>
-                      <TableHead>{t('operations.fx.col.name')}</TableHead>
-                      <TableHead className="text-end">{t('operations.fx.col.book_amount')}</TableHead>
-                      <TableHead className="text-end">{t('operations.fx.col.revalued_amount')}</TableHead>
-                      <TableHead className="text-end">{t('operations.fx.col.fx_gain_loss')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fxLines.map((ln, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="num-latin">{ln.code ?? `#${ln.account_id}`}</TableCell>
-                        <TableCell>{ln.name ?? '—'}</TableCell>
-                        <TableCell className="text-end tabular-nums num-latin">{formatMoney(ln.book_amount)}</TableCell>
-                        <TableCell className="text-end tabular-nums num-latin">{formatMoney(ln.revalued_amount)}</TableCell>
-                        <TableCell className="text-end tabular-nums num-latin">{formatMoney(ln.fx_gain_loss)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : fxPreview.data && fxLines.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">{t('operations.fx.no_adjustments')}</p>
-            ) : null}
-          </SectionCard>
-        </div>
-      ) : null}
-
-      {tab === 'production' ? (
-        <div className="mt-4">
-          <SectionCard title={t('operations.production.title')}>
-            <div className="grid gap-3 md:grid-cols-2">
-              {(boms.data ?? []).map((bom) => (
-                <div key={String(bom.id)} className="rounded-xl border bg-background p-3">
-                  <p className="font-medium">{String(bom.name ?? 'BoM')}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t('operations.production.product_label')} #{String(bom.finished_product_id ?? '—')} ·{' '}
-                    {t('operations.production.version_label')} {String(bom.version ?? '—')}
-                  </p>
-                </div>
-              ))}
-              {!boms.isLoading && !boms.data?.length ? (
-                <p className="text-sm text-muted-foreground">{t('operations.production.empty')}</p>
-              ) : null}
-            </div>
           </SectionCard>
         </div>
       ) : null}

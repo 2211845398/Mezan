@@ -19,7 +19,8 @@ function isEnterSubmitKey(e: KeyboardEvent): boolean {
 
 export function handleFormEnterSubmit(e: KeyboardEvent<HTMLFormElement>): void {
   if (!isEnterSubmitKey(e)) return;
-  if (shouldIgnoreFormEnterSubmit(e.target)) return;
+  const allowInDialog = e.currentTarget.closest('[role="dialog"]') != null;
+  if (shouldIgnoreFormEnterSubmit(e.target, { allowInDialog })) return;
   e.preventDefault();
   e.currentTarget.requestSubmit();
 }
@@ -30,4 +31,14 @@ export function handleDialogFormEnterSubmit(e: KeyboardEvent<HTMLFormElement>): 
   if (shouldIgnoreFormEnterSubmit(e.target, { allowInDialog: true })) return;
   e.preventDefault();
   e.currentTarget.requestSubmit();
+}
+
+/** Enter→submit when focus is inside a container that wraps a `<form>` (e.g. dialog body). */
+export function handleContainerEnterSubmit(e: KeyboardEvent<HTMLElement>): void {
+  if (!isEnterSubmitKey(e)) return;
+  if (shouldIgnoreFormEnterSubmit(e.target, { allowInDialog: true })) return;
+  const form = e.currentTarget.querySelector('form');
+  if (!form) return;
+  e.preventDefault();
+  form.requestSubmit();
 }

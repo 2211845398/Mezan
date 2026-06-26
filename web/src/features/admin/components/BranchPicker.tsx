@@ -24,6 +24,8 @@ type Props = {
   allowClear?: boolean;
   /** If true, include archived branches in the list. */
   includeArchived?: boolean;
+  /** When set, only branches of this kind are listed. */
+  kind?: 'commercial' | 'warehouse';
 };
 
 export function BranchPicker({
@@ -34,9 +36,13 @@ export function BranchPicker({
   label,
   allowClear,
   includeArchived = false,
+  kind,
 }: Props) {
   const { t } = useTranslation('admin');
-  const { data: branches = [], isLoading } = useBranches(includeArchived);
+  const { data: branches = [], isLoading } = useBranches(
+    includeArchived,
+    kind ? { kind } : {},
+  );
 
   return (
     <div className="space-y-2">

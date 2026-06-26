@@ -11,8 +11,9 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { type ReactNode, useMemo, useRef } from 'react';
+import { type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import {
   Table,
@@ -50,6 +51,15 @@ import { useTableUrlState } from './useTableUrlState';
  */
 
 const VIRTUAL_ROW_THRESHOLD = 200;
+
+function isInteractiveClickTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      'a, button, input, select, textarea, [role="checkbox"], [data-stop-row-click]',
+    ),
+  );
+}
 
 export type DataTableProps<TData> = {
   columns: DataTableColumn<TData>[];
@@ -94,6 +104,10 @@ export type DataTableProps<TData> = {
   searchPlaceholder?: string | undefined;
   /** Extra class names merged onto each body row. */
   getRowClassName?: (row: TData) => string | undefined;
+  /** Navigate when a row is clicked (entire row is interactive). */
+  getRowHref?: (row: TData) => string | undefined;
+  /** Custom row click handler (runs after navigation when both are set). */
+  onRowClick?: (row: TData) => void;
 };
 
 export function DataTable<TData>({
@@ -123,8 +137,11 @@ export function DataTable<TData>({
   emptyMessage,
   searchPlaceholder,
   getRowClassName,
+  getRowHref,
+  onRowClick,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const [{ page, pageSize, sort, q }, urlActions] = useTableUrlState(defaultUrlQuery);
   const [persisted, { setDensity, setColumnVisibility }] = usePersistedTableState({
@@ -213,6 +230,69 @@ export function DataTable<TData>({
 
   const selectedRows = table.getSelectedRowModel().rows.map((r) => r.original);
 
+  const rowIsClickable = Boolean(getRowHref || onRowClick);
+
+  const handleRowActivate = useCallback(
+    (rowData: TData) => {
+      const href = getRowHref?.(rowData);
+      if (href) navigate(href);
+      onRowClick?.(rowData);
+    },
+    [getRowHref, navigate, onRowClick],
+  );
+
+  const renderBodyRow = (row: (typeof rows)[number]) => (
+    <TableRow
+      key={row.id}
+      data-state={row.getIsSelected() ? 'selected' : undefined}
+      className={cn(
+        rowClass,
+        rowIsClickable && 'cursor-pointer transition-colors hover:bg-muted/50',
+        getRowClassName?.(row.original),
+      )}
+      {...(rowIsClickable
+        ? {
+            role: 'button' as const,
+            tabIndex: 0,
+            onClick: (e: MouseEvent<HTMLTableRowElement>) => {
+              if (isInteractiveClickTarget(e.target)) return;
+              handleRowActivate(row.original);
+            },
+            onKeyDown: (e: KeyboardEvent<HTMLTableRowElement>) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              if (isInteractiveClickTarget(e.target)) return;
+              e.preventDefault();
+              handleRowActivate(row.original);
+            },
+          }
+        : {})}
+    >
+      {row.getVisibleCells().map((cell) => {
+        const cellAlign = columnAlignClass(cell.column.columnDef.meta?.align);
+        return (
+          <TableCell
+            key={cell.id}
+            className={cn('align-middle', cellAlign, cellClass)}
+            style={
+              cell.column.columnDef.size != null
+                ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
+                : undefined
+            }
+            onClick={
+              rowIsClickable
+                ? (e) => {
+                    if (isInteractiveClickTarget(e.target)) e.stopPropagation();
+                  }
+                : undefined
+            }
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        );
+      })}
+    </TableRow>
+  );
+
   const body = isLoading ? (
     <TableSkeleton rows={pageSize} cols={columns.length} />
   ) : isError ? (
@@ -274,30 +354,7 @@ export function DataTable<TData>({
               {virtualItems.map((v) => {
                 const row = rows[v.index];
                 if (!row) return null;
-                return (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? 'selected' : undefined}
-                    className={cn(rowClass, getRowClassName?.(row.original))}
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const cellAlign = columnAlignClass(cell.column.columnDef.meta?.align);
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          className={cn('align-middle', cellAlign, cellClass)}
-                          style={
-                            cell.column.columnDef.size != null
-                              ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
-                              : undefined
-                          }
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
+                return renderBodyRow(row);
               })}
               <tr
                 aria-hidden="true"
@@ -310,30 +367,7 @@ export function DataTable<TData>({
               />
             </>
           ) : (
-            rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() ? 'selected' : undefined}
-                className={cn(rowClass, getRowClassName?.(row.original))}
-              >
-                {row.getVisibleCells().map((cell) => {
-                  const cellAlign = columnAlignClass(cell.column.columnDef.meta?.align);
-                  return (
-                    <TableCell
-                      key={cell.id}
-                      className={cn('align-middle', cellAlign, cellClass)}
-                      style={
-                        cell.column.columnDef.size != null
-                          ? { width: cell.column.getSize(), minWidth: cell.column.getSize() }
-                          : undefined
-                      }
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))
+            rows.map((row) => renderBodyRow(row))
           )}
         </TableBody>
       </Table>

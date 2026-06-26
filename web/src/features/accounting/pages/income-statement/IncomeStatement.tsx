@@ -3,7 +3,7 @@ import { startOfMonth } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -116,14 +116,15 @@ export default function IncomeStatement() {
     <div className="flex flex-col gap-6 p-6">
       <PageHeader title={t('is.title')} />
       <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-1">
-          <Label>{t('is.period_start')}</Label>
-          <DateField value={ps} onChange={setPs} className="w-[200px]" />
-        </div>
-        <div className="grid gap-1">
-          <Label>{t('is.period_end')}</Label>
-          <DateField value={pe} onChange={setPe} className="w-[200px]" />
-        </div>
+        <DateRangeFields
+          fromValue={ps}
+          toValue={pe}
+          onFromChange={setPs}
+          onToChange={setPe}
+          fromLabel={<Label>{t('is.period_start')}</Label>}
+          toLabel={<Label>{t('is.period_end')}</Label>}
+          fieldClassName="w-[200px]"
+        />
         <div className="grid gap-1">
           <Label>{t('toolbar.branch')}</Label>
           <AccountingBranchFilter

@@ -2,14 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 
 import { paginatedParams } from '@/api/pagination';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { Eye } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,10 +21,11 @@ import { formatPersonName } from '@/lib/personName';
 
 import type { CustomerListItemRead } from '../../api';
 import { customersListQueryOptions } from '../../queries';
-import CustomerForm from './CustomerForm';
+import CustomerForm, { CUSTOMER_DIALOG_FORM_ID } from './CustomerForm';
 
 export default function CustomersList() {
   const { t, i18n } = useTranslation('crm');
+  const { t: tc } = useTranslation('common');
   const [search, setSearch] = useState('');
   const [applied, setApplied] = useState('');
   const [urlQuery, { setPage }] = useTableUrlState({ pageSize: 30 });
@@ -95,17 +97,6 @@ export default function CustomersList() {
               </span>
             );
           },
-        },
-        {
-          id: 'a',
-          header: '',
-          cell: ({ row }) => (
-            <Button type="button" size="icon" variant="ghost" asChild>
-              <Link to={`/crm/customers/${row.original.id}`} aria-label={t('customers.view')}>
-                <Eye className="size-4" />
-              </Link>
-            </Button>
-          ),
         },
       ]),
     [t],
@@ -222,6 +213,7 @@ export default function CustomersList() {
         isError={isError}
         onRetry={() => void refetch()}
         tableDir={i18n.dir() === 'rtl' ? 'rtl' : 'ltr'}
+        getRowHref={(row) => `/crm/customers/${row.id}`}
       />
 
       <FloatingFormDialog
@@ -229,6 +221,14 @@ export default function CustomersList() {
         onOpenChange={setNewCustomerOpen}
         title={t('customers.new')}
         maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={CUSTOMER_DIALOG_FORM_ID}
+            onCancel={() => setNewCustomerOpen(false)}
+            saveLabel={tc('actions.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {newCustomerOpen ? (
           <CustomerForm key={formKey} variant="dialog" onDismiss={() => setNewCustomerOpen(false)} />

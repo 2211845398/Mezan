@@ -1,11 +1,17 @@
 """SQLAlchemy ORM model for branches (store locations)."""
 
 from datetime import UTC, datetime
+from enum import StrEnum
 
 from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+
+
+class BranchKind(StrEnum):
+    COMMERCIAL = "commercial"
+    WAREHOUSE = "warehouse"
 
 
 class Branch(Base):
@@ -18,6 +24,12 @@ class Branch(Base):
     code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     address: Mapped[str] = mapped_column(String(512), nullable=True)
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", nullable=False)
+    kind: Mapped[str] = mapped_column(
+        String(32),
+        default=BranchKind.COMMERCIAL,
+        nullable=False,
+        index=True,
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

@@ -118,6 +118,43 @@ describe('W-5.3 catalog API wiring', () => {
     expect(out[0]?.children ?? []).toHaveLength(0);
   });
 
+  it('flattenCategoryTree and collectDescendantIds support parent picker filtering', async () => {
+    const { flattenCategoryTree, collectDescendantIds, findCategoryNode } = await import(
+      '../utils/categoryTree'
+    );
+    const tree = [
+      {
+        id: 1,
+        name: 'Root',
+        slug: 'root',
+        sort_order: 0,
+        is_active: true,
+        parent_id: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        children: [
+          {
+            id: 2,
+            name: 'Child',
+            slug: 'child',
+            sort_order: 0,
+            is_active: true,
+            parent_id: 1,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+            children: [],
+          },
+        ],
+      },
+    ] as unknown as CategoryTreeNode[];
+
+    const flat = flattenCategoryTree(tree);
+    expect(flat.map((o) => o.label)).toEqual(['Root', 'Root / Child']);
+
+    const root = findCategoryNode(tree, 1);
+    expect(collectDescendantIds(root)).toEqual(new Set([2]));
+  });
+
   it('uploadCategoryImage posts to /categories/images and returns image_url', async () => {
     const mod = await import('../api');
     const post = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({

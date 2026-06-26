@@ -3,16 +3,21 @@ import { useMemo } from 'react';
 
 import { listPendingOnboarding } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { getCommercialRestockCount, getReorderAlertCount } from '@/features/inventory/api';
 import { getMyUnreadNotificationCount } from '@/features/notifications/api';
 
 import type { NavBadgeKind } from '@/config/navigation';
 import { leaveListQueryOptions } from '@/features/hr/queries';
 import { notificationKeys } from '@/features/notifications/queries';
 
+import {
+  commercialRestockBadgeQueryKey,
+  NAV_BADGE_POLL_MS,
+  reorderAlertsBadgeQueryKey,
+} from './navBadgeInvalidation';
 import { usePermission } from './usePermission';
 
 const STALE_MS = 30_000;
-const POLL_MS = 120_000;
 
 export type NavBadgeCounts = Record<NavBadgeKind, number>;
 
@@ -24,28 +29,50 @@ export function useNavBadges(): NavBadgeCounts {
   const canEmployeesRead = usePermission('employees', 'read');
   const canOnboardingRead = usePermission('onboarding', 'read');
   const canNotificationsRead = usePermission('notifications', 'read');
+  const canInventoryRead = usePermission('inventory', 'read');
+  const canPurchaseOrdersRead = usePermission('purchase_orders', 'read');
+  const canReorderAlerts = canInventoryRead || canPurchaseOrdersRead;
 
-  const [pendingLeave, pendingOnboarding, unread] = useQueries({
+  const [pendingLeave, pendingOnboarding, unread, reorderAlerts, commercialRestock] = useQueries({
     queries: [
       {
         ...leaveListQueryOptions({ status: 'pending', limit: 100 }),
         enabled: canEmployeesRead,
         staleTime: STALE_MS,
-        refetchInterval: POLL_MS,
+        refetchInterval: NAV_BADGE_POLL_MS,
+        refetchOnWindowFocus: true,
       },
       {
         queryKey: adminKeys.onboardingList(null),
         queryFn: listPendingOnboarding,
         enabled: canOnboardingRead,
         staleTime: STALE_MS,
-        refetchInterval: POLL_MS,
+        refetchInterval: NAV_BADGE_POLL_MS,
+        refetchOnWindowFocus: true,
       },
       {
         queryKey: notificationKeys.unreadCount(),
         queryFn: async () => (await getMyUnreadNotificationCount()).unread_count,
         enabled: canNotificationsRead,
         staleTime: STALE_MS,
-        refetchInterval: POLL_MS,
+        refetchInterval: NAV_BADGE_POLL_MS,
+        refetchOnWindowFocus: true,
+      },
+      {
+        queryKey: reorderAlertsBadgeQueryKey(),
+        queryFn: async () => (await getReorderAlertCount()).count,
+        enabled: canReorderAlerts,
+        staleTime: STALE_MS,
+        refetchInterval: NAV_BADGE_POLL_MS,
+        refetchOnWindowFocus: true,
+      },
+      {
+        queryKey: commercialRestockBadgeQueryKey(),
+        queryFn: async () => (await getCommercialRestockCount()).count,
+        enabled: canInventoryRead,
+        staleTime: STALE_MS,
+        refetchInterval: NAV_BADGE_POLL_MS,
+        refetchOnWindowFocus: true,
       },
     ],
   });
@@ -54,6 +81,8 @@ export function useNavBadges(): NavBadgeCounts {
     const leaveN = canEmployeesRead ? (pendingLeave.data?.length ?? 0) : 0;
     const onboardN = canOnboardingRead ? (pendingOnboarding.data?.length ?? 0) : 0;
     const unreadN = canNotificationsRead ? (unread.data ?? 0) : 0;
+    const reorderN = canReorderAlerts ? (reorderAlerts.data ?? 0) : 0;
+    const commercialN = canInventoryRead ? (commercialRestock.data ?? 0) : 0;
     const hrRollup = leaveN + onboardN;
 
     return {
@@ -61,14 +90,20 @@ export function useNavBadges(): NavBadgeCounts {
       onboarding_pending: onboardN,
       notifications_unread: unreadN,
       hr_attention_rollup: hrRollup,
+      reorder_alerts: reorderN,
+      commercial_restock: commercialN,
     };
   }, [
     canEmployeesRead,
     canOnboardingRead,
     canNotificationsRead,
+    canReorderAlerts,
+    canInventoryRead,
     pendingLeave.data,
     pendingOnboarding.data,
     unread.data,
+    reorderAlerts.data,
+    commercialRestock.data,
   ]);
 }
 

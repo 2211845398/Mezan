@@ -29,6 +29,7 @@ from app.services.effective_permissions import (
     list_onboarding_assignee_users,
     user_can_act_as_onboarding_assignee,
 )
+from app.services.realtime_nav_badges import emit_onboarding_nav_badges_invalidate
 from app.services.user_admin_service import list_users_page
 from app.services.user_lifecycle_service import (
     assign_role_by_code,
@@ -41,7 +42,6 @@ from app.services.user_lifecycle_service import (
     update_pending_onboarding_subject,
     upsert_user_permission_override,
 )
-from app.utils.security import hash_password
 
 router = APIRouter()
 
@@ -73,9 +73,10 @@ async def create_user(
         first_name=user_in.first_name,
         father_name=user_in.father_name,
         family_name=user_in.family_name,
-        password_hash=hash_password(user_in.password) if user_in.password else None,
-        status="pending_onboarding",
+        password_hash=None,
+        status="suspended",
         branch_id=user_in.branch_id,
+        must_change_password=False,
     )
     db.add(user)
     await db.flush()
@@ -103,6 +104,7 @@ async def create_user(
         request=request,
     )
     await db.commit()
+    await emit_onboarding_nav_badges_invalidate()
     return bootstrap_admin_protection.user_read_with_protection_flag(user)
 
 
@@ -168,6 +170,11 @@ async def update_user(
     if body.family_name is not None:
         user.family_name = body.family_name
     if body.status is not None:
+        if body.status == "deactivated" and user_id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="cannot_deactivate_self",
+            )
         bootstrap_admin_protection.assert_bootstrap_admin_may_not_be_deactivated(user, body.status)
         user.status = body.status
     if body.branch_id is not None:
@@ -226,6 +233,11 @@ async def add_user_role(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user.status == "deactivated":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user_deactivated_cannot_assign_role",
+        )
     bootstrap_admin_protection.assert_bootstrap_admin_may_not_add_roles(user)
     result = await db.execute(select(Role).where(Role.id == body.role_id))
     if not result.scalar_one_or_none():
@@ -332,10 +344,16 @@ async def admin_request_password_reset(
 @router.get("/hr/onboarding/pending", response_model=list[UserOnboardingRead])
 async def list_pending_onboarding(
     db: AsyncSession = Depends(get_db),
-    _: None = Depends(get_current_user),
-    __: None = require_permission("onboarding", "read"),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("onboarding", "read"),
 ) -> list[UserOnboardingRead]:
     rows = await list_onboarding_tasks_enriched(db, status_filter="pending")
+    rows = [
+        row
+        for row in rows
+        if row["onboarding"].assigned_hr_user_id is None
+        or row["onboarding"].assigned_hr_user_id == current_user.id
+    ]
     # Merge enriched data into the response model
     result = []
     for row in rows:
@@ -382,7 +400,7 @@ async def patch_pending_onboarding_subject(
     if not await _can_complete_onboarding(db, onboarding_task, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the assigned reviewer or HR/Owner/Admin can update this onboarding",
+            detail="Only the assigned onboarding reviewer can update this task",
         )
 
     old_user = await db.execute(select(User).where(User.id == onboarding_task.user_id))
@@ -430,7 +448,7 @@ async def upload_onboarding_identity_document_image(
     if not await _can_complete_onboarding(db, onboarding_task, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the assigned reviewer or HR/Owner/Admin can update this onboarding",
+            detail="Only the assigned onboarding reviewer can update this task",
         )
     raw = await file.read(settings.EMPLOYEE_IDENTITY_DOCUMENT_MAX_BYTES + 1)
     if len(raw) > settings.EMPLOYEE_IDENTITY_DOCUMENT_MAX_BYTES:
@@ -448,30 +466,15 @@ async def upload_onboarding_identity_document_image(
     return IdentityDocumentImageResponse(image_url=url)
 
 
-# Role codes allowed to complete any onboarding (owner/admin/HR manager)
-_CAN_COMPLETE_ANY_ONBOARDING_ROLES = {"OWNER", "ADMIN", "HR_MANAGER"}
-
-
 async def _can_complete_onboarding(db: AsyncSession, onboarding_task, current_user_id: int) -> bool:
-    """Check if current user can complete the onboarding task.
+    """Check if current user can update/complete the onboarding task.
 
-    Allowed if:
-    - User is the assigned_hr_user_id
-    - User has OWNER, ADMIN, or HR_MANAGER role
+    When assigned_hr_user_id is set, only that reviewer may act.
+    Otherwise onboarding:update on the route is sufficient.
     """
-    if onboarding_task.assigned_hr_user_id == current_user_id:
-        return True
-
-    # Check if user has any of the privileged roles
-    result = await db.execute(
-        select(Role.code)
-        .join(UserRole, UserRole.role_id == Role.id)
-        .where(
-            UserRole.user_id == current_user_id,
-            Role.code.in_(_CAN_COMPLETE_ANY_ONBOARDING_ROLES),
-        )
-    )
-    return result.scalar_one_or_none() is not None
+    if onboarding_task.assigned_hr_user_id is not None:
+        return onboarding_task.assigned_hr_user_id == current_user_id
+    return True
 
 
 @router.post("/hr/onboarding/{onboarding_id}/complete", response_model=UserOnboardingRead)
@@ -496,7 +499,7 @@ async def complete_onboarding(
     if not await _can_complete_onboarding(db, onboarding_task, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the assigned reviewer or HR/Owner/Admin can complete this onboarding",
+            detail="Only the assigned onboarding reviewer can complete this task",
         )
 
     row = await complete_onboarding_task(
@@ -515,6 +518,7 @@ async def complete_onboarding(
         request=request,
     )
     await db.commit()
+    await emit_onboarding_nav_badges_invalidate()
     return UserOnboardingRead.model_validate(row)
 
 

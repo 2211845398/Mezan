@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
@@ -124,5 +124,24 @@ describe('DataTable (W-3.3)', () => {
       const parsed = JSON.parse(raw as string);
       expect(parsed.density).toBe('compact');
     });
+  });
+
+  it('navigates when a row is clicked and onRowClick is set', async () => {
+    const user = userEvent.setup();
+    const onRowClick = vi.fn();
+    renderWithProviders(
+      <DataTable
+        columns={columns}
+        data={rows}
+        totalRows={rows.length}
+        mode="server"
+        onRowClick={onRowClick}
+      />,
+      { initialEntries: ['/list'] },
+    );
+
+    await user.click(screen.getByText('Beta'));
+
+    expect(onRowClick).toHaveBeenCalledWith(rows[1]);
   });
 });

@@ -7,7 +7,7 @@ import { useParams } from 'react-router-dom';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { listBranches } from '@/features/admin/api';
@@ -99,14 +99,15 @@ export default function EmployeeAttendance() {
     <div className="space-y-6">
       <SectionCard>
         <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-1">
-            <Label>{t('attendance.from')}</Label>
-            <DateField value={dateFrom} onChange={setDateFrom} />
-          </div>
-          <div className="space-y-1">
-            <Label>{t('attendance.to')}</Label>
-            <DateField value={dateTo} onChange={setDateTo} />
-          </div>
+          <DateRangeFields
+            cellClassName="space-y-1"
+            fromValue={dateFrom}
+            toValue={dateTo}
+            onFromChange={setDateFrom}
+            onToChange={setDateTo}
+            fromLabel={<Label>{t('attendance.from')}</Label>}
+            toLabel={<Label>{t('attendance.to')}</Label>}
+          />
           <Button
             type="button"
             variant="outline"

@@ -14,7 +14,15 @@ import {
 } from '@/components/shared/FloatingFormDialog';
 import { DateField } from '@/components/shared/form/DateField';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -25,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { inclusiveEndIsoDateFromStartAndDays } from '@/lib/date';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import { createLeaveRequest, createMyLeaveRequest } from '../../api';
 import { formatVacationBalanceRemaining } from '../../lib/leaveBalanceDisplay';
@@ -100,6 +109,10 @@ export default function EmployeeLeaveRequestDialog({
     }
   }, [open, form]);
 
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['leave_type', 'start_date', 'duration_days', 'reason'],
+  });
+
   const mutation = useMutation({
     mutationFn: async (v: FormValues) => {
       const body = {
@@ -152,7 +165,7 @@ export default function EmployeeLeaveRequestDialog({
         <form
           id={FORM_ID}
           className="space-y-4"
-          onSubmit={form.handleSubmit(async (v) => mutation.mutateAsync(v))}
+          onSubmit={form.handleSubmit(async (v) => mutation.mutateAsync(v), onInvalid)}
         >
           <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
             <p className="font-medium text-foreground">{t('leave.dialog.balance_section')}</p>
@@ -280,6 +293,7 @@ export default function EmployeeLeaveRequestDialog({
               </FormItem>
             )}
           />
+          <FormValidationAlert />
         </form>
       </Form>
     </FloatingFormDialog>

@@ -9,7 +9,12 @@ from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_permission
+from app.api.deps import (
+    STAFF_SELF_SERVICE_ANY,
+    get_current_user,
+    require_any_permission,
+    require_permission,
+)
 from app.core.config import settings
 from app.db.database import get_db
 from app.models.employee_profile import EmployeeProfile
@@ -29,22 +34,34 @@ from app.schemas.payroll import (
     PayslipGenerateRequest,
     PayslipListResponse,
     PayslipRead,
+    PayslipSelfListResponse,
+    PayslipSelfRead,
 )
 from app.services import audit_service
 from app.services.attendance_policy_service import list_policies, upsert_policy
+from app.services.employee_service import get_employee_profile_id_for_user
 from app.services.notifications.service import (
     dispatch_delivery_after_commit,
     enqueue_direct_notification,
 )
-from app.services.payroll_pdf_service import build_payroll_period_csv, build_payroll_period_pdf
+from app.services.payroll_export_service import (
+    build_payroll_period_pdf_localized,
+    build_payroll_period_xlsx,
+    build_payslip_pdf,
+    build_payslip_xlsx,
+    payslip_dict_from_read,
+)
+from app.services.payroll_pdf_service import build_payroll_period_csv
 from app.services.payroll_service import (
     approve_and_pay_period,
     approve_payslip,
     calendar_month_period_bounds,
     export_approved_payslips_csv,
     generate_payslip,
+    get_my_payslip_for_month_read,
     get_payroll_period_snapshot,
     get_payslip_read,
+    list_my_payslips_read,
     list_payroll_overview,
     list_payslips_read,
     mark_payslips_paid_for_period,
@@ -56,6 +73,7 @@ from app.utils.payroll_notifications import (
     normalize_notification_lang,
     payslip_paid_notification_copy,
 )
+from app.utils.request_locale import resolve_request_locale
 
 router = APIRouter()
 
@@ -180,6 +198,56 @@ async def list_payslips_endpoint(
     return PayslipListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
+async def _employee_profile_id_for_self_service(db: AsyncSession, user_id: int) -> int:
+    employee_profile_id = await get_employee_profile_id_for_user(db, user_id)
+    if employee_profile_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No employee profile linked to this account",
+        )
+    return employee_profile_id
+
+
+@router.get("/payroll/me/payslips", response_model=PayslipSelfListResponse)
+async def list_my_payslips_endpoint(
+    year: int | None = Query(None, ge=2000, le=2100),
+    limit: int = Query(24, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> PayslipSelfListResponse:
+    """Self-service payslip list for the signed-in employee only."""
+    employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
+    items, total = await list_my_payslips_read(
+        db,
+        employee_profile_id=employee_profile_id,
+        year=year,
+        limit=limit,
+        offset=offset,
+    )
+    return PayslipSelfListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/payroll/me/payslips/{year}/{month}", response_model=PayslipSelfRead)
+async def get_my_payslip_for_month_endpoint(
+    year: int,
+    month: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_any_permission(*STAFF_SELF_SERVICE_ANY),
+) -> PayslipSelfRead:
+    """Single payslip for the signed-in employee in a calendar month."""
+    _validate_payroll_year_month(year, month)
+    employee_profile_id = await _employee_profile_id_for_self_service(db, current_user.id)
+    return await get_my_payslip_for_month_read(
+        db,
+        employee_profile_id=employee_profile_id,
+        year=year,
+        month=month,
+    )
+
+
 @router.get("/payroll/payslips/{payslip_id}", response_model=PayslipRead)
 async def get_payslip_endpoint(
     payslip_id: int,
@@ -188,6 +256,42 @@ async def get_payslip_endpoint(
     __: None = require_permission("payroll", "read"),
 ) -> PayslipRead:
     return await get_payslip_read(db, payslip_id)
+
+
+@router.get("/payroll/payslips/{payslip_id}/export.pdf")
+async def export_payslip_pdf_endpoint(
+    payslip_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("payroll", "export"),
+) -> Response:
+    payslip = await get_payslip_read(db, payslip_id)
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content = build_payslip_pdf(payslip_dict_from_read(payslip), locale=locale)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="payslip-{payslip_id}.pdf"'},
+    )
+
+
+@router.get("/payroll/payslips/{payslip_id}/export.xlsx")
+async def export_payslip_xlsx_endpoint(
+    payslip_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("payroll", "export"),
+) -> Response:
+    payslip = await get_payslip_read(db, payslip_id)
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    content = build_payslip_xlsx(payslip_dict_from_read(payslip), locale=locale)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="payslip-{payslip_id}.xlsx"'},
+    )
 
 
 @router.patch("/payroll/payslips/{payslip_id}/adjustments", response_model=PayslipRead)
@@ -396,6 +500,7 @@ async def payroll_period_approve_and_pay_endpoint(
 async def payroll_period_export_pdf_endpoint(
     year: int,
     month: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_current_user),
     __: None = require_permission("payroll", "export"),
@@ -403,10 +508,12 @@ async def payroll_period_export_pdf_endpoint(
     _validate_payroll_year_month(year, month)
     period_start, period_end = calendar_month_period_bounds(year, month)
     rows = await list_payroll_overview(db, period_start=period_start, period_end=period_end)
-    pdf_bytes = build_payroll_period_pdf(
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    pdf_bytes = build_payroll_period_pdf_localized(
         period_start=period_start,
         period_end=period_end,
         rows=rows,
+        locale=locale,
         title=f"Payroll {year}-{month:02d}",
     )
     return Response(
@@ -414,6 +521,34 @@ async def payroll_period_export_pdf_endpoint(
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="payroll-{year}-{month:02d}.pdf"',
+        },
+    )
+
+
+@router.get("/payroll/periods/{year}/{month}/export.xlsx")
+async def payroll_period_export_xlsx_endpoint(
+    year: int,
+    month: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(get_current_user),
+    __: None = require_permission("payroll", "export"),
+) -> Response:
+    _validate_payroll_year_month(year, month)
+    period_start, period_end = calendar_month_period_bounds(year, month)
+    rows = await list_payroll_overview(db, period_start=period_start, period_end=period_end)
+    locale = resolve_request_locale(request.headers.get("accept-language"))
+    xlsx_bytes = build_payroll_period_xlsx(
+        period_start=period_start,
+        period_end=period_end,
+        rows=rows,
+        locale=locale,
+    )
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="payroll-{year}-{month:02d}.xlsx"',
         },
     )
 

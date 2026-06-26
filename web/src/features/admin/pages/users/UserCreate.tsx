@@ -12,9 +12,18 @@ import {
   floatingFormCloseButtonClassName,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { notify } from '@/lib/toast';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import { getUserRoles, listPendingOnboarding } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';
@@ -28,7 +37,6 @@ const schema = z.object({
   father_name: z.string().optional().nullable(),
   family_name: z.string().optional().nullable(),
   email: z.string().trim().email(),
-  password: z.string().optional(),
   branch_id: z.coerce.number().nullable().optional(),
   role_code: z.string().optional().nullable(),
   assigned_hr_user_id: z.coerce.number().nullable().optional(),
@@ -49,7 +57,6 @@ export default function UserCreate() {
       father_name: '',
       family_name: '',
       email: '',
-      password: '',
       branch_id: null,
       role_code: null,
       assigned_hr_user_id: null,
@@ -66,6 +73,9 @@ export default function UserCreate() {
     enabled: createdId != null,
   });
   const onboardingForUser = pending.find((p) => p.user_id === createdId);
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['first_name', 'email', 'father_name', 'family_name', 'branch_id', 'role_code'],
+  });
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4 md:p-6">
@@ -81,18 +91,17 @@ export default function UserCreate() {
                   father_name: v.father_name?.trim() ? v.father_name.trim() : null,
                   family_name: v.family_name?.trim() ? v.family_name.trim() : null,
                   email: v.email,
-                  password: v.password != null && v.password !== '' ? v.password : null,
                   branch_id: v.branch_id == null ? null : v.branch_id,
                   role_code: v.role_code && v.role_code !== '' ? v.role_code : null,
                   assigned_hr_user_id: v.assigned_hr_user_id == null ? null : v.assigned_hr_user_id,
-                  status: 'pending_onboarding',
+                  status: 'suspended',
                 });
                 setCreatedId(u.id);
                 notify.success(tc('toasts.saved'));
               } catch (error) {
                 setFormError(applyApiErrorToForm(form, error) ?? tc('errors.validation'));
               }
-            })}
+            }, onInvalid)}
             className="space-y-4"
           >
             <FormField
@@ -148,19 +157,6 @@ export default function UserCreate() {
               )}
             />
             <FormField
-              name="password"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('users.password')}</FormLabel>
-                  <FormControl>
-                    <Input type="password" autoComplete="new-password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
               name="branch_id"
               control={form.control}
               render={({ field }) => (
@@ -205,11 +201,7 @@ export default function UserCreate() {
                 </FormItem>
               )}
             />
-            {formError ? (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {formError}
-              </p>
-            ) : null}
+            <FormValidationAlert message={formError} />
             <div className="flex gap-[5px]">
               <Button type="submit" className={floatingFormApproveButtonClassName} disabled={create.isPending}>
                 {t('actions.save')}

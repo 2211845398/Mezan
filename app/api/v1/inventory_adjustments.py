@@ -17,6 +17,7 @@ from app.services.inventory_adjustment_service import post_stock_movement_gl
 from app.services.inventory_human_movement_service import apply_human_inventory_movement
 from app.services.inventory_reporting_service import list_stock_movements_with_names
 from app.services.inventory_service import apply_stock_movement
+from app.services.realtime_nav_badges import emit_inventory_stock_badges_invalidate
 
 router = APIRouter()
 
@@ -54,6 +55,8 @@ async def create_stock_adjustment(
         request=request,
     )
     await db.commit()
+    if body.qty_delta < 0:
+        await emit_inventory_stock_badges_invalidate()
     return {"movement_id": mv.id, "gl_posting": gl_result}
 
 
@@ -91,6 +94,7 @@ async def create_human_inventory_movement(
         request=request,
     )
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
     return HumanInventoryMovementResponse(movement_id=mv.id)
 
 
@@ -98,6 +102,7 @@ async def create_human_inventory_movement(
 async def list_stock_movements(
     branch_id: int | None = None,
     product_id: int | None = None,
+    variant_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
@@ -108,6 +113,7 @@ async def list_stock_movements(
         db,
         branch_id=branch_id,
         product_id=product_id,
+        variant_id=variant_id,
         limit=limit,
         offset=offset,
     )

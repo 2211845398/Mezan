@@ -51,11 +51,19 @@
       },
       "metric": {
         "open_balance": "Open balance",
+        "balance_due": "Balance due to supplier",
         "total_purchases": "Total purchases (period)",
         "total_paid": "Total paid (period)",
         "receipts_payments": "Receipts & payments",
         "receipts_payments_value": "{{receipts}} receipts · {{payments}} payments"
-      }
+      },
+      "line_detail_title": "Line details",
+      "line_total": "Total",
+      "line_paid": "Paid",
+      "line_remaining": "Remaining",
+      "view_po": "Purchase order",
+      "view_journal": "Journal entry",
+      "apply_payment": "Apply payment voucher"
     },
     "form": {
       "code": "Code",

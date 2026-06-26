@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -63,6 +64,24 @@ class PayslipRead(BaseModel):
 
 class PayslipListResponse(PaginatedListResponse[PayslipRead]):
     """Paginated payslip list."""
+
+
+class PayslipDeductionLine(BaseModel):
+    amount: Decimal
+    reason: str
+    source: Literal["automatic", "manual"] = "automatic"
+    date: dt.date | None = None
+
+
+class PayslipSelfRead(PayslipRead):
+    """Employee self-service payslip with display status and deduction breakdown."""
+
+    display_status: Literal["draft", "approved", "paid"]
+    deduction_lines: list[PayslipDeductionLine] = Field(default_factory=list)
+
+
+class PayslipSelfListResponse(PaginatedListResponse[PayslipSelfRead]):
+    """Paginated self-service payslip list."""
 
 
 class PayslipAdjustmentsPatch(BaseModel):

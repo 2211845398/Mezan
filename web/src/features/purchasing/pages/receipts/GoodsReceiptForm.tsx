@@ -1,16 +1,12 @@
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import type { BranchRead } from '@/features/admin/types';
 
-import GoodsReceiptFields from '../../components/GoodsReceiptFields';
+import GoodsReceiptFields, { GOODS_RECEIPT_FORM_ID } from '../../components/GoodsReceiptFields';
 import type { GoodsReceiptRead, PurchaseOrderRead } from '../../api';
 
 type Props = {
@@ -37,27 +33,32 @@ export default function GoodsReceiptForm({
   const { t: tCommon } = useTranslation('common');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t('orders.receive.title')}</DialogTitle>
-        </DialogHeader>
-        <GoodsReceiptFields
-          purchaseOrder={purchaseOrder}
-          receipts={receipts}
-          branches={branches}
-          productLabels={productLabels}
-          onPosted={async () => {
-            onOpenChange(false);
-            await onPosted?.();
-          }}
+    <FloatingFormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('orders.receive.title')}
+      maxWidth="lg"
+      footer={
+        <FloatingFormDialogFooter
+          formId={GOODS_RECEIPT_FORM_ID}
+          onCancel={() => onOpenChange(false)}
+          saveLabel={t('orders.receive.submit')}
+          cancelLabel={tCommon('actions.cancel')}
         />
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {tCommon('actions.cancel')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      <GoodsReceiptFields
+        purchaseOrder={purchaseOrder}
+        receipts={receipts}
+        branches={branches}
+        productLabels={productLabels}
+        formId={GOODS_RECEIPT_FORM_ID}
+        hideFooterActions
+        onPosted={async () => {
+          onOpenChange(false);
+          await onPosted?.();
+        }}
+      />
+    </FloatingFormDialog>
   );
 }

@@ -98,9 +98,14 @@ export default function StaffScheduleDashboard() {
           </Button>
         ) : null}
         {canRequestLeave ? (
-          <Button size="sm" variant="outline" type="button" onClick={() => setLeaveDialogOpen(true)}>
-            {tCommon('layout.leave_request')}
-          </Button>
+          <>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/my-leaves">{tHr('leave.my_title')}</Link>
+            </Button>
+            <Button size="sm" variant="outline" type="button" onClick={() => setLeaveDialogOpen(true)}>
+              {tCommon('layout.leave_request')}
+            </Button>
+          </>
         ) : null}
       </div>
 

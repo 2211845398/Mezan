@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { subDays } from 'date-fns';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { DataTable } from '@/components/shared/DataTable';
@@ -20,15 +20,29 @@ interface StatCardProps {
   label: string;
   value: string;
   subtext?: string;
+  to?: string;
 }
 
-function StatCard({ label, value, subtext }: StatCardProps) {
-  return (
-    <div className="rounded-lg border p-4">
+function StatCard({ label, value, subtext, to }: StatCardProps) {
+  const body = (
+    <>
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="text-2xl font-semibold">{value}</p>
       {subtext ? <p className="text-xs text-muted-foreground">{subtext}</p> : null}
-    </div>
+    </>
+  );
+
+  if (!to) {
+    return <div className="rounded-lg border p-4">{body}</div>;
+  }
+
+  return (
+    <Link
+      to={to}
+      className="block rounded-lg border p-4 transition-colors hover:border-muted-foreground/30 hover:bg-muted/40"
+    >
+      {body}
+    </Link>
   );
 }
 
@@ -194,6 +208,7 @@ export default function EmployeePerformance() {
             label={t('performance.leave_requests')}
             value={`${metrics.approvedLeaves}`}
             subtext={`${metrics.pendingLeaves} ${t('performance.pending')}`}
+            to="/hr/leave"
           />
         </div>
       </SectionCard>
@@ -223,7 +238,7 @@ export default function EmployeePerformance() {
           ) : (
             <ul className="space-y-2">
               {leaves.slice(0, 5).map((leave: LeaveRequestRead) => (
-                <li key={leave.id} className="flex justify-between rounded border p-2 text-sm">
+                <li key={leave.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2 text-sm">
                   <span>
                     {t(`leave.type.${leave.leave_type}`, { defaultValue: leave.leave_type })} ({leave.start_date} -{' '}
                     {leave.end_date})
@@ -243,6 +258,14 @@ export default function EmployeePerformance() {
               ))}
             </ul>
           )}
+          {metrics.pendingLeaves > 0 ? (
+            <Link
+              to="/hr/leave"
+              className="inline-block text-sm font-medium text-primary hover:underline"
+            >
+              {t('performance.review_pending_leave')}
+            </Link>
+          ) : null}
         </div>
       </SectionCard>
     </div>

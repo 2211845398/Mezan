@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +21,8 @@ import { usePermission } from '@/hooks/usePermission';
 import type { PaymentTermRead } from '../../api';
 import { createPaymentTerm, updatePaymentTerm } from '../../api';
 import { accountingKeys, paymentTermsQueryOptions } from '../../queries';
+
+const PAYMENT_TERM_FORM_ID = 'accounting-payment-term-form';
 
 function PaymentTermForm({
   existing,
@@ -59,6 +65,7 @@ function PaymentTermForm({
 
   return (
     <form
+      id={PAYMENT_TERM_FORM_ID}
       className="flex flex-col gap-3 p-1"
       onSubmit={(e) => {
         e.preventDefault();
@@ -83,15 +90,14 @@ function PaymentTermForm({
         <Label>{t('payment_terms.form.days')}</Label>
         <Input type="number" min={0} value={days} onChange={(e) => setDays(e.target.value)} />
       </div>
-      <Button type="submit" disabled={save.isPending}>
-        {t('payment_terms.form.save')}
-      </Button>
     </form>
   );
 }
 
 export default function PaymentTermsList() {
   const { t, i18n } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAr = i18n.language.startsWith('ar');
   const canUpdate = usePermission('accounting', 'update');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,6 +105,20 @@ export default function PaymentTermsList() {
   const [editing, setEditing] = useState<PaymentTermRead | null>(null);
 
   const { data: rows = [], isLoading, isError, refetch } = useQuery(paymentTermsQueryOptions(false));
+
+  const rawEdit = searchParams.get('edit');
+  const editIdFromUrl =
+    rawEdit && /^\d+$/.test(rawEdit) ? Number.parseInt(rawEdit, 10) : null;
+
+  useEffect(() => {
+    if (editIdFromUrl == null || editIdFromUrl <= 0) return;
+    const term = rows.find((r) => r.id === editIdFromUrl);
+    if (term) {
+      setEditing(term);
+      setDialogKey((k) => k + 1);
+      setDialogOpen(true);
+    }
+  }, [editIdFromUrl, rows]);
 
   const columns = useMemo(
     () =>
@@ -116,28 +136,24 @@ export default function PaymentTermsList() {
           header: t('payment_terms.col.active'),
           cell: ({ row }) => (row.original.active ? t('currencies.yes') : t('currencies.no')),
         },
-        {
-          id: 'actions',
-          header: '',
-          cell: ({ row }) =>
-            canUpdate ? (
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => {
-                  setEditing(row.original);
-                  setDialogKey((k) => k + 1);
-                  setDialogOpen(true);
-                }}
-              >
-                <Pencil className="size-4" />
-              </Button>
-            ) : null,
-        },
       ]),
-    [canUpdate, isAr, t],
+    [isAr, t],
   );
+
+  function closeDialog() {
+    setDialogOpen(false);
+    setEditing(null);
+    if (searchParams.has('edit')) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('edit');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -168,15 +184,27 @@ export default function PaymentTermsList() {
         isError={isError}
         onRetry={() => void refetch()}
         emptyMessage={t('payment_terms.empty')}
+        getRowHref={(row) => `/accounting/payment-terms?edit=${row.id}`}
       />
 
       <FloatingFormDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+          else setDialogOpen(true);
+        }}
         title={editing ? t('payment_terms.edit') : t('payment_terms.add')}
         key={dialogKey}
+        footer={
+          <FloatingFormDialogFooter
+            formId={PAYMENT_TERM_FORM_ID}
+            onCancel={closeDialog}
+            saveLabel={t('payment_terms.form.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
-        <PaymentTermForm existing={editing} onDone={() => setDialogOpen(false)} />
+        <PaymentTermForm existing={editing} onDone={closeDialog} />
       </FloatingFormDialog>
     </div>
   );

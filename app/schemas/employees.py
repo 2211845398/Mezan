@@ -146,6 +146,24 @@ class AttendanceClockOutRequest(BaseModel):
     clock_out_at: datetime | None = None
 
 
+class AttendanceSelfClockInRequest(BaseModel):
+    branch_id: int | None = None
+    clock_in_at: datetime | None = None
+    qr_payload: str | None = None
+    action: Literal["check_in", "check_out"] | None = None
+
+
+class AttendanceSelfClockOutRequest(BaseModel):
+    clock_out_at: datetime | None = None
+    qr_payload: str | None = None
+    action: Literal["check_in", "check_out"] | None = None
+
+
+class AttendanceQrRequestResponse(BaseModel):
+    ok: bool = True
+    expires_in_seconds: int
+
+
 class AttendanceLogRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -203,6 +221,22 @@ class VacationLeaveBalanceRead(BaseModel):
     remaining_days: Decimal | None = None
 
 
+class EmployeeMeProfileRead(BaseModel):
+    """Self-service employee profile for the mobile app."""
+
+    employee_profile_id: int
+    user_id: int
+    full_name: str
+    email: str | None = None
+    phone: str | None = None
+    avatar_url: str | None = None
+    branch_id: int | None = None
+    branch_name: str | None = None
+    role_codes: list[str] = Field(default_factory=list)
+    role_name: str | None = None
+    hire_date: date | None = None
+
+
 class LeaveRequestRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -214,6 +248,8 @@ class LeaveRequestRead(BaseModel):
     end_date: date
     reason: str | None = None
     reviewed_by_user_id: int | None = None
+    reviewed_by_user_full_name: str | None = None
+    reviewed_by_user_email: str | None = None
     reviewed_at: datetime | None = None
     review_notes: str | None = None
     created_at: datetime

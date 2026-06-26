@@ -447,6 +447,13 @@ async def can_delete_account(db: AsyncSession, account_id: int) -> tuple[bool, s
     if je_result.scalar_one_or_none():
         return False, "Account has posted journal entries"
 
+    from app.services.financial_reports_service import trial_balance
+
+    tb_rows = await trial_balance(db, as_of=date.today(), branch_id=None)
+    for row in tb_rows:
+        if row["account_id"] == account_id and q2(row["net"]) != Decimal("0"):
+            return False, "Account balance must be zero"
+
     return True, ""
 
 

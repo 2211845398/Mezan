@@ -24,6 +24,8 @@ import { crmKeys, customerDetailQueryOptions } from '../../queries';
 
 type AccountStatus = 'active' | 'pending_activation' | 'suspended';
 
+export const CUSTOMER_DIALOG_FORM_ID = 'crm-customer-dialog-form';
+
 export type CustomerFormProps = {
   variant?: 'page' | 'dialog';
   onDismiss?: () => void;
@@ -131,13 +133,8 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
     }
   };
 
-  return (
-    <div className={cn('mx-auto flex max-w-lg flex-col gap-4', variant === 'page' && 'p-4')}>
-      {variant === 'page' ? (
-        <h1 className="text-xl font-semibold">
-          {isEdit ? t('customers.edit_title') : t('customers.new_title')}
-        </h1>
-      ) : null}
+  const fields = (
+    <>
       {!isEdit ? (
         <div className="grid gap-1">
           <Label>{t('customers.phone')}</Label>
@@ -191,20 +188,40 @@ export default function CustomerForm({ variant = 'page', onDismiss }: CustomerFo
           </Select>
         </div>
       ) : null}
-      <div className="flex gap-2">
-        <Button type="button" disabled={mCreate.isPending || mUpdate.isPending} onClick={submit}>
-          {tc('actions.save')}
-        </Button>
-        {variant === 'dialog' && onDismiss ? (
-          <Button type="button" variant="outline" onClick={onDismiss}>
-            {tc('actions.cancel')}
+      {variant === 'page' ? (
+        <div className="flex gap-2">
+          <Button type="button" disabled={mCreate.isPending || mUpdate.isPending} onClick={submit}>
+            {tc('actions.save')}
           </Button>
-        ) : (
           <Button type="button" variant="outline" asChild>
             <Link to={isEdit ? `/crm/customers/${editId}` : '/crm/customers'}>{tc('actions.cancel')}</Link>
           </Button>
-        )}
-      </div>
+        </div>
+      ) : null}
+    </>
+  );
+
+  if (variant === 'dialog') {
+    return (
+      <form
+        id={CUSTOMER_DIALOG_FORM_ID}
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        {fields}
+      </form>
+    );
+  }
+
+  return (
+    <div className={cn('mx-auto flex max-w-lg flex-col gap-4 p-4')}>
+      <h1 className="text-xl font-semibold">
+        {isEdit ? t('customers.edit_title') : t('customers.new_title')}
+      </h1>
+      {fields}
     </div>
   );
 }

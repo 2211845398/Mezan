@@ -11,7 +11,13 @@ async def test_archived_branch_hidden_from_list_and_blocks_terminal(client, admi
     create = await client.post(
         "/api/v1/branches",
         headers=admin_auth_header,
-        json={"name": "Archive me", "code": code, "address": None, "timezone": "UTC"},
+        json={
+            "name": "Archive me",
+            "code": code,
+            "address": None,
+            "timezone": "UTC",
+            "kind": "commercial",
+        },
     )
     assert create.status_code == 200, create.text
     branch_id = create.json()["id"]

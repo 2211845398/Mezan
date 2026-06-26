@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
@@ -14,9 +14,13 @@ from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
 from app.models.ar_payment_application import ArPaymentApplication
 from app.models.currency import Currency
+from app.models.goods_receipt import GoodsReceipt
+from app.models.goods_receipt_line import GoodsReceiptLine
 from app.models.sales_invoice import SalesInvoice
+from app.models.suppliers import Supplier
 from app.services.document_posting_service import post_ap_payment_gl, post_ar_cash_receipt_gl
 from app.services.payment_terms_service import due_date_from_supplier
+from app.utils.money import q2
 
 
 def _d(value: Decimal | int | str) -> Decimal:
@@ -148,15 +152,155 @@ async def list_ar_open_items(
 
 
 async def list_ap_open_items(
-    db: AsyncSession, *, branch_id: int | None = None, status: str | None = None
+    db: AsyncSession,
+    *,
+    branch_id: int | None = None,
+    status: str | None = None,
+    supplier_id: int | None = None,
 ) -> list[ApOpenItem]:
     stmt = select(ApOpenItem).order_by(ApOpenItem.due_date.asc().nulls_last(), ApOpenItem.id.asc())
     if branch_id is not None:
         stmt = stmt.where(ApOpenItem.branch_id == branch_id)
     if status:
         stmt = stmt.where(ApOpenItem.status == status)
+    if supplier_id is not None:
+        stmt = stmt.where(ApOpenItem.supplier_id == supplier_id)
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def find_ap_open_item_by_source(
+    db: AsyncSession,
+    *,
+    source_type: str,
+    source_id: str,
+) -> ApOpenItem | None:
+    result = await db.execute(
+        select(ApOpenItem).where(
+            ApOpenItem.source_type == source_type,
+            ApOpenItem.source_id == source_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def goods_receipt_total_ext(db: AsyncSession, receipt_id: int) -> Decimal:
+    result = await db.execute(
+        select(GoodsReceiptLine).where(GoodsReceiptLine.goods_receipt_id == receipt_id)
+    )
+    total = Decimal("0")
+    for line in result.scalars().all():
+        total += q2(line.unit_cost * Decimal(line.qty))
+    return q2(total)
+
+
+async def ensure_ap_open_item_for_goods_receipt(
+    db: AsyncSession,
+    *,
+    receipt: GoodsReceipt,
+) -> ApOpenItem | None:
+    """Create AP open item for a posted goods receipt (idempotent)."""
+    if receipt.supplier_id is None:
+        return None
+    existing = await find_ap_open_item_by_source(
+        db,
+        source_type="goods_receipt",
+        source_id=str(receipt.id),
+    )
+    if existing is not None:
+        return existing
+    total_ext = await goods_receipt_total_ext(db, receipt.id)
+    if total_ext <= Decimal("0.00"):
+        return None
+    currency_code = "USD"
+    sup_res = await db.execute(
+        select(Supplier, Currency)
+        .join(Currency, Currency.id == Supplier.currency_id)
+        .where(Supplier.id == receipt.supplier_id)
+    )
+    row = sup_res.one_or_none()
+    if row is not None:
+        currency_code = str(row[1].code)
+    entry_date = receipt.created_at.date() if receipt.created_at else date.today()
+    description = (
+        f"Goods receipt {receipt.invoice_number}"
+        if receipt.invoice_number
+        else f"Goods receipt {receipt.id}"
+    )
+    return await create_ap_open_item(
+        db,
+        data={
+            "branch_id": receipt.branch_id,
+            "supplier_id": receipt.supplier_id,
+            "source_type": "goods_receipt",
+            "source_id": str(receipt.id),
+            "description": description,
+            "document_date": entry_date,
+            "currency_code": currency_code,
+            "amount_total": total_ext,
+        },
+    )
+
+
+async def backfill_ap_open_items_from_goods_receipts(db: AsyncSession) -> int:
+    """Create missing AP open items for historical goods receipts."""
+    result = await db.execute(select(GoodsReceipt).where(GoodsReceipt.supplier_id.isnot(None)))
+    created = 0
+    for receipt in result.scalars().all():
+        before = await find_ap_open_item_by_source(
+            db,
+            source_type="goods_receipt",
+            source_id=str(receipt.id),
+        )
+        if before is not None:
+            continue
+        item = await ensure_ap_open_item_for_goods_receipt(db, receipt=receipt)
+        if item is not None:
+            created += 1
+    return created
+
+
+async def list_ap_supplier_balances(
+    db: AsyncSession,
+    *,
+    branch_id: int | None = None,
+) -> list[dict]:
+    """Open AP balance grouped by supplier."""
+    stmt = (
+        select(
+            ApOpenItem.supplier_id,
+            func.coalesce(func.sum(ApOpenItem.amount_open), 0).label("open_balance"),
+            func.max(ApOpenItem.currency_code).label("currency_code"),
+        )
+        .where(
+            ApOpenItem.supplier_id.isnot(None),
+            ApOpenItem.amount_open > 0,
+        )
+        .group_by(ApOpenItem.supplier_id)
+    )
+    if branch_id is not None:
+        stmt = stmt.where(ApOpenItem.branch_id == branch_id)
+    res = await db.execute(stmt)
+    rows = []
+    for supplier_id, open_balance, currency_code in res.all():
+        if supplier_id is None:
+            continue
+        sup = await db.get(Supplier, int(supplier_id))
+        if sup is None:
+            continue
+        name_parts = [sup.first_name, sup.father_name, sup.family_name]
+        supplier_name = " ".join(p.strip() for p in name_parts if p and str(p).strip()) or sup.code
+        rows.append(
+            {
+                "supplier_id": int(supplier_id),
+                "supplier_name": supplier_name,
+                "supplier_code": sup.code,
+                "open_balance": q2(open_balance),
+                "currency_code": str(currency_code or "USD"),
+            }
+        )
+    rows.sort(key=lambda r: r["supplier_name"].casefold())
+    return rows
 
 
 async def apply_ar_payment(

@@ -10,12 +10,21 @@ import {
   FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import { useUpsertSchedule } from '../../queries';
 import type { NotificationScheduleRead } from '../../types';
@@ -81,6 +90,10 @@ export function ScheduleEdit({ row, open, onOpenChange }: Props) {
     }
   }, [row, form, open]);
 
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['name', 'kind', 'interval_minutes', 'target_role_code', 'branch_id'],
+  });
+
   const title = row ? t('notifications.edit_schedule') : t('notifications.create_schedule');
 
   return (
@@ -135,7 +148,7 @@ export function ScheduleEdit({ row, open, onOpenChange }: Props) {
               });
               notify.success(t('notifications.schedule_saved'));
               onOpenChange(false);
-            })}
+            }, onInvalid)}
             className="space-y-3"
           >
             <FormField
@@ -225,6 +238,7 @@ export function ScheduleEdit({ row, open, onOpenChange }: Props) {
                 </FormItem>
               )}
             />
+            <FormValidationAlert />
           </form>
         </Form>
       ) : null}

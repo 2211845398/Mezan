@@ -1,8 +1,9 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useReactToPrint } from 'react-to-print';
 
 import { Button } from '@/components/ui/button';
+import { A4InvoicePrintDialog } from '@/features/sales/print/A4InvoicePrintDialog';
 import {
   Dialog,
   DialogContent,
@@ -22,10 +23,20 @@ export type ReceiptModalProps = {
   model: ThermalReceiptModel;
   /** When set, render return / credit note headers. */
   creditMode?: boolean;
+  /** Sales invoice id — enables A4 print inside the modal. */
+  invoiceId?: number | null;
 };
 
-export function ReceiptModal({ open, onOpenChange, model, creditMode }: ReceiptModalProps) {
+export function ReceiptModal({
+  open,
+  onOpenChange,
+  model,
+  creditMode,
+  invoiceId,
+}: ReceiptModalProps) {
   const { t } = useTranslation('pos');
+  const { t: tc } = useTranslation('common');
+  const [a4Open, setA4Open] = useState(false);
   const ref58 = useRef<HTMLDivElement>(null);
   const ref80 = useRef<HTMLDivElement>(null);
 
@@ -59,16 +70,24 @@ export function ReceiptModal({ open, onOpenChange, model, creditMode }: ReceiptM
           <Button type="button" variant="outline" onClick={() => void print80()}>
             {t('receipt.print_80')}
           </Button>
+          {invoiceId != null && invoiceId > 0 ? (
+            <Button type="button" variant="outline" onClick={() => setA4Open(true)}>
+              {t('receipt.print_a4')}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"
-            className="border-destructive bg-background text-destructive hover:bg-destructive/10 hover:text-destructive"
+            className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
             onClick={() => onOpenChange(false)}
           >
-            {t('receipt.close')}
+            {tc('actions.cancel')}
           </Button>
         </DialogFooter>
       </DialogContent>
+      {invoiceId != null && invoiceId > 0 ? (
+        <A4InvoicePrintDialog invoiceId={invoiceId} open={a4Open} onOpenChange={setA4Open} />
+      ) : null}
     </Dialog>
   );
 }

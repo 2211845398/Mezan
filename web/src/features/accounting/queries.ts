@@ -36,8 +36,10 @@ export const accountingKeys = {
     source_type?: string;
     source_id?: string;
   }) => [...accountingKeys.root, 'ar', p] as const,
-  apOpen: (p: { branch_id?: number; status?: string }) =>
+  apOpen: (p: { branch_id?: number; status?: string; supplier_id?: number }) =>
     [...accountingKeys.root, 'ap', p] as const,
+  apSupplierBalances: (p: { branch_id?: number }) =>
+    [...accountingKeys.root, 'ap', 'supplier-balances', p] as const,
   fiscal: () => [...accountingKeys.root, 'fiscal'] as const,
   chartAccountsTree: () => [...accountingKeys.root, 'chart-accounts', 'tree'] as const,
   chartAccountsTreeByBranch: (p: { branch_id: number; as_of: string; active_only?: boolean }) =>
@@ -185,10 +187,29 @@ export function arOpenItemsQueryOptions(p: {
   });
 }
 
-export function apOpenItemsQueryOptions(p: { branch_id?: number; status?: string }) {
+export function apOpenItemsQueryOptions(p: {
+  branch_id?: number;
+  status?: string;
+  supplier_id?: number;
+}) {
   return queryOptions({
     queryKey: accountingKeys.apOpen(p),
     queryFn: () => api.listApOpenItems(p),
+  });
+}
+
+export function apSupplierBalancesQueryOptions(p: { branch_id?: number }) {
+  return queryOptions({
+    queryKey: accountingKeys.apSupplierBalances(p),
+    queryFn: () => api.listApSupplierBalances(p),
+  });
+}
+
+export function fiscalPeriodDetailQueryOptions(periodKey: string, branchId?: number | null) {
+  return queryOptions({
+    queryKey: [...accountingKeys.fiscal(), 'detail', periodKey, branchId ?? 'all'] as const,
+    queryFn: () => api.getFiscalPeriodDetail(periodKey, branchId),
+    enabled: Boolean(periodKey),
   });
 }
 

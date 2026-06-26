@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload
 
 from app.core.errors import ValidationError
 from app.models.branch import Branch
+from app.models.branch_product_costs import BranchProductCost
 from app.models.catalog_attribute import CatalogAttribute
 from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.category import Category
@@ -22,6 +23,7 @@ from app.models.product_price import ProductPrice
 from app.models.product_variant import ProductVariant
 from app.models.product_variant_attribute import ProductVariantAttribute
 from app.models.stock_level import StockLevel
+from app.models.stock_movement import StockMovement
 from app.schemas.pricing_evaluation import (
     FifoLayerRead,
     PricingCommitResponse,
@@ -42,6 +44,16 @@ _POLICY_LABELS = {
     "fifo": "FIFO (First-In, First-Out)",
     "wavg": "Weighted Moving Average (AVG)",
 }
+
+DEFAULT_MARKUP_PCT = Decimal("30")
+PRICE_TOLERANCE = Decimal("0.01")
+
+STOCK_INTAKE_REASONS = (
+    "goods_receipt",
+    "adhoc_receipt",
+    "production_receipt",
+    "transfer_receive",
+)
 
 
 def _policy_label(policy: str) -> str:
@@ -76,9 +88,29 @@ async def _qty_on_hand(
     return int(row or 0)
 
 
-async def _last_receipt_line(
+async def _last_intake_event(
     db: AsyncSession, *, branch_id: int, product_id: int, variant_id: int
-) -> tuple[GoodsReceiptLine, GoodsReceipt] | None:
+) -> tuple[Decimal | None, int | None, str | None]:
+    """Most recent goods receipt line or stock intake movement for cost/qty/date hints."""
+    gr = await _last_goods_receipt_line(
+        db, branch_id=branch_id, product_id=product_id, variant_id=variant_id
+    )
+    sm = await _last_stock_intake_movement(
+        db, branch_id=branch_id, product_id=product_id, variant_id=variant_id
+    )
+
+    gr_at = gr[2] if gr else None
+    sm_at = sm[2] if sm else None
+    if gr_at is None and sm_at is None:
+        return None, None, None
+    if gr_at is not None and (sm_at is None or gr_at >= sm_at):
+        return gr[0], gr[1], gr[2]
+    return sm[0], sm[1], sm[2]
+
+
+async def _last_goods_receipt_line(
+    db: AsyncSession, *, branch_id: int, product_id: int, variant_id: int
+) -> tuple[Decimal, int, str] | None:
     res = await db.execute(
         select(GoodsReceiptLine, GoodsReceipt)
         .join(GoodsReceipt, GoodsReceiptLine.goods_receipt_id == GoodsReceipt.id)
@@ -93,7 +125,29 @@ async def _last_receipt_line(
     row = res.first()
     if row is None:
         return None
-    return row[0], row[1]
+    line, receipt = row[0], row[1]
+    return q2(line.unit_cost), int(line.qty), receipt.created_at.isoformat()
+
+
+async def _last_stock_intake_movement(
+    db: AsyncSession, *, branch_id: int, product_id: int, variant_id: int
+) -> tuple[Decimal | None, int, str] | None:
+    res = await db.execute(
+        select(StockMovement)
+        .where(
+            StockMovement.branch_id == branch_id,
+            StockMovement.product_id == product_id,
+            StockMovement.variant_id == variant_id,
+            StockMovement.qty_delta > 0,
+            StockMovement.reason.in_(STOCK_INTAKE_REASONS),
+        )
+        .order_by(desc(StockMovement.created_at), desc(StockMovement.id))
+        .limit(1)
+    )
+    mv = res.scalar_one_or_none()
+    if mv is None:
+        return None
+    return None, int(mv.qty_delta), mv.created_at.isoformat()
 
 
 async def _variant_labels_map(db: AsyncSession, variant_ids: list[int]) -> dict[int, list[str]]:
@@ -167,6 +221,158 @@ def _product_search_filter(qs: str):
     return or_(Product.name.ilike(like), variant_match)
 
 
+def compute_suggested_price(
+    cost: Decimal, markup_pct: Decimal = DEFAULT_MARKUP_PCT
+) -> Decimal | None:
+    if cost <= 0:
+        return None
+    return q2(cost * (Decimal("1") + markup_pct / Decimal("100")))
+
+
+def compute_implied_markup_pct(cost: Decimal, sell: Decimal) -> Decimal | None:
+    if cost <= 0 or sell <= 0:
+        return None
+    return q2((sell - cost) / cost * Decimal("100"))
+
+
+def row_needs_pricing_review(
+    *,
+    valuation_cost: Decimal,
+    has_sell: bool,
+    current_sell: Decimal | None,
+    markup_pct: Decimal = DEFAULT_MARKUP_PCT,
+) -> bool:
+    if valuation_cost <= 0:
+        return False
+    if not has_sell or current_sell is None or current_sell <= 0:
+        return True
+    suggested = compute_suggested_price(valuation_cost, markup_pct)
+    if suggested is None:
+        return True
+    return abs(current_sell - suggested) > PRICE_TOLERANCE
+
+
+def _active_sell_price_scalar(*, currency_id: int, as_of: datetime):
+    """Coalesced variant-specific then product-level active sell price."""
+    variant_price = (
+        select(ProductPrice.amount)
+        .where(
+            ProductPrice.product_id == ProductVariant.product_id,
+            ProductPrice.variant_id == ProductVariant.id,
+            ProductPrice.currency_id == currency_id,
+            ProductPrice.valid_from <= as_of,
+        )
+        .order_by(desc(ProductPrice.valid_from), desc(ProductPrice.id))
+        .limit(1)
+        .correlate(ProductVariant)
+        .scalar_subquery()
+    )
+    product_price = (
+        select(ProductPrice.amount)
+        .where(
+            ProductPrice.product_id == ProductVariant.product_id,
+            ProductPrice.variant_id.is_(None),
+            ProductPrice.currency_id == currency_id,
+            ProductPrice.valid_from <= as_of,
+        )
+        .order_by(desc(ProductPrice.valid_from), desc(ProductPrice.id))
+        .limit(1)
+        .correlate(ProductVariant)
+        .scalar_subquery()
+    )
+    return func.coalesce(variant_price, product_price)
+
+
+def _valuation_cost_scalar(*, branch_id: int | None):
+    """SQL expression mirroring valuation_cost = branch WAVG/FIFO cost or standard_cost."""
+    if branch_id is not None:
+        branch_cost = (
+            select(BranchProductCost.average_unit_cost)
+            .where(
+                BranchProductCost.branch_id == branch_id,
+                BranchProductCost.product_id == ProductVariant.product_id,
+                BranchProductCost.variant_id == ProductVariant.id,
+            )
+            .correlate(ProductVariant)
+            .scalar_subquery()
+        )
+        return func.coalesce(
+            func.nullif(branch_cost, 0),
+            func.coalesce(Product.standard_cost, 0),
+        )
+
+    max_branch_cost = (
+        select(func.max(BranchProductCost.average_unit_cost))
+        .join(Branch, Branch.id == BranchProductCost.branch_id)
+        .where(
+            BranchProductCost.product_id == ProductVariant.product_id,
+            BranchProductCost.variant_id == ProductVariant.id,
+            BranchProductCost.average_unit_cost > 0,
+            Branch.is_active.is_(True),
+            Branch.archived_at.is_(None),
+        )
+        .correlate(ProductVariant)
+        .scalar_subquery()
+    )
+    return func.coalesce(
+        max_branch_cost,
+        func.coalesce(Product.standard_cost, 0),
+    )
+
+
+def _has_stock_intake_exists(*, branch_id: int | None):
+    goods_receipt = (
+        select(GoodsReceiptLine.id)
+        .join(GoodsReceipt, GoodsReceiptLine.goods_receipt_id == GoodsReceipt.id)
+        .where(
+            GoodsReceiptLine.product_id == ProductVariant.product_id,
+            GoodsReceiptLine.variant_id == ProductVariant.id,
+            GoodsReceiptLine.qty > 0,
+        )
+    )
+    if branch_id is not None:
+        goods_receipt = goods_receipt.where(GoodsReceipt.branch_id == branch_id)
+
+    stock_intake = select(StockMovement.id).where(
+        StockMovement.product_id == ProductVariant.product_id,
+        StockMovement.variant_id == ProductVariant.id,
+        StockMovement.qty_delta > 0,
+        StockMovement.reason.in_(STOCK_INTAKE_REASONS),
+    )
+    if branch_id is not None:
+        stock_intake = stock_intake.where(StockMovement.branch_id == branch_id)
+
+    return or_(exists(goods_receipt), exists(stock_intake))
+
+
+def _positive_valuation_cost_predicate(*, branch_id: int | None):
+    cost_expr = _valuation_cost_scalar(branch_id=branch_id)
+    return cost_expr > 0
+
+
+def _pricing_attention_predicate(*, branch_id: int | None, currency_id: int, as_of: datetime):
+    """No sell price, or sell price drifts from default-markup suggestion at current cost."""
+    sell = _active_sell_price_scalar(currency_id=currency_id, as_of=as_of)
+    cost = _valuation_cost_scalar(branch_id=branch_id)
+    suggested = cost * (Decimal("1") + DEFAULT_MARKUP_PCT / Decimal("100"))
+    no_sell = or_(sell.is_(None), sell <= 0)
+    margin_drift = and_(
+        sell.isnot(None),
+        sell > 0,
+        cost > 0,
+        func.abs(sell - suggested) > PRICE_TOLERANCE,
+    )
+    return or_(no_sell, margin_drift)
+
+
+def _needs_pricing_review_filter(*, branch_id: int | None, currency_id: int, as_of: datetime):
+    return and_(
+        _has_stock_intake_exists(branch_id=branch_id),
+        _positive_valuation_cost_predicate(branch_id=branch_id),
+        _pricing_attention_predicate(branch_id=branch_id, currency_id=currency_id, as_of=as_of),
+    )
+
+
 async def _build_evaluation_row(
     db: AsyncSession,
     *,
@@ -186,17 +392,9 @@ async def _build_evaluation_row(
     )
     valuation_cost = system_cost if system_cost > 0 else q2(product.standard_cost or Decimal("0"))
 
-    last_pair = await _last_receipt_line(
+    last_cost, last_qty, last_at = await _last_intake_event(
         db, branch_id=branch_id, product_id=product.id, variant_id=variant.id
     )
-    last_cost: Decimal | None = None
-    last_qty: int | None = None
-    last_at: str | None = None
-    if last_pair:
-        line, receipt = last_pair
-        last_cost = q2(line.unit_cost)
-        last_qty = int(line.qty)
-        last_at = receipt.created_at.isoformat()
 
     active_price = await get_active_product_price(
         db,
@@ -237,6 +435,18 @@ async def _build_evaluation_row(
     variant_label = variant_display_label(product.name, labels) if labels else None
     category: Category = product.category
 
+    suggested = compute_suggested_price(valuation_cost, DEFAULT_MARKUP_PCT)
+    implied_markup = (
+        compute_implied_markup_pct(valuation_cost, current_sell)
+        if current_sell is not None and has_sell
+        else None
+    )
+    needs_review = row_needs_pricing_review(
+        valuation_cost=valuation_cost,
+        has_sell=has_sell,
+        current_sell=current_sell,
+    )
+
     return PricingEvaluationRowRead(
         product_id=product.id,
         variant_id=variant.id,
@@ -255,6 +465,10 @@ async def _build_evaluation_row(
         current_sell_price=current_sell,
         has_sell_price=has_sell,
         valuation_cost=valuation_cost,
+        default_markup_pct=DEFAULT_MARKUP_PCT,
+        suggested_price=suggested,
+        implied_markup_pct=implied_markup,
+        needs_pricing_review=needs_review,
         fifo_layers=fifo_layers,
         wavg_breakdown=wavg_breakdown,
     )
@@ -350,60 +564,11 @@ async def get_pricing_evaluation_matrix(
         variant_stmt = variant_stmt.where(_product_search_filter(qs))
 
     if needs_pricing_only:
-        has_variant_price = exists(
-            select(ProductPrice.id).where(
-                ProductPrice.product_id == ProductVariant.product_id,
-                ProductPrice.variant_id == ProductVariant.id,
-                ProductPrice.currency_id == currency_id,
-                ProductPrice.valid_from <= as_of,
-            )
-        )
-        has_product_price = exists(
-            select(ProductPrice.id).where(
-                ProductPrice.product_id == ProductVariant.product_id,
-                ProductPrice.variant_id.is_(None),
-                ProductPrice.currency_id == currency_id,
-                ProductPrice.valid_from <= as_of,
-            )
-        )
-        if branch_id is not None:
-            in_stock = exists(
-                select(StockLevel.id).where(
-                    StockLevel.product_id == ProductVariant.product_id,
-                    StockLevel.variant_id == ProductVariant.id,
-                    StockLevel.branch_id == branch_id,
-                    StockLevel.on_hand > 0,
-                )
-            )
-            recent_receipt = exists(
-                select(GoodsReceiptLine.id)
-                .join(GoodsReceipt, GoodsReceiptLine.goods_receipt_id == GoodsReceipt.id)
-                .where(
-                    GoodsReceiptLine.product_id == ProductVariant.product_id,
-                    GoodsReceiptLine.variant_id == ProductVariant.id,
-                    GoodsReceipt.branch_id == branch_id,
-                )
-            )
-        else:
-            in_stock = exists(
-                select(StockLevel.id).where(
-                    StockLevel.product_id == ProductVariant.product_id,
-                    StockLevel.variant_id == ProductVariant.id,
-                    StockLevel.on_hand > 0,
-                )
-            )
-            recent_receipt = exists(
-                select(GoodsReceiptLine.id)
-                .join(GoodsReceipt, GoodsReceiptLine.goods_receipt_id == GoodsReceipt.id)
-                .where(
-                    GoodsReceiptLine.product_id == ProductVariant.product_id,
-                    GoodsReceiptLine.variant_id == ProductVariant.id,
-                )
-            )
         variant_stmt = variant_stmt.where(
-            or_(
-                and_(~has_variant_price, ~has_product_price),
-                and_(in_stock, recent_receipt),
+            _needs_pricing_review_filter(
+                branch_id=branch_id,
+                currency_id=currency_id,
+                as_of=as_of,
             )
         )
 
@@ -453,6 +618,7 @@ async def get_pricing_evaluation_matrix(
         valuation_policy_label=_policy_label(policy),
         branch_id=branch_id,
         currency_code=currency_code,
+        default_markup_pct=DEFAULT_MARKUP_PCT,
         total=total,
         items=items,
     )

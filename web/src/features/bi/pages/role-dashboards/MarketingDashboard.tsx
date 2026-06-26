@@ -3,7 +3,7 @@ import { subDays } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DateField } from '@/components/shared/form/DateField';
+import { DateRangeFields } from '@/components/shared/form/DateRangeFields';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -74,14 +74,14 @@ export default function MarketingDashboard() {
             <CardDescription>{t('role.marketing.period_hint')}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-end gap-4">
-            <div className="grid gap-1">
-              <Label>{t('filters.period_start')}</Label>
-              <DateField value={ps} onChange={setPs} />
-            </div>
-            <div className="grid gap-1">
-              <Label>{t('filters.period_end')}</Label>
-              <DateField value={pe} onChange={setPe} />
-            </div>
+            <DateRangeFields
+              fromValue={ps}
+              toValue={pe}
+              onFromChange={setPs}
+              onToChange={setPe}
+              fromLabel={<Label>{t('filters.period_start')}</Label>}
+              toLabel={<Label>{t('filters.period_end')}</Label>}
+            />
             <Button type="button" onClick={() => setApplied({ ps, pe })}>
               {t('filters.apply')}
             </Button>

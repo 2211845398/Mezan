@@ -1,34 +1,20 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { paginatedParams } from '@/api/pagination';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { MoreHorizontal, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 
-import { getLocalizedApiErrorMessage, notifyApiError } from '@/api/errorMessages';
+import { getLocalizedApiErrorMessage } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import {
-  floatingFormApproveButtonClassName,
-  floatingFormCloseButtonClassName,
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
 } from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePermission } from '@/hooks/usePermission';
@@ -36,9 +22,7 @@ import { formatIso } from '@/lib/date';
 import { formatPersonName } from '@/lib/personName';
 import { notify } from '@/lib/toast';
 
-import { getUserRoles, updateUser as apiUpdateUser } from '../../api';
 import { BranchPicker } from '../../components/BranchPicker';
-import { DangerConfirmDialog } from '../../components/DangerConfirmDialog';
 import { HrAssigneeCombobox } from '../../components/HrAssigneeCombobox';
 import { RoleCodeCombobox } from '../../components/RoleCodeCombobox';
 import { getBranchLabel } from '../../lib/branchLabels';
@@ -49,13 +33,15 @@ import {
   userRowRoleFilterValue,
   userRowStatusFilterValue,
 } from '../../lib/userListSearch';
-import { adminKeys, useBranches, useCreateUser, useRequestPasswordReset, useUsersList } from '../../queries';
+import { adminKeys, useBranches, useCreateUser, useUsersList } from '../../queries';
+import { getUserRoles } from '../../api';
 import type { UserRead, UserRoleRow } from '../../types';
+
+const USER_CREATE_FORM_ID = 'admin-user-create-form';
 
 export default function UsersList() {
   const { t, i18n } = useTranslation('admin');
   const { t: tc } = useTranslation('common');
-  const navigate = useNavigate();
   const [urlQuery] = useTableUrlState({ pageSize: 20 });
   const { limit, offset } = paginatedParams(urlQuery.page, urlQuery.pageSize);
   const { data, isLoading, isError, refetch } = useUsersList({ limit, offset });
@@ -79,43 +65,26 @@ export default function UsersList() {
     },
     enabled: users.length > 0,
   });
-  const canUpdate = usePermission('users', 'update');
   const canCreate = usePermission('users', 'create');
-  const [deactivateUser, setDeactivateUser] = useState<UserRead | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const qc = useQueryClient();
 
   // Create user form state
   const [firstName, setFirstName] = useState('');
   const [fatherName, setFatherName] = useState('');
   const [familyName, setFamilyName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [branchId, setBranchId] = useState<number | null>(null);
   const [roleCode, setRoleCode] = useState('');
   const [assignedHrUserId, setAssignedHrUserId] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const setUserStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => apiUpdateUser(id, { status }),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: adminKeys.userList() });
-    },
-  });
-
   const createUser = useCreateUser();
-  const requestReset = useRequestPasswordReset();
 
   const handleCreateSubmit = async () => {
     setCreateError(null);
     const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       setCreateError(t('users.email_invalid'));
-      return;
-    }
-    if (trimmedPassword && trimmedPassword.length < 8) {
-      setCreateError(t('users.password_too_short'));
       return;
     }
 
@@ -125,11 +94,10 @@ export default function UsersList() {
         first_name: firstName.trim() || null,
         father_name: fatherName.trim() || null,
         family_name: familyName.trim() || null,
-        password: trimmedPassword || null,
         branch_id: branchId,
         role_code: roleCode.trim() || null,
         assigned_hr_user_id: assignedHrUserId.trim() ? Number(assignedHrUserId) : null,
-        status: 'pending_onboarding',
+        status: 'suspended',
       });
       notify.success(tc('toasts.saved'));
       setCreateOpen(false);
@@ -138,7 +106,6 @@ export default function UsersList() {
       setFatherName('');
       setFamilyName('');
       setEmail('');
-      setPassword('');
       setBranchId(null);
       setRoleCode('');
       setAssignedHrUserId('');
@@ -197,66 +164,8 @@ export default function UsersList() {
           cell: ({ row }) =>
             row.original.last_login_at ? formatIso(row.original.last_login_at, 'yyyy-MM-dd HH:mm') : '—',
         },
-        {
-          id: 'actions',
-          header: '',
-          enableGlobalFilter: false,
-          cell: ({ row }) => {
-            const u = row.original;
-            return (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" size="icon" variant="ghost" aria-label={t('actions.open_menu')}>
-                    <MoreHorizontal className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {canUpdate ? (
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onSelect={() => {
-                        navigate(`/admin/users/${u.id}`);
-                      }}
-                    >
-                      {t('actions.edit')}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canUpdate && !u.bootstrap_admin_protected ? (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDeactivateUser(u);
-                      }}
-                    >
-                      {t('users.deactivate')}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canUpdate && !u.bootstrap_admin_protected ? (
-                    <DropdownMenuItem
-                      onClick={() =>
-                        void requestReset
-                          .mutateAsync(u.id)
-                          .then(() => notify.success(tc('toasts.email_sent')))
-                          .catch((error) => notifyApiError(error, t('errors.generic', { ns: 'common' })))
-                      }
-                    >
-                      {t('users.reset_password')}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canUpdate && !u.bootstrap_admin_protected ? (
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onSelect={() => navigate(`/admin/users/${u.id}/permissions`)}
-                    >
-                      {t('users.view_permissions')}
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            );
-          },
-        },
       ]);
-  }, [t, i18n, branches, roleMap, canUpdate, requestReset, navigate, tc]);
+  }, [t, i18n, branches, roleMap]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -276,98 +185,75 @@ export default function UsersList() {
         }
       />
 
-      {/* Create User Dialog */}
-      <Dialog
+      <FloatingFormDialog
         open={createOpen}
         onOpenChange={(open) => {
           setCreateOpen(open);
           if (!open) setCreateError(null);
         }}
+        title={t('users.create_title')}
+        maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={USER_CREATE_FORM_ID}
+            onCancel={() => setCreateOpen(false)}
+            saveLabel={t('actions.save')}
+            cancelLabel={t('actions.cancel')}
+            isSubmitting={createUser.isPending}
+            saveDisabled={!email.trim() || !firstName.trim()}
+          />
+        }
       >
-        <DialogContent motionless className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('users.create_title')}</DialogTitle>
-            <DialogDescription className="sr-only">
-              {t('users.create_dialog_a11y')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1">
-              <Label>{t('users.col.first_name')}</Label>
-              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('users.col.father_name')}</Label>
-              <Input value={fatherName} onChange={(e) => setFatherName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('users.col.family_name')}</Label>
-              <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('users.col.email')}</Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="user@example.com"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('users.password')}</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t('users.password')}
-              />
-            </div>
-            <BranchPicker
-              label={t('users.col.branch')}
-              value={branchId}
-              onChange={setBranchId}
-              allowClear
-            />
-            <div className="space-y-1">
-              <Label>{t('users.role_code')}</Label>
-              <RoleCodeCombobox
-                value={roleCode}
-                onChange={setRoleCode}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('users.assigned_hr_id')}</Label>
-              <HrAssigneeCombobox
-                value={assignedHrUserId}
-                onChange={setAssignedHrUserId}
-              />
-            </div>
-            {createError ? (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {createError}
-              </p>
-            ) : null}
-            <div className="flex justify-end gap-[5px] pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                className={floatingFormCloseButtonClassName}
-                onClick={() => setCreateOpen(false)}
-              >
-                {t('actions.cancel')}
-              </Button>
-              <Button
-                type="button"
-                className={floatingFormApproveButtonClassName}
-                onClick={() => void handleCreateSubmit()}
-                disabled={!email.trim() || !firstName.trim() || createUser.isPending}
-              >
-                {t('actions.save')}
-              </Button>
-            </div>
+        <form
+          id={USER_CREATE_FORM_ID}
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleCreateSubmit();
+          }}
+        >
+          <div className="space-y-1">
+            <Label>{t('users.col.first_name')}</Label>
+            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-1">
+            <Label>{t('users.col.father_name')}</Label>
+            <Input value={fatherName} onChange={(e) => setFatherName(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>{t('users.col.family_name')}</Label>
+            <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>{t('users.col.email')}</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@example.com"
+            />
+          </div>
+          <BranchPicker
+            label={t('users.col.branch')}
+            value={branchId}
+            onChange={setBranchId}
+            allowClear
+          />
+          <div className="space-y-1">
+            <Label>{t('users.role_code')}</Label>
+            <RoleCodeCombobox value={roleCode} onChange={setRoleCode} />
+          </div>
+          <div className="space-y-1">
+            <Label>{t('users.assigned_hr_id')}</Label>
+            <HrAssigneeCombobox value={assignedHrUserId} onChange={setAssignedHrUserId} />
+          </div>
+          {createError ? (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {createError}
+            </p>
+          ) : null}
+        </form>
+      </FloatingFormDialog>
 
       <DataTable
         mode="server"
@@ -378,24 +264,7 @@ export default function UsersList() {
         isError={isError}
         onRetry={() => void refetch()}
         emptyState={<p className="text-sm text-muted-foreground">{t('users.empty')}</p>}
-      />
-      <DangerConfirmDialog
-        open={!!deactivateUser}
-        onOpenChange={(o) => !o && setDeactivateUser(null)}
-        title={t('users.deactivate_title')}
-        description={t('users.deactivate_desc')}
-        confirmKeyword="DELETE"
-        isLoading={setUserStatus.isPending}
-        onConfirm={async () => {
-          if (!deactivateUser) return;
-          try {
-            await setUserStatus.mutateAsync({ id: deactivateUser.id, status: 'deactivated' });
-            notify.success(tc('toasts.deactivated'));
-            setDeactivateUser(null);
-          } catch (error) {
-            notifyApiError(error, t('errors.generic', { ns: 'common' }));
-          }
-        }}
+        getRowHref={(u) => `/admin/users/${u.id}`}
       />
     </div>
   );

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -154,6 +155,70 @@ async def set_period_status(
     await db.flush()
     await db.refresh(period)
     return period
+
+
+async def get_fiscal_period_detail(
+    db: AsyncSession,
+    *,
+    period_key: str,
+    branch_id: int | None = None,
+) -> dict:
+    """Full fiscal period snapshot: metadata, TB, sub-ledgers, open items."""
+    from app.models.users import User
+    from app.services.financial_reports_service import (
+        subledger_activity_for_period,
+        trial_balance_for_period,
+    )
+    from app.services.subledger_service import list_ap_open_items, list_ar_open_items
+    from app.utils.person_name import display_person_name
+
+    result = await db.execute(select(FiscalPeriod).where(FiscalPeriod.period_key == period_key))
+    period = result.scalar_one_or_none()
+    if not period:
+        raise NotFoundError("Fiscal period not found", details={"period_key": period_key})
+
+    closed_by_name: str | None = None
+    if period.closed_by_user_id is not None:
+        user_res = await db.execute(select(User).where(User.id == period.closed_by_user_id))
+        user = user_res.scalar_one_or_none()
+        if user is not None:
+            closed_by_name = (
+                display_person_name(user.first_name, user.father_name, user.family_name)
+                or user.email
+            )
+
+    can_post, posting_reason = await can_post_to_period(db, entry_date=period.period_end)
+
+    tb_rows = await trial_balance_for_period(
+        db,
+        period_start=period.period_start,
+        period_end=period.period_end,
+        branch_id=branch_id,
+    )
+    subledger_rows = await subledger_activity_for_period(
+        db,
+        period_start=period.period_start,
+        period_end=period.period_end,
+        branch_id=branch_id,
+    )
+
+    ar_open = await list_ar_open_items(db, branch_id=branch_id, status="open")
+    ap_open = await list_ap_open_items(db, branch_id=branch_id, status="open")
+    ar_open = [i for i in ar_open if i.document_date <= period.period_end]
+    ap_open = [i for i in ap_open if i.document_date <= period.period_end]
+
+    return {
+        "period": period,
+        "closed_by_name": closed_by_name,
+        "can_post": can_post,
+        "posting_reason": posting_reason,
+        "trial_balance": tb_rows,
+        "subledger_activity": subledger_rows,
+        "ar_open_items_count": len(ar_open),
+        "ar_open_amount": sum((i.amount_open for i in ar_open), start=Decimal("0")),
+        "ap_open_items_count": len(ap_open),
+        "ap_open_amount": sum((i.amount_open for i in ap_open), start=Decimal("0")),
+    }
 
 
 async def list_journal_entries_for_source(

@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
-import type { Control, FieldErrors, FieldValues, Path, UseFormReturn } from 'react-hook-form';
+import type { Control, FieldError, FieldErrors, FieldValues, Path, UseFormReturn } from 'react-hook-form';
+import type { TFunction } from 'i18next';
 import { useFormState } from 'react-hook-form';
+
+import i18n from '@/i18n';
 
 export function hasFieldError(errors: FieldErrors<FieldValues>, name: string): boolean {
   const parts = name.split('.');
@@ -117,4 +120,88 @@ export function focusFirstFormError<T extends FieldValues>(
   if (!name) return;
   void form.setFocus(name as Path<T>);
   scrollFieldIntoView(name);
+}
+
+export type FormInvalidHandlerOptions<T extends FieldValues> = {
+  fieldOrder?: readonly Path<T>[];
+  /** Optional per-field message mapper (domain-specific codes). */
+  mapMessage?: (error: FieldError | undefined, fieldName: string) => string | undefined;
+};
+
+/** Map a single RHF/Zod field error to a localized user-facing message. */
+export function mapClientFieldErrorMessage(
+  error: FieldError | undefined,
+  tc: TFunction<'common'>,
+): string | undefined {
+  if (!error?.message) return undefined;
+  const msg = String(error.message);
+  if (msg.toLowerCase().includes('required') || msg === 'Required') {
+    return tc('errors.validation_required');
+  }
+  if (
+    msg.toLowerCase().includes('invalid email') ||
+    (msg.toLowerCase().includes('email') && msg.toLowerCase().includes('invalid'))
+  ) {
+    return tc('errors.validation_email_invalid');
+  }
+  if (msg.toLowerCase().includes('too short') || msg.toLowerCase().includes('at least')) {
+    return tc('errors.validation_password_short');
+  }
+  return msg;
+}
+
+/** Collect unique validation messages for invalid submit (in display order). */
+export function collectValidationToasts(
+  errs: FieldErrors<FieldValues>,
+  tc: TFunction<'common'>,
+  fieldOrder?: readonly string[],
+  mapMessage?: (error: FieldError | undefined, fieldName: string) => string | undefined,
+): string[] {
+  const messages: string[] = [];
+  const seen = new Set<string>();
+  const resolve = (key: string) => {
+    const err = errs[key] as FieldError | undefined;
+    const text = mapMessage?.(err, key) ?? mapClientFieldErrorMessage(err, tc);
+    if (text && !seen.has(text)) {
+      seen.add(text);
+      messages.push(text);
+    }
+  };
+
+  if (fieldOrder?.length) {
+    for (const key of fieldOrder) resolve(key);
+  }
+  for (const key of Object.keys(errs)) {
+    if (fieldOrder?.includes(key)) continue;
+    resolve(key);
+  }
+  return messages;
+}
+
+/** Store the first validation message as a form-level alert and focus the first invalid field. */
+export function notifyFormValidationErrors<T extends FieldValues>(
+  form: UseFormReturn<T>,
+  errors: FieldErrors<T>,
+  options?: FormInvalidHandlerOptions<T>,
+): void {
+  const tc = i18n.getFixedT(i18n.language, 'common');
+  const messages = collectValidationToasts(
+    errors as FieldErrors<FieldValues>,
+    tc,
+    options?.fieldOrder as readonly string[] | undefined,
+    options?.mapMessage,
+  );
+  form.setError('root.validation' as Parameters<typeof form.setError>[0], {
+    type: 'client',
+    message: messages[0] ?? tc('errors.validation'),
+  });
+  focusFirstFormError(form, errors, options?.fieldOrder);
+}
+
+/** Factory for RHF `handleSubmit` invalid callback (form-level alert, no field-inline copy). */
+export function createFormInvalidHandler<T extends FieldValues>(
+  form: UseFormReturn<T>,
+  options?: FormInvalidHandlerOptions<T>,
+): (errors: FieldErrors<T>) => void {
+  return (errors) => notifyFormValidationErrors(form, errors, options);
 }

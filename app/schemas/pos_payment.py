@@ -12,6 +12,11 @@ class PaymentIntentCreateRequest(BaseModel):
     cart_id: int
     provider: str | None = None
     currency: str = Field(default="USD", min_length=3, max_length=3)
+    payment_method: Literal["cash", "card", "transfer", "other"] | None = None
+    """When set for cash, used to detect partial tender (skip rounding when below rounded due)."""
+    cash_tendered: Decimal | None = Field(default=None, ge=0)
+    """Return credit offset for exchange carts; intent amount = cart.total − this value."""
+    exchange_credit_amount: Decimal | None = Field(default=None, ge=0)
 
     @field_validator("currency")
     @classmethod
@@ -38,6 +43,13 @@ class PaymentCaptureRequest(BaseModel):
         if self.method != "card" and self.card_last4 is not None:
             raise ValueError("card_last4 is only allowed for card payments")
         return self
+
+
+class CashRoundingConfigRead(BaseModel):
+    currency: str
+    cash_rounding_increment: Decimal | None = None
+
+    model_config = ConfigDict(json_encoders={Decimal: str})
 
 
 class PaymentIntentRead(BaseModel):

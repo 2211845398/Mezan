@@ -22,10 +22,14 @@ from app.models.bom import (
     ProductionOrderReceipt,
 )
 from app.models.product import Product
+from app.models.stock_level import StockLevel
 from app.services.accounting_service import get_accounting_settings, post_journal_entry
 from app.services.catalog_service import resolve_default_variant_id
 from app.services.inventory_service import apply_stock_movement
-from app.services.inventory_valuation_service import get_unit_costs_for_sale
+from app.services.inventory_valuation_service import (
+    apply_receipt_to_weighted_average,
+    get_unit_costs_for_sale,
+)
 from app.utils.money import q2
 
 
@@ -39,6 +43,32 @@ def _as_stock_int(qty: Decimal) -> int:
     if i == 0:
         raise ValidationError("Quantity must not be zero for stock movement")
     return i
+
+
+async def list_production_orders(
+    db: AsyncSession,
+    *,
+    branch_id: int | None = None,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[ProductionOrder]:
+    stmt = select(ProductionOrder).order_by(ProductionOrder.created_at.desc())
+    if branch_id is not None:
+        stmt = stmt.where(ProductionOrder.branch_id == branch_id)
+    if status:
+        stmt = stmt.where(ProductionOrder.status == status)
+    stmt = stmt.offset(offset).limit(limit)
+    res = await db.execute(stmt)
+    return list(res.scalars().all())
+
+
+async def get_production_order(db: AsyncSession, *, production_order_id: int) -> ProductionOrder:
+    res = await db.execute(select(ProductionOrder).where(ProductionOrder.id == production_order_id))
+    order = res.scalar_one_or_none()
+    if not order:
+        raise NotFoundError("Production order not found")
+    return order
 
 
 async def create_production_order(
@@ -177,6 +207,7 @@ async def receive_finished_goods(
     production_order_id: int,
     idempotency_key: str,
     user_id: int,
+    overhead_cost: Decimal = Decimal("0"),
 ) -> ProductionOrder:
     order_res = await db.execute(
         select(ProductionOrder).where(ProductionOrder.id == production_order_id)
@@ -191,11 +222,23 @@ async def receive_finished_goods(
     bom = bom_res.scalar_one()
 
     qty_int = _as_stock_int(order.qty_to_produce)
-    issued = order.total_cost_issued
-    unit_cost = q2(issued / Decimal(qty_int)) if issued > 0 else Decimal("0")
-    total_value = issued
+    overhead = q2(overhead_cost)
+    raw_cost = q2(order.total_cost_issued)
+    total_value = q2(raw_cost + overhead)
+    unit_cost = q2(total_value / Decimal(qty_int)) if total_value > 0 else Decimal("0")
 
     finished_variant_id = await resolve_default_variant_id(db, product_id=bom.finished_product_id)
+
+    stock_res = await db.execute(
+        select(StockLevel).where(
+            StockLevel.branch_id == order.branch_id,
+            StockLevel.product_id == bom.finished_product_id,
+            StockLevel.variant_id == finished_variant_id,
+        )
+    )
+    stock_level = stock_res.scalar_one_or_none()
+    qty_on_hand_before = int(stock_level.on_hand) if stock_level else 0
+
     receipt = ProductionOrderReceipt(
         production_order_id=order.id,
         product_id=bom.finished_product_id,
@@ -219,9 +262,48 @@ async def receive_finished_goods(
         variant_id=finished_variant_id,
     )
 
+    await apply_receipt_to_weighted_average(
+        db,
+        branch_id=order.branch_id,
+        product_id=bom.finished_product_id,
+        qty_in=qty_int,
+        unit_cost=unit_cost,
+        qty_on_hand_before=qty_on_hand_before,
+        variant_id=finished_variant_id,
+    )
+
     settings = await get_accounting_settings(db)
     wip_clearing = settings.default_wip_account_id or settings.default_other_clearing_account_id
     inventory_account = settings.default_inventory_account_id
+    overhead_account = (
+        settings.default_other_expenses_account_id or settings.default_other_clearing_account_id
+    )
+
+    if overhead > 0:
+        await post_journal_entry(
+            db,
+            entry_date=date.today(),
+            description=f"Production order {order.order_number} — overhead",
+            source_type="production_order",
+            source_id=str(order.id),
+            idempotency_key=f"{idempotency_key}:overhead_gl",
+            lines=[
+                {
+                    "account_id": wip_clearing,
+                    "branch_id": order.branch_id,
+                    "debit": overhead,
+                    "credit": Decimal("0"),
+                    "memo": "Manufacturing overhead applied to WIP",
+                },
+                {
+                    "account_id": overhead_account,
+                    "branch_id": order.branch_id,
+                    "debit": Decimal("0"),
+                    "credit": overhead,
+                    "memo": "Production overhead cost",
+                },
+            ],
+        )
 
     if total_value > 0:
         await post_journal_entry(
@@ -249,6 +331,7 @@ async def receive_finished_goods(
             ],
         )
 
+    order.overhead_cost = overhead
     order.qty_produced = Decimal(qty_int)
     order.finished_goods_value = total_value
     order.status = "completed"

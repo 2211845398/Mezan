@@ -16,6 +16,7 @@ class CurrencyRead(BaseModel):
     exchange_rate_to_base: Decimal | None
     active: bool
     is_base: bool = False
+    cash_rounding_increment: Decimal | None = None
 
     model_config = {"from_attributes": True}
 
@@ -41,6 +42,7 @@ class CurrencyUpdate(BaseModel):
     decimal_places: int | None = Field(default=None, ge=0, le=6)
     suffix: str | None = Field(default=None, max_length=16)
     active: bool | None = None
+    cash_rounding_increment: Decimal | None = Field(default=None, ge=0)
 
 
 class CurrencyRateUpdate(BaseModel):

@@ -30,7 +30,8 @@ _PRICING_ROLES = require_any_role("OWNER", "ADMIN", "ACCOUNTANT")
 async def evaluate_pricing_matrix(
     branch_id: int | None = Query(None, gt=0),
     q: str | None = Query(None, max_length=128),
-    needs_pricing_only: bool = Query(True),
+    needs_pricing_only: bool = Query(True, alias="needs_pricing_only"),
+    pricing_review_only: bool | None = Query(None, alias="pricing_review_only"),
     product_id: int | None = Query(None, gt=0),
     variant_id: int | None = Query(None, gt=0),
     limit: int = Query(50, ge=1, le=200),
@@ -45,11 +46,12 @@ async def evaluate_pricing_matrix(
     ),
     ___: None = _PRICING_ROLES,
 ) -> PricingEvaluationResponse:
+    review_filter = pricing_review_only if pricing_review_only is not None else needs_pricing_only
     return await get_pricing_evaluation_matrix(
         db,
         branch_id=branch_id,
         q=q,
-        needs_pricing_only=needs_pricing_only,
+        needs_pricing_only=review_filter,
         product_id=product_id,
         variant_id=variant_id,
         limit=min(max(limit, 1), 200),

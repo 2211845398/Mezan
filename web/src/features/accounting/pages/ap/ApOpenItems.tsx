@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
@@ -16,20 +17,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { listBranches } from '@/features/admin/api';
 import { adminKeys } from '@/features/admin/queries';
+import { listSuppliers, type SupplierRead } from '@/features/purchasing/api';
+import { purchasingKeys } from '@/features/purchasing/queries';
 import { usePermission } from '@/hooks/usePermission';
-import { formatMoney } from '@/lib/format';
+import { formatCurrency, formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-import type { OpenItemRead } from '../../api';
-import { apOpenItemsQueryOptions } from '../../queries';
+import type { ApSupplierBalanceRead, OpenItemRead } from '../../api';
+import { apOpenItemsQueryOptions, apSupplierBalancesQueryOptions } from '../../queries';
 import ApApplyPaymentDrawer from './ApApplyPaymentDrawer';
 
 export default function ApOpenItems() {
   const { t } = useTranslation('accounting');
+  const [tab, setTab] = useState('suppliers');
   const [branch, setBranch] = useState('__all');
   const [st, setSt] = useState<string>('open');
+  const [supplierFilter, setSupplierFilter] = useState('__all');
   const [sel, setSel] = useState<number[]>([]);
   const [openDr, setOpenDr] = useState(false);
   const canApply = usePermission('accounting', 'update');
@@ -37,17 +43,50 @@ export default function ApOpenItems() {
     queryKey: adminKeys.branches(false),
     queryFn: () => listBranches({ include_archived: false }),
   });
+  const { data: suppliersData } = useQuery({
+    queryKey: purchasingKeys.suppliers(),
+    queryFn: () => listSuppliers({ limit: 500, offset: 0 }),
+  });
+  const suppliersArray = useMemo(
+    () =>
+      Array.isArray(suppliersData) ? suppliersData : (suppliersData?.items ?? []),
+    [suppliersData],
+  );
   const b = branch === '__all' ? undefined : Number(branch);
   const statusQ = st === 'all' ? undefined : st;
+  const supplierId = supplierFilter === '__all' ? undefined : Number(supplierFilter);
   const apParams = useMemo(() => {
-    const p: { branch_id?: number; status?: string } = {};
+    const p: { branch_id?: number; status?: string; supplier_id?: number } = {};
     if (b !== undefined) p.branch_id = b;
     if (statusQ !== undefined) p.status = statusQ;
+    if (supplierId !== undefined && !Number.isNaN(supplierId)) p.supplier_id = supplierId;
     return p;
-  }, [b, statusQ]);
+  }, [b, statusQ, supplierId]);
+  const balanceParams = useMemo(() => {
+    const p: { branch_id?: number } = {};
+    if (b !== undefined) p.branch_id = b;
+    return p;
+  }, [b]);
+
+  const {
+    data: balances = [],
+    isLoading: balancesLoading,
+    isError: balancesError,
+    refetch: refetchBalances,
+  } = useQuery(apSupplierBalancesQueryOptions(balanceParams));
+
   const { data: rows = [], isLoading, isError, refetch } = useQuery(
     apOpenItemsQueryOptions(apParams),
   );
+
+  const supplierNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of suppliersArray) {
+      const parts = [s.first_name, s.father_name, s.family_name].filter(Boolean);
+      map.set(s.id, parts.join(' ') || s.code);
+    }
+    return map;
+  }, [suppliersArray]);
 
   const selectedItems = useMemo(
     () => rows.filter((r) => sel.includes(r.id)),
@@ -57,6 +96,44 @@ export default function ApOpenItems() {
   const selectionTotal = useMemo(
     () => selectedItems.reduce((acc, r) => acc + Number(r.amount_open), 0),
     [selectedItems],
+  );
+
+  const balanceColumns = useMemo(
+    () =>
+      defineColumns<ApSupplierBalanceRead>()([
+        {
+          id: 'code',
+          accessorKey: 'supplier_code',
+          header: t('ap.col.supplier_code'),
+        },
+        {
+          id: 'name',
+          accessorKey: 'supplier_name',
+          header: t('ap.col.supplier'),
+        },
+        {
+          id: 'balance',
+          accessorKey: 'open_balance',
+          header: t('ap.col.balance'),
+          cell: ({ row }) => (
+            <span className="tabular-nums num-latin text-end block font-medium">
+              {formatCurrency(row.original.open_balance, row.original.currency_code)}
+            </span>
+          ),
+        },
+        {
+          id: 'actions',
+          header: '',
+          cell: ({ row }) => (
+            <Button type="button" variant="link" size="sm" asChild>
+              <Link to={`/purchasing/suppliers/${row.original.supplier_id}/statement`}>
+                {t('ap.view_statement')}
+              </Link>
+            </Button>
+          ),
+        },
+      ]),
+    [t],
   );
 
   const columns = useMemo(
@@ -75,6 +152,14 @@ export default function ApOpenItems() {
                 }}
               />
             ) : null,
+        },
+        {
+          id: 'supplier',
+          header: t('ap.col.supplier'),
+          cell: ({ row }) =>
+            row.original.supplier_id != null
+              ? (supplierNameById.get(row.original.supplier_id) ?? `#${row.original.supplier_id}`)
+              : '—',
         },
         {
           id: 'ref',
@@ -132,12 +217,13 @@ export default function ApOpenItems() {
           ),
         },
       ]),
-    [canApply, sel, t],
+    [canApply, sel, supplierNameById, t],
   );
 
   return (
     <div className="flex flex-col gap-6 p-6">
       <PageHeader title={t('ap.title')} />
+
       <div className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1">
           <Label>{t('toolbar.branch')}</Label>
@@ -155,31 +241,70 @@ export default function ApOpenItems() {
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-1">
-          <Label>{t('ap.filter_status')}</Label>
-          <Select value={st} onValueChange={setSt}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="open">{t('ap.status.open')}</SelectItem>
-              <SelectItem value="closed">{t('ap.status.closed')}</SelectItem>
-              <SelectItem value="all">{t('ap.status.all')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {tab === 'items' ? (
+          <>
+            <div className="grid gap-1">
+              <Label>{t('ap.filter_status')}</Label>
+              <Select value={st} onValueChange={setSt}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">{t('ap.status.open')}</SelectItem>
+                  <SelectItem value="closed">{t('ap.status.closed')}</SelectItem>
+                  <SelectItem value="all">{t('ap.status.all')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1">
+              <Label>{t('ap.filter_supplier')}</Label>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">{t('ap.all_suppliers')}</SelectItem>
+                  {suppliersArray.map((s: SupplierRead) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {supplierNameById.get(s.id) ?? s.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        ) : null}
       </div>
 
-      <DataTable
-        mode="client"
-        columns={columns}
-        data={rows}
-        isLoading={isLoading}
-        isError={isError}
-        onRetry={() => void refetch()}
-      />
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="suppliers">{t('ap.tab.suppliers')}</TabsTrigger>
+          <TabsTrigger value="items">{t('ap.tab.items')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="suppliers" className="mt-4">
+          <DataTable
+            mode="client"
+            columns={balanceColumns}
+            data={balances}
+            isLoading={balancesLoading}
+            isError={balancesError}
+            emptyMessage={t('ap.empty_suppliers')}
+            onRetry={() => void refetchBalances()}
+            getRowHref={(row) => `/purchasing/suppliers/${row.supplier_id}/statement`}
+          />
+        </TabsContent>
+        <TabsContent value="items" className="mt-4">
+          <DataTable
+            mode="client"
+            columns={columns}
+            data={rows}
+            isLoading={isLoading}
+            isError={isError}
+            onRetry={() => void refetch()}
+          />
+        </TabsContent>
+      </Tabs>
 
-      {/* Sticky bulk action bar */}
       {canApply && sel.length > 0 ? (
         <div
           className={cn(

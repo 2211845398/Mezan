@@ -18,6 +18,18 @@ describe('localizePrepareFailure', () => {
     expect(msg).not.toContain('Employee has no');
   });
 
+  it('translates unbalanced payslip message', () => {
+    const msg = localizePrepareFailure(
+      {
+        employee_profile_id: 1,
+        message: 'Payslip amounts must satisfy gross = deductions + net',
+        code: 'payroll_unbalanced_payslip',
+      },
+      i18n.getFixedT('ar', 'payroll'),
+    );
+    expect(msg).toContain('غير متسقة');
+  });
+
   it('translates legacy English message without code', () => {
     const msg = localizePrepareFailure(
       {

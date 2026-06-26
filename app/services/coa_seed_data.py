@@ -395,6 +395,13 @@ COA_SEED_FOREST: tuple[CoaSeedNode, ...] = (
                     ),
                     _leaf("6060", "Bank Fees", "رسوم بنكية", AccountType.EXPENSE),
                     _leaf("6070", "Utilities", "مرافق", AccountType.EXPENSE),
+                    _leaf(
+                        "6080",
+                        "Cash Rounding Differences",
+                        "فروقات تقريب نقدي",
+                        AccountType.EXPENSE,
+                        is_system=True,
+                    ),
                 ),
                 is_system=True,
             ),
@@ -427,6 +434,7 @@ SETTINGS_ACCOUNT_CODES: dict[str, tuple[str, bool]] = {
     "default_inventory_damaged_account_id": ("5030", False),
     "default_inventory_gain_account_id": ("5040", False),
     "default_other_expenses_account_id": ("6050", False),
+    "default_rounding_difference_account_id": ("6080", False),
 }
 
 

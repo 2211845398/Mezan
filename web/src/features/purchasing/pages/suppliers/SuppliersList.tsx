@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { Eye, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-
 import { paginatedParams } from '@/api/pagination';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,13 +23,13 @@ import { supplierCurrencyLabel } from '../../lib/supplierCurrencyLabel';
 import { supplierPaymentTermsLabel } from '../../lib/supplierPaymentTermsLabel';
 import type { SupplierRead } from '../../api';
 import { suppliersQueryOptions } from '../../queries';
-import SupplierForm from './SupplierForm';
+import SupplierForm, { SUPPLIER_DIALOG_FORM_ID } from './SupplierForm';
 
 export default function SuppliersList() {
   const { t, i18n } = useTranslation('purchasing');
+  const { t: tc } = useTranslation('common');
   const isAr = i18n.language.startsWith('ar');
   const canCreate = usePermission('suppliers', 'create');
-  const canRead = usePermission('suppliers', 'read');
 
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [newDialogKey, setNewDialogKey] = useState(0);
@@ -102,24 +103,8 @@ export default function SuppliersList() {
           header: t('suppliers.col.payment_terms'),
           cell: ({ row }) => supplierPaymentTermsLabel(row.original, paymentTerms, isAr),
         },
-        {
-          id: 'actions',
-          header: '',
-          enableGlobalFilter: false,
-          cell: ({ row }) =>
-            canRead ? (
-              <Button type="button" size="icon" variant="ghost" asChild>
-                <Link
-                  to={`/purchasing/suppliers/${row.original.id}`}
-                  aria-label={t('suppliers.view')}
-                >
-                  <Eye className="size-4" />
-                </Link>
-              </Button>
-            ) : null,
-        },
       ]),
-    [canRead, isAr, paymentTerms, t],
+    [isAr, paymentTerms, t],
   );
 
   return (
@@ -151,6 +136,7 @@ export default function SuppliersList() {
         isError={isError}
         onRetry={() => void refetch()}
         showSearch={false}
+        getRowHref={(r) => `/purchasing/suppliers/${r.id}`}
         toolbarLeading={
           <div className="space-y-1.5">
             <Label htmlFor="sup-search">{t('suppliers.search_label')}</Label>
@@ -169,6 +155,14 @@ export default function SuppliersList() {
         onOpenChange={setNewDialogOpen}
         title={t('suppliers.new')}
         maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={SUPPLIER_DIALOG_FORM_ID}
+            onCancel={() => setNewDialogOpen(false)}
+            saveLabel={t('suppliers.form.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {newDialogOpen ? (
           <SupplierForm

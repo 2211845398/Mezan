@@ -26,9 +26,19 @@ type Props = {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   items: OpenItemRead[];
+  initialAlloc?: Record<number, string>;
+  initialTendered?: string;
+  onSuccess?: () => void;
 };
 
-export default function ApApplyPaymentDrawer({ open, onOpenChange, items }: Props) {
+export default function ApApplyPaymentDrawer({
+  open,
+  onOpenChange,
+  items,
+  initialAlloc,
+  initialTendered,
+  onSuccess,
+}: Props) {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
@@ -39,12 +49,14 @@ export default function ApApplyPaymentDrawer({ open, onOpenChange, items }: Prop
 
   useEffect(() => {
     if (open) {
-      setTendered('0');
-      setAlloc(Object.fromEntries(items.map((i) => [i.id, '0'])));
+      setTendered(initialTendered ?? '0');
+      setAlloc(
+        initialAlloc ?? Object.fromEntries(items.map((i) => [i.id, '0'])),
+      );
       setReference('');
       setNote('');
     }
-  }, [open, items]);
+  }, [open, items, initialAlloc, initialTendered]);
 
   const totalApplied = useMemo(() => {
     let s = new Decimal(0);
@@ -80,6 +92,7 @@ export default function ApApplyPaymentDrawer({ open, onOpenChange, items }: Prop
       await qc.invalidateQueries({ queryKey: accountingKeys.root });
       toast.success(t('ap.apply_ok'));
       onOpenChange(false);
+      onSuccess?.();
     },
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });

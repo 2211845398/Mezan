@@ -7,6 +7,7 @@ import {
   type FieldPath,
   type FieldValues,
   FormProvider,
+  useFormContext,
 } from 'react-hook-form';
 
 import { FormFieldContext, FormItemContext } from '@/components/ui/form-context';
@@ -121,4 +122,59 @@ const FormMessage = React.forwardRef<
 });
 FormMessage.displayName = 'FormMessage';
 
-export { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage };
+function rootValidationMessage(root: unknown): string | null {
+  if (root == null || typeof root !== 'object') {
+    return null;
+  }
+  const record = root as Record<string, unknown>;
+  if (typeof record.message === 'string' && record.message.trim()) {
+    return record.message.trim();
+  }
+  const validation = record.validation;
+  if (validation != null && typeof validation === 'object') {
+    const message = (validation as Record<string, unknown>).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message.trim();
+    }
+  }
+  return null;
+}
+
+function FormValidationAlert({
+  message,
+  className,
+}: {
+  message?: string | null;
+  className?: string;
+}) {
+  const form = useFormContext();
+  const body = message?.trim() || rootValidationMessage(form.formState.errors.root);
+
+  if (!body) {
+    return null;
+  }
+
+  return (
+    <div
+      role="alert"
+      className={cn(
+        'rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive',
+        'shadow-sm',
+        className,
+      )}
+    >
+      {body}
+    </div>
+  );
+}
+
+export {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+};

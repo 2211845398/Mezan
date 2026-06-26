@@ -1,8 +1,9 @@
-import { apiClient } from '@/api/client';
+import { apiClient, isAxiosError } from '@/api/client';
 import type { paths } from '@/api/generated/schema';
 import { omitUndefined } from '@/lib/omitUndefined';
 
 import type {
+  CommercialRestockAlertRow,
   InventoryPolicyRead,
   ReorderAlertRow,
   StockCardRead,
@@ -26,6 +27,7 @@ export type { StockMovement, TransferRead };
 
 export async function listStockOnHand(params: {
   branch_id?: number;
+  branch_kind?: 'commercial' | 'warehouse';
   category_id?: number;
   variant_id?: number;
   q?: string;
@@ -42,6 +44,7 @@ export async function listStockOnHand(params: {
 export async function listStockMovements(params: {
   branch_id?: number;
   product_id?: number;
+  variant_id?: number;
   limit?: number;
   offset?: number;
 }): Promise<StockMovement[]> {
@@ -78,6 +81,11 @@ export type ReservationRead = {
   qty_open: number;
   created_at: string;
   notes?: string | null;
+  movement_kind?: string;
+  ref_type?: string | null;
+  ref_id?: string | null;
+  transfer_batch_id?: number | null;
+  releasable?: boolean;
 };
 
 export type HumanMovementBody = {
@@ -209,6 +217,7 @@ export type StockCountSessionRead = {
   status: string;
   category_id?: number | null;
   responsible_name: string;
+  assigned_user_id?: number | null;
   created_by?: number | null;
   created_at: string;
   posted_at?: string | null;
@@ -250,6 +259,7 @@ export async function createStockCountSession(body: {
   category_id?: number | null;
   category_include_descendants?: boolean;
   product_ids?: number[] | null;
+  assigned_user_id: number;
   responsible_name?: string;
 }): Promise<StockCountSessionDetailRead> {
   const { data } = await apiClient.post<StockCountSessionDetailRead>(
@@ -284,8 +294,60 @@ export async function postStockCountSession(
   return data;
 }
 
+export async function cancelStockCountSession(sessionId: number): Promise<void> {
+  await apiClient.delete(`/inventory/stock-count/sessions/${sessionId}`);
+}
+
 export async function downloadStockCountSessionPdf(sessionId: number): Promise<string> {
   const res = await apiClient.get<Blob>(`/inventory/stock-count/sessions/${sessionId}/pdf`, {
+    responseType: 'blob',
+  });
+  const blob = res.data;
+  const disposition = res.headers['content-disposition'] as string | undefined;
+  let filename = `stock_count_${sessionId}.pdf`;
+  const match = disposition?.match(/filename="?([^";]+)"?/);
+  if (match?.[1]) filename = match[1];
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return filename;
+}
+
+export async function listMyStockCountSessions(params?: {
+  limit?: number;
+}): Promise<StockCountSessionRead[]> {
+  const { data } = await apiClient.get<StockCountSessionRead[]>(
+    '/employees/me/stock-count-sessions',
+    { params },
+  );
+  return data;
+}
+
+export async function getMyStockCountSession(
+  sessionId: number,
+): Promise<StockCountSessionDetailRead> {
+  const { data } = await apiClient.get<StockCountSessionDetailRead>(
+    `/employees/me/stock-count-sessions/${sessionId}`,
+  );
+  return data;
+}
+
+export async function patchMyStockCountLines(
+  sessionId: number,
+  lines: { id: number; counted_qty?: number | null; damaged_counted?: number | null; notes?: string | null }[],
+): Promise<StockCountSessionDetailRead> {
+  const { data } = await apiClient.patch<StockCountSessionDetailRead>(
+    `/employees/me/stock-count-sessions/${sessionId}/lines`,
+    { lines },
+  );
+  return data;
+}
+
+export async function downloadMyStockCountSessionPdf(sessionId: number): Promise<string> {
+  const res = await apiClient.get<Blob>(`/employees/me/stock-count-sessions/${sessionId}/pdf`, {
     responseType: 'blob',
   });
   const blob = res.data;
@@ -337,6 +399,21 @@ export async function getInventoryPolicy(
   return data;
 }
 
+/** Returns null when no policy exists yet (HTTP 404). */
+export async function getInventoryPolicyOrNull(
+  branchId: number,
+  productId: number,
+): Promise<InventoryPolicyRead | null> {
+  try {
+    return await getInventoryPolicy(branchId, productId);
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function patchInventoryPolicy(
   branchId: number,
   productId: number,
@@ -357,6 +434,31 @@ export async function patchInventoryPolicy(
 
 export async function listReorderAlerts(params?: { branch_id?: number }): Promise<ReorderAlertRow[]> {
   const { data } = await apiClient.get<ReorderAlertRow[]>('/inventory/reorder-alerts', { params });
+  return data;
+}
+
+export async function getReorderAlertCount(params?: { branch_id?: number }): Promise<{ count: number }> {
+  const { data } = await apiClient.get<{ count: number }>('/inventory/reorder-alerts/count', { params });
+  return data;
+}
+
+export async function listCommercialRestockAlerts(params?: {
+  branch_id?: number;
+}): Promise<CommercialRestockAlertRow[]> {
+  const { data } = await apiClient.get<CommercialRestockAlertRow[]>(
+    '/inventory/commercial-restock-alerts',
+    { params },
+  );
+  return data;
+}
+
+export async function getCommercialRestockCount(params?: {
+  branch_id?: number;
+}): Promise<{ count: number }> {
+  const { data } = await apiClient.get<{ count: number }>(
+    '/inventory/commercial-restock-alerts/count',
+    { params },
+  );
   return data;
 }
 

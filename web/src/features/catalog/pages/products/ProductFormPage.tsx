@@ -4,17 +4,26 @@ import { Layers, Package, Ruler } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { notifyApiError } from '@/api/errorMessages';
+import { DetailFormActionBar } from '@/components/shared/DetailFormActionBar';
+import {
+  detailHeaderApproveButtonClassName,
+  detailHeaderCancelButtonClassName,
+  detailHeaderDangerOutlineButtonClassName,
+} from '@/components/shared/FloatingFormDialog/styles';
 import { FormContainer } from '@/components/shared/ContentSurface';
 import { PageTabNav } from '@/components/shared/PageTabNav';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
+import { FormValidationAlert } from '@/components/ui/form';
 import { usePermission } from '@/hooks/usePermission';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
+import { createFormInvalidHandler } from '@/lib/formValidation';
+import { useEditableFormMode, useDeferredEditSaveActions, preventEditGhostClick } from '@/lib/useEditableFormMode';
 
 import type { VariantDraftRow } from '../../api';
 import {
@@ -22,6 +31,8 @@ import {
   getProductWithVariants,
   listTaxDefinitions,
   listUnitsOfMeasure,
+  postArchiveProduct,
+  postUnarchiveProduct,
   previewGenerateVariants,
   syncProductVariants,
   updateProduct,
@@ -118,6 +129,8 @@ type ProductFormValues = z.infer<ReturnType<typeof createProductFormSchema>>;
 
 type ProductTab = 'productData' | 'units' | 'attributes';
 
+const PRODUCT_DETAIL_FORM_ID = 'catalog-product-detail-form';
+
 export default function ProductFormPage() {
   const { t, i18n } = useTranslation('catalog');
   const { t: tc } = useTranslation('common');
@@ -180,6 +193,30 @@ export default function ProductFormPage() {
     },
   });
 
+  const editMode = useEditableFormMode({
+    form,
+    canEdit: allowed,
+    isCreate: isNew,
+  });
+  const saveActionsReady = useDeferredEditSaveActions(!isNew && editMode.isEditing);
+
+  const archiveProductM = useMutation({
+    mutationFn: async () => {
+      if (!product) throw new Error('missing product');
+      return product.status === 'archived'
+        ? postUnarchiveProduct(product.id)
+        : postArchiveProduct(product.id);
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: catalogKeys.root });
+      toast.success(t('products.save_ok'));
+      if (product?.status !== 'archived') {
+        navigate('/catalog/products');
+      }
+    },
+    onError: (e) => notifyApiError(e, t('errors.generic')),
+  });
+
   useEffect(() => {
     if (isNew) {
       const first = flat[0];
@@ -208,7 +245,8 @@ export default function ProductFormPage() {
       tax_definition_ids: [...(product.tax_definition_ids ?? [])],
       isActive: product.status !== 'archived',
     });
-  }, [isNew, product, form, flat, defaultUomId]);
+    editMode.syncSnapshot();
+  }, [isNew, product, form, flat, defaultUomId, editMode.syncSnapshot]);
 
   const watchedPrimary = form.watch('category_id');
   useEffect(() => {
@@ -218,6 +256,10 @@ export default function ProductFormPage() {
       form.setValue('tag_category_ids', next, { shouldDirty: true });
     }
   }, [watchedPrimary, form]);
+
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['category_id', 'name', 'sku', 'uom_id', 'output_vat_rate'],
+  });
 
   const [axes, setAxes] = useState<VariantAxisLine[]>([]);
   const [variantRows, setVariantRows] = useState<VariantDraftRow[]>([]);
@@ -366,10 +408,11 @@ export default function ProductFormPage() {
       void qc.invalidateQueries({ queryKey: catalogKeys.root });
       if (wasNew) {
         toast.success(t('products.save_variants_ok', { count: syncCount }));
-        navigate(`/catalog/products/${productId}/edit?tab=attributes`, { replace: true });
+        navigate(`/catalog/products/${productId}?tab=attributes`, { replace: true });
         return;
       }
       toast.success(t('products.save_ok'));
+      editMode.finishEdit();
       setSearchParams({ tab: 'attributes' });
     },
     onError: (error) => {
@@ -432,16 +475,85 @@ export default function ProductFormPage() {
     return {};
   };
 
-  const saveFooter = (
-    <>
-      <Button type="button" variant="outline" onClick={() => navigate('/catalog/products')}>
-        {t('actions.cancel')}
-      </Button>
-      <Button type="submit" disabled={saveM.isPending || loadingProduct || (!isNew && !product)}>
-        {t('actions.save')}
-      </Button>
-    </>
-  );
+  const saveFooter = editMode.fieldsEnabled ? (
+    <FormValidationAlert className="w-full" />
+  ) : null;
+
+  const renderHeaderActions = () => {
+    if (isNew) {
+      return (
+        <>
+          <BackButton to="/catalog/products" label={t('products.title')} />
+          <DetailFormActionBar
+            isCreate
+            isEditing
+            isSubmitting={saveM.isPending}
+            formId={PRODUCT_DETAIL_FORM_ID}
+          />
+        </>
+      );
+    }
+
+    if (editMode.isEditing) {
+      return (
+        <div className="flex items-center gap-[5px]">
+          <Button
+            type="button"
+            variant="outline"
+            className={detailHeaderCancelButtonClassName}
+            onClick={editMode.cancelEdit}
+            disabled={saveM.isPending}
+          >
+            {tc('actions.cancel')}
+          </Button>
+          {saveActionsReady ? (
+            <Button
+              type="button"
+              className={detailHeaderApproveButtonClassName}
+              disabled={saveM.isPending || loadingProduct || !product}
+              onClick={() => {
+                void form.handleSubmit((v) => saveM.mutate(v), onInvalid)();
+              }}
+            >
+              {tc('actions.save')}
+            </Button>
+          ) : null}
+          <Button variant="outline" asChild className="h-10 px-4">
+            <Link to="/catalog/products">{t('products.title')}</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-[5px]">
+        {canUpdate && product ? (
+          <Button
+            type="button"
+            variant="outline"
+            className={detailHeaderDangerOutlineButtonClassName}
+            disabled={archiveProductM.isPending}
+            onClick={() => void archiveProductM.mutate()}
+          >
+            {product.status === 'archived' ? t('products.unarchive') : t('products.archive')}
+          </Button>
+        ) : null}
+        {allowed ? (
+          <Button
+            type="button"
+            className={detailHeaderApproveButtonClassName}
+            onPointerDown={preventEditGhostClick}
+            onClick={editMode.startEdit}
+          >
+            {tc('actions.edit')}
+          </Button>
+        ) : null}
+        <Button variant="outline" asChild className="h-10 px-4">
+          <Link to="/catalog/products">{t('products.title')}</Link>
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -449,14 +561,15 @@ export default function ProductFormPage() {
       className="flex flex-col gap-6 p-4 text-start md:p-6"
     >
       <PageHeader
-        title={isNew ? t('products.create') : t('products.edit')}
-        actions={<BackButton to="/catalog/products" label={t('products.title')} />}
+        title={isNew ? t('products.create') : product?.name ?? t('products.edit')}
+        actions={renderHeaderActions()}
       />
 
       {isNew || product ? (
         <FormProvider {...form}>
           <form
-            onSubmit={form.handleSubmit((v) => saveM.mutate(v))}
+            id={PRODUCT_DETAIL_FORM_ID}
+            onSubmit={form.handleSubmit((v) => saveM.mutate(v), onInvalid)}
             onKeyDown={handleFormEnterSubmit}
             className="space-y-6"
             aria-busy={saveM.isPending}
@@ -479,10 +592,16 @@ export default function ProductFormPage() {
                   flat={flat}
                   tagOptions={tagOptions}
                   activeTaxOptions={activeTaxOptions}
+                  fieldsEnabled={editMode.fieldsEnabled}
                   footer={saveFooter}
                 />
               ) : activeTab === 'units' ? (
-                <ProductUnitsTab form={form as never} uoms={uoms} footer={saveFooter} />
+                <ProductUnitsTab
+                  form={form as never}
+                  uoms={uoms}
+                  fieldsEnabled={editMode.fieldsEnabled}
+                  footer={saveFooter}
+                />
               ) : (
                 <>
                   <ProductAttributesTab
@@ -492,7 +611,7 @@ export default function ProductFormPage() {
                     onAxesChange={setAxes}
                     variantRows={variantRows}
                     onVariantRowsChange={setVariantRows}
-                    disabled={saveM.isPending}
+                    disabled={saveM.isPending || !editMode.fieldsEnabled}
                   />
                   <div className="mt-6 flex flex-wrap items-center justify-end gap-2">{saveFooter}</div>
                 </>

@@ -26,7 +26,11 @@ export function PageHeader({ title, subtitle, description, actions, className }:
         <h1 className="text-xl font-semibold leading-tight">{title}</h1>
         {sub ? <p className="text-sm text-muted-foreground">{sub}</p> : null}
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div dir="ltr" className="flex flex-wrap items-center gap-[5px]">
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }

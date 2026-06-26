@@ -38,3 +38,23 @@ class CreatedPurchaseOrderRef(BaseModel):
 
 class CreatePurchaseOrdersFromReorderResponse(BaseModel):
     created: list[CreatedPurchaseOrderRef]
+
+
+class ReorderAlertCountRead(BaseModel):
+    count: int
+
+
+class CommercialRestockAlertRow(ReorderAlertRow):
+    """Commercial branch restock alert with transfer prefill hints."""
+
+    variant_id: int
+    variant_name: str = ""
+    variant_sku: str = ""
+    reference_code: str = ""
+    suggested_qty: int
+    suggested_from_branch_id: int | None = None
+    suggested_from_branch_name: str | None = None
+    source_available: int = 0
+    can_prefill_transfer: bool = False
+    uom_id: int | None = None
+    product_image_url: str | None = None

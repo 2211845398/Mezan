@@ -16,8 +16,9 @@ export const marketingKeys = {
     branch_id: number;
     period_start: string;
     period_end: string;
-    limit: number;
-    offset: number;
+    limit?: number;
+    offset?: number;
+    scope?: 'summary' | 'table';
   }) => [...marketingKeys.root, 'sales-register', q] as const,
 };
 
@@ -61,7 +62,21 @@ export function salesTrendForPeriodQueryOptions(period_start: string, period_end
   });
 }
 
-export function salesInvoicesRegisterQueryOptions(args: {
+export function salesInvoicesRegisterSummaryQueryOptions(args: {
+  branch_id: number;
+  period_start: string;
+  period_end: string;
+}) {
+  return queryOptions({
+    queryKey: marketingKeys.salesRegister({ ...args, scope: 'summary' }),
+    queryFn: () =>
+      api.getSalesInvoicesRegister({ ...args, limit: 1, offset: 0 }),
+    placeholderData: undefined,
+    staleTime: 0,
+  });
+}
+
+export function salesInvoicesRegisterTableQueryOptions(args: {
   branch_id: number;
   period_start: string;
   period_end: string;
@@ -69,8 +84,20 @@ export function salesInvoicesRegisterQueryOptions(args: {
   offset: number;
 }) {
   return queryOptions({
-    queryKey: marketingKeys.salesRegister(args),
+    queryKey: marketingKeys.salesRegister({ ...args, scope: 'table' }),
     queryFn: () => api.getSalesInvoicesRegister(args),
-    staleTime: 30_000,
+    placeholderData: undefined,
+    staleTime: 0,
   });
+}
+
+/** @deprecated Use summary + table query options instead. */
+export function salesInvoicesRegisterQueryOptions(args: {
+  branch_id: number;
+  period_start: string;
+  period_end: string;
+  limit: number;
+  offset: number;
+}) {
+  return salesInvoicesRegisterTableQueryOptions(args);
 }

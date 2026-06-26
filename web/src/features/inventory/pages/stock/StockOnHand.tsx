@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { TableCategoryTags } from '@/components/shared/TableCategoryTags';
 import { Input } from '@/components/ui/input';
@@ -18,9 +22,10 @@ import { cn } from '@/lib/utils';
 
 import { BranchStockFilterBar } from '../../components/BranchStockFilterBar';
 import { InventoryStockNavActions } from '../../components/InventoryStockNavActions';
+import { getCommercialRestockCount, getReorderAlertCount } from '../../api';
 import { useStockOnHandQuery } from '../../queries';
 import type { StockOnHandRow } from '../../types';
-import AdjustmentForm from '../adjustments/AdjustmentForm';
+import AdjustmentForm, { ADJUSTMENT_DIALOG_FORM_ID } from '../adjustments/AdjustmentForm';
 
 function flattenCats(nodes: { id: number; name: string; children?: typeof nodes }[]): { id: number; name: string }[] {
   const o: { id: number; name: string }[] = [];
@@ -43,9 +48,11 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 type MetricFilter = 'reserved' | 'damaged' | 'in_transit';
+type BranchKindFilter = 'commercial' | 'warehouse';
 
 export default function StockOnHand() {
   const { t } = useTranslation('inventory');
+  const { t: tc } = useTranslation('common');
   const [searchParams, setSearchParams] = useSearchParams();
 
   const branchId = useMemo(() => {
@@ -64,6 +71,11 @@ export default function StockOnHand() {
 
   const qText = searchParams.get('q') ?? '';
   const reorderOnly = searchParams.get('reorder_only') === '1';
+  const branchKindParam = searchParams.get('branch_kind');
+  const branchKind: BranchKindFilter | null =
+    branchKindParam === 'commercial' || branchKindParam === 'warehouse'
+      ? branchKindParam
+      : null;
   const statusParam = searchParams.get('status') ?? 'all';
   const metricFilter = (searchParams.get('metric') ?? '') as MetricFilter | '';
 
@@ -102,6 +114,7 @@ export default function StockOnHand() {
           } else {
             next.delete('reorder_only');
             next.delete('status_filter');
+            next.delete('branch_kind');
           }
           return next;
         },
@@ -109,6 +122,29 @@ export default function StockOnHand() {
       );
     },
     [setSearchParams],
+  );
+
+  const setAlertBranchKind = useCallback(
+    (kind: BranchKindFilter) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const active = reorderOnly && branchKind === kind;
+          if (active) {
+            next.delete('reorder_only');
+            next.delete('branch_kind');
+            next.delete('status_filter');
+          } else {
+            next.set('reorder_only', '1');
+            next.set('branch_kind', kind);
+            next.delete('status_filter');
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [branchKind, reorderOnly, setSearchParams],
   );
 
   const setMetric = useCallback(
@@ -133,6 +169,7 @@ export default function StockOnHand() {
   const queryParams = useMemo(
     () => ({
       branch_id: branchId ?? '',
+      branch_kind: branchKind ?? '',
       category_id: categoryId ?? '',
       q: qText,
       reorder_only: reorderOnly,
@@ -140,8 +177,17 @@ export default function StockOnHand() {
       limit: 100,
       offset: 0,
     }),
-    [branchId, categoryId, qText, reorderOnly, statusParam],
+    [branchId, branchKind, categoryId, qText, reorderOnly, statusParam],
   );
+
+  const { data: warehouseAlertCount = 0 } = useQuery({
+    queryKey: ['inventory', 'kpi', 'warehouse-reorder-count'],
+    queryFn: async () => (await getReorderAlertCount()).count,
+  });
+  const { data: commercialRestockCount = 0 } = useQuery({
+    queryKey: ['inventory', 'kpi', 'commercial-restock-count'],
+    queryFn: async () => (await getCommercialRestockCount()).count,
+  });
 
   const { data: tree = [] } = useCategoryTreeQuery();
   const cats = useMemo(() => flattenCats(tree), [tree]);
@@ -157,19 +203,17 @@ export default function StockOnHand() {
   }, [rows, metricFilter]);
 
   const kpis = useMemo(() => {
-    let low = 0;
     let damaged = 0;
     let reserved = 0;
     let inTransit = 0;
     let totalValue = 0;
     for (const r of rows) {
-      if (r.reorder_status === 'below_reorder') low += 1;
       damaged += r.damaged;
       reserved += r.reserved;
       inTransit += r.in_transit_in + r.in_transit_out;
       totalValue += Number(r.extended_cost ?? 0);
     }
-    return { low, damaged, reserved, inTransit, totalValue };
+    return { damaged, reserved, inTransit, totalValue };
   }, [rows]);
 
   const columns = useMemo(
@@ -193,9 +237,7 @@ export default function StockOnHand() {
                 <div className="size-9 shrink-0 overflow-hidden rounded-md border bg-muted">
                   {src ? <img src={src} alt="" className="size-full object-cover" loading="lazy" /> : null}
                 </div>
-                <Link className="truncate font-medium text-primary hover:underline" to={`/inventory/stock/${r.product_id}`}>
-                  {r.product_name}
-                </Link>
+                <span className="truncate font-medium">{r.product_name}</span>
               </div>
             );
           },
@@ -297,7 +339,7 @@ export default function StockOnHand() {
     label: string;
     value: string | number;
     metric?: MetricFilter;
-    reorderToggle?: boolean;
+    alertBranchKind?: BranchKindFilter;
     active?: boolean;
     clickable?: boolean;
     variant?: 'default' | 'warning' | 'danger' | 'success';
@@ -305,12 +347,20 @@ export default function StockOnHand() {
 
   const kpiCards: KpiCard[] = [
     {
-      label: t('stock.kpi.low'),
-      value: kpis.low,
-      reorderToggle: true,
-      active: reorderOnly,
+      label: t('stock.kpi.warehouse_po'),
+      value: warehouseAlertCount,
+      alertBranchKind: 'warehouse',
+      active: reorderOnly && branchKind === 'warehouse',
       clickable: true,
       variant: 'default',
+    },
+    {
+      label: t('stock.kpi.commercial_restock'),
+      value: commercialRestockCount,
+      alertBranchKind: 'commercial',
+      active: reorderOnly && branchKind === 'commercial',
+      clickable: true,
+      variant: 'warning',
     },
     {
       label: t('stock.kpi.reserved_units'),
@@ -345,8 +395,8 @@ export default function StockOnHand() {
   ];
 
   function handleKpiClick(card: KpiCard) {
-    if (card.reorderToggle) {
-      setReorderOnly(!reorderOnly);
+    if (card.alertBranchKind) {
+      setAlertBranchKind(card.alertBranchKind);
       return;
     }
     if (card.metric) {
@@ -383,12 +433,13 @@ export default function StockOnHand() {
                 ? 'cursor-pointer hover:shadow-sm hover:ring-2 hover:ring-border'
                 : 'cursor-default',
               card.active &&
-                card.reorderToggle &&
+                card.alertBranchKind &&
                 'ring-2 ring-border shadow-sm',
               card.active &&
                 card.metric &&
                 'ring-2 ring-border shadow-sm',
               card.variant === 'success' && 'border-emerald-400/40',
+              card.variant === 'warning' && 'border-amber-400/40',
             )}
           >
             <p className="text-xs text-muted-foreground">{card.label}</p>
@@ -396,6 +447,7 @@ export default function StockOnHand() {
               className={cn(
                 'mt-1 text-xl font-semibold tabular-nums num-latin text-foreground',
                 card.variant === 'success' && 'text-emerald-700 dark:text-emerald-400',
+                card.variant === 'warning' && 'text-amber-700 dark:text-amber-400',
               )}
             >
               {card.value}
@@ -446,6 +498,9 @@ export default function StockOnHand() {
         isError={isError}
         onRetry={() => void refetch()}
         getRowId={(r) => `${r.branch_id}-${r.product_id}-${r.variant_id}`}
+        getRowHref={(r) =>
+          `/inventory/stock/${r.product_id}/movements?branch_id=${r.branch_id}&variant_id=${r.variant_id}`
+        }
       />
 
       <FloatingFormDialog
@@ -453,6 +508,14 @@ export default function StockOnHand() {
         onOpenChange={setMovementDialogOpen}
         title={t('adjustments.new')}
         maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={ADJUSTMENT_DIALOG_FORM_ID}
+            onCancel={() => setMovementDialogOpen(false)}
+            saveLabel={t('actions.submit')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {movementDialogOpen ? (
           <AdjustmentForm

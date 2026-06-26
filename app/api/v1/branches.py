@@ -21,11 +21,14 @@ router = APIRouter()
 async def list_branches(
     db: AsyncSession = Depends(get_db),
     include_archived: bool = Query(False, description="Include soft-deleted branches"),
+    kind: str | None = Query(None, description="Filter by branch kind: commercial or warehouse"),
     _: None = Depends(get_current_user),
     __: None = require_permission("branches", "read"),
 ) -> list[BranchRead]:
     """List branches (active only unless include_archived). Requires branches:read."""
     q = select(Branch).order_by(Branch.code)
+    if kind is not None:
+        q = q.where(Branch.kind == kind)
     if not include_archived:
         q = q.where(Branch.archived_at.is_(None))
     result = await db.execute(q)
@@ -51,6 +54,7 @@ async def create_branch(
         code=body.code,
         address=body.address,
         timezone=body.timezone,
+        kind=body.kind,
     )
     db.add(branch)
     await db.flush()
@@ -106,6 +110,8 @@ async def update_branch(
         branch.address = body.address
     if body.timezone is not None:
         branch.timezone = body.timezone
+    if body.kind is not None:
+        branch.kind = body.kind
     if body.is_active is not None:
         branch.is_active = body.is_active
     if body.unarchive:

@@ -1,4 +1,4 @@
-import { Clock3, ListChecks, ReceiptText, RotateCcw, Wallet } from 'lucide-react';
+import { Clock3, FileText, ListChecks, ReceiptText, RotateCcw, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -56,7 +56,7 @@ export function RegisterToolbar({
   canDrawerMovement = false,
   onDrawerMovementOpen,
 }: RegisterToolbarProps) {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
   const online = useOnline();
   const user = useAuthStore((s) => s.user);
   const [endShiftOpen, setEndShiftOpen] = useState(false);
@@ -91,7 +91,9 @@ export function RegisterToolbar({
       <div className="flex min-w-0 flex-wrap items-center gap-3">
         <div className="min-w-0 shrink">
           <p className="text-sm font-semibold leading-tight">{t('shell.title')}</p>
-          <p className="text-xs text-muted-foreground">{branchLabel || `Terminal #${terminalId}`}</p>
+          <p className="text-xs text-muted-foreground">
+            {branchLabel || t('shell.device_fallback', { id: terminalId })}
+          </p>
           {returnInvoiceNumber ? (
             <p
               className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
@@ -127,6 +129,12 @@ export function RegisterToolbar({
               {parked.data?.length}
             </span>
           ) : null}
+        </Button>
+        <Button asChild type="button" variant="outline" className={posToolbarBtn}>
+          <Link to="/pos/proforma">
+            <FileText className="size-4 shrink-0" aria-hidden />
+            {t('proforma.title')}
+          </Link>
         </Button>
       </div>
 
@@ -171,7 +179,7 @@ export function RegisterToolbar({
 
       {/* End-shift dialog */}
       <Dialog open={endShiftOpen} onOpenChange={setEndShiftOpen}>
-        <DialogContent className="sm:max-w-md" dir="auto">
+        <DialogContent className="sm:max-w-md" dir={i18n.dir()}>
           <DialogHeader>
             <DialogTitle>{t('close.title')}</DialogTitle>
           </DialogHeader>
@@ -181,7 +189,7 @@ export function RegisterToolbar({
 
       {/* Parked invoices dialog — controlled externally so totals column can also open it */}
       <Dialog open={parkedOpen} onOpenChange={onParkedOpenChange}>
-        <DialogContent className="overflow-hidden p-0 sm:max-w-2xl">
+        <DialogContent className="overflow-hidden p-0 sm:max-w-2xl" dir={i18n.dir()}>
           <DialogHeader className="border-b px-6 pt-6 pb-4">
             <DialogTitle>{t('pending.title')}</DialogTitle>
             <DialogDescription>{t('pending.description')}</DialogDescription>

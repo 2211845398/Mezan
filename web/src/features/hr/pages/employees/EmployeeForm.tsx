@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller, type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -9,11 +9,15 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { getApiErrorMessage, notifyApiError } from '@/api/errorMessages';
+import { DetailFormActionBar } from '@/components/shared/DetailFormActionBar';
 import { handleFormEnterSubmit } from '@/lib/formSubmitOnEnter';
 import { cn } from '@/lib/utils';
 import { focusFirstFormError, useFormValidationDisplay } from '@/lib/formValidation';
+import { readOnlyTextInputProps } from '@/lib/readOnlyFieldStyles';
+import { useEditableFormMode } from '@/lib/useEditableFormMode';
 import { FormContainer, SectionCard } from '@/components/shared/ContentSurface';
 import { DateField } from '@/components/shared/form/DateField';
+import { ReadOnlyCopyableField } from '@/components/shared/form/ReadOnlyCopyableField';
 import { MoneyInput } from '@/components/shared/form/MoneyInput';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -29,6 +33,7 @@ import {
 import { listBranches } from '@/features/admin/api';
 import { usersPickerQueryOptions } from '@/features/admin/queries';
 import { adminKeys } from '@/features/admin/queries';
+import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
 
 import {
@@ -63,14 +68,17 @@ type FormValues = z.infer<typeof schema>;
 
 const weekdays = [0, 1, 2, 3, 4, 5, 6] as const;
 
+const EMPLOYEE_EDIT_FORM_ID = 'hr-employee-edit-form';
+
 export default function EmployeeForm() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation('hr');
+  const { t, i18n } = useTranslation('hr');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isNew = id === 'new';
   const eid = id && !isNew ? Number(id) : NaN;
+  const canUpdate = usePermission('employees', 'update');
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: users = [] } = useQuery(usersPickerQueryOptions());
@@ -103,6 +111,20 @@ export default function EmployeeForm() {
   });
 
   const vd = useFormValidationDisplay(form.control);
+  const editMode = useEditableFormMode({
+    form,
+    canEdit: canUpdate,
+    isCreate: isNew,
+  });
+  const fieldsEnabled = editMode.fieldsEnabled;
+  const textRo = (extra?: string) => readOnlyTextInputProps(fieldsEnabled, extra);
+
+  const userIdValue = form.watch('user_id');
+  const linkedUserLabel = useMemo(() => {
+    if (!userIdValue) return '—';
+    const linked = users.find((u) => u.id === userIdValue);
+    return linked ? `${linked.email} (#${linked.id})` : `#${userIdValue}`;
+  }, [userIdValue, users]);
 
   const onInvalid = (errs: FieldErrors<FormValues>) => {
     for (const msg of collectHrValidationToasts(errs, t, tc, EMPLOYEE_FORM_FIELD_ORDER)) {
@@ -120,7 +142,10 @@ export default function EmployeeForm() {
       hourly_rate: existing.hourly_rate != null ? String(existing.hourly_rate) : '',
       bank_account: existing.bank_account ?? '',
     });
-  }, [existing, form]);
+    if (!isNew) {
+      editMode.syncSnapshot();
+    }
+  }, [existing, form, isNew, editMode.syncSnapshot]);
 
   const save = useMutation({
     mutationFn: async (v: FormValues) => {
@@ -148,6 +173,8 @@ export default function EmployeeForm() {
       setFormError(null);
       if (isNew) {
         navigate(`/hr/employees/${row.id}/data`, { replace: true });
+      } else {
+        editMode.finishEdit();
       }
     },
   });
@@ -175,12 +202,27 @@ export default function EmployeeForm() {
       <div className="flex flex-col gap-6">
         <PageHeader
           title={isNew ? t('employees.new') : t('employees.edit')}
-          actions={<BackButton to="/hr/employees" label={t('employees.title')} />}
+          actions={
+            <>
+              <BackButton to="/hr/employees" label={t('employees.title')} />
+              <DetailFormActionBar
+                isEditing={editMode.isEditing}
+                isCreate={isNew}
+                canEdit={canUpdate}
+                isSubmitting={save.isPending}
+                formId={EMPLOYEE_EDIT_FORM_ID}
+                onStartEdit={editMode.startEdit}
+                onCancelEdit={editMode.cancelEdit}
+              />
+            </>
+          }
         />
 
         <SectionCard>
           <form
+            id={EMPLOYEE_EDIT_FORM_ID}
             className="flex flex-col gap-4"
+            dir={i18n.dir()}
             onKeyDown={handleFormEnterSubmit}
             onSubmit={form.handleSubmit(
               async (v) => {
@@ -194,33 +236,37 @@ export default function EmployeeForm() {
               onInvalid,
             )}
           >
+            <fieldset disabled={save.isPending} className="flex flex-col gap-4">
             <div className="grid gap-2">
               <Label>{t('employees.form.user')}</Label>
               <Controller
                 control={form.control}
                 name="user_id"
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ''}
-                    onValueChange={(v) => field.onChange(Number(v))}
-                    disabled={!isNew}
-                  >
-                    <SelectTrigger
-                      name="user_id"
-                      className={vd.invalidClass('user_id')}
-                      aria-invalid={vd.ariaInvalid('user_id')}
+                render={({ field }) =>
+                  isNew && fieldsEnabled ? (
+                    <Select
+                      value={field.value ? String(field.value) : ''}
+                      onValueChange={(v) => field.onChange(Number(v))}
                     >
-                      <SelectValue placeholder="—" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users.map((u) => (
-                        <SelectItem key={u.id} value={String(u.id)}>
-                          {u.email} (#{u.id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                      <SelectTrigger
+                        name="user_id"
+                        className={vd.invalidClass('user_id')}
+                        aria-invalid={vd.ariaInvalid('user_id')}
+                      >
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users.map((u) => (
+                          <SelectItem key={u.id} value={String(u.id)}>
+                            {u.email} (#{u.id})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <ReadOnlyCopyableField value={linkedUserLabel} dir={i18n.dir()} />
+                  )
+                }
               />
             </div>
             <div className="grid gap-2">
@@ -234,6 +280,7 @@ export default function EmployeeForm() {
                     name="hire_date"
                     value={field.value}
                     onChange={field.onChange}
+                    readOnly={!fieldsEnabled}
                     invalid={vd.showError('hire_date')}
                   />
                 )}
@@ -250,6 +297,10 @@ export default function EmployeeForm() {
                     id="base_salary"
                     value={field.value ?? ''}
                     onChange={field.onChange}
+                    readOnly={textRo().readOnly}
+                    disabled={textRo().disabled}
+                    tabIndex={textRo().tabIndex}
+                    className={textRo().className}
                     invalid={vd.showError('base_salary')}
                   />
                 )}
@@ -266,6 +317,10 @@ export default function EmployeeForm() {
                     id="hourly_rate"
                     value={field.value ?? ''}
                     onChange={field.onChange}
+                    readOnly={textRo().readOnly}
+                    disabled={textRo().disabled}
+                    tabIndex={textRo().tabIndex}
+                    className={textRo().className}
                     invalid={vd.showError('hourly_rate')}
                   />
                 )}
@@ -277,8 +332,11 @@ export default function EmployeeForm() {
               <Input
                 id="bank"
                 dir="ltr"
-                className={cn('font-mono text-start', vd.invalidClass('bank_account'))}
+                className={cn('font-mono', vd.invalidClass('bank_account'), textRo('text-start').className)}
                 aria-invalid={vd.ariaInvalid('bank_account')}
+                readOnly={textRo().readOnly}
+                disabled={textRo().disabled}
+                tabIndex={textRo().tabIndex}
                 {...form.register('bank_account')}
               />
             </div>
@@ -287,9 +345,7 @@ export default function EmployeeForm() {
                 {formError}
               </p>
             ) : null}
-            <Button type="submit" disabled={save.isPending}>
-              {t('employees.form.save')}
-            </Button>
+            </fieldset>
           </form>
         </SectionCard>
 

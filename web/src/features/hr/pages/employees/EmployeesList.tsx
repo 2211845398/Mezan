@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { paginatedParams } from '@/api/pagination';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { ArrowRight, Eye, UserCheck } from 'lucide-react';
+import { ArrowRight, UserCheck } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -138,18 +138,6 @@ export default function EmployeesList() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: '',
-        enableGlobalFilter: false,
-        cell: ({ row }) => (
-          <Button type="button" size="icon" variant="ghost" asChild>
-            <Link to={`/hr/employees/${row.original.id}`} aria-label={t('employees.view')}>
-              <Eye className="size-4" />
-            </Link>
-          </Button>
-        ),
-      },
     ]);
   }, [branches, i18n, t, tAdmin]);
 
@@ -189,6 +177,7 @@ export default function EmployeesList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        getRowHref={(row) => `/hr/employees/${row.id}/data`}
       />
     </div>
   );

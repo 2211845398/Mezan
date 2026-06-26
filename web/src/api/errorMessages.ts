@@ -9,6 +9,10 @@ type BackendFieldError = {
   loc?: unknown;
   msg?: unknown;
   type?: unknown;
+  code?: unknown;
+  path?: unknown;
+  field?: unknown;
+  params?: unknown;
 };
 
 type FieldErrorMap = Record<string, string>;
@@ -48,8 +52,21 @@ export function localizedValidationItemMessage(
   item: BackendFieldError,
   t: TFunction<'common'>,
 ): string {
+  const stableCode = typeof item.code === 'string' ? item.code : '';
+  if (stableCode === 'required') return t('errors.validation_required');
+  if (stableCode === 'invalid_email') return t('errors.validation_email');
+  if (stableCode === 'min_length') return t('errors.validation_password_short');
+
+  const pathField =
+    typeof item.field === 'string' && item.field
+      ? item.field
+      : typeof item.path === 'string' && item.path
+        ? item.path.split('.').pop() ?? ''
+        : '';
   const loc = item.loc;
-  const field = Array.isArray(loc) ? String(loc[loc.length - 1] ?? '') : '';
+  const field =
+    pathField ||
+    (Array.isArray(loc) ? String(loc[loc.length - 1] ?? '') : '');
   const typ = typeof item.type === 'string' ? item.type : '';
   const rawMsg = typeof item.msg === 'string' ? item.msg : '';
 
@@ -90,12 +107,17 @@ function fieldPathFromLoc(loc: unknown): string | null {
   return parts.map(String).join('.');
 }
 
+function fieldPathFromItem(item: BackendFieldError): string | null {
+  if (typeof item.path === 'string' && item.path.trim()) return item.path.trim();
+  return fieldPathFromLoc(item.loc);
+}
+
 export function fieldErrorsFromApiError(error: unknown): FieldErrorMap {
   if (!(error instanceof ValidationError)) return {};
 
   const out: FieldErrorMap = {};
   for (const item of validationItems(error.details)) {
-    const path = fieldPathFromLoc(item.loc);
+    const path = fieldPathFromItem(item);
     const message = typeof item.msg === 'string' ? item.msg : null;
     if (path && message) out[path] = message;
   }
@@ -111,7 +133,7 @@ export function fieldErrorsFromApiErrorLocalized(
 
   const out: FieldErrorMap = {};
   for (const item of validationItems(error.details)) {
-    const path = fieldPathFromLoc(item.loc);
+    const path = fieldPathFromItem(item);
     if (!path) continue;
     out[path] = localizedValidationItemMessage(item, t);
   }
@@ -188,6 +210,8 @@ const LEGACY_MESSAGE_TO_API_KEY: Record<string, string> = {
   'Terminal not found': 'terminal_not_found',
   'Shift not found, does not belong to terminal, or is not open': 'shift_not_found',
   'Product not found': 'product_not_found',
+  'Product has no sellable price': 'product_no_sellable_price',
+  'Product has invalid sellable price': 'product_invalid_sellable_price',
   'This discount code is reserved for loyalty redemption': 'pos_discount_reserved',
   'This discount code is already applied to the cart': 'pos_discount_already_applied',
   'Cannot lock checkout for an empty cart': 'checkout_empty_cart',
@@ -205,6 +229,36 @@ const LEGACY_MESSAGE_TO_API_KEY: Record<string, string> = {
 const LEGACY_DETAIL_TO_API_KEY: Record<string, string> = {
   email_already_exists: 'email_already_exists',
 };
+
+/** Short opaque codes thrown by client-side form validation (not user-facing text). */
+const OPAQUE_CLIENT_CODE = /^[a-z][a-z0-9_]*$/;
+
+const CLIENT_VALIDATION_I18N: Record<string, string> = {
+  branch: 'clientValidation.branch_required',
+  lines: 'clientValidation.lines_required',
+  unit_cost: 'clientValidation.unit_cost_required',
+  fields: 'clientValidation.branch_and_product_required',
+  'branch/product': 'clientValidation.branch_and_product_required',
+  reason: 'clientValidation.reason_required',
+  qty: 'clientValidation.qty_required',
+  missing_po_branch: 'clientValidation.missing_po_branch',
+  receive_lines_required: 'clientValidation.receive_lines_required',
+  'branch and qty': 'clientValidation.receive_lines_required',
+  unresolved_variant: 'clientValidation.unresolved_variant',
+  session: 'clientValidation.session_unavailable',
+  missing_batch: 'clientValidation.missing_batch',
+};
+
+function isOpaqueClientCode(message: string): boolean {
+  return OPAQUE_CLIENT_CODE.test(message);
+}
+
+function translateClientValidationCode(t: TFunction<'common'>, code: string): string | null {
+  const i18nKey = CLIENT_VALIDATION_I18N[code];
+  if (!i18nKey) return null;
+  const translated = t(i18nKey as 'clientValidation.branch_required');
+  return translated !== i18nKey ? translated : null;
+}
 
 function translateApiErrorKey(t: TFunction<'common'>, key: string): string | null {
   const i18nKey = `apiErrors.${key}` as const;
@@ -297,13 +351,17 @@ export function getLocalizedApiErrorMessage(
   }
 
   if (error instanceof Error && error.message.trim()) {
-    const legacy = LEGACY_MESSAGE_TO_API_KEY[error.message.trim()];
+    const msg = error.message.trim();
+    const legacy = LEGACY_MESSAGE_TO_API_KEY[msg];
     if (legacy) {
       const translated = translateApiErrorKey(t, legacy);
       if (translated) return translated;
     }
+    const clientValidation = translateClientValidationCode(t, msg);
+    if (clientValidation) return clientValidation;
+    if (!isOpaqueClientCode(msg)) return msg;
     if (import.meta.env.DEV) {
-      console.warn('[api] Untranslated client error', error.message);
+      console.warn('[api] Untranslated client error', msg);
     }
     return fb;
   }

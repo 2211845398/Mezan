@@ -10,9 +10,25 @@ import {
   FloatingFormDialog,
 } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { handleDialogFormEnterSubmit } from '@/lib/formSubmitOnEnter';
+import { createFormInvalidHandler } from '@/lib/formValidation';
 
 import type { BranchRead } from '../../types';
 
@@ -21,6 +37,7 @@ const schema = z.object({
   name: z.string().min(1),
   timezone: z.string().min(1),
   address: z.string().optional().nullable(),
+  kind: z.enum(['commercial', 'warehouse']),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -47,7 +64,7 @@ export function BranchForm({
   const { t } = useTranslation('admin');
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { code: '', name: '', timezone: 'UTC', address: '' },
+    defaultValues: { code: '', name: '', timezone: 'UTC', address: '', kind: 'commercial' },
   });
 
   useEffect(() => {
@@ -57,11 +74,16 @@ export function BranchForm({
         name: branch.name,
         timezone: branch.timezone,
         address: branch.address ?? '',
+        kind: branch.kind ?? 'commercial',
       });
     } else {
-      form.reset({ code: '', name: '', timezone: 'UTC', address: '' });
+      form.reset({ code: '', name: '', timezone: 'UTC', address: '', kind: 'commercial' });
     }
   }, [branch, mode, form, open]);
+
+  const onInvalid = createFormInvalidHandler(form, {
+    fieldOrder: ['code', 'name', 'kind', 'timezone', 'address'],
+  });
 
   return (
     <FloatingFormDialog
@@ -95,7 +117,7 @@ export function BranchForm({
         <form
           id={BRANCH_FORM_ID}
           onKeyDown={handleDialogFormEnterSubmit}
-          onSubmit={form.handleSubmit((v) => onSubmit({ ...v, address: v.address || null }))}
+          onSubmit={form.handleSubmit((v) => onSubmit({ ...v, address: v.address || null }), onInvalid)}
           className="space-y-3"
         >
           <FormField
@@ -125,6 +147,27 @@ export function BranchForm({
             )}
           />
           <FormField
+            name="kind"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('branches.col.kind')}</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="commercial">{t('branches.kind.commercial')}</SelectItem>
+                    <SelectItem value="warehouse">{t('branches.kind.warehouse')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
             name="timezone"
             control={form.control}
             render={({ field }) => (
@@ -149,6 +192,7 @@ export function BranchForm({
               </FormItem>
             )}
           />
+          <FormValidationAlert />
         </form>
       </Form>
     </FloatingFormDialog>

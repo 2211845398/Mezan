@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -26,7 +26,9 @@ class User(Base):
     )
     status: Mapped[str] = mapped_column(
         String(32), default="active", nullable=False
-    )  # pending_onboarding, active, deactivated, suspended, banned
+    )  # suspended, pending_onboarding, awaiting_verification, active, deactivated, banned
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     phone: Mapped[str] = mapped_column(String(64), nullable=True)
     city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     preferred_language: Mapped[str] = mapped_column(String(16), default="en", nullable=True)
@@ -51,4 +53,7 @@ class User(Base):
     )
     password_reset_tokens = relationship(
         "PasswordResetToken", back_populates="user", cascade="all, delete-orphan"
+    )
+    password_reset_challenges = relationship(
+        "PasswordResetChallenge", back_populates="user", cascade="all, delete-orphan"
     )

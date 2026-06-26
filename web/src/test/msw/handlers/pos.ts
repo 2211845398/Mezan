@@ -154,12 +154,36 @@ export const posHandlers = [
       mode?: string;
       code?: string | null;
       loyalty_points?: number | null;
+      amount?: string | number | null;
     };
     if (Number(params.cartId) !== cart.id) {
       return HttpResponse.json({ message: 'not found' }, { status: 404 });
     }
-    const mode = body.mode ?? (body.loyalty_points != null ? 'loyalty' : 'code');
+    const mode =
+      body.mode ?? (body.loyalty_points != null ? 'loyalty' : body.amount != null ? 'flat' : 'code');
     const sub = Number.parseFloat(String(cart.subtotal));
+
+    if (mode === 'flat') {
+      const amt = Number.parseFloat(String(body.amount ?? '0'));
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return HttpResponse.json({ message: 'Invalid flat amount' }, { status: 422 });
+      }
+      const discAmt = Math.min(sub, amt);
+      const line = {
+        id: 9902,
+        code: '__POS_FLAT__',
+        amount: discAmt.toFixed(2),
+        loyalty_points_redeemed: null,
+        created_at: '2026-04-22T10:00:00Z',
+      };
+      cart = {
+        ...cart,
+        discounts: [line],
+        discount_total: discAmt.toFixed(2),
+        total: (sub - discAmt).toFixed(2),
+      };
+      return HttpResponse.json(cart);
+    }
 
     if (mode === 'loyalty') {
       const pts = Number(body.loyalty_points);
@@ -376,8 +400,29 @@ export const posHandlers = [
 
   http.get(`${BASE}/pos/returns/invoice-lookup`, ({ request }) => {
     const ref = new URL(request.url).searchParams.get('invoice_barcode')?.trim() ?? '';
+    if (ref === 'CRN-TEST') {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'bad_request',
+            message: 'لا يمكن إرجاع فاتورة مرتجع',
+            details: { code: 'return_lookup_is_credit_note' },
+          },
+        },
+        { status: 400 },
+      );
+    }
     if (ref !== 'INV-555' && ref !== 'BC555') {
-      return HttpResponse.json({ detail: 'Invoice not found' }, { status: 404 });
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'resource_not_found',
+            message: 'فاتورة البيع غير موجودة بالنظام',
+            details: { code: 'return_lookup_invoice_not_found' },
+          },
+        },
+        { status: 404 },
+      );
     }
     return HttpResponse.json({
       invoice_id: 555,

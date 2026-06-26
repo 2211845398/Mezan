@@ -1,6 +1,8 @@
 import { PanelLeftClose, PanelRightClose } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { MezanLogo } from '@/components/shared/MezanLogo';
+import { MezanLogoWithName } from '@/components/shared/MezanLogoWithName';
 import { Button } from '@/components/ui/button';
 import { useShellNavigation } from '@/config/navigationFilter';
 import { cn } from '@/lib/utils';
@@ -35,10 +37,10 @@ export function Sidebar() {
           collapsed && 'justify-center px-2',
         )}
       >
-        {!collapsed ? (
-          <span className="truncate text-lg font-bold text-primary">{t('layout.app_name')}</span>
+        {collapsed ? (
+          <MezanLogo size={30} title={t('layout.app_name')} />
         ) : (
-          <span className="sr-only">{t('layout.app_name')}</span>
+          <MezanLogoWithName height={36} title={t('layout.app_name')} />
         )}
       </div>
 

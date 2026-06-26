@@ -21,6 +21,7 @@ import { Toaster } from 'sonner';
 import { env } from '@/config/env';
 import AppErrorBoundary from '@/providers/AppErrorBoundary';
 import AuthBoundary from '@/providers/AuthBoundary';
+import RealtimeProvider from '@/providers/RealtimeProvider';
 import I18nProvider from '@/providers/I18nProvider';
 import QueryProvider from '@/providers/QueryProvider';
 import ThemeProvider from '@/providers/ThemeProvider';
@@ -54,7 +55,9 @@ async function bootstrap() {
             <QueryProvider>
               <AppErrorBoundary>
                 <AuthBoundary>
-                  <RouterProvider router={router} />
+                  <RealtimeProvider>
+                    <RouterProvider router={router} />
+                  </RealtimeProvider>
                 </AuthBoundary>
               </AppErrorBoundary>
               <Toaster position="top-center" richColors closeButton />

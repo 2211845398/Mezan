@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { Pencil, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { FloatingFormDialog } from '@/components/shared/FloatingFormDialog';
+import {
+  FloatingFormDialog,
+  FloatingFormDialogFooter,
+} from '@/components/shared/FloatingFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
@@ -13,7 +16,7 @@ import { usePermission } from '@/hooks/usePermission';
 import type { TaxDefinitionRead } from '../../api';
 import { listTaxDefinitions } from '../../api';
 import { catalogKeys } from '../../queries';
-import TaxForm from './TaxForm';
+import TaxForm, { TAX_DIALOG_FORM_ID } from './TaxForm';
 
 function formatRateFraction(rate: string): string {
   const n = Number.parseFloat(String(rate));
@@ -25,11 +28,10 @@ function formatRateFraction(rate: string): string {
 
 export default function TaxesList() {
   const { t } = useTranslation('catalog');
+  const { t: tc } = useTranslation('common');
   const canCreate = usePermission('catalog', 'create');
-  const canUpdate = usePermission('catalog', 'update');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogKey, setDialogKey] = useState(0);
-  const [editing, setEditing] = useState<TaxDefinitionRead | null>(null);
 
   const { data: rows = [], isLoading, isError, refetch } = useQuery({
     queryKey: catalogKeys.taxDefinitions(true),
@@ -60,28 +62,8 @@ export default function TaxesList() {
           header: t('taxes.col.active'),
           cell: ({ row }) => (row.original.is_active ? t('taxes.status_yes') : t('taxes.status_no')),
         },
-        {
-          id: 'actions',
-          header: '',
-          cell: ({ row }) =>
-            canUpdate ? (
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                aria-label={t('taxes.edit')}
-                onClick={() => {
-                  setEditing(row.original);
-                  setDialogKey((k) => k + 1);
-                  setDialogOpen(true);
-                }}
-              >
-                <Pencil className="size-4" />
-              </Button>
-            ) : null,
-        },
       ]),
-    [canUpdate, t],
+    [t],
   );
 
   return (
@@ -93,7 +75,6 @@ export default function TaxesList() {
             <Button
               type="button"
               onClick={() => {
-                setEditing(null);
                 setDialogKey((k) => k + 1);
                 setDialogOpen(true);
               }}
@@ -111,28 +92,28 @@ export default function TaxesList() {
         isLoading={isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        getRowHref={(r) => `/catalog/taxes/${r.id}`}
       />
 
       <FloatingFormDialog
         open={dialogOpen}
-        onOpenChange={(o) => {
-          setDialogOpen(o);
-          if (!o) {
-            setEditing(null);
-          }
-        }}
-        title={editing ? t('taxes.edit') : t('taxes.new')}
+        onOpenChange={setDialogOpen}
+        title={t('taxes.new')}
         maxWidth="lg"
+        footer={
+          <FloatingFormDialogFooter
+            formId={TAX_DIALOG_FORM_ID}
+            onCancel={() => setDialogOpen(false)}
+            saveLabel={t('actions.save')}
+            cancelLabel={tc('actions.cancel')}
+          />
+        }
       >
         {dialogOpen ? (
           <TaxForm
             key={dialogKey}
             variant="dialog"
-            existing={editing}
-            onDismiss={() => {
-              setDialogOpen(false);
-              setEditing(null);
-            }}
+            onDismiss={() => setDialogOpen(false)}
           />
         ) : null}
       </FloatingFormDialog>

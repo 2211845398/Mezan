@@ -104,6 +104,8 @@ async def finalize_paid_cart(
         discount_total=cart.discount_total,
         tax_total=cart.tax_total,
         total=cart.total,
+        amount_paid=cart.total,
+        rounding_difference=Decimal("0.00"),
         created_by_user_id=user_id,
         created_at=issued_at,
     )
@@ -116,6 +118,8 @@ async def finalize_paid_cart(
     receipt = rec_res.scalar_one_or_none()
     tender_method = receipt.method if receipt else "cash"
     paid_amount = q2(receipt.amount) if receipt else q2(payment_intent.amount)
+    invoice.amount_paid = paid_amount
+    invoice.rounding_difference = q2(paid_amount - q2(cart.total))
 
     # Epic 21.3: cash tender updates shift expected_cash via add_cash_event (not raw PosCashEvent only).
     # Epic 21.6: Handle transfer tender method with clearing account
@@ -278,6 +282,18 @@ async def void_sales_invoice(
     """
     if (invoice_id is None) == (invoice_barcode is None):
         raise ValidationError("Provide exactly one of invoice_id or invoice_barcode")
+
+    return_void_rejected_msg = "لا يمكن إلغاء الفواتير المرتجعة"
+    if invoice_id is not None:
+        cn_chk = await db.execute(select(CreditNote.id).where(CreditNote.id == invoice_id).limit(1))
+        if cn_chk.scalar_one_or_none() is not None:
+            raise ValidationError(return_void_rejected_msg)
+    if invoice_barcode is not None:
+        cn_barcode = await db.execute(
+            select(CreditNote.id).where(CreditNote.credit_number == invoice_barcode).limit(1)
+        )
+        if cn_barcode.scalar_one_or_none() is not None:
+            raise ValidationError(return_void_rejected_msg)
 
     if invoice_id is not None:
         inv_res = await db.execute(select(SalesInvoice).where(SalesInvoice.id == invoice_id))
@@ -471,6 +487,8 @@ async def _sales_invoice_to_detail_read(
         discount_total=invoice.discount_total,
         tax_total=invoice.tax_total,
         total=invoice.total,
+        amount_paid=invoice.amount_paid,
+        rounding_difference=invoice.rounding_difference,
         created_at=invoice.created_at,
         voided_at=invoice.voided_at,
         void_reason=invoice.void_reason,
@@ -513,23 +531,47 @@ async def list_sales_invoices_for_terminal_window(
         SalesInvoice.created_at < end_exclusive,
         SalesInvoice.voided_at.is_(None),
     )
-    total = int(await db.scalar(select(func.count()).select_from(SalesInvoice).where(*filt)) or 0)
+    ret_filt = (
+        SalesInvoice.terminal_id == terminal_id,
+        SalesInvoice.branch_id == terminal.branch_id,
+        CreditNote.created_at >= start_inclusive,
+        CreditNote.created_at < end_exclusive,
+    )
+    inv_cnt = int(await db.scalar(select(func.count()).select_from(SalesInvoice).where(*filt)) or 0)
+    ret_cnt = int(
+        await db.scalar(
+            select(func.count())
+            .select_from(CreditNote)
+            .join(SalesReturn, CreditNote.sales_return_id == SalesReturn.id)
+            .join(SalesInvoice, SalesReturn.sales_invoice_id == SalesInvoice.id)
+            .where(*ret_filt),
+        )
+        or 0,
+    )
+    total = inv_cnt + ret_cnt
+
     inv_res = await db.execute(
         select(SalesInvoice, CustomerProfile)
         .outerjoin(CustomerProfile, SalesInvoice.customer_id == CustomerProfile.id)
         .where(*filt)
-        .order_by(SalesInvoice.created_at.desc())
-        .limit(limit)
-        .offset(offset)
+        .order_by(SalesInvoice.created_at.desc()),
     )
-    rows = inv_res.all()
-    out: list[SalesInvoiceListItem] = []
-    for inv, cust in rows:
+    cn_res = await db.execute(
+        select(CreditNote, SalesReturn, SalesInvoice, CustomerProfile)
+        .join(SalesReturn, CreditNote.sales_return_id == SalesReturn.id)
+        .join(SalesInvoice, SalesReturn.sales_invoice_id == SalesInvoice.id)
+        .outerjoin(CustomerProfile, SalesInvoice.customer_id == CustomerProfile.id)
+        .where(*ret_filt)
+        .order_by(CreditNote.created_at.desc()),
+    )
+
+    merged: list[SalesInvoiceListItem] = []
+    for inv, cust in inv_res.all():
         cust_disp: str | None = None
         if cust is not None:
             name = display_person_name(cust.first_name, cust.father_name, cust.family_name)
             cust_disp = name or (cust.phone or "").strip() or None
-        out.append(
+        merged.append(
             SalesInvoiceListItem(
                 id=inv.id,
                 invoice_number=inv.invoice_number,
@@ -546,8 +588,35 @@ async def list_sales_invoices_for_terminal_window(
                 payment_status=inv.payment_status,
                 transaction_type="sale",
                 created_at=inv.created_at,
-            )
+            ),
         )
+    for cn, _ret, inv, cust in cn_res.all():
+        cust_disp: str | None = None
+        if cust is not None:
+            name = display_person_name(cust.first_name, cust.father_name, cust.family_name)
+            cust_disp = name or (cust.phone or "").strip() or None
+        merged.append(
+            SalesInvoiceListItem(
+                id=cn.id,
+                invoice_number=cn.credit_number,
+                invoice_barcode=cn.credit_number,
+                cart_id=inv.cart_id,
+                terminal_id=inv.terminal_id,
+                branch_id=inv.branch_id,
+                customer_id=inv.customer_id,
+                customer_display=cust_disp,
+                subtotal=cn.total_amount,
+                discount_total=Decimal("0.00"),
+                tax_total=Decimal("0.00"),
+                total=cn.total_amount,
+                payment_status="paid",
+                transaction_type="return",
+                created_at=cn.created_at,
+            ),
+        )
+
+    merged.sort(key=lambda row: row.created_at, reverse=True)
+    out = merged[offset : offset + limit]
     return out, total
 
 

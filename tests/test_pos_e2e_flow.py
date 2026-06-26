@@ -6,12 +6,18 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_auth_header):
+async def test_pos_shift_adjust_cart_payment_invoice_return_flow(
+    client, admin_auth_header, commercial_branch_id
+):
     # Create terminal
     t = await client.post(
         "/api/v1/terminals",
         headers=admin_auth_header,
-        json={"branch_id": 1, "name": "POS-1", "terminal_code": "POS-1"},
+        json={
+            "branch_id": commercial_branch_id,
+            "name": "POS-1",
+            "terminal_code": "POS-1",
+        },
     )
     assert t.status_code == 200, t.text
     terminal_id = t.json()["id"]
@@ -190,12 +196,14 @@ async def test_pos_shift_adjust_cart_payment_invoice_return_flow(client, admin_a
     assert ret.status_code in {201, 422}, ret.text
 
 
-async def _open_test_shift(client, admin_auth_header, *, opening_float: float = 100.0) -> int:
+async def _open_test_shift(
+    client, admin_auth_header, *, commercial_branch_id: int, opening_float: float = 100.0
+) -> int:
     code = f"POS-{uuid.uuid4().hex[:8]}"
     t = await client.post(
         "/api/v1/terminals",
         headers=admin_auth_header,
-        json={"branch_id": 1, "name": code, "terminal_code": code},
+        json={"branch_id": commercial_branch_id, "name": code, "terminal_code": code},
     )
     assert t.status_code == 200, t.text
     terminal_id = t.json()["id"]
@@ -215,9 +223,13 @@ async def _open_test_shift(client, admin_auth_header, *, opening_float: float = 
 
 
 @pytest.mark.asyncio
-async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_header):
+async def test_cash_events_update_expected_cash_for_aliases(
+    client, admin_auth_header, commercial_branch_id
+):
     # Open shift
-    shift_id = await _open_test_shift(client, admin_auth_header, opening_float=100.0)
+    shift_id = await _open_test_shift(
+        client, admin_auth_header, commercial_branch_id=commercial_branch_id, opening_float=100.0
+    )
 
     # sale should increase expected_cash
     ev_sale = await client.post(
@@ -248,8 +260,12 @@ async def test_cash_events_update_expected_cash_for_aliases(client, admin_auth_h
 
 
 @pytest.mark.asyncio
-async def test_cash_events_unknown_event_type_rejected(client, admin_auth_header):
-    shift_id = await _open_test_shift(client, admin_auth_header, opening_float=100.0)
+async def test_cash_events_unknown_event_type_rejected(
+    client, admin_auth_header, commercial_branch_id
+):
+    shift_id = await _open_test_shift(
+        client, admin_auth_header, commercial_branch_id=commercial_branch_id, opening_float=100.0
+    )
 
     res = await client.post(
         f"/api/v1/pos/shifts/{shift_id}/cash-events",
@@ -260,12 +276,14 @@ async def test_cash_events_unknown_event_type_rejected(client, admin_auth_header
 
 
 @pytest.mark.asyncio
-async def test_close_multiple_shifts_for_same_terminal(client, admin_auth_header):
+async def test_close_multiple_shifts_for_same_terminal(
+    client, admin_auth_header, commercial_branch_id
+):
     code = f"POS-{uuid.uuid4().hex[:8]}"
     t = await client.post(
         "/api/v1/terminals",
         headers=admin_auth_header,
-        json={"branch_id": 1, "name": code, "terminal_code": code},
+        json={"branch_id": commercial_branch_id, "name": code, "terminal_code": code},
     )
     assert t.status_code == 200, t.text
     terminal_id = t.json()["id"]

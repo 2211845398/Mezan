@@ -153,6 +153,7 @@ export default function AttributesPage() {
       attributeId={attr.id}
       name={attr.name}
       valueCount={attr.value_count ?? 0}
+      usageCount={attr.usage_count ?? 0}
       expanded={expandedId === attr.id}
       onToggle={() => setExpandedId((id) => (id === attr.id ? null : attr.id))}
       canCreate={canCreate}
@@ -423,7 +424,7 @@ function AttributeValueChip({
   onDelete: () => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-md border bg-muted/30 px-2 py-2">
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-md border bg-muted px-2 py-2">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium leading-tight">{value.label}</p>
         {value.usage_count != null ? (
@@ -434,12 +435,22 @@ function AttributeValueChip({
         <div className="flex justify-end gap-0.5">
           {canUpdate ? (
             <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
-              <Pencil className="h-3.5 w-3.5" />
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           ) : null}
           {canDelete ? (
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}>
-              <Trash2 className="h-3.5 w-3.5" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-7 w-7',
+                (value.usage_count ?? 0) > 0 && 'pointer-events-none opacity-40',
+              )}
+              disabled={(value.usage_count ?? 0) > 0}
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           ) : null}
         </div>
@@ -452,6 +463,7 @@ function AttributeRow({
   attributeId,
   name,
   valueCount,
+  usageCount,
   expanded,
   onToggle,
   canCreate,
@@ -467,6 +479,7 @@ function AttributeRow({
   attributeId: number;
   name: string;
   valueCount: number;
+  usageCount: number;
   expanded: boolean;
   onToggle: () => void;
   canCreate: boolean;
@@ -507,12 +520,19 @@ function AttributeRow({
         </button>
         {canUpdate ? (
           <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onEditAttribute}>
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-4 w-4 text-muted-foreground" />
           </Button>
         ) : null}
         {canDelete ? (
-          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onDeleteAttribute}>
-            <Trash2 className="h-4 w-4" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn('h-8 w-8 shrink-0', usageCount > 0 && 'pointer-events-none opacity-40')}
+            disabled={usageCount > 0}
+            onClick={onDeleteAttribute}
+          >
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
           </Button>
         ) : null}
       </div>

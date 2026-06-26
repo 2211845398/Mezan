@@ -57,6 +57,10 @@ class PricingEvaluationRowRead(BaseModel):
     current_sell_price: Decimal | None = None
     has_sell_price: bool
     valuation_cost: Decimal
+    default_markup_pct: Decimal = Field(default=Decimal("30"))
+    suggested_price: Decimal | None = None
+    implied_markup_pct: Decimal | None = None
+    needs_pricing_review: bool = False
     fifo_layers: list[FifoLayerRead] | None = None
     wavg_breakdown: WavgBreakdownRead | None = None
 
@@ -66,6 +70,7 @@ class PricingEvaluationResponse(BaseModel):
     valuation_policy_label: str
     branch_id: int | None = None
     currency_code: str
+    default_markup_pct: Decimal = Field(default=Decimal("30"))
     total: int
     items: list[PricingEvaluationRowRead]
 

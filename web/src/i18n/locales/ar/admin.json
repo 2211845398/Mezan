@@ -35,6 +35,7 @@
     "password_too_short": "يجب ألا تقل كلمة المرور عن 8 أحرف.",
     "user_status": {
       "pending_onboarding": "بانتظار الضبط",
+      "awaiting_verification": "انتظار التحقق",
       "active": "نشط",
       "deactivated": "معطل",
       "suspended": "معلّق",
@@ -49,6 +50,12 @@
     "deactivate": "تعطيل",
     "deactivate_title": "تعطيل المستخدم",
     "deactivate_desc": "لن يستطيع المستخدم تسجيل الدخول بعد التعطيل.",
+    "deactivate_confirm_keyword": "تعطيل",
+    "activate": "تفعيل",
+    "activate_title": "إعادة تفعيل المستخدم",
+    "activate_desc": "سيتمكن المستخدم من تسجيل الدخول مجدداً.",
+    "activate_confirm_keyword": "تفعيل",
+    "roles_disabled_deactivated": "لا يمكن إضافة أدوار لحساب معطّل.",
     "reset_password": "إرسال رابط إعادة تعيين",
     "user_information": "معلومات المستخدم",
     "view_permissions": "تجاوزات الصلاحيات",
@@ -110,9 +117,10 @@
       "HR_MANAGER": "مدير الموارد البشرية",
       "ACCOUNTANT": "محاسب",
       "CASHIER": "أمين صندوق",
-      "WAREHOUSE_MANAGER": "مدير المستودع",
+      "WAREHOUSE_MANAGER": "مسؤول المخازن",
       "MARKETING_MANAGER": "مدير التسويق",
-      "FLOOR_STAFF": "موظف المبيعات"
+      "FLOOR_STAFF": "موظف المبيعات",
+      "ATTENDANCE_KIOSK": "جهاز حضور وانصراف"
     }
   },
   "branches": {
@@ -125,15 +133,16 @@
     "archive": "أرشفة",
     "unarchive": "إلغاء أرشفة",
     "archive_title": "أرشفة الفرع",
-    "archive_desc": "يُعفى الفرع من القوائم الافتراضية (حذف ناعم).",
+    "archive_confirm_keyword": "أرشفة",
     "picker_placeholder": "اختر فرعاً",
     "picker_clear": "لا شيء",
     "archived_badge": "مؤرشف",
-    "col": { "code": "الرمز", "name": "الاسم", "timezone": "المنطقة الزمنية", "address": "العنوان", "state": "الحالة" },
+    "col": { "code": "الرمز", "name": "الاسم", "kind": "النوع", "timezone": "المنطقة الزمنية", "address": "العنوان", "state": "الحالة" },
+    "kind": { "commercial": "تجاري", "warehouse": "مخزني" },
     "state": { "active": "نشط", "archived": "مؤرشف" }
   },
   "terminals": {
-    "title": "نقاط البيع",
+    "title": "أجهزة نقطة البيع",
     "empty": "لا أجهزة",
     "create": "تسجيل جهاز",
     "create_title": "تسجيل جهاز",
@@ -201,6 +210,7 @@
     "delete_routine": "حذف الروتين",
     "delete_routine_title": "حذف هذا الروتين؟",
     "delete_routine_desc": "سيُزال الجدول من النظام. سجلات التشغيل المرتبطة تُحذف؛ قد يبقى سجل التسليم للمراجعة.",
+    "delete_confirm_keyword": "حذف",
     "routine_deleted": "تم حذف الروتين",
     "history_title": "سجل الإشعارات",
     "history_lead": "راجع الرسائل المرسلة وتشغيلات الروتين وحالة التسليم.",
@@ -221,7 +231,7 @@
       "fallback": "المستلمون (راجع القالب)"
     },
     "target_group_kind": {
-      "warehouse_and_floor": "مدير المستودع وموظفو المبيعات",
+      "warehouse_and_floor": "مسؤول المخازن وموظفو المبيعات",
       "payroll_approvers": "مدير الموارد البشرية والمحاسب والمالك",
       "it_and_admin": "مسؤول تقنية المعلومات ومسؤول النظام",
       "shift_operator": "مسؤول الوردية"

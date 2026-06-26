@@ -148,7 +148,7 @@ export function leaveListQueryOptions(params: {
   employee_profile_id?: number;
   limit?: number;
 } = {}) {
-  const limit = params.limit ?? 200;
+  const limit = params.limit ?? 100;
   const keyFilters = {
     ...(params.status !== undefined && params.status !== '' ? { status: params.status } : {}),
     ...(params.employee_profile_id !== undefined ? { employee_profile_id: params.employee_profile_id } : {}),
@@ -158,6 +158,22 @@ export function leaveListQueryOptions(params: {
     queryKey: hrKeys.leaveList(keyFilters),
     queryFn: () =>
       api.listLeaveRequestsGlobal({
+        ...keyFilters,
+        offset: 0,
+      }),
+  });
+}
+
+export function myLeaveListQueryOptions(params: { status?: string; limit?: number } = {}) {
+  const limit = params.limit ?? 100;
+  const keyFilters = {
+    ...(params.status !== undefined && params.status !== '' ? { status: params.status } : {}),
+    limit,
+  };
+  return queryOptions({
+    queryKey: [...hrKeys.root, 'my-leaves', keyFilters] as const,
+    queryFn: () =>
+      api.listMyLeaveRequests({
         ...keyFilters,
         offset: 0,
       }),

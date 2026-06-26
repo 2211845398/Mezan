@@ -2,18 +2,32 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { notifyApiError } from '@/api/errorMessages';
 import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { usePermission } from '@/hooks/usePermission';
 import { cn } from '@/lib/utils';
 
 import {
+  cancelStockCountSession,
+  downloadMyStockCountSessionPdf,
   downloadStockCountSessionPdf,
+  getMyStockCountSession,
   getStockCountSession,
+  patchMyStockCountLines,
   patchStockCountLines,
   postStockCountSession,
   type StockCountLineRead,
@@ -103,12 +117,17 @@ export default function StockCountFillPage() {
   const { t, i18n } = useTranslation('inventory');
   const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
+  const location = useLocation();
+  const selfService = location.pathname.startsWith('/my-stock-count');
+  const canIssue = usePermission('inventory', 'update');
   const qc = useQueryClient();
   const sessionId = Number(useParams().sessionId);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const { data: session, isLoading, isError, refetch } = useQuery({
-    queryKey: [...inventoryKeys.root, 'stock-count-session', sessionId],
-    queryFn: () => getStockCountSession(sessionId),
+    queryKey: [...inventoryKeys.root, selfService ? 'my-stock-count-session' : 'stock-count-session', sessionId],
+    queryFn: () =>
+      selfService ? getMyStockCountSession(sessionId) : getStockCountSession(sessionId),
     enabled: Number.isFinite(sessionId) && sessionId > 0,
   });
 
@@ -144,7 +163,9 @@ export default function StockCountFillPage() {
           notes: d?.notes?.trim() || null,
         };
       });
-      return patchStockCountLines(sessionId, lines);
+      return selfService
+        ? patchMyStockCountLines(sessionId, lines)
+        : patchStockCountLines(sessionId, lines);
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: inventoryKeys.root });
@@ -155,7 +176,8 @@ export default function StockCountFillPage() {
   });
 
   const pdfM = useMutation({
-    mutationFn: () => downloadStockCountSessionPdf(sessionId),
+    mutationFn: () =>
+      selfService ? downloadMyStockCountSessionPdf(sessionId) : downloadStockCountSessionPdf(sessionId),
     onSuccess: (filename) => {
       toast.success(t('movement.stock_count.exported', { filename }));
     },
@@ -170,12 +192,28 @@ export default function StockCountFillPage() {
     onSuccess: async (res) => {
       await qc.invalidateQueries({ queryKey: inventoryKeys.root });
       toast.success(t('movement.stock_count.posted', { count: res.movements_posted }));
+      navigate(selfService ? '/my-stock-count' : '/inventory/stock-count');
+    },
+    onError: (e) => notifyApiError(e, t('errors.generic')),
+  });
+
+  const cancelM = useMutation({
+    mutationFn: () => cancelStockCountSession(sessionId),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: inventoryKeys.root });
+      setCancelOpen(false);
+      toast.success(t('movement.stock_count.cancelled'));
       navigate('/inventory/stock-count');
     },
     onError: (e) => notifyApiError(e, t('errors.generic')),
   });
 
-  const readOnly = session?.status === 'posted';
+  const readOnly =
+    session?.status === 'posted' || session?.status === 'cancelled';
+  const canCancel =
+    !selfService &&
+    canIssue &&
+    (session?.status === 'draft' || session?.status === 'in_progress');
 
   const handlePost = () => {
     if (!canPost) {
@@ -217,6 +255,7 @@ export default function StockCountFillPage() {
                 >
                   {t('movement.stock_count.save')}
                 </Button>
+                {!selfService ? (
                 <Button
                   type="button"
                   size="sm"
@@ -226,13 +265,26 @@ export default function StockCountFillPage() {
                 >
                   {t('movement.stock_count.post')}
                 </Button>
+                ) : null}
               </>
+            ) : null}
+            {canCancel ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={cancelM.isPending}
+                onClick={() => setCancelOpen(true)}
+              >
+                {tc('actions.cancel')}
+              </Button>
             ) : null}
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => navigate('/inventory/stock-count')}
+              onClick={() => navigate(selfService ? '/my-stock-count' : '/inventory/stock-count')}
             >
               {tc('actions.back')}
             </Button>
@@ -368,6 +420,26 @@ export default function StockCountFillPage() {
           </table>
         </div>
       ) : null}
+
+      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('movement.stock_count.cancel_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('movement.stock_count.cancel_desc')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tc('actions.cancel')}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={cancelM.isPending}
+              onClick={() => void cancelM.mutate()}
+            >
+              {cancelM.isPending ? t('movement.stock_count.cancel_pending') : t('movement.stock_count.cancel_confirm')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

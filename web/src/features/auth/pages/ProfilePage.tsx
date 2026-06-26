@@ -1,21 +1,41 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Camera, Lock, User } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useQueryClient } from '@tanstack/react-query';
+import { Camera, Lock, Shield, User } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FieldErrors, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { applyApiErrorToForm, notifyApiError } from '@/api/errorMessages';
 import type { ProfileUpdate } from '@/api/types';
+import {
+  FloatingFormDialog,
+  floatingFormApproveButtonClassName,
+  floatingFormCloseButtonClassName,
+} from '@/components/shared/FloatingFormDialog';
+import { DetailFormActionBar } from '@/components/shared/DetailFormActionBar';
+import { ReadOnlyCopyableField } from '@/components/shared/form/ReadOnlyCopyableField';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormValidationAlert,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -23,17 +43,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AuthFieldError } from '@/features/auth/components/AuthFieldError';
+import {
+  buildProfilePasswordSchema,
+  PROFILE_PASSWORD_FIELD_ORDER,
+  type ProfilePasswordFormValues,
+  profilePasswordFieldErrorMessage,
+} from '@/features/auth/lib/profilePasswordValidationUi';
 import type { AuthUser } from '@/features/auth/stores/authStore';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import EmployeeLeaveRequestDialog from '@/features/hr/pages/employees/EmployeeLeaveRequestDialog';
 import { resolveMediaUrl, withMediaCacheBust } from '@/lib/mediaUrl';
 import { formatPersonName } from '@/lib/personName';
+import { createFormInvalidHandler, focusFirstFormError, useFormValidationDisplay } from '@/lib/formValidation';
+import { readOnlyTextInputProps } from '@/lib/readOnlyFieldStyles';
+import { useEditableFormMode } from '@/lib/useEditableFormMode';
 import { isLibyanMobilePhone } from '@/lib/validation/contact';
 import { cn } from '@/lib/utils';
 
+import type { UserRead } from '../api';
+import { toggleTwoFactor } from '../api';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { useUploadAvatar } from '../hooks/useUploadAvatar';
-import { useMe } from '../queries';
+import { authKeys, useMe } from '../queries';
 
 function joinNameParts(first: string, father: string, last: string): string | null {
   const segments = [first, father, last].map((s) => s.trim()).filter((s) => s.length > 0);
@@ -53,10 +85,10 @@ function initials(displayName: string | null | undefined, email: string): string
   return email.slice(0, 2).toUpperCase();
 }
 
-function buildProfileSchema(t: (k: string) => string) {
+function buildProfileSchema(t: (k: string) => string, tc: (k: string) => string) {
   return z.object({
-    email: z.string().trim().email(t('profile.email_invalid')),
-    first_name: z.string().max(120).optional(),
+    email: z.string().trim().email(tc('errors.validation_email_invalid')),
+    first_name: z.string().trim().min(1, t('profile.first_name_required')),
     father_name: z.string().max(120).optional(),
     last_name: z.string().max(120).optional(),
     phone: z
@@ -75,57 +107,30 @@ function buildProfileSchema(t: (k: string) => string) {
   });
 }
 
-function buildPasswordSchema(t: (k: string) => string) {
-  return z
-    .object({
-      current_password: z.string().optional(),
-      new_password: z
-        .string()
-        .optional()
-        .refine((v) => !v || v.length === 0 || v.length >= 8, {
-          message: t('profile.new_password_too_short'),
-        }),
-      confirm_new_password: z.string().optional(),
-    })
-    .superRefine((val, ctx) => {
-      const np = val.new_password?.trim() ?? '';
-      if (np.length > 0) {
-        if (!val.current_password || val.current_password.length === 0) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['current_password'],
-            message: t('profile.current_password_required'),
-          });
-        }
-        if (np !== (val.confirm_new_password ?? '')) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['confirm_new_password'],
-            message: t('profile.password_mismatch'),
-          });
-        }
-      }
-    });
-}
-
 type ProfileFormValues = z.infer<ReturnType<typeof buildProfileSchema>>;
-type PasswordFormValues = z.infer<ReturnType<typeof buildPasswordSchema>>;
 
 export default function ProfilePage() {
-  const { t } = useTranslation('auth');
+  const { t, i18n } = useTranslation('auth');
+  const { t: tCommon } = useTranslation('common');
   const { t: tHr } = useTranslation('hr');
+  const { t: tInv } = useTranslation('inventory');
+  const queryClient = useQueryClient();
   const setUser = useAuthStore((s) => s.setUser);
   const roleCodes = useAuthStore((s) => s.roleCodes);
   const avatarCacheBust = useAuthStore((s) => s.avatarCacheBust);
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [twoFactorDialogOpen, setTwoFactorDialogOpen] = useState(false);
+  const [twoFactorPassword, setTwoFactorPassword] = useState('');
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
   const { data: me, isLoading, isError } = useMe();
   const update = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
   const fileRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
 
-  const profileSchema = buildProfileSchema(t);
-  const passwordSchema = buildPasswordSchema(t);
+  const profileSchema = useMemo(() => buildProfileSchema(t, tCommon), [t, tCommon]);
+  const passwordSchema = buildProfilePasswordSchema();
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -140,7 +145,19 @@ export default function ProfilePage() {
     },
   });
 
-  const passwordForm = useForm<PasswordFormValues>({
+  const profileEditMode = useEditableFormMode({ form: profileForm, canEdit: true });
+  const profileTextRo = (extra?: string) =>
+    readOnlyTextInputProps(profileEditMode.fieldsEnabled, extra);
+
+  const profileLanguageValue = profileForm.watch('preferred_language');
+  const profileLanguageLabel = useMemo(() => {
+    if (profileLanguageValue === 'ar') return t('profile.language_ar');
+    if (profileLanguageValue === 'en') return t('profile.language_en');
+    return t('profile.language_default');
+  }, [profileLanguageValue, t]);
+  const PROFILE_FORM_ID = 'auth-profile-form';
+
+  const passwordForm = useForm<ProfilePasswordFormValues>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
       current_password: '',
@@ -148,6 +165,44 @@ export default function ProfilePage() {
       confirm_new_password: '',
     },
   });
+
+  const onProfileInvalid = createFormInvalidHandler(profileForm, {
+    fieldOrder: [
+      'first_name',
+      'father_name',
+      'last_name',
+      'email',
+      'phone',
+      'city',
+      'preferred_language',
+    ],
+  });
+  const {
+    errors: passwordErrors,
+    showError: showPasswordError,
+    invalidClass: passwordInvalidClass,
+  } = useFormValidationDisplay(passwordForm.control);
+
+  const clearPasswordFieldError = useCallback(
+    (field: (typeof PROFILE_PASSWORD_FIELD_ORDER)[number]) => {
+      passwordForm.clearErrors(field);
+    },
+    [passwordForm],
+  );
+
+  const closePasswordChange = useCallback(() => {
+    passwordForm.reset({
+      current_password: '',
+      new_password: '',
+      confirm_new_password: '',
+    });
+    passwordForm.clearErrors();
+    setPasswordChangeOpen(false);
+  }, [passwordForm]);
+
+  const onPasswordInvalid = (errs: FieldErrors<ProfilePasswordFormValues>) => {
+    focusFirstFormError(passwordForm, errs, PROFILE_PASSWORD_FIELD_ORDER);
+  };
 
   useEffect(() => {
     if (!me) return;
@@ -163,7 +218,8 @@ export default function ProfilePage() {
           ? me.preferred_language
           : '__default__',
     });
-  }, [me, profileForm]);
+    profileEditMode.syncSnapshot();
+  }, [me, profileForm, profileEditMode.syncSnapshot]);
 
   const firstNameWatch = profileForm.watch('first_name');
   const fatherNameWatch = profileForm.watch('father_name');
@@ -221,6 +277,7 @@ export default function ProfilePage() {
       onSuccess: (next) => {
         setUser(next as AuthUser);
         toast.success(t('profile.saved'));
+        profileEditMode.finishEdit();
       },
       onError: (err) => {
         const message = applyApiErrorToForm(profileForm, err);
@@ -229,25 +286,16 @@ export default function ProfilePage() {
     });
   }
 
-  function onPasswordSubmit(values: PasswordFormValues) {
-    const np = values.new_password?.trim() ?? '';
-    if (np.length === 0) {
-      toast.error(t('profile.password_enter_new'));
-      return;
-    }
+  function onPasswordSubmit(values: ProfilePasswordFormValues) {
     update.mutate(
       {
-        current_password: values.current_password ?? '',
-        new_password: np,
+        current_password: values.current_password,
+        new_password: values.new_password.trim(),
       },
       {
         onSuccess: (next) => {
           setUser(next as AuthUser);
-          passwordForm.reset({
-            current_password: '',
-            new_password: '',
-            confirm_new_password: '',
-          });
+          closePasswordChange();
           toast.success(t('profile.password_updated'));
         },
         onError: (err) => {
@@ -256,6 +304,56 @@ export default function ProfilePage() {
         },
       },
     );
+  }
+
+  function syncTwoFactorUser(updated: UserRead) {
+    const current = useAuthStore.getState().user;
+    if (current) {
+      setUser({ ...current, ...updated } as AuthUser);
+    }
+    queryClient.setQueryData<UserRead>(authKeys.me(), (prev) =>
+      prev ? { ...prev, ...updated } : updated,
+    );
+  }
+
+  async function handleTwoFactorToggle(checked: boolean) {
+    if (checked) {
+      setTwoFactorPassword('');
+      setTwoFactorDialogOpen(true);
+      return;
+    }
+    setTwoFactorBusy(true);
+    try {
+      const updated = await toggleTwoFactor({ enabled: false });
+      syncTwoFactorUser(updated);
+      toast.success(t('profile.two_factor_disabled'));
+    } catch (err) {
+      notifyApiError(err, t('profile.two_factor_failed'));
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  }
+
+  async function confirmEnableTwoFactor() {
+    if (!twoFactorPassword.trim()) {
+      toast.error(t('profile.two_factor_password_required'));
+      return;
+    }
+    setTwoFactorBusy(true);
+    try {
+      const updated = await toggleTwoFactor({
+        enabled: true,
+        current_password: twoFactorPassword,
+      });
+      syncTwoFactorUser(updated);
+      setTwoFactorDialogOpen(false);
+      setTwoFactorPassword('');
+      toast.success(t('profile.two_factor_enabled'));
+    } catch (err) {
+      notifyApiError(err, t('profile.two_factor_failed'));
+    } finally {
+      setTwoFactorBusy(false);
+    }
   }
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -285,15 +383,22 @@ export default function ProfilePage() {
   const showLeaveRequest = me.employee_profile_id != null && me.employee_profile_id > 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
         title={t('profile.page_title')}
-        subtitle={t('profile.page_subtitle')}
         actions={
           showLeaveRequest ? (
-            <Button type="button" size="sm" onClick={() => setLeaveDialogOpen(true)}>
-              {tHr('leave.dialog.trigger')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link to="/my-leaves">{tHr('leave.my_title')}</Link>
+              </Button>
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link to="/my-stock-count">{tInv('movement.stock_count.my_list_title')}</Link>
+              </Button>
+              <Button type="button" size="sm" onClick={() => setLeaveDialogOpen(true)}>
+                {tHr('leave.dialog.trigger')}
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -307,6 +412,7 @@ export default function ProfilePage() {
         />
       ) : null}
 
+      <div className="space-y-4">
       <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-secondary/25 bg-card p-6 shadow-sm sm:flex-row sm:items-center">
         <Avatar
           className={cn(
@@ -342,8 +448,18 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
-        <Card className="border-2 border-secondary/20 shadow-sm lg:col-span-3">
+      <div
+        className={cn(
+          'grid gap-5 lg:grid-cols-5',
+          passwordChangeOpen ? 'lg:items-stretch' : 'lg:items-start',
+        )}
+      >
+        <Card
+          className={cn(
+            'border-2 border-secondary/20 py-2.5 shadow-sm lg:col-span-3',
+            passwordChangeOpen && 'flex h-full flex-col',
+          )}
+        >
           <CardHeader className="space-y-1">
             <div className="flex items-center gap-2 text-secondary">
               <User className="size-5 shrink-0" aria-hidden />
@@ -353,7 +469,16 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             <Form {...profileForm}>
-              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
+              <form
+                id={PROFILE_FORM_ID}
+                noValidate
+                onSubmit={profileForm.handleSubmit(onProfileSubmit, onProfileInvalid)}
+                className="space-y-6"
+              >
+                <fieldset
+                  disabled={update.isPending}
+                  className="space-y-6 border-0 p-0 m-0 min-w-0"
+                >
                 <input
                   id="profile-avatar-file"
                   ref={fileRef}
@@ -373,7 +498,7 @@ export default function ProfilePage() {
                       variant="outline"
                       className="gap-2 border-secondary/60"
                       onClick={() => fileRef.current?.click()}
-                      disabled={uploadAvatar.isPending}
+                      disabled={uploadAvatar.isPending || !profileEditMode.fieldsEnabled}
                     >
                       <Camera className="size-4" />
                       {uploadAvatar.isPending ? t('actions.loading') : t('profile.choose_photo')}
@@ -382,7 +507,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-3" dir={i18n.dir()}>
                   <FormField
                     control={profileForm.control}
                     name="first_name"
@@ -390,7 +515,7 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>{t('profile.first_name')}</FormLabel>
                         <FormControl>
-                          <Input {...field} autoComplete="given-name" />
+                          <Input {...field} autoComplete="given-name" {...profileTextRo()} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -403,7 +528,7 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>{t('profile.father_name')}</FormLabel>
                         <FormControl>
-                          <Input {...field} autoComplete="additional-name" />
+                          <Input {...field} autoComplete="additional-name" {...profileTextRo()} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -416,7 +541,7 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>{t('profile.last_name')}</FormLabel>
                         <FormControl>
-                          <Input {...field} autoComplete="family-name" />
+                          <Input {...field} autoComplete="family-name" {...profileTextRo()} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -424,7 +549,7 @@ export default function ProfilePage() {
                   />
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2" dir={i18n.dir()}>
                   <FormField
                     control={profileForm.control}
                     name="email"
@@ -437,7 +562,7 @@ export default function ProfilePage() {
                             type="email"
                             autoComplete="email"
                             dir="ltr"
-                            className="num-latin"
+                            {...profileTextRo('num-latin')}
                           />
                         </FormControl>
                         <FormMessage />
@@ -454,9 +579,8 @@ export default function ProfilePage() {
                           <Input
                             {...field}
                             autoComplete="tel"
-                            className="num-latin"
                             dir="ltr"
-                            placeholder="0912345678"
+                            {...profileTextRo('num-latin')}
                           />
                         </FormControl>
                         <FormMessage />
@@ -470,119 +594,339 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>{t('profile.city')}</FormLabel>
                         <FormControl>
-                          <Input {...field} autoComplete="address-level2" />
+                          <Input {...field} autoComplete="address-level2" {...profileTextRo()} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={profileForm.control}
-                    name="preferred_language"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('profile.language')}</FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={(v) => field.onChange(v as 'ar' | 'en' | '__default__')}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={t('profile.language')} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__default__">{t('profile.language_default')}</SelectItem>
-                            <SelectItem value="ar">{t('profile.language_ar')}</SelectItem>
-                            <SelectItem value="en">{t('profile.language_en')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-4">
+                    <FormField
+                      control={profileForm.control}
+                      name="preferred_language"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('profile.language')}</FormLabel>
+                          {profileEditMode.fieldsEnabled ? (
+                            <Select
+                              value={field.value}
+                              onValueChange={(v) => field.onChange(v as 'ar' | 'en' | '__default__')}
+                            >
+                              <FormControl>
+                                <SelectTrigger dir={i18n.dir()}>
+                                  <SelectValue placeholder={t('profile.language')} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent dir={i18n.dir()}>
+                                <SelectItem value="__default__">{t('profile.language_default')}</SelectItem>
+                                <SelectItem value="ar">{t('profile.language_ar')}</SelectItem>
+                                <SelectItem value="en">{t('profile.language_en')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <FormControl>
+                              <ReadOnlyCopyableField
+                                value={profileLanguageLabel}
+                                dir={i18n.dir()}
+                              />
+                            </FormControl>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
-                <Button type="submit" disabled={update.isPending} className="min-w-[160px]">
-                  {update.isPending ? t('actions.loading') : t('profile.save')}
-                </Button>
+                <FormValidationAlert />
+                </fieldset>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="hidden sm:block" aria-hidden />
+                  <DetailFormActionBar
+                    isEditing={profileEditMode.isEditing}
+                    canEdit
+                    isSubmitting={update.isPending}
+                    formId={PROFILE_FORM_ID}
+                    onStartEdit={profileEditMode.startEdit}
+                    onCancelEdit={profileEditMode.cancelEdit}
+                    className="w-full justify-end"
+                  />
+                </div>
               </form>
             </Form>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-secondary/20 shadow-sm lg:col-span-2">
+        <Card
+          className={cn(
+            'border-2 border-secondary/20 py-2.5 shadow-sm lg:col-span-2',
+            passwordChangeOpen && 'flex h-full flex-col',
+          )}
+        >
           <CardHeader className="space-y-1">
             <div className="flex items-center gap-2 text-secondary">
               <Lock className="size-5 shrink-0" aria-hidden />
               <CardTitle className="text-lg">{t('profile.password_section')}</CardTitle>
             </div>
-            <CardDescription>{t('profile.password_card_hint')}</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...passwordForm}>
               <form
-                onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
+                noValidate
+                onSubmit={passwordForm.handleSubmit(onPasswordSubmit, onPasswordInvalid)}
                 className="space-y-4"
               >
-                <FormField
-                  control={passwordForm.control}
-                  name="current_password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('profile.current_password')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="password"
-                          autoComplete="current-password"
-                          dir="ltr"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                {!passwordChangeOpen ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-2 border-secondary"
+                    onClick={() => setPasswordChangeOpen(true)}
+                  >
+                    <Lock className="size-4" aria-hidden="true" />
+                    {t('profile.change_password_action')}
+                  </Button>
+                ) : null}
+
+                <div
+                  className={cn(
+                    'grid transition-[grid-template-rows,opacity] duration-300 ease-out',
+                    passwordChangeOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
                   )}
-                />
-                <FormField
-                  control={passwordForm.control}
-                  name="new_password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('profile.new_password')}</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="password" autoComplete="new-password" dir="ltr" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={passwordForm.control}
-                  name="confirm_new_password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('profile.confirm_new_password')}</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="password" autoComplete="new-password" dir="ltr" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button
-                  type="submit"
-                  variant="outline"
-                  className="w-full gap-2 border-secondary"
-                  disabled={update.isPending}
+                  aria-hidden={!passwordChangeOpen}
                 >
-                  <Lock className="size-4" />
-                  {update.isPending ? t('actions.loading') : t('profile.change_password_action')}
-                </Button>
+                  <div className="overflow-hidden">
+                    <div className="space-y-4">
+                      <FormField
+                        control={passwordForm.control}
+                        name="current_password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('profile.current_password')}</FormLabel>
+                            <FormControl>
+                              <PasswordInput
+                                {...field}
+                                autoComplete="current-password"
+                                className={cn(
+                                  'transition-all duration-300 ease-out',
+                                  passwordInvalidClass('current_password'),
+                                )}
+                                aria-invalid={showPasswordError('current_password') || undefined}
+                                aria-describedby={
+                                  showPasswordError('current_password')
+                                    ? 'profile-current-password-error'
+                                    : undefined
+                                }
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  clearPasswordFieldError('current_password');
+                                }}
+                                onFocus={() => clearPasswordFieldError('current_password')}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                            <AuthFieldError
+                              id="profile-current-password-error"
+                              message={
+                                profilePasswordFieldErrorMessage(
+                                  passwordErrors.current_password,
+                                  t,
+                                  tCommon,
+                                ) ?? ''
+                              }
+                              visible={showPasswordError('current_password')}
+                            />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={passwordForm.control}
+                        name="new_password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('profile.new_password')}</FormLabel>
+                            <FormControl>
+                              <PasswordInput
+                                {...field}
+                                autoComplete="new-password"
+                                className={cn(
+                                  'transition-all duration-300 ease-out',
+                                  passwordInvalidClass('new_password'),
+                                )}
+                                aria-invalid={showPasswordError('new_password') || undefined}
+                                aria-describedby={
+                                  showPasswordError('new_password')
+                                    ? 'profile-new-password-error'
+                                    : undefined
+                                }
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  clearPasswordFieldError('new_password');
+                                }}
+                                onFocus={() => clearPasswordFieldError('new_password')}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                            <AuthFieldError
+                              id="profile-new-password-error"
+                              message={
+                                profilePasswordFieldErrorMessage(
+                                  passwordErrors.new_password,
+                                  t,
+                                  tCommon,
+                                ) ?? ''
+                              }
+                              visible={showPasswordError('new_password')}
+                            />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={passwordForm.control}
+                        name="confirm_new_password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('profile.confirm_new_password')}</FormLabel>
+                            <FormControl>
+                              <PasswordInput
+                                {...field}
+                                autoComplete="new-password"
+                                className={cn(
+                                  'transition-all duration-300 ease-out',
+                                  passwordInvalidClass('confirm_new_password'),
+                                )}
+                                aria-invalid={showPasswordError('confirm_new_password') || undefined}
+                                aria-describedby={
+                                  showPasswordError('confirm_new_password')
+                                    ? 'profile-confirm-password-error'
+                                    : undefined
+                                }
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  clearPasswordFieldError('confirm_new_password');
+                                }}
+                                onFocus={() => clearPasswordFieldError('confirm_new_password')}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                            <AuthFieldError
+                              id="profile-confirm-password-error"
+                              message={
+                                profilePasswordFieldErrorMessage(
+                                  passwordErrors.confirm_new_password,
+                                  t,
+                                  tCommon,
+                                ) ?? ''
+                              }
+                              visible={showPasswordError('confirm_new_password')}
+                            />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          className="w-full gap-2 border-secondary"
+                          disabled={update.isPending}
+                        >
+                          <Lock className="size-4" aria-hidden="true" />
+                          {update.isPending
+                            ? t('actions.loading')
+                            : t('profile.change_password_action')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="w-full text-muted-foreground"
+                          disabled={update.isPending}
+                          onClick={closePasswordChange}
+                        >
+                          {t('profile.password_cancel')}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </form>
             </Form>
+
+            <Separator className="my-6" />
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-secondary">
+                <Shield className="size-5 shrink-0" aria-hidden />
+                <h3 className="text-base font-semibold">{t('profile.two_factor_section')}</h3>
+              </div>
+              <p className="text-muted-foreground text-sm">{t('profile.two_factor_hint')}</p>
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="two-factor-toggle">{t('profile.two_factor_enable')}</Label>
+                <Switch
+                  id="two-factor-toggle"
+                  checked={me.two_factor_enabled === true}
+                  disabled={twoFactorBusy}
+                  onCheckedChange={handleTwoFactorToggle}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+      </div>
+
+      <FloatingFormDialog
+        open={twoFactorDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !twoFactorBusy) {
+            setTwoFactorPassword('');
+          }
+          setTwoFactorDialogOpen(open);
+        }}
+        title={t('profile.two_factor_confirm_title')}
+        description={t('profile.two_factor_confirm_hint')}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTwoFactorDialogOpen(false)}
+              disabled={twoFactorBusy}
+              className={floatingFormCloseButtonClassName}
+            >
+              {tCommon('actions.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              form="two-factor-enable-form"
+              disabled={twoFactorBusy || !twoFactorPassword.trim()}
+              className={floatingFormApproveButtonClassName}
+            >
+              {twoFactorBusy ? t('actions.loading') : t('profile.two_factor_confirm_action')}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="two-factor-enable-form"
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void confirmEnableTwoFactor();
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="two-factor-dialog-password">{t('profile.current_password')}</Label>
+            <PasswordInput
+              id="two-factor-dialog-password"
+              autoComplete="current-password"
+              value={twoFactorPassword}
+              onChange={(e) => setTwoFactorPassword(e.target.value)}
+              disabled={twoFactorBusy}
+              autoFocus
+            />
+          </div>
+        </form>
+      </FloatingFormDialog>
     </div>
   );
 }

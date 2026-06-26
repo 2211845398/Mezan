@@ -34,6 +34,7 @@ def _currency_to_read(c: Currency, *, is_base: bool) -> CurrencyRead:
         exchange_rate_to_base=c.exchange_rate_to_base,
         active=c.active,
         is_base=is_base,
+        cash_rounding_increment=c.cash_rounding_increment,
     )
 
 

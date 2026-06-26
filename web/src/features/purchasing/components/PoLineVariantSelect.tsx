@@ -13,6 +13,8 @@ type Props = {
   /** `optional` = PO label; `variant` = inventory label; `none` = hide label. */
   labelMode?: 'optional' | 'variant' | 'none';
   placeholder?: string;
+  /** When true, only variants with an active retail sell price (> 0) are listed. */
+  pricedOnly?: boolean;
   onVariantPick: (variantId: number | null, label: string) => void;
 };
 
@@ -24,6 +26,7 @@ export default function PoLineVariantSelect({
   compact = false,
   labelMode = 'optional',
   placeholder,
+  pricedOnly = false,
   onVariantPick,
 }: Props) {
   const { t } = useTranslation('purchasing');
@@ -53,6 +56,7 @@ export default function PoLineVariantSelect({
       productId={productId}
       value={hasVariant ? String(variantId) : ''}
       disabled={disabled}
+      pricedOnly={pricedOnly}
       placeholder={placeholder ?? t('orders.form.variant_optional_placeholder')}
       title={hasVariant && variantPickLabel ? variantPickLabel : undefined}
       onChange={(id, label) => onVariantPick(id, label)}

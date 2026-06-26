@@ -13,14 +13,27 @@ from app.models.currency import Currency
 from app.models.pos_cart import PosCart
 from app.models.pos_payment import PaymentAttempt, PaymentIntent, PaymentReceipt
 from app.models.sales_invoice import SalesInvoice
+from app.schemas.pos_payment import CashRoundingConfigRead
 from app.services.accounting_service import get_accounting_settings
 from app.services.payments.providers.base import PaymentProvider
 from app.services.payments.providers.in_store import InStoreLedgerProvider
 from app.services.payments.providers.mock import MockPaymentProvider
 from app.services.pos_customer_guard import assert_customer_active_for_pos
+from app.utils.cash_rounding import round_cash_total
 from app.utils.money import q2
 
 _FX_QUANT = Decimal("0.00000001")
+
+
+async def get_cash_rounding_config(db: AsyncSession, *, currency: str) -> CashRoundingConfigRead:
+    code = currency.strip().upper()
+    cur_res = await db.execute(select(Currency).where(Currency.code == code))
+    row = cur_res.scalar_one_or_none()
+    if row is None:
+        raise NotFoundError("Unknown currency code", details={"currency": code})
+    return CashRoundingConfigRead(
+        currency=code, cash_rounding_increment=row.cash_rounding_increment
+    )
 
 
 def get_provider(provider_name: str) -> PaymentProvider:
@@ -32,7 +45,14 @@ def get_provider(provider_name: str) -> PaymentProvider:
 
 
 async def create_payment_intent(
-    db: AsyncSession, *, cart_id: int, provider_name: str | None, currency: str
+    db: AsyncSession,
+    *,
+    cart_id: int,
+    provider_name: str | None,
+    currency: str,
+    payment_method: str | None = None,
+    cash_tendered: Decimal | None = None,
+    exchange_credit_amount: Decimal | None = None,
 ) -> PaymentIntent:
     c_res = await db.execute(select(PosCart).where(PosCart.id == cart_id))
     cart = c_res.scalar_one_or_none()
@@ -61,7 +81,19 @@ async def create_payment_intent(
             )
         snapshot = raw.quantize(_FX_QUANT, rounding=ROUND_HALF_UP)
 
-    amount = q2(cart.total)
+    exact_total = q2(cart.total)
+    if exchange_credit_amount is not None and exchange_credit_amount > Decimal("0"):
+        exact_total = q2(max(Decimal("0"), exact_total - q2(exchange_credit_amount)))
+    amount = exact_total
+    if payment_method == "cash" and currency.cash_rounding_increment:
+        rounded, _ = round_cash_total(exact_total, currency.cash_rounding_increment)
+        is_partial = False
+        if cash_tendered is not None:
+            ct = q2(cash_tendered)
+            if ct > Decimal("0") and ct < rounded:
+                is_partial = True
+        if not is_partial:
+            amount = rounded
 
     inv_row = await db.execute(
         select(SalesInvoice.id).where(SalesInvoice.cart_id == cart.id).limit(1)

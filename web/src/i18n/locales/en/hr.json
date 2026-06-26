@@ -151,6 +151,15 @@
   },
   "leave": {
     "title": "Leave",
+    "my_title": "My leaves",
+    "my_subtitle": "Your requests and leave balance",
+    "balance_title": "Leave balance",
+    "no_employee_profile": "No employee profile is linked to your account.",
+    "back_profile": "Profile",
+    "search_placeholder": "Search your requests…",
+    "filter": {
+      "all": "All statuses"
+    },
     "self_service_profile": "Submitting for your linked employee profile.",
     "new": "New request",
     "review": "Review",
@@ -190,6 +199,8 @@
       "status": "Status",
       "from": "From",
       "to": "To",
+      "start": "From",
+      "end": "To",
       "days": "Days",
       "reason": "Reason",
       "reviewed_by": "Reviewed by",
@@ -210,6 +221,11 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "all": "All"
+    },
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
     },
     "form": {
       "employee": "Employee",
@@ -304,7 +320,8 @@
     "hours": "Hours",
     "missing_clock_out": "Missing clock-out",
     "leave_summary": "Leave summary",
-    "no_leave": "No leave requests"
+    "no_leave": "No leave requests",
+    "review_pending_leave": "Review pending requests"
   },
   "schedule": {
     "current": "Current schedule",
@@ -339,5 +356,40 @@
     "mark_workday": "Mark as workday",
     "mark_day_off": "Mark as day off",
     "empty": "No schedule set up yet"
+  },
+  "attendanceDevices": {
+    "title": "Attendance kiosks",
+    "create": "Add device",
+    "createTitle": "Add attendance device",
+    "editTitle": "Edit attendance device",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "created": "Device created",
+    "createdWithLogin": "Device created. Sign in with kiosk account: {{email}}",
+    "createFailed": "Could not create device",
+    "saved": "Device updated",
+    "saveFailed": "Could not update device",
+    "empty": "No attendance devices yet",
+    "selectBranch": "Select branch",
+    "kioskAccountSection": "Kiosk account",
+    "kioskEmail": "Email",
+    "kioskPassword": "Password",
+    "kioskPasswordOptional": "New password (optional)",
+    "yes": "Yes",
+    "no": "No",
+    "retry": "Try again",
+    "kioskTitle": "Scan to clock in / out",
+    "kioskSubtitle": "Branch #{{branchId}}",
+    "kioskRefresh": "Code refreshes every {{seconds}} seconds",
+    "kioskLoading": "Loading QR code…",
+    "kioskError": "Could not load attendance QR",
+    "col": {
+      "code": "Code",
+      "name": "Name",
+      "branch": "Branch",
+      "user": "Assigned user",
+      "active": "Active"
+    }
   }
 }

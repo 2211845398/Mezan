@@ -21,7 +21,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description?: string;
   confirmKeyword: string;
   onConfirm: () => void;
   isLoading?: boolean;
@@ -50,40 +50,48 @@ export function DangerConfirmDialog({
       }}
     >
       <DialogContent motionless>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2">
-          <Label htmlFor={id}>
-            {t('confirm.type_keyword', { keyword: confirmKeyword })}
-          </Label>
-          <Input
-            id={id}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            className={floatingFormCloseButtonClassName}
-            onClick={() => onOpenChange(false)}
-          >
-            {t('actions.cancel')}
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            className={floatingFormDangerButtonClassName}
-            disabled={!canSubmit || isLoading}
-            onClick={() => onConfirm()}
-          >
-            {t('actions.confirm')}
-          </Button>
-        </DialogFooter>
+        <form
+          className="contents"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!canSubmit || isLoading) return;
+            onConfirm();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            {description ? <DialogDescription>{description}</DialogDescription> : null}
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor={id}>
+              {t('confirm.type_keyword', { keyword: confirmKeyword })}
+            </Label>
+            <Input
+              id={id}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className={floatingFormCloseButtonClassName}
+              onClick={() => onOpenChange(false)}
+            >
+              {t('actions.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              variant="destructive"
+              className={floatingFormDangerButtonClassName}
+              disabled={!canSubmit || isLoading}
+            >
+              {t('actions.confirm')}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

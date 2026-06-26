@@ -50,7 +50,25 @@ export const outlineCancelMatchPrimaryClassName = cn(
 
 export const outlineCancelMatchDestructiveClassName = cn(
   buttonVariants({ variant: 'outline' }),
-  'text-destructive hover:bg-destructive/10 hover:text-destructive',
+  'text-destructive border-destructive hover:bg-destructive/10 hover:text-destructive',
+);
+
+/** Detail page header — h-10 primary approve (matches BackButton height). */
+export const detailHeaderApproveButtonClassName = cn(
+  'h-10 min-h-10 rounded-md px-4 font-medium shadow-sm',
+  'bg-primary text-primary-foreground hover:bg-primary/90',
+);
+
+/** Detail page header — h-10 outline cancel (matches BackButton height). */
+export const detailHeaderCancelButtonClassName = cn(
+  buttonVariants({ variant: 'outline', size: 'default' }),
+  'h-10 min-h-10 border-slate-300 text-primary hover:bg-muted/60 hover:text-primary dark:border-border',
+);
+
+/** Detail page header — h-10 outline destructive label. */
+export const detailHeaderDangerOutlineButtonClassName = cn(
+  buttonVariants({ variant: 'outline', size: 'default' }),
+  'h-10 min-h-10 border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive',
 );
 
 export const outlineCancelMatchPrimarySmClassName = cn(

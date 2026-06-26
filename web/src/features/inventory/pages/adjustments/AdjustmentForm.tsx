@@ -29,6 +29,8 @@ import { inventoryKeys } from '../../queries';
 /** Simple movements kept in the floating dialog; complex flows use dedicated pages. */
 const TXN_TYPES = ['issue_stock', 'return_stock', 'count_adjust'] as const;
 
+export const ADJUSTMENT_DIALOG_FORM_ID = 'inventory-adjustment-dialog-form';
+
 export type AdjustmentFormProps = {
   variant?: 'page' | 'dialog';
   onDismiss?: () => void;
@@ -87,13 +89,8 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
     onError: (error) => notifyApiError(error, t('errors.generic')),
   });
 
-  const shell = variant === 'dialog' ? 'mx-auto max-w-lg space-y-4' : 'mx-auto max-w-lg space-y-4 p-6';
-
-  return (
-    <div className={shell}>
-      {variant === 'page' ? (
-        <h1 className="text-2xl font-semibold tracking-tight">{t('adjustments.new')}</h1>
-      ) : null}
+  const fields = (
+    <>
       <div>
         <Label>{t('adjustments.field.branch')}</Label>
         <Select value={branchId} onValueChange={setBranchId}>
@@ -183,20 +180,38 @@ export default function AdjustmentForm({ variant = 'page', onDismiss }: Adjustme
           placeholder={t('adjustments.field.reason_placeholder')}
         />
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={() => void m.mutate()} disabled={m.isPending}>
-          {t('actions.submit')}
-        </Button>
-        {onDismiss ? (
-          <Button type="button" variant="ghost" onClick={onDismiss}>
-            {t('actions.cancel')}
+      {variant === 'page' ? (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" onClick={() => void m.mutate()} disabled={m.isPending}>
+            {t('actions.submit')}
           </Button>
-        ) : (
           <Button type="button" variant="ghost" asChild>
             <Link to="/inventory/adjustments">{t('actions.cancel')}</Link>
           </Button>
-        )}
-      </div>
+        </div>
+      ) : null}
+    </>
+  );
+
+  if (variant === 'dialog') {
+    return (
+      <form
+        id={ADJUSTMENT_DIALOG_FORM_ID}
+        className="mx-auto max-w-lg space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void m.mutate();
+        }}
+      >
+        {fields}
+      </form>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-lg space-y-4 p-6">
+      <h1 className="text-2xl font-semibold tracking-tight">{t('adjustments.new')}</h1>
+      {fields}
     </div>
   );
 }

@@ -18,9 +18,12 @@
     "action": {
       "movement": "تسجيل حركة مخزون",
       "transfer": "تحويل جديد",
-      "create_po_alerts": "أوامر شراء من التنبيهات"
+      "create_po_alerts": "أوامر شراء من التنبيهات",
+      "create_po_alerts_empty": "لا توجد تنبيهات مخزنية لإنشاء أوامر شراء"
     },
     "kpi": {
+      "warehouse_po": "مخازن تحتاج شراء",
+      "commercial_restock": "فروع تجارية تحتاج تحويل",
       "low": "أصناف تحت حد إعادة الطلب",
       "out": "أصناف نفد مخزونها",
       "reserved_units": "إجمالي الوحدات المحجوزة",
@@ -94,6 +97,31 @@
       "reorder_point": "حد إعادة الطلب",
       "days_cover": "أيام التغطية",
       "status": "الحالة"
+    }
+  },
+  "productMovements": {
+    "title": "حركات المنتج في المخازن",
+    "subtitle": "سجل حركات هذا المنتج مع فلترة حسب الفرع والمتغير.",
+    "select_branch": "اختر فرعاً لإعداد تنبيهات إعادة الطلب.",
+    "filter": {
+      "variant": "المتغير",
+      "all_variants": "كل المتغيرات"
+    }
+  },
+  "reorderPolicy": {
+    "title": "سياسة تنبيه إعادة الطلب",
+    "saved": "تم حفظ سياسة إعادة الطلب.",
+    "stock": {
+      "title": "رصيد الفرع"
+    },
+    "field": {
+      "reorder_point": "حد إرسال التنبيه",
+      "reorder_point_hint": "عندما تصبح التغطية (المتاح + قيد الطلب + الوارد) عند هذا الحد أو أقل، تصبح الحالة «تحت إعادة الطلب».",
+      "reorder_qty": "كمية إعادة الطلب المقترحة",
+      "reorder_qty_hint": "تُستخدم عند إنشاء أوامر شراء من تنبيهات إعادة الطلب.",
+      "preferred_supplier": "المورد المفضّل",
+      "lead_time_days": "مدة التوريد (أيام)",
+      "is_active": "السياسة نشطة"
     }
   },
   "adjustments": {
@@ -215,7 +243,12 @@
       "release_title": "إلغاء جزء من الحجز",
       "release_qty": "الكمية (وحدة أساسية)",
       "release_confirm": "تأكيد الإلغاء",
-      "released": "تم إلغاء الحجز"
+      "released": "تم إلغاء الحجز",
+      "source": "المصدر",
+      "source_manual": "حجز يدوي",
+      "source_transfer": "حجز تحويل بين الفروع",
+      "transfer_hint": "يُلغى من صفحة التحويلات الداخلية",
+      "transfer_link": "تحويل #{{batchId}}"
     },
     "damage": {
       "short": "التلف",
@@ -273,12 +306,37 @@
       "status_in_progress": "قيد التعبئة",
       "status_posted": "مرحّل",
       "status_cancelled": "ملغى",
+      "cancel": "إلغاء الجرد",
+      "cancel_title": "إلغاء جلسة الجرد؟",
+      "cancel_desc": "لن يمكن تعبئة هذه الجلسة أو ترحيلها بعد الإلغاء.",
+      "cancel_confirm": "نعم، إلغاء الجرد",
+      "cancel_pending": "جاري الإلغاء…",
+      "cancelled": "تم إلغاء الجرد",
       "responsible": "المسؤول عن الجرد",
-      "responsible_placeholder": "اختر مسؤول مخزن…",
+      "my_list_title": "جردي",
+      "my_empty": "لا توجد جلسات جرد معيّنة لك حالياً",
+      "responsible_placeholder": "اختر مسؤول الجرد…",
       "responsible_search": "بحث بالاسم…",
-      "responsible_empty": "لا يوجد مسؤول مخزن نشط",
+      "responsible_empty": "لا يوجد موظف مؤهل (كاشير / مبيعات / مسؤول مخازن)",
       "export": "تصدير PDF",
       "exported": "تم تنزيل {{filename}}"
+    }
+  },
+  "alerts": {
+    "title": "تنبيهات",
+    "subtitle": "فروع تجارية تحتاج تحويل مخزني من المخازن",
+    "empty": "لا توجد تنبيهات تحويل حالياً",
+    "no_source": "لا مخزن كافٍ",
+    "no_warehouse_stock": "لا يوجد مخزن بكمية كافية لهذا الصنف",
+    "col": {
+      "branch": "الفرع",
+      "product": "المنتج",
+      "variant": "المتغير",
+      "available": "المتاح",
+      "reorder_point": "حد إعادة الطلب",
+      "suggested_qty": "كمية مقترحة",
+      "source_warehouse": "مخزن المصدر",
+      "status": "الحالة"
     }
   },
   "transfers": {
@@ -403,6 +461,64 @@
       "needs_review": "للمراجعة",
       "validated": "معتمد",
       "failed": "فشل"
+    }
+  },
+  "production": {
+    "title": "الإنتاج",
+    "subtitle": "قوائم المواد وأوامر الإنتاج",
+    "boms_section": "قوائم المواد (BoM)",
+    "orders_section": "أوامر الإنتاج",
+    "new_bom": "BoM جديد",
+    "new_order": "أمر إنتاج",
+    "back": "رجوع",
+    "loading": "جارٍ التحميل…",
+    "load_error": "تعذّر تحميل البيانات",
+    "save_error": "تعذّر الحفظ",
+    "bom_created": "تم إنشاء BoM",
+    "order_created": "تم إنشاء أمر الإنتاج",
+    "materials_issued": "تم صرف المواد",
+    "order_completed": "تم إتمام الإنتاج",
+    "bom_header": "بيانات BoM",
+    "components_section": "المكونات",
+    "add_component": "إضافة مكوّن",
+    "save_bom": "حفظ BoM",
+    "notes": "ملاحظات",
+    "cost_preview": "معاينة التكلفة",
+    "calculate_cost": "حساب التكلفة",
+    "cost_calculated": "تم حساب التكلفة",
+    "total_raw_cost": "تكلفة المواد",
+    "unit_cost": "تكلفة الوحدة",
+    "overhead_cost": "تكلفة الإنتاج الإضافية",
+    "final_cost": "التكلفة النهائية",
+    "order_header": "بيانات الأمر",
+    "select_bom": "اختر BoM",
+    "create_order": "إنشاء الأمر",
+    "order_summary": "ملخص الأمر",
+    "issue_materials": "صرف المواد",
+    "issue_hint": "يُخصم المخزون وفق مكونات BoM",
+    "complete_order": "إتمام الإنتاج",
+    "search_bom": "بحث في BoM…",
+    "search_order": "بحث في الأوامر…",
+    "active_yes": "نشط",
+    "active_no": "غير نشط",
+    "col": {
+      "bom_name": "BoM",
+      "finished_product": "المنتج التام",
+      "version": "الإصدار",
+      "active": "الحالة",
+      "component": "المكوّن",
+      "qty": "الكمية",
+      "unit_cost": "تكلفة الوحدة",
+      "order_number": "رقم الأمر",
+      "branch": "الفرع",
+      "status": "الحالة",
+      "total_cost": "الإجمالي"
+    },
+    "status": {
+      "draft": "مسودة",
+      "in_progress": "قيد التنفيذ",
+      "completed": "مكتمل",
+      "cancelled": "ملغى"
     }
   }
 }

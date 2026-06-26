@@ -13,6 +13,7 @@ from sqlalchemy.types import Integer
 from app.core.errors import NotFoundError
 from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
+from app.models.currency import Currency
 from app.models.goods_receipt import GoodsReceipt
 from app.models.journal_entries import JournalEntry, JournalEntryLine
 from app.models.suppliers import Supplier
@@ -193,6 +194,125 @@ def _running_balance_lines(
     return lines, balance
 
 
+async def _enrich_statement_lines(
+    db: AsyncSession,
+    lines: list[SupplierStatementLineRead],
+) -> list[SupplierStatementLineRead]:
+    if not lines:
+        return lines
+
+    gr_ids: set[int] = set()
+    pay_app_ids: set[int] = set()
+    ap_item_ids: set[int] = set()
+
+    for ln in lines:
+        st, sid = ln.source_type, ln.source_id
+        if not st or not sid:
+            continue
+        try:
+            nid = int(sid)
+        except ValueError:
+            continue
+        if st == "goods_receipt":
+            gr_ids.add(nid)
+        elif st == "ap_payment_application":
+            pay_app_ids.add(nid)
+        elif st == "ap_open_item":
+            ap_item_ids.add(nid)
+
+    gr_map: dict[int, GoodsReceipt] = {}
+    if gr_ids:
+        res = await db.execute(select(GoodsReceipt).where(GoodsReceipt.id.in_(gr_ids)))
+        for gr in res.scalars().all():
+            gr_map[int(gr.id)] = gr
+
+    ap_by_gr: dict[int, ApOpenItem] = {}
+    if gr_ids:
+        res = await db.execute(
+            select(ApOpenItem).where(
+                ApOpenItem.source_type == "goods_receipt",
+                ApOpenItem.source_id.in_([str(i) for i in gr_ids]),
+            )
+        )
+        for item in res.scalars().all():
+            try:
+                ap_by_gr[int(item.source_id)] = item
+            except (TypeError, ValueError):
+                continue
+
+    pay_apps: dict[int, ApOpenItem] = {}
+    if pay_app_ids:
+        res = await db.execute(
+            select(ApPaymentApplication, ApOpenItem)
+            .join(ApOpenItem, ApOpenItem.id == ApPaymentApplication.ap_open_item_id)
+            .where(ApPaymentApplication.id.in_(pay_app_ids))
+        )
+        for _app, item in res.all():
+            pay_apps[int(_app.id)] = item
+
+    ap_items: dict[int, ApOpenItem] = {}
+    extra_ids = (
+        ap_item_ids | {it.id for it in pay_apps.values()} | {it.id for it in ap_by_gr.values()}
+    )
+    if extra_ids:
+        res = await db.execute(select(ApOpenItem).where(ApOpenItem.id.in_(extra_ids)))
+        for item in res.scalars().all():
+            ap_items[int(item.id)] = item
+
+    def _amounts(item: ApOpenItem) -> tuple[Decimal, Decimal, Decimal]:
+        total = q2(item.amount_total)
+        open_amt = q2(item.amount_open)
+        paid = q2(total - open_amt)
+        return total, paid, open_amt
+
+    enriched: list[SupplierStatementLineRead] = []
+    for ln in lines:
+        po_id: int | None = None
+        open_item_id: int | None = None
+        amount_total: Decimal | None = None
+        amount_paid: Decimal | None = None
+        amount_open: Decimal | None = None
+
+        st, sid = ln.source_type, ln.source_id
+        if st and sid:
+            try:
+                nid = int(sid)
+            except ValueError:
+                nid = None
+            if nid is not None:
+                if st == "goods_receipt":
+                    gr = gr_map.get(nid)
+                    if gr is not None:
+                        po_id = gr.purchase_order_id
+                    item = ap_by_gr.get(nid)
+                    if item is not None:
+                        open_item_id = item.id
+                        amount_total, amount_paid, amount_open = _amounts(item)
+                elif st == "ap_payment_application":
+                    item = pay_apps.get(nid)
+                    if item is not None:
+                        open_item_id = item.id
+                        amount_total, amount_paid, amount_open = _amounts(item)
+                elif st == "ap_open_item":
+                    item = ap_items.get(nid)
+                    if item is not None:
+                        open_item_id = item.id
+                        amount_total, amount_paid, amount_open = _amounts(item)
+
+        enriched.append(
+            ln.model_copy(
+                update={
+                    "purchase_order_id": po_id,
+                    "open_item_id": open_item_id,
+                    "amount_total": amount_total,
+                    "amount_paid": amount_paid,
+                    "amount_open": amount_open,
+                }
+            )
+        )
+    return enriched
+
+
 async def get_supplier_statement(
     db: AsyncSession,
     *,
@@ -228,6 +348,14 @@ async def get_supplier_statement(
         branch_id=branch_id,
     )
     lines, closing = _running_balance_lines(period_rows, opening=opening)
+    lines = await _enrich_statement_lines(db, lines)
+
+    total_purchases = q2(sum((r.credit for r in period_rows), Decimal("0")))
+    total_paid = q2(sum((r.debit for r in period_rows), Decimal("0")))
+
+    cur_res = await db.execute(select(Currency).where(Currency.id == supplier.currency_id))
+    currency = cur_res.scalar_one_or_none()
+    currency_code = str(currency.code) if currency is not None else "USD"
 
     return SupplierStatementRead(
         supplier_id=supplier_id,
@@ -235,6 +363,10 @@ async def get_supplier_statement(
         date_to=date_to,
         opening_balance=opening,
         closing_balance=closing,
+        total_purchases=total_purchases,
+        total_paid=total_paid,
+        balance_due=closing,
+        currency_code=currency_code,
         lines=lines,
     )
 
@@ -244,6 +376,8 @@ async def get_supplier_evaluation(
     *,
     supplier_id: int,
     period_days: int = 365,
+    date_from: date | None = None,
+    date_to: date | None = None,
     branch_id: int | None = None,
 ) -> SupplierEvaluationRead:
     supplier = await _get_supplier(db, supplier_id)
@@ -251,8 +385,13 @@ async def get_supplier_evaluation(
     ap_account_id = supplier.payables_account_id or settings.default_ap_account_id
     dedicated = supplier.payables_account_id is not None
 
-    period_end = date.today()
-    period_start = period_end - timedelta(days=max(period_days, 1))
+    if date_from is not None and date_to is not None:
+        period_start = date_from
+        period_end = date_to
+        period_days = max((period_end - period_start).days, 1)
+    else:
+        period_end = date.today()
+        period_start = period_end - timedelta(days=max(period_days, 1))
 
     period_rows = await _fetch_ap_lines(
         db,

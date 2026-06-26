@@ -5,7 +5,13 @@
 import type { components } from '@/api/generated/schema';
 
 export type LoginRequest = components['schemas']['LoginRequest'];
-export type LoginResponse = components['schemas']['LoginResponse'];
+export type LoginResponse = components['schemas']['LoginResponse'] & {
+  access_token?: string | null;
+  refresh_token?: string | null;
+  must_change_password?: boolean;
+  requires_2fa?: boolean;
+  challenge_token?: string | null;
+};
 export type TokenResponse = components['schemas']['TokenResponse'];
 export type RefreshRequest = components['schemas']['RefreshRequest'];
 export type LogoutRequest = components['schemas']['LogoutRequest'];
@@ -13,6 +19,8 @@ export type PasswordResetRequest = components['schemas']['PasswordResetRequest']
 export type PasswordResetConfirm = components['schemas']['PasswordResetConfirm'];
 export type UserRead = components['schemas']['UserRead'] & {
   branch_name?: string | null;
+  must_change_password?: boolean;
+  two_factor_enabled?: boolean;
 };
 export type UserUpdate = components['schemas']['UserUpdate'];
 export type ProfileUpdate = components['schemas']['ProfileUpdate'];

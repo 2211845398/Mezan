@@ -28,6 +28,30 @@ async def test_create_user_invalid_email_returns_422(
     body = resp.json()
     assert body["error"]["code"] == "validation_error"
     assert "errors" in body["error"]["details"]
+    errors = body["error"]["details"]["errors"]
+    assert isinstance(errors, list)
+    assert len(errors) >= 1
+    assert errors[0]["code"] == "invalid_email"
+
+
+@pytest.mark.asyncio
+async def test_create_user_missing_required_fields_returns_required_code(
+    client: AsyncClient,
+    admin_auth_header: dict[str, str],
+) -> None:
+    resp = await client.post(
+        "/api/v1/users",
+        json={},
+        headers=admin_auth_header,
+    )
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["error"]["code"] == "validation_error"
+    errors = body["error"]["details"]["errors"]
+    codes = {item["code"] for item in errors}
+    assert "required" in codes
+    paths = {item["path"] for item in errors if item.get("path")}
+    assert "email" in paths or "first_name" in paths
 
 
 @pytest.mark.asyncio

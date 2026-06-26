@@ -1,4 +1,4 @@
-import { ListChecks, PauseCircle, ShoppingCart } from 'lucide-react';
+import { PauseCircle, ShoppingCart, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,6 @@ export type RegisterTotalsColumnProps = {
   canInvoice: boolean;
   editable: boolean;
   isLocked: boolean;
-  parkedCount: number;
   /** When true, primary action is «Register return» instead of checkout. */
   returnModeActive?: boolean;
   canRegisterReturn?: boolean;
@@ -30,7 +29,7 @@ export type RegisterTotalsColumnProps = {
   onPark: () => void | Promise<void>;
   /** Park current sale and open a new empty cart (same as toolbar park + new). */
   onNewCart: () => void | Promise<void>;
-  onShowParked: () => void;
+  onClearCart: () => void | Promise<void>;
 };
 
 export function RegisterTotalsColumn({
@@ -42,7 +41,6 @@ export function RegisterTotalsColumn({
   canInvoice,
   editable,
   isLocked,
-  parkedCount,
   returnModeActive = false,
   canRegisterReturn = false,
   returnSubmitPending = false,
@@ -52,7 +50,7 @@ export function RegisterTotalsColumn({
   onCheckout,
   onPark,
   onNewCart,
-  onShowParked,
+  onClearCart,
 }: RegisterTotalsColumnProps) {
   const { t } = useTranslation('pos');
   const online = useOnline();
@@ -75,6 +73,7 @@ export function RegisterTotalsColumn({
 
   const canPark = editable && cart.status === 'active' && hasPayableLines;
   const canNewCart = canPark;
+  const canClearCart = editable && cart.status === 'active' && hasPayableLines;
 
   return (
     <aside className="flex min-h-0 w-full min-w-0 flex-col gap-2.5 overflow-y-auto rounded-xl border bg-card p-2.5 shadow-sm lg:max-h-full">
@@ -86,7 +85,7 @@ export function RegisterTotalsColumn({
             disabled={!editable}
             customerLoyaltyBalance={customerLoyaltyBalance}
             onApply={onApplyDiscount}
-            triggerClassName="min-h-11 w-full bg-[#82a2f7] text-white shadow-md shadow-blue-500/15 hover:bg-[#728fe0] hover:text-white"
+            triggerClassName="min-h-11 w-full bg-primary text-primary-foreground shadow-md shadow-primary/15 hover:bg-primary/90 hover:text-primary-foreground"
           />
         ) : null}
 
@@ -111,22 +110,6 @@ export function RegisterTotalsColumn({
 
       {/* Bottom secondary actions */}
       <div className="mt-auto flex flex-col gap-2 border-t pt-3">
-        {/* View parked — full width with badge */}
-        <Button
-          type="button"
-          variant="outline"
-          className="relative min-h-10 w-full gap-2"
-          onClick={onShowParked}
-        >
-          <ListChecks className="size-4" aria-hidden />
-          {t('register.view_parked')}
-          {parkedCount > 0 ? (
-            <span className="absolute end-2 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-300/35 dark:text-emerald-950">
-              {parkedCount}
-            </span>
-          ) : null}
-        </Button>
-
         <Button
           type="button"
           variant="outline"
@@ -147,6 +130,17 @@ export function RegisterTotalsColumn({
         >
           <PauseCircle className="size-4" aria-hidden />
           {t('register.park_cart')}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-10 w-full gap-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
+          disabled={!canClearCart}
+          onClick={() => void onClearCart()}
+        >
+          <Trash2 className="size-4" aria-hidden />
+          {t('register.cancel_cart')}
         </Button>
       </div>
     </aside>

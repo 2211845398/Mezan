@@ -6,6 +6,7 @@ from app.models.ap_open_item import ApOpenItem
 from app.models.ap_payment_application import ApPaymentApplication
 from app.models.ar_open_item import ArOpenItem
 from app.models.ar_payment_application import ArPaymentApplication
+from app.models.attendance_device import AttendanceDevice
 from app.models.attendance_log import AttendanceLog
 from app.models.attendance_payroll_policy import AttendancePayrollPolicy, AttendancePolicyCategory
 from app.models.audit_log import AuditLog
@@ -23,6 +24,7 @@ from app.models.catalog_attribute import CatalogAttribute
 from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.category import Category
 from app.models.chart_accounts import AccountType, ChartAccount
+from app.models.correspondence import CorrespondenceMessage, CorrespondenceThread
 from app.models.currency import Currency
 from app.models.customer_profile import CustomerOnboardingToken, CustomerProfile
 from app.models.discount import DiscountRule, DiscountStatus, DiscountType, DiscountUsageLog
@@ -32,6 +34,7 @@ from app.models.fiscal_period import FiscalPeriod
 from app.models.global_config import GlobalConfig
 from app.models.goods_receipt import GoodsReceipt
 from app.models.goods_receipt_line import GoodsReceiptLine
+from app.models.hr_feedback import HrFeedback
 from app.models.inventory_cost_layer import InventoryCostLayer
 from app.models.inventory_policy import InventoryPolicy
 from app.models.invoice_scan import InvoiceScan
@@ -48,6 +51,7 @@ from app.models.notifications import (
     NotificationStatus,
     NotificationTemplate,
 )
+from app.models.password_reset_challenge import PasswordResetChallenge
 from app.models.password_reset_token import PasswordResetToken
 from app.models.payment_terms import PaymentTerm
 from app.models.payslip import Payslip, PayslipStatus
@@ -81,6 +85,7 @@ from app.models.suppliers import Supplier
 from app.models.tax_definition import TaxDefinition
 from app.models.transfer_batch import TransferBatch
 from app.models.transfer_line import TransferLine
+from app.models.two_factor_otp import TwoFactorChallenge, TwoFactorOtp
 from app.models.unit_of_measure import UnitOfMeasure
 from app.models.user_onboarding import UserOnboarding
 from app.models.user_permission_override import UserPermissionOverride
@@ -97,6 +102,7 @@ __all__ = [
     "ArOpenItem",
     "ArPaymentApplication",
     "AuditLog",
+    "AttendanceDevice",
     "AttendanceLog",
     "AttendancePayrollPolicy",
     "AttendancePolicyCategory",
@@ -110,6 +116,8 @@ __all__ = [
     "CatalogAttributeValue",
     "ChartAccount",
     "Currency",
+    "CorrespondenceMessage",
+    "CorrespondenceThread",
     "CustomerOnboardingToken",
     "CustomerProfile",
     "DiscountRule",
@@ -141,6 +149,9 @@ __all__ = [
     "JournalEntry",
     "JournalEntryLine",
     "PasswordResetToken",
+    "PasswordResetChallenge",
+    "TwoFactorChallenge",
+    "TwoFactorOtp",
     "PaymentTerm",
     "Permission",
     "POSTerminal",
@@ -190,6 +201,7 @@ __all__ = [
     "StockMovement",
     "TaxDefinition",
     "GoodsReceipt",
+    "HrFeedback",
     "GoodsReceiptLine",
     "InventoryPolicy",
     "FiscalPeriod",

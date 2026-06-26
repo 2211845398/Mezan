@@ -224,11 +224,19 @@ async def test_prepare_recalculates_existing_zero_draft(db_session: AsyncSession
 
 
 @pytest.mark.anyio
-async def test_prepare_failure_negative_net_in_failures(db_session: AsyncSession) -> None:
+async def test_prepare_clamps_negative_net_to_zero(db_session: AsyncSession) -> None:
     ep = await _active_hourly_employee(db_session)
     period_start, period_end = calendar_month_period_bounds(2026, 10)
 
     result = await prepare_payroll_period_drafts(db_session, year=2026, month=10)
     row_failures = [f for f in result["failures"] if f["employee_profile_id"] == ep.id]
-    assert len(row_failures) == 1
-    assert row_failures[0].get("code") == "payroll_negative_net"
+    assert row_failures == []
+
+    snap = await get_payroll_period_snapshot(db_session, year=2026, month=10)
+    row = next(r for r in snap["rows"] if r["employee_profile_id"] == ep.id)
+    gross = Decimal(str(row["gross_amount"]))
+    net = Decimal(str(row["net_amount"]))
+    auto = Decimal(str(row["automatic_deductions_amount"] or "0"))
+    manual = Decimal(str(row["manual_deductions_amount"] or "0"))
+    assert net == Decimal("0")
+    assert auto + manual == gross

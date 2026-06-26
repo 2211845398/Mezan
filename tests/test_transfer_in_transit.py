@@ -121,6 +121,29 @@ async def test_transfer_reserve_and_in_transit_flow(db_session) -> None:
     assert sl_from.reserved == xfer_qty
     assert sl_from.on_hand - sl_from.reserved - sl_from.damaged == 20 - xfer_qty
 
+    from app.core.errors import ValidationError
+    from app.services.inventory_reservation_service import (
+        list_open_reservations,
+        release_reservation,
+    )
+
+    open_rows = await list_open_reservations(db_session, branch_id=b_from.id)
+    transfer_rows = [r for r in open_rows if r.transfer_batch_id == batch.id]
+    assert len(transfer_rows) == 1
+    tr = transfer_rows[0]
+    assert tr.movement_kind == "transfer_reserve"
+    assert tr.releasable is False
+    assert tr.qty_open == xfer_qty
+
+    with pytest.raises(ValidationError, match="transfer_reserve_not_releasable"):
+        await release_reservation(
+            db_session,
+            user_id=1,
+            reserve_movement_id=tr.movement_id,
+            idempotency_key=f"bad-rel-{uuid.uuid4().hex[:8]}",
+            quantity=1,
+        )
+
     dispatched = await dispatch_batch(db_session, batch_id=batch.id)
     assert dispatched.status == "in_transit"
 

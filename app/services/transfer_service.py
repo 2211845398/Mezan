@@ -26,6 +26,7 @@ from app.services.inventory_valuation_service import (
     get_unit_cost_for_sale,
 )
 from app.services.product_uom_service import convert_product_qty_to_base, get_product_base_uom_id
+from app.services.realtime_nav_badges import emit_inventory_stock_badges_invalidate
 
 
 async def _stock_level(
@@ -165,6 +166,7 @@ async def create_batch(
         key_prefix="reserve",
     )
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
     return await _get_batch(db, batch.id)
 
 
@@ -316,6 +318,7 @@ async def update_pending_batch(
         key_prefix="update_reserve",
     )
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
     return await _get_batch(db, batch.id)
 
 
@@ -384,6 +387,7 @@ async def dispatch_batch(
     batch.status = "in_transit"
     batch.dispatched_at = datetime.now(UTC)
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
     return await _get_batch(db, batch.id)
 
 
@@ -446,6 +450,7 @@ async def receive_batch(
     batch.received_at = datetime.now(UTC)
     await post_transfer_batch_receive_gl(db, batch=batch)
     await db.commit()
+    await emit_inventory_stock_badges_invalidate()
     return await _get_batch(db, batch.id)
 
 

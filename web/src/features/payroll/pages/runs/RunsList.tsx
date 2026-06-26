@@ -2,17 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 
 import { paginatedParams } from '@/api/pagination';
 import { useTableUrlState } from '@/components/shared/DataTable/useTableUrlState';
-import { Eye } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { MonthYearField, type MonthYearValue } from '@/components/shared/form';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -141,17 +139,6 @@ export default function RunsList() {
           header: t('col.net'),
           cell: ({ row }) => String(row.original.net_amount),
         },
-        {
-          id: 'actions',
-          header: '',
-          cell: ({ row }) => (
-            <Button type="button" size="icon" variant="ghost" asChild>
-              <Link to={`/payroll/runs/${row.original.id}`} aria-label={t('actions.detail')}>
-                <Eye className="size-4" />
-              </Link>
-            </Button>
-          ),
-        },
       ]),
     [t],
   );
@@ -200,6 +187,7 @@ export default function RunsList() {
         isError={isError}
         onRetry={() => void refetch()}
         toolbarExtras={toolbarExtras}
+        getRowHref={(row) => `/payroll/runs/${row.id}`}
       />
     </div>
   );

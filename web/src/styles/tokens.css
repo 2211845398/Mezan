@@ -46,6 +46,7 @@
 
   --border: 149 12% 88%;
   --input: 149 12% 88%;
+  --input-background: 0 0% 100%;
   --ring: 149 55% 32%;
   --ring-offset-background: 0 0% 100%;
 
@@ -85,30 +86,30 @@
 }
 
 .dark {
-  /* Deep Palm shell; gold accents; light text. */
-  --background: 149 38% 8%;
-  --foreground: 40 25% 96%;
+  /* Elevation model: background → card → muted → input-background. */
+  --background: 152 24% 6%;
+  --foreground: 150 17% 95%;
 
-  --card: 149 34% 10%;
-  --card-foreground: 40 25% 96%;
+  --card: 152 21% 9%;
+  --card-foreground: 150 17% 95%;
 
-  --popover: 149 34% 10%;
-  --popover-foreground: 40 25% 96%;
+  --popover: 152 21% 9%;
+  --popover-foreground: 150 17% 95%;
 
-  --primary: 149 48% 42%;
-  --primary-foreground: 149 100% 6%;
+  --primary: 152 47% 46%;
+  --primary-foreground: 152 100% 6%;
 
   --secondary: 37 32% 46%;
-  --secondary-foreground: 149 100% 6%;
+  --secondary-foreground: 152 100% 6%;
 
-  --muted: 149 28% 14%;
-  --muted-foreground: 40 12% 72%;
+  --muted: 152 21% 14%;
+  --muted-foreground: 152 9% 58%;
 
-  --accent: 149 26% 16%;
-  --accent-foreground: 40 25% 96%;
+  --accent: 152 22% 11%;
+  --accent-foreground: 150 17% 95%;
 
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 40 25% 96%;
+  --destructive-foreground: 150 17% 95%;
 
   --success: 142.1 70.6% 45.3%;
   --success-foreground: 144.9 80.4% 10%;
@@ -116,18 +117,19 @@
   --warning: 32 94% 60%;
   --warning-foreground: 48 96% 12%;
 
-  --border: 149 22% 18%;
-  --input: 149 22% 18%;
+  --border: 152 20% 20%;
+  --input: 152 20% 20%;
+  --input-background: 152 21% 12%;
   --ring: 37 45% 55%;
-  --ring-offset-background: 149 38% 8%;
+  --ring-offset-background: 152 24% 6%;
 
-  --sidebar-background: 149 40% 7%;
-  --sidebar-foreground: 40 25% 96%;
-  --sidebar-primary: 149 50% 44%;
-  --sidebar-primary-foreground: 149 100% 6%;
-  --sidebar-accent: 149 28% 14%;
-  --sidebar-accent-foreground: 40 25% 96%;
-  --sidebar-border: 149 22% 16%;
+  --sidebar-background: 152 24% 5%;
+  --sidebar-foreground: 150 17% 95%;
+  --sidebar-primary: 152 47% 46%;
+  --sidebar-primary-foreground: 152 100% 6%;
+  --sidebar-accent: 152 21% 14%;
+  --sidebar-accent-foreground: 150 17% 95%;
+  --sidebar-border: 152 20% 18%;
   --sidebar-ring: 37 45% 55%;
 
   --chart-1: 149 50% 52%;

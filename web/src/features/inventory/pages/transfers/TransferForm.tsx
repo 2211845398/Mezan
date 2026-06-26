@@ -56,7 +56,9 @@ import {
   type ProductUomOption,
 } from '@/features/purchasing/lib/productUomOptions';
 import { usePermission } from '@/hooks/usePermission';
+import { commercialRestockBadgeQueryKey } from '@/hooks/navBadgeInvalidation';
 import { formatIso } from '@/lib/date';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { baseUnitsToDisplayQty, qtyToBaseUnits } from '@/lib/productUomQty';
 import { formatQtyWithUom } from '@/lib/formatQtyWithUom';
 
@@ -67,6 +69,12 @@ import {
   draftLineVariantDisplay,
   type DraftTransferLine,
 } from './transferDraft';
+import {
+  draftLineFromRestockPrefillLine,
+  hydrateDraftLineUom,
+  isTransferRestockPrefill,
+  type TransferRestockPrefill,
+} from './transferRestockPrefill';
 
 import {
   createTransferBatch,
@@ -155,6 +163,11 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const actorBranchId = useAuthStore((s) => s.activeBranchId ?? s.user?.branch_id ?? null);
   const isNew = /\/inventory\/transfers\/new\/?$/.test(location.pathname);
   const isEdit = /\/inventory\/transfers\/\d+\/edit\/?$/.test(location.pathname);
+  const restockPrefill: TransferRestockPrefill | null = useMemo(() => {
+    const state = location.state as { restockPrefill?: unknown } | null;
+    return isTransferRestockPrefill(state?.restockPrefill) ? state.restockPrefill : null;
+  }, [location.state]);
+  const prefillFromAlert = isNew && restockPrefill != null;
   const viewBatchId = !isNew && !isEdit && id ? Number(id) : null;
   const editBatchId = isEdit && id ? Number(id) : null;
   const batchId = viewBatchId ?? editBatchId;
@@ -181,6 +194,17 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const [lineUomId, setLineUomId] = useState(0);
   const [lineUomOptions, setLineUomOptions] = useState<ProductUomOption[]>([]);
   const [lines, setLines] = useState<DraftTransferLine[]>([]);
+  const restockPrefillApplied = useRef(false);
+
+  useEffect(() => {
+    if (!prefillFromAlert || !restockPrefill || restockPrefillApplied.current) return;
+    restockPrefillApplied.current = true;
+    setFrom(String(restockPrefill.from_branch_id));
+    setTo(String(restockPrefill.to_branch_id));
+    const draftLines = restockPrefill.lines.map(draftLineFromRestockPrefillLine);
+    setLines(draftLines);
+    void Promise.all(draftLines.map((line) => hydrateDraftLineUom(tCatalog, line))).then(setLines);
+  }, [prefillFromAlert, restockPrefill, tCatalog]);
 
   const resetLineEntry = () => {
     setLineProductId(0);
@@ -211,6 +235,10 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
   const fromBranchName = useMemo(
     () => branches.find((b) => String(b.id) === from)?.name ?? null,
     [branches, from],
+  );
+  const toBranchName = useMemo(
+    () => branches.find((b) => String(b.id) === to)?.name ?? null,
+    [branches, to],
   );
 
   const fromBranchId = from ? Number(from) : NaN;
@@ -247,6 +275,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
       }),
     onSuccess: (b) => {
       void qc.invalidateQueries({ queryKey: inventoryKeys.root });
+      void qc.invalidateQueries({ queryKey: commercialRestockBadgeQueryKey() });
       toast.success(t('transfers.created'), { description: t('transfers.created_pending_dispatch') });
       if (onDismiss) {
         onDismiss();
@@ -514,7 +543,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                   className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
                   aria-readonly
                 >
-                  {batch?.from_branch_name?.trim() || from || '—'}
+                  {batch?.from_branch_name?.trim() || fromBranchName || from || '—'}
                 </div>
               </div>
               <div className="grid gap-2">
@@ -523,7 +552,29 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                   className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
                   aria-readonly
                 >
-                  {batch?.to_branch_name?.trim() || to || '—'}
+                  {batch?.to_branch_name?.trim() || toBranchName || to || '—'}
+                </div>
+              </div>
+            </>
+          ) : prefillFromAlert ? (
+            <>
+              <BranchCombobox
+                kind="warehouse"
+                label={t('transfers.from')}
+                value={from ? Number(from) : null}
+                onChange={(id) => {
+                  setFrom(id != null ? String(id) : '');
+                  resetLineEntry();
+                }}
+                showCode={false}
+              />
+              <div className="grid gap-2">
+                <Label>{t('transfers.to')}</Label>
+                <div
+                  className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
+                  aria-readonly
+                >
+                  {toBranchName || to || '—'}
                 </div>
               </div>
             </>
@@ -547,6 +598,8 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
             </>
           )}
         </div>
+        {!prefillFromAlert ? (
+        <>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
           <div className="min-w-0 md:col-span-5">
             <Label>{t('transfers.line.product')}</Label>
@@ -686,6 +739,7 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                     localizedPoLineUomDisplay(tCatalog, row.uom_symbol, row.uom_name) ||
                     altUom?.label ||
                     row.uom_label;
+                  row.product_image_url = pickerProduct?.image_url ?? null;
                   setLines([...lines, row]);
                   resetLineEntry();
                 })();
@@ -725,6 +779,8 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                   })()
                 : null}
         </p>
+        </>
+        ) : null}
         <div className="overflow-x-auto rounded-md border">
           <Table className="w-full table-fixed">
             <TableHeader>
@@ -734,20 +790,37 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                 <TableHead className="w-[14%] align-middle text-center">{t('stock.col.reference_code')}</TableHead>
                 <TableHead className="w-[10%] align-middle text-end tabular-nums">{t('transfers.line.qty')}</TableHead>
                 <TableHead className="w-[16%] align-middle text-start">{t('transfers.line.uom')}</TableHead>
-                <TableHead className="w-[16%] align-middle text-end">{t('transfers.line.actions')}</TableHead>
+                {!prefillFromAlert ? (
+                  <TableHead className="w-[16%] align-middle text-end">{t('transfers.line.actions')}</TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
               {lines.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={prefillFromAlert ? 5 : 6}
+                    className="text-center text-sm text-muted-foreground"
+                  >
                     {t('transfers.lines_empty')}
                   </TableCell>
                 </TableRow>
               ) : (
-                lines.map((l, i) => (
+                lines.map((l, i) => {
+                  const img = l.product_image_url;
+                  const src = img ? (resolveMediaUrl(img) ?? img) : null;
+                  return (
                   <TableRow key={`line-${l.variant_id ?? i}-${l.product_id}`}>
-                    <TableCell className="align-middle text-start font-medium">{l.product_name}</TableCell>
+                    <TableCell className="align-middle text-start font-medium">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="size-9 shrink-0 overflow-hidden rounded-md border bg-muted">
+                          {src ? (
+                            <img src={src} alt="" className="size-full object-cover" loading="lazy" />
+                          ) : null}
+                        </div>
+                        <span className="truncate">{l.product_name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="align-middle text-start">{draftLineVariantDisplay(l)}</TableCell>
                     <TableCell className="align-middle text-center">
                       <span
@@ -784,19 +857,22 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                       )}
                     </TableCell>
                     <TableCell className="align-middle text-start">{draftLineUomDisplay(tCatalog, l)}</TableCell>
-                    <TableCell className="align-middle text-end">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => setLines(lines.filter((_, j) => j !== i))}
-                      >
-                        {t('transfers.remove_line')}
-                      </Button>
-                    </TableCell>
+                    {!prefillFromAlert ? (
+                      <TableCell className="align-middle text-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setLines(lines.filter((_, j) => j !== i))}
+                        >
+                          {t('transfers.remove_line')}
+                        </Button>
+                      </TableCell>
+                    ) : null}
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -844,7 +920,15 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
             </Button>
           ) : (
             <Button type="button" variant="ghost" asChild>
-              <Link to={isEdit && editBatchId ? `/inventory/transfers/${editBatchId}` : '/inventory/transfers'}>
+              <Link
+                to={
+                  prefillFromAlert
+                    ? '/inventory/alerts'
+                    : isEdit && editBatchId
+                      ? `/inventory/transfers/${editBatchId}`
+                      : '/inventory/transfers'
+                }
+              >
                 {t('actions.cancel')}
               </Link>
             </Button>

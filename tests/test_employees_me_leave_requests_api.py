@@ -19,7 +19,8 @@ from app.services.seed_service import seed_permissions_and_roles
 from app.utils.security import create_access_token, hash_password
 
 
-@pytest.mark.anyio
+@pytest.mark.security
+@pytest.mark.asyncio
 async def test_my_leave_request_ok_without_employees_create(
     client: AsyncClient,
     db_session: AsyncSession,
@@ -57,9 +58,10 @@ async def test_my_leave_request_ok_without_employees_create(
     await db_session.commit()
 
     token = create_access_token(u.id)
+    headers = {"Authorization": f"Bearer {token}"}
     r = await client.post(
         "/api/v1/employees/me/leave-requests",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=headers,
         json={
             "leave_type": "vacation",
             "start_date": "2026-07-01",
@@ -71,3 +73,77 @@ async def test_my_leave_request_ok_without_employees_create(
     body = r.json()
     assert body["employee_profile_id"] == ep.id
     assert body["status"] == "pending"
+
+    listed = await client.get("/api/v1/employees/me/leave-requests", headers=headers)
+    assert listed.status_code == 200
+    items = listed.json()
+    assert len(items) >= 1
+    assert items[0]["leave_type"] == "vacation"
+
+
+@pytest.mark.security
+@pytest.mark.asyncio
+async def test_my_leave_request_pending_limit(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    await seed_permissions_and_roles(db_session)
+
+    res_b = await db_session.execute(select(Branch).where(Branch.code == "ST1"))
+    store = res_b.scalar_one_or_none()
+    if store is None:
+        store = Branch(name="Store A", code="ST1", address=None, timezone="UTC", is_active=True)
+        db_session.add(store)
+        await db_session.flush()
+
+    res_r = await db_session.execute(select(Role).where(Role.code == "CASHIER"))
+    cashier_role = res_r.scalar_one()
+
+    u = User(
+        email="me_leave_limit@test.example",
+        first_name="Leave",
+        family_name="Limit",
+        password_hash=hash_password("pw"),
+        status="active",
+        branch_id=store.id,
+    )
+    db_session.add(u)
+    await db_session.flush()
+
+    ep = EmployeeProfile(
+        user_id=u.id,
+        hire_date=date(2024, 1, 1),
+        base_salary=Decimal("1000.00"),
+    )
+    db_session.add(ep)
+    db_session.add(UserRole(user_id=u.id, role_id=cashier_role.id))
+    await db_session.commit()
+
+    token = create_access_token(u.id)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    for month in (7, 8):
+        r = await client.post(
+            "/api/v1/employees/me/leave-requests",
+            headers=headers,
+            json={
+                "leave_type": "vacation",
+                "start_date": f"2026-{month:02d}-01",
+                "end_date": f"2026-{month:02d}-03",
+                "reason": f"pending {month}",
+            },
+        )
+        assert r.status_code == 201, r.text
+
+    blocked = await client.post(
+        "/api/v1/employees/me/leave-requests",
+        headers=headers,
+        json={
+            "leave_type": "vacation",
+            "start_date": "2026-09-01",
+            "end_date": "2026-09-03",
+            "reason": "third should fail",
+        },
+    )
+    assert blocked.status_code == 422, blocked.text
+    assert "two leave requests" in blocked.json()["error"]["message"].lower()

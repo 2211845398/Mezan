@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
-import { floatingFormCloseButtonSmClassName } from '@/components/shared/FloatingFormDialog';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 
@@ -17,15 +16,7 @@ export default function TerminalsList() {
   const { data: terms = [], isLoading, isError, refetch } = useTerminals();
   const { data: branches = [] } = useBranches(false);
   const canCreate = usePermission('terminals', 'create');
-  const canUpdate = usePermission('terminals', 'update');
   const [formOpen, setFormOpen] = useState(false);
-  const [edit, setEdit] = useState<TerminalRead | null>(null);
-
-  /** Keep dialog in sync after authorize/deauthorize (list refetch updates `terms`). */
-  const editTerminal = useMemo(() => {
-    if (!edit) return null;
-    return terms.find((t) => t.id === edit.id) ?? edit;
-  }, [edit, terms]);
 
   const columns = useMemo(
     () =>
@@ -46,28 +37,8 @@ export default function TerminalsList() {
               ? t('terminals.status.authorized')
               : t('terminals.status.unauthorized'),
         },
-        ...(canUpdate
-          ? [
-              {
-                id: 'row',
-                cell: ({ row }: { row: { original: TerminalRead } }) => (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className={floatingFormCloseButtonSmClassName}
-                    onClick={() => {
-                      setEdit(row.original);
-                      setFormOpen(true);
-                    }}
-                  >
-                    {t('actions.edit')}
-                  </Button>
-                ),
-              },
-            ]
-          : []),
       ]),
-    [t, branches, canUpdate],
+    [t, branches],
   );
 
   return (
@@ -77,7 +48,6 @@ export default function TerminalsList() {
         {canCreate ? (
           <Button
             onClick={() => {
-              setEdit(null);
               setFormOpen(true);
             }}
           >
@@ -94,8 +64,9 @@ export default function TerminalsList() {
         isError={isError}
         onRetry={() => void refetch()}
         emptyState={<p className="text-muted-foreground text-sm">{t('terminals.empty')}</p>}
+        getRowHref={(t) => `/admin/terminals/${t.id}`}
       />
-      <TerminalForm open={formOpen} onOpenChange={setFormOpen} terminal={editTerminal} />
+      <TerminalForm open={formOpen} onOpenChange={setFormOpen} terminal={null} />
     </div>
   );
 }

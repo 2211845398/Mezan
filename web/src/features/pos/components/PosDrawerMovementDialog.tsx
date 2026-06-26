@@ -37,7 +37,7 @@ type Props = {
 };
 
 export function PosDrawerMovementDialog({ open, onOpenChange, shiftId, terminalId }: Props) {
-  const { t } = useTranslation('pos');
+  const { t, i18n } = useTranslation('pos');
   const { t: tc } = useTranslation('common');
   const qc = useQueryClient();
   const [kind, setKind] = useState<MovementKind>('expense');
@@ -92,7 +92,7 @@ export function PosDrawerMovementDialog({ open, onOpenChange, shiftId, terminalI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" dir="auto">
+      <DialogContent className="sm:max-w-md" dir={i18n.dir()}>
         <DialogHeader>
           <DialogTitle>{t('drawer_movement.title')}</DialogTitle>
         </DialogHeader>

@@ -1,5 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  CORRESPONDENCE_INBOX_ROLE_CODES,
+  CORRESPONDENCE_SELF_SERVICE_PERMISSIONS,
+} from '@/config/roleNavAccess';
+import {
   AlertTriangle,
   ArrowLeftRight,
   Banknote,
@@ -15,11 +19,13 @@ import {
   Coins,
   ClipboardList,
   FileText,
+  Factory,
   HardDrive,
   Heart,
   Landmark,
   ListTree,
   LayoutDashboard,
+  Mail,
   Megaphone,
   Monitor,
   Package,
@@ -58,7 +64,9 @@ export type NavBadgeKind =
   | 'leave_pending'
   | 'onboarding_pending'
   | 'notifications_unread'
-  | 'hr_attention_rollup';
+  | 'hr_attention_rollup'
+  | 'reorder_alerts'
+  | 'commercial_restock';
 
 export type NavItem = {
   key: string;
@@ -77,6 +85,8 @@ export type NavItem = {
   children?: NavItem[];
   /** Sidebar badge count (pending work, unread, etc.). */
   badge?: NavBadgeKind;
+  /** Multiple sidebar badges (e.g. warehouse PO + commercial transfer). */
+  badges?: NavBadgeKind[];
 };
 
 export const navigation: NavItem[] = [
@@ -97,6 +107,15 @@ export const navigation: NavItem[] = [
     badge: 'notifications_unread',
   },
   {
+    key: 'correspondence',
+    labelKey: 'nav.correspondence',
+    icon: Mail,
+    href: '/correspondence',
+    section: 'ops',
+    allowRoleCodes: [...CORRESPONDENCE_INBOX_ROLE_CODES],
+    anyPermission: [...CORRESPONDENCE_SELF_SERVICE_PERMISSIONS],
+  },
+  {
     key: 'pos',
     labelKey: 'nav.pos',
     icon: ShoppingCart,
@@ -112,17 +131,17 @@ export const navigation: NavItem[] = [
     section: 'ops',
     children: [
       {
-        key: 'catalog-products',
-        labelKey: 'nav.catalog_products',
-        icon: Package,
-        href: '/catalog/products',
-        permission: { resource: 'catalog', action: 'read' },
-      },
-      {
         key: 'catalog-categories',
         labelKey: 'nav.catalog_categories',
         icon: Tags,
         href: '/catalog/categories',
+        permission: { resource: 'catalog', action: 'read' },
+      },
+      {
+        key: 'catalog-products',
+        labelKey: 'nav.catalog_products',
+        icon: Package,
+        href: '/catalog/products',
         permission: { resource: 'catalog', action: 'read' },
       },
       {
@@ -140,6 +159,7 @@ export const navigation: NavItem[] = [
     icon: Warehouse,
     href: '/inventory',
     section: 'ops',
+    badges: ['reorder_alerts', 'commercial_restock'],
     children: [
       {
         key: 'inventory-stock',
@@ -147,6 +167,7 @@ export const navigation: NavItem[] = [
         icon: Boxes,
         href: '/inventory/stock',
         permission: { resource: 'inventory', action: 'read' },
+        badge: 'reorder_alerts',
       },
       {
         key: 'inventory-adjustments',
@@ -154,6 +175,14 @@ export const navigation: NavItem[] = [
         icon: SlidersHorizontal,
         href: '/inventory/adjustments',
         permission: { resource: 'stock_adjustments', action: 'read' },
+      },
+      {
+        key: 'inventory-alerts',
+        labelKey: 'nav.inventory_alerts',
+        icon: Bell,
+        href: '/inventory/alerts',
+        permission: { resource: 'inventory', action: 'read' },
+        badge: 'commercial_restock',
       },
       {
         key: 'inventory-transfers',
@@ -169,6 +198,13 @@ export const navigation: NavItem[] = [
         href: '/inventory/stock-count',
         permission: { resource: 'stock_adjustments', action: 'create' },
       },
+      {
+        key: 'inventory-production',
+        labelKey: 'nav.inventory_production',
+        icon: Factory,
+        href: '/inventory/production',
+        permission: { resource: 'production_orders', action: 'read' },
+      },
     ],
   },
   {
@@ -177,6 +213,7 @@ export const navigation: NavItem[] = [
     icon: Truck,
     href: '/purchasing',
     section: 'ops',
+    badge: 'reorder_alerts',
     children: [
       {
         key: 'purchasing-orders',
@@ -184,6 +221,7 @@ export const navigation: NavItem[] = [
         icon: ClipboardList,
         href: '/purchasing/orders',
         permission: { resource: 'purchase_orders', action: 'read' },
+        badge: 'reorder_alerts',
       },
       {
         key: 'purchasing-suppliers',
@@ -232,12 +270,18 @@ export const navigation: NavItem[] = [
         permission: { resource: 'employees', action: 'read' },
       },
       {
+        key: 'hr-attendance-devices',
+        labelKey: 'nav.hr_attendance_devices',
+        icon: Monitor,
+        href: '/hr/attendance/devices',
+        permission: { resource: 'attendance_devices', action: 'read' },
+      },
+      {
         key: 'hr-leave',
         labelKey: 'nav.hr_leave',
         icon: CalendarX,
         href: '/hr/leave',
         permission: { resource: 'employees', action: 'read' },
-        denyRoleCodes: ['OWNER', 'ADMIN'],
         badge: 'leave_pending',
       },
       {
@@ -365,7 +409,7 @@ export const navigation: NavItem[] = [
         labelKey: 'nav.accounting_fiscal_periods',
         icon: CalendarCheck,
         href: '/accounting/fiscal-periods',
-        permission: { resource: 'accounting', action: 'update' },
+        permission: { resource: 'accounting', action: 'read' },
       },
       {
         key: 'accounting-operations',
@@ -455,6 +499,8 @@ export const navigation: NavItem[] = [
         icon: Megaphone,
         href: '/marketing/campaigns',
         permission: { resource: 'ai_advisory', action: 'run' },
+        allowRoleCodes: ['OWNER', 'ADMIN', 'MARKETING_ADMIN', 'MARKETING_MANAGER'],
+        denyRoleCodes: ['HR_MANAGER'],
       },
     ],
   },

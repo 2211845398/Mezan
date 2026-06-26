@@ -8,7 +8,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.errors import ConflictError, NotFoundError, ValidationError, conflict_error
 from app.models.catalog_attribute import CatalogAttribute
 from app.models.catalog_attribute_value import CatalogAttributeValue
 from app.models.product_attribute_line import ProductAttributeLine
@@ -368,15 +368,14 @@ async def update_attribute_value(
 
 async def delete_attribute(db: AsyncSession, attribute_id: int) -> None:
     row = await get_attribute(db, attribute_id)
+    if await _attribute_axis_usage_count(db, attribute_id) > 0:
+        conflict_error("catalog_attribute_in_use", attribute_id=attribute_id)
     val_res = await db.execute(
         select(CatalogAttributeValue.id).where(CatalogAttributeValue.attribute_id == row.id)
     )
     for vid in val_res.scalars().all():
         if await _attribute_value_usage_count(db, int(vid)) > 0:
-            raise ConflictError(
-                "Cannot delete attribute while values are in use",
-                details={"attribute_id": attribute_id, "attribute_value_id": int(vid)},
-            )
+            conflict_error("catalog_attribute_in_use", attribute_id=attribute_id)
     await db.execute(
         delete(CatalogAttributeValue).where(CatalogAttributeValue.attribute_id == row.id)
     )
@@ -392,10 +391,7 @@ async def delete_attribute_value(db: AsyncSession, attribute_id: int, value_id: 
             details={"attribute_id": attribute_id, "attribute_value_id": value_id},
         )
     if await _attribute_value_usage_count(db, value_id) > 0:
-        raise ConflictError(
-            "Cannot delete attribute value while it is in use",
-            details={"attribute_value_id": value_id},
-        )
+        conflict_error("catalog_attribute_value_in_use", attribute_value_id=value_id)
     await db.delete(row)
     await db.flush()
 

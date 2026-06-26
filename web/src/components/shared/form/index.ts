@@ -1,7 +1,10 @@
 export { DateField } from './DateField';
+export type { DateRangeFieldsProps } from './DateRangeFields';
+export { DateRangeFields } from './DateRangeFields';
 export { Form } from './Form';
 export { applyBackendFieldErrors, handleFormApiError } from './formFieldErrors';
 export { MoneyInput } from './MoneyInput';
+export { ReadOnlyCopyableField } from './ReadOnlyCopyableField';
 export type { MonthYearFieldProps, MonthYearValue } from './MonthYearField';
 export { MonthYearField } from './MonthYearField';
 export type { AsyncSelectProps, SelectOption, SelectProps } from './Select';

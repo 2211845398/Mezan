@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
+from app.core.config import settings
 from app.db.database import get_db
 from app.models.users import User
 from app.schemas.inventory_human_movement import (
@@ -37,17 +38,24 @@ from app.services.inventory_damage_service import (
     unmark_damaged_position,
 )
 from app.services.inventory_reservation_service import list_open_reservations, release_reservation
+from app.services.notifications.service import (
+    dispatch_delivery_after_commit,
+    enqueue_direct_notification,
+)
+from app.services.realtime_nav_badges import emit_notifications_unread_for_user
 from app.services.stock_count_pdf_service import (
     export_stock_count_pdf,
     export_stock_count_pdf_from_session,
 )
 from app.services.stock_count_session_service import (
+    cancel_stock_count_session,
     create_stock_count_session,
     get_stock_count_session,
     list_stock_count_sessions,
     patch_stock_count_lines,
     post_stock_count_session,
 )
+from app.utils.content_disposition import attachment_content_disposition
 from app.utils.request_locale import resolve_request_locale
 
 router = APIRouter()
@@ -228,9 +236,55 @@ async def create_stock_count_session_endpoint(
         category_include_descendants=body.category_include_descendants,
         product_ids=body.product_ids,
         responsible_name=body.responsible_name,
+        assigned_user_id=body.assigned_user_id,
+    )
+    delivery_id = await enqueue_direct_notification(
+        db,
+        user_id=body.assigned_user_id,
+        title="تم تعيين جرد مخزني لك",
+        body=f"تم إصدار جرد مخزني (رقم {detail.id}) في فرع {detail.branch_name}. يمكنك تنزيله وتعبئته من صفحة جردي.",
+        template_kind="stock_count_assigned",
+        idempotency_key=f"stock_count_assigned:{detail.id}",
+        data={"stock_count_session_id": detail.id, "path": f"/my-stock-count/{detail.id}"},
+        provider_name=None,
+        default_push_provider=settings.PUSH_PROVIDER,
     )
     await db.commit()
+    if delivery_id is not None:
+        await dispatch_delivery_after_commit(
+            delivery_id, default_push_provider=settings.PUSH_PROVIDER
+        )
+        await emit_notifications_unread_for_user(body.assigned_user_id)
     return detail
+
+
+@router.delete(
+    "/inventory/stock-count/sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def cancel_stock_count_session_endpoint(
+    session_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("inventory", "update"),
+) -> None:
+    session = await get_stock_count_session(db, session_id=session_id)
+    await cancel_stock_count_session(db, session_id=session_id)
+    await audit_service.log(
+        session=db,
+        action="stock_count_session.cancelled",
+        resource_type="stock_count_session",
+        resource_id=str(session_id),
+        new_value={
+            "session_id": session_id,
+            "branch_id": session.branch_id,
+            "version_no": session.version_no,
+        },
+        user_id=current_user.id,
+        request=request,
+    )
+    await db.commit()
 
 
 @router.get(
@@ -260,7 +314,7 @@ async def export_stock_count_session_pdf_endpoint(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_content_disposition(filename)},
     )
 
 
@@ -316,5 +370,5 @@ async def export_stock_count_endpoint(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_content_disposition(filename)},
     )

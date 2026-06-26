@@ -109,6 +109,8 @@ async def _create_sales_invoice(
         discount_total=Decimal("0.00"),
         tax_total=Decimal("0.00"),
         total=total,
+        amount_paid=total,
+        rounding_difference=Decimal("0.00"),
         created_at=created_at,
     )
     db_session.add(invoice)
