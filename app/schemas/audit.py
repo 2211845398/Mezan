@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AuditLogRead(BaseModel):
@@ -22,6 +22,10 @@ class AuditLogRead(BaseModel):
     ip_address: str | None
     user_agent: str | None
     request_id: str | None
+    # Enriched fields (optional, populated via joins)
+    user_display_name: str | None = Field(default=None, description="User full name")
+    user_email: str | None = Field(default=None, description="User email")
+    branch_name: str | None = Field(default=None, description="Branch name")
 
 
 class AuditLogListResponse(BaseModel):
@@ -32,3 +36,20 @@ class AuditLogListResponse(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class AuditLogFilters(BaseModel):
+    """Available audit log filters (for API documentation)."""
+
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+    user_id: int | None = None
+    branch_id: int | None = None
+    resource_type: str | None = None
+    action: str | None = None
+    resource_id: str | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+    q: str | None = Field(
+        default=None, description="Search query for action/resource_type/resource_id"
+    )

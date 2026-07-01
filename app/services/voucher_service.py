@@ -25,6 +25,12 @@ from app.services.branch_accounting_service import (
     resolve_ar_account_id,
     resolve_settlement_account_id,
 )
+from app.services.subledger_service import (
+    apply_ap_payment,
+    apply_ar_payment,
+    list_ap_open_items,
+    list_ar_open_items,
+)
 from app.utils.money import q2
 
 
@@ -448,4 +454,222 @@ async def post_internal_transfer(
         branch_id=branch_id,
         user_id=user_id,
         idempotency_key=idempotency_key,
+    )
+
+
+# Linked voucher orchestration (receipt/payment with open item allocations)
+
+
+async def post_linked_receipt_voucher(
+    db: AsyncSession,
+    *,
+    customer_id: int,
+    cash_account_id: int | None,
+    amount: Decimal,
+    entry_date: date,
+    description: str,
+    reference: str | None,
+    branch_id: int,
+    applications: list[dict],
+    user_id: int | None = None,
+) -> dict:
+    """Post a receipt voucher linked to specific AR open items.
+
+    Instead of creating a standalone voucher GL entry, this applies payments
+    to the specified AR open items. Each application creates its own GL entry
+    via the AR payment application path.
+
+    Args:
+        applications: List of dicts with keys: open_item_id, amount, reference, note
+
+    Returns:
+        Dict with application_ids and status. GL entries can be queried by
+        source_type='ar_payment_application' and source_id=application_id.
+    """
+    from decimal import ROUND_HALF_UP
+
+    if not applications:
+        raise ValidationError("applications required for linked receipt voucher")
+
+    # Validate customer_id matches the open items
+    ar_items = await list_ar_open_items(db, branch_id=branch_id, status="open")
+    customer_items = {item.id: item for item in ar_items if item.customer_id == customer_id}
+
+    total_applied = Decimal("0")
+    application_results: list[dict] = []
+
+    for app in applications:
+        open_item_id = app["open_item_id"]
+        app_amount = Decimal(str(app["amount"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        if open_item_id not in customer_items:
+            raise ValidationError(
+                f"Open item {open_item_id} not found or does not belong to customer {customer_id}",
+                details={"open_item_id": open_item_id, "customer_id": customer_id},
+            )
+
+        item = customer_items[open_item_id]
+        if app_amount > item.amount_open:
+            raise ValidationError(
+                f"Application amount {app_amount} exceeds open balance {item.amount_open}",
+                details={
+                    "open_item_id": open_item_id,
+                    "requested": str(app_amount),
+                    "available": str(item.amount_open),
+                },
+            )
+
+        # Apply the payment - this creates the GL entry via document_posting_service
+        application = await apply_ar_payment(
+            db,
+            ar_open_item_id=open_item_id,
+            amount=app_amount,
+            reference=app.get("reference") or reference,
+            note=app.get("note") or description,
+            created_by_user_id=user_id,
+        )
+
+        total_applied += app_amount
+        application_results.append(
+            {
+                "application_id": application.id,
+                "open_item_id": open_item_id,
+                "amount": app_amount,
+                "reference": application.reference,
+                "note": application.note,
+            }
+        )
+
+    # Validate total matches
+    if total_applied != Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP):
+        raise ValidationError(
+            f"Total applications {total_applied} do not match voucher amount {amount}",
+            details={"total_applied": str(total_applied), "voucher_amount": str(amount)},
+        )
+
+    return {
+        "status": "posted",
+        "application_ids": [r["application_id"] for r in application_results],
+        "applications": application_results,
+        "message": f"Receipt voucher posted with {len(application_results)} payment applications",
+        "total_amount": str(total_applied),
+        "customer_id": customer_id,
+        "branch_id": branch_id,
+    }
+
+
+async def post_linked_payment_voucher(
+    db: AsyncSession,
+    *,
+    supplier_id: int,
+    cash_account_id: int | None,
+    amount: Decimal,
+    entry_date: date,
+    description: str,
+    reference: str | None,
+    branch_id: int,
+    applications: list[dict],
+    user_id: int | None = None,
+) -> dict:
+    """Post a payment voucher linked to specific AP open items.
+
+    Instead of creating a standalone voucher GL entry, this applies payments
+    to the specified AP open items. Each application creates its own GL entry
+    via the AP payment application path.
+
+    Args:
+        applications: List of dicts with keys: open_item_id, amount, reference, note
+
+    Returns:
+        Dict with application_ids and status. GL entries can be queried by
+        source_type='ap_payment_application' and source_id=application_id.
+    """
+    from decimal import ROUND_HALF_UP
+
+    if not applications:
+        raise ValidationError("applications required for linked payment voucher")
+
+    # Validate supplier_id matches the open items
+    ap_items = await list_ap_open_items(db, branch_id=branch_id, status="open")
+    supplier_items = {item.id: item for item in ap_items if item.supplier_id == supplier_id}
+
+    total_applied = Decimal("0")
+    application_results: list[dict] = []
+
+    for app in applications:
+        open_item_id = app["open_item_id"]
+        app_amount = Decimal(str(app["amount"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        if open_item_id not in supplier_items:
+            raise ValidationError(
+                f"Open item {open_item_id} not found or does not belong to supplier {supplier_id}",
+                details={"open_item_id": open_item_id, "supplier_id": supplier_id},
+            )
+
+        item = supplier_items[open_item_id]
+        if app_amount > item.amount_open:
+            raise ValidationError(
+                f"Application amount {app_amount} exceeds open balance {item.amount_open}",
+                details={
+                    "open_item_id": open_item_id,
+                    "requested": str(app_amount),
+                    "available": str(item.amount_open),
+                },
+            )
+
+        # Apply the payment - this creates the GL entry via document_posting_service
+        application = await apply_ap_payment(
+            db,
+            ap_open_item_id=open_item_id,
+            amount=app_amount,
+            reference=app.get("reference") or reference,
+            note=app.get("note") or description,
+            created_by_user_id=user_id,
+        )
+
+        total_applied += app_amount
+        application_results.append(
+            {
+                "application_id": application.id,
+                "open_item_id": open_item_id,
+                "amount": app_amount,
+                "reference": application.reference,
+                "note": application.note,
+            }
+        )
+
+    # Validate total matches
+    if total_applied != Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP):
+        raise ValidationError(
+            f"Total applications {total_applied} do not match voucher amount {amount}",
+            details={"total_applied": str(total_applied), "voucher_amount": str(amount)},
+        )
+
+    return {
+        "status": "posted",
+        "application_ids": [r["application_id"] for r in application_results],
+        "applications": application_results,
+        "message": f"Payment voucher posted with {len(application_results)} payment applications",
+        "total_amount": str(total_applied),
+        "supplier_id": supplier_id,
+        "branch_id": branch_id,
+    }
+
+
+async def resolve_cash_account_for_voucher(
+    db: AsyncSession,
+    cash_account_id: int | None,
+    branch_id: int,
+) -> int:
+    """Resolve cash account ID for voucher posting.
+
+    If cash_account_id is provided, returns it.
+    Otherwise resolves the default cash account for the branch.
+    """
+    if cash_account_id is not None:
+        return cash_account_id
+
+    settings = await get_accounting_settings(db)
+    return await resolve_settlement_account_id(
+        db, settings, "cash", branch_id=branch_id, terminal_id=None
     )

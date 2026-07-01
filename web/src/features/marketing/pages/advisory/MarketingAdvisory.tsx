@@ -1,9 +1,11 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { isAxiosError } from '@/api/client';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,12 +27,122 @@ import { postMarketingAdvisory } from '../../api';
 const FALLBACK_TOAST_CLASS =
   '!border-amber-400/70 !bg-amber-50 !text-amber-950 shadow-sm dark:!border-amber-600 dark:!bg-amber-950/40 dark:!text-amber-50';
 
-function advisoryPriorityLabel(t: (k: string) => string, raw: string): string {
+const LOOKBACK_PRESETS = ['30', '60', '90'] as const;
+
+function advisoryPriorityLabel(t: TFunction<'marketing'>, raw: string): string {
   const k = raw?.toLowerCase?.() ?? '';
   if (k === 'high' || k === 'medium' || k === 'low') {
     return t(`advisory.priority_level.${k}`);
   }
   return raw;
+}
+
+type FactsUsed = MarketingAdvisoryResponse['facts_used'] & {
+  analysis_period?: {
+    lookback_days?: number;
+    period_start?: string;
+    period_end?: string;
+    expiry_horizon_days?: number;
+  };
+  sales_summary?: { invoice_count?: number; avg_basket?: string | number };
+  customer_aggregates?: { active_customers?: number; repeat_rate_pct?: number };
+  top_selling_products?: unknown[];
+  slow_moving_products?: unknown[];
+  expiring_inventory?: unknown[];
+  co_bought_pairs?: unknown[];
+  promotion_performance?: unknown[];
+};
+
+function AdvisoryFactsSummary({
+  facts,
+  t,
+}: {
+  facts: FactsUsed;
+  t: TFunction<'marketing'>;
+}) {
+  const period = facts.analysis_period;
+  const sales = facts.sales_summary;
+  const customers = facts.customer_aggregates;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">{t('advisory.facts_summary_title')}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
+        {period?.lookback_days != null ? (
+          <p>
+            {t('advisory.facts_period')}:{' '}
+            <span dir="ltr" className="num-latin tabular-nums text-foreground">
+              {period.lookback_days} {t('advisory.lookback_days')}
+            </span>
+          </p>
+        ) : null}
+        {sales?.invoice_count != null ? (
+          <p>
+            {t('advisory.facts_invoices')}:{' '}
+            <span dir="ltr" className="num-latin tabular-nums text-foreground">
+              {sales.invoice_count}
+            </span>
+          </p>
+        ) : null}
+        {sales?.avg_basket != null ? (
+          <p>
+            {t('advisory.facts_avg_basket')}:{' '}
+            <span dir="ltr" className="num-latin tabular-nums text-foreground">
+              {sales.avg_basket}
+            </span>
+          </p>
+        ) : null}
+        {customers?.active_customers != null ? (
+          <p>
+            {t('advisory.facts_customers')}:{' '}
+            <span dir="ltr" className="num-latin tabular-nums text-foreground">
+              {customers.active_customers}
+            </span>
+          </p>
+        ) : null}
+        {customers?.repeat_rate_pct != null ? (
+          <p>
+            {t('advisory.facts_repeat_rate')}:{' '}
+            <span dir="ltr" className="num-latin tabular-nums text-foreground">
+              {customers.repeat_rate_pct}%
+            </span>
+          </p>
+        ) : null}
+        <p>
+          {t('advisory.facts_top_products')}:{' '}
+          <span dir="ltr" className="num-latin tabular-nums text-foreground">
+            {facts.top_selling_products?.length ?? 0}
+          </span>
+        </p>
+        <p>
+          {t('advisory.facts_slow_products')}:{' '}
+          <span dir="ltr" className="num-latin tabular-nums text-foreground">
+            {facts.slow_moving_products?.length ?? 0}
+          </span>
+        </p>
+        <p>
+          {t('advisory.facts_expiring')}:{' '}
+          <span dir="ltr" className="num-latin tabular-nums text-foreground">
+            {facts.expiring_inventory?.length ?? 0}
+          </span>
+        </p>
+        <p>
+          {t('advisory.facts_co_bought')}:{' '}
+          <span dir="ltr" className="num-latin tabular-nums text-foreground">
+            {facts.co_bought_pairs?.length ?? 0}
+          </span>
+        </p>
+        <p>
+          {t('advisory.facts_promotions')}:{' '}
+          <span dir="ltr" className="num-latin tabular-nums text-foreground">
+            {facts.promotion_performance?.length ?? 0}
+          </span>
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function MarketingAdvisory() {
@@ -41,7 +153,8 @@ export default function MarketingAdvisory() {
     queryFn: () => listBranches({ include_archived: false }),
   });
   const [branch, setBranch] = useState<string>('__all');
-  const [days, setDays] = useState('30');
+  const [lookback, setLookback] = useState<string>('30');
+  const [daysAhead, setDaysAhead] = useState('30');
   const [result, setResult] = useState<MarketingAdvisoryResponse | null>(null);
   const [friendlyError, setFriendlyError] = useState<string | null>(null);
 
@@ -49,7 +162,8 @@ export default function MarketingAdvisory() {
     mutationFn: () =>
       postMarketingAdvisory({
         branch_id: branch === '__all' ? null : Number(branch),
-        days_ahead: Number.parseInt(days, 10) || 30,
+        lookback_days: Number.parseInt(lookback, 10) || 30,
+        days_ahead: Number.parseInt(daysAhead, 10) || 30,
         top_products_limit: 10,
         max_suggestions: 5,
       }),
@@ -108,14 +222,44 @@ export default function MarketingAdvisory() {
           </Select>
         </div>
         <div className="grid gap-1">
+          <Label>{t('advisory.lookback')}</Label>
+          <Select value={lookback} onValueChange={setLookback}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LOOKBACK_PRESETS.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d} {t('advisory.lookback_days')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-1">
           <Label>{t('advisory.days')}</Label>
-          <Input className="w-[120px]" value={days} onChange={(e) => setDays(e.target.value)} inputMode="numeric" />
+          <Input
+            className="w-[120px]"
+            value={daysAhead}
+            onChange={(e) => setDaysAhead(e.target.value)}
+            inputMode="numeric"
+          />
         </div>
         <Button type="button" disabled={m.isPending} onClick={() => void m.mutate()}>
           {t('advisory.run')}
         </Button>
       </div>
       {friendlyError ? <p className="text-sm text-destructive">{friendlyError}</p> : null}
+      {result ? (
+        <div className="flex flex-col gap-3">
+          <Badge variant={isFallback ? 'secondary' : 'default'} className="w-fit">
+            {isFallback
+              ? t('advisory.source_fallback')
+              : t('advisory.source_ai', { model: result.model })}
+          </Badge>
+          <AdvisoryFactsSummary facts={result.facts_used as FactsUsed} t={t} />
+        </div>
+      ) : null}
       {result?.suggestions?.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('advisory.empty')}</p>
       ) : null}
@@ -123,7 +267,7 @@ export default function MarketingAdvisory() {
         {(result?.suggestions ?? []).map((s, i) => (
           <Card key={`${s.title}-${i}`}>
             <CardHeader className={isFallback ? 'text-start' : undefined}>
-              <CardTitle className="text-base" dir={isFallback ? 'rtl' : 'auto'}>
+              <CardTitle className="text-base" dir="auto">
                 {s.title}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
@@ -133,13 +277,11 @@ export default function MarketingAdvisory() {
                 </span>
               </p>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm" dir={isFallback ? 'rtl' : undefined}>
-              <p dir="auto">{s.rationale}</p>
+            <CardContent className="space-y-2 text-sm" dir="auto">
+              <p>{s.rationale}</p>
               <ul className="list-inside list-disc">
                 {(s.action_items ?? []).map((a, j) => (
-                  <li key={j} dir="auto">
-                    {a}
-                  </li>
+                  <li key={j}>{a}</li>
                 ))}
               </ul>
             </CardContent>

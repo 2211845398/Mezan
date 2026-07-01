@@ -19,6 +19,7 @@ import { formatCurrency } from '@/lib/format';
 import { notify } from '@/lib/toast';
 
 import { addShiftCashEvent, type CartRead, type PaymentCaptureBody, type SalesInvoiceRead } from '../api';
+import { validateCashTender } from '../lib/cashTenderValidation';
 import { getOfflineQueue } from '../offline';
 import type { CaptureFinalizePayload } from '../offline/queue';
 import { thermalModelFromCart, tmpWatermarkFromClientUuid } from '../print/mapModel';
@@ -149,18 +150,19 @@ export function TenderDrawer({
 
   const refundAmountDec = isRefundDue ? netDec.abs() : new Decimal(0);
 
+  const hasCustomer = customerId != null && customerId > 0;
+  const cashTenderValidation =
+    method === 'cash'
+      ? validateCashTender({ tendered, amountDue: amountDueDec, hasCustomer })
+      : { valid: true as const };
+
   const canPay =
     !isRefundDue &&
     amountDueDec.greaterThan(0) &&
     !busy &&
     (method === 'transfer' ||
       (method === 'card' && /^\d{4}$/.test(cardLast4.trim())) ||
-      (method === 'cash' &&
-        !!tendered &&
-        tenderedDec != null &&
-        tenderedDec.greaterThan(0) &&
-        (tenderedDec.greaterThanOrEqualTo(amountDueDec) ||
-          (customerId != null && customerId > 0))));
+      (method === 'cash' && cashTenderValidation.valid));
 
   const canCompleteRefund =
     isRefundDue && !busy && shiftId != null && refundAmountDec.greaterThan(0);
@@ -201,12 +203,13 @@ export function TenderDrawer({
       card_last4: method === 'card' ? cardLast4.trim() : null,
     };
     if (method === 'cash' && tendered) {
-      const td = new Decimal(tendered);
-      if (td.lessThan(amountDueDec) && (!customerId || customerId <= 0)) {
+      const check = validateCashTender({ tendered, amountDue: amountDueDec, hasCustomer });
+      if (!check.valid) {
         setBusy(false);
-        notify.error(t('tender.partial_cash_needs_customer'));
+        notify.error(t(check.errorKey ?? 'tender.cash_invalid'));
         return;
       }
+      const td = new Decimal(tendered);
       if (td.lessThanOrEqualTo(amountDueDec)) {
         captureBody.cash_tendered = td.toFixed(2);
       }
@@ -385,7 +388,7 @@ export function TenderDrawer({
             <div className="space-y-1">
               <Label>{t('tender.tendered')}</Label>
               <MoneyInput value={tendered} onChange={setTendered} />
-              {tenderedDec != null && tenderedDec.greaterThan(0) ? (
+              {tenderedDec != null && tenderedDec.greaterThanOrEqualTo(0) ? (
                 <div className="space-y-1 text-xs text-muted-foreground" dir="ltr">
                   {changeDue != null && changeDue.greaterThan(0) ? (
                     <p>

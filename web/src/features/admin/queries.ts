@@ -17,6 +17,9 @@ import {
   deletePermissionOverride,
   getBackupStatus,
   getBranch,
+  listAuditLogs,
+  listBackupHistory,
+  downloadBackup,
   getUser,
   getUserRoles,
   listBranches,
@@ -42,6 +45,7 @@ import {
   upsertNotificationTemplate,
   upsertPermissionOverride,
 } from './api';
+import type { AuditLogFilters } from './api';
 import type {
   NotificationBroadcastRequest,
   NotificationScheduleRead,
@@ -65,6 +69,8 @@ export const adminKeys = {
   branchDetail: (id: number) => [...adminKeys.all, 'branch', id] as const,
   terminals: (branchId?: number) => [...adminKeys.all, 'terminals', { branchId }] as const,
   backups: () => [...adminKeys.all, 'backups'] as const,
+  backupHistory: () => [...adminKeys.all, 'backupHistory'] as const,
+  auditLogs: () => [...adminKeys.all, 'auditLogs'] as const,
   notificationTemplates: () => [...adminKeys.all, 'notificationTemplates'] as const,
   notificationSchedules: () => [...adminKeys.all, 'notificationSchedules'] as const,
   notificationRuns: () => [...adminKeys.all, 'notificationRuns'] as const,
@@ -391,7 +397,42 @@ export function useRunBackup() {
     mutationFn: runBackup,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: adminKeys.backups() });
+      await qc.invalidateQueries({ queryKey: adminKeys.backupHistory() });
     },
+  });
+}
+
+export function backupHistoryQueryOptions(limit: number, offset: number) {
+  return {
+    queryKey: [...adminKeys.backupHistory(), limit, offset] as const,
+    queryFn: () => listBackupHistory({ limit, offset }),
+  };
+}
+
+export function useBackupHistory(limit: number, offset: number, options?: { enabled?: boolean }) {
+  return useQuery({
+    ...backupHistoryQueryOptions(limit, offset),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useDownloadBackup() {
+  return useMutation({
+    mutationFn: downloadBackup,
+  });
+}
+
+export function auditLogsQueryOptions(filters: AuditLogFilters) {
+  return {
+    queryKey: [...adminKeys.auditLogs(), filters] as const,
+    queryFn: () => listAuditLogs(filters),
+  };
+}
+
+export function useAuditLogs(filters: AuditLogFilters, options?: { enabled?: boolean }) {
+  return useQuery({
+    ...auditLogsQueryOptions(filters),
+    enabled: options?.enabled ?? true,
   });
 }
 

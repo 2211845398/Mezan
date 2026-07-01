@@ -85,9 +85,25 @@ export type AccountingPostResult = {
   status?: string;
   message?: string;
   journal_entry_id?: number | null;
+  journal_entry_ids?: number[];
   idempotency_key?: string | null;
   total_amount?: string | null;
+  applications?: VoucherApplicationResult[];
 };
+
+export type VoucherApplicationResult = {
+  application_id: number;
+  open_item_id: number;
+  amount: string;
+  reference?: string | null;
+  note?: string | null;
+};
+
+// Voucher types from OpenAPI schema
+export type ReceiptVoucherCreate = components['schemas']['ReceiptVoucherCreate'];
+export type PaymentVoucherCreate = components['schemas']['PaymentVoucherCreate'];
+export type ExpenseVoucherCreate = components['schemas']['ExpenseVoucherCreate'];
+export type InternalTransferCreate = components['schemas']['InternalTransferCreate'];
 
 export type ChartAccountTreeNode = ChartAccountRead & {
   children?: ChartAccountTreeNode[];
@@ -422,7 +438,7 @@ export async function createManualJournal(
 }
 
 export async function postReceiptVoucher(
-  body: Record<string, unknown>,
+  body: ReceiptVoucherCreate,
   idempotencyKey: string,
 ): Promise<AccountingPostResult> {
   const { data } = await apiClient.post<AccountingPostResult>('/accounting/vouchers/receipt', body, {
@@ -432,10 +448,30 @@ export async function postReceiptVoucher(
 }
 
 export async function postPaymentVoucher(
-  body: Record<string, unknown>,
+  body: PaymentVoucherCreate,
   idempotencyKey: string,
 ): Promise<AccountingPostResult> {
   const { data } = await apiClient.post<AccountingPostResult>('/accounting/vouchers/payment', body, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
+  return data;
+}
+
+export async function postExpenseVoucher(
+  body: ExpenseVoucherCreate,
+  idempotencyKey: string,
+): Promise<AccountingPostResult> {
+  const { data } = await apiClient.post<AccountingPostResult>('/accounting/vouchers/expense', body, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
+  return data;
+}
+
+export async function postInternalTransfer(
+  body: InternalTransferCreate,
+  idempotencyKey: string,
+): Promise<AccountingPostResult> {
+  const { data } = await apiClient.post<AccountingPostResult>('/accounting/vouchers/transfer', body, {
     headers: { 'Idempotency-Key': idempotencyKey },
   });
   return data;

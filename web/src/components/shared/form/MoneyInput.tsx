@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Input } from '@/components/ui/input';
 import { formatMoneyCanonicalDisplay } from '@/lib/format';
 import { getNumericLocale } from '@/lib/i18n-numbers';
+import { sanitiseDecimalInput } from '@/lib/numericInput';
 import { cn } from '@/lib/utils';
 
 /*
@@ -25,20 +26,11 @@ export type MoneyInputProps = Omit<
   onValueChange?: (value: string) => void;
   currency?: string;
   fractionDigits?: number;
+  /** When false (default), minus signs are rejected while typing. */
+  allowNegative?: boolean;
   /** External validation error (e.g. react-hook-form). */
   invalid?: boolean | undefined;
 };
-
-function sanitiseInput(raw: string): string {
-  // Accept both Latin and Arabic-Indic digits; collapse anything else to
-  // a single optional decimal point.
-  const trimmed = raw.replace(/[\u066C\u002C\s]/g, '');
-  const mapped = trimmed
-    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
-  const match = mapped.match(/^-?\d*(?:\.\d*)?/);
-  return match ? match[0] : '';
-}
 
 function formatDisplay(
   canonical: string,
@@ -56,6 +48,7 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
       onValueChange,
       currency,
       fractionDigits = 2,
+      allowNegative = false,
       className,
       disabled,
       invalid,
@@ -117,18 +110,21 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
             }
             setFocused(false);
             try {
-              const d = new Decimal(draft || '0');
+              let d = new Decimal(draft || '0');
+              if (!allowNegative && d.lessThan(0)) {
+                d = new Decimal(0);
+              }
               const quantised = d.toFixed(fractionDigits, Decimal.ROUND_HALF_UP);
               setDraft(quantised);
               emit?.(quantised);
             } catch {
-              emit?.(draft);
+              emit?.(allowNegative ? draft : '0');
             }
             rest.onBlur?.(e);
           }}
           onChange={(e) => {
             if (readOnly) return;
-            const next = sanitiseInput(e.target.value);
+            const next = sanitiseDecimalInput(e.target.value, { allowNegative });
             setDraft(next);
             emit?.(next);
           }}

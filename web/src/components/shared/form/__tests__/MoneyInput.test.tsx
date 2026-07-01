@@ -25,13 +25,23 @@ describe('MoneyInput', () => {
     await user.type(input, '1234.5');
     await user.tab();
 
-    // Canonical (backend-shaped) value:
     expect(screen.getByTestId('canonical').textContent).toBe('1234.50');
 
-    // Display uses `@/lib/format` with `numberingSystem: 'latn'` — always 0-9.
     const displayed = (input as HTMLInputElement).value;
     expect(displayed).not.toMatch(/[\u0660-\u0669]/);
     const digitsOnly = displayed.replace(/[,،٬٫\s]/g, '');
     expect(digitsOnly).toBe('1234.50');
+  });
+
+  it('strips minus signs and clamps to zero on blur by default', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />);
+
+    const input = screen.getByLabelText('amount');
+    await user.click(input);
+    await user.type(input, '-25.5');
+    await user.tab();
+
+    expect(screen.getByTestId('canonical').textContent).toBe('0.00');
   });
 });

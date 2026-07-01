@@ -17,8 +17,8 @@ class MezanValidationAlert extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: ext.destructive.withOpacity(0.10),
-        border: Border.all(color: ext.destructive.withOpacity(0.30)),
+        color: ext.destructive.withValues(alpha: 0.10),
+        border: Border.all(color: ext.destructive.withValues(alpha: 0.30)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

@@ -25,6 +25,7 @@ import { customerDetailQueryOptions, crmKeys } from '@/features/crm/queries';
 import { useOnline } from '@/hooks/useOnline';
 import { usePermission } from '@/hooks/usePermission';
 import { notify } from '@/lib/toast';
+import { parseNonNegativeInt } from '@/lib/numericInput';
 
 import {
   addShiftCashEvent,
@@ -284,9 +285,12 @@ function RegisterSession({
     if (!cart?.lines?.length || selectedLineId == null) return;
     const line = cart.lines.find((l) => l.id === selectedLineId);
     if (!line) return;
-    const parsed = Number.parseFloat(numpadBuffer);
-    if (!Number.isFinite(parsed) || parsed < 0) return;
-    let nextQty = Math.round(parsed);
+    const parsed = parseNonNegativeInt(numpadBuffer);
+    if (parsed == null) {
+      notify.error(t('register.qty_invalid'));
+      return;
+    }
+    let nextQty = parsed;
     const returnMeta = returnExchangeSession
       ? Object.values(returnExchangeSession.loads).find(
           (m) => m.productId === line.product_id && m.variantId === (line.variant_id ?? 0),

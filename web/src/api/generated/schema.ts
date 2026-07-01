@@ -7742,6 +7742,11 @@ export interface components {
             /** Branch Id */
             branch_id?: number | null;
             /**
+             * Lookback Days
+             * @default 30
+             */
+            lookback_days: number;
+            /**
              * Days Ahead
              * @default 30
              */

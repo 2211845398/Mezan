@@ -182,6 +182,23 @@
 - [x] `DELETE /branches/{id}` is idempotent soft delete with audit `branch.archived`.
 - [x] `app/services/branch_scope` rejects archived branches for new operational entries.
 
+#### Hardening — Fix 15 — Voucher System Completion (Jul 2026)
+- [x] **15.1** Expanded voucher schemas with `VoucherApplicationIn`/`Read` for linked open-item allocations.
+- [x] **15.2** Linked receipt/payment vouchers route through `post_linked_receipt_voucher`/`post_linked_payment_voucher` → AR/AP payment application → `post_ar_cash_receipt_gl`/`post_ap_payment_gl`, ensuring no duplicate GL postings when applications are specified.
+- [x] **15.3** Standalone receipt/payment/expense/transfer vouchers continue using `post_voucher_gl` for direct GL posting.
+- [x] **15.4** All voucher endpoints read `Idempotency-Key` from header with body fallback, and return enriched `VoucherRead` with `journal_entry_ids` and `applications` arrays.
+- [x] **15.5** Frontend: Four-tab voucher workspace (`receipt`, `payment`, `expense`, `transfer`) using `SubledgerEntityPicker`, `PostableAccountPicker`, proper TypeScript types from OpenAPI, and unified cache invalidation on success.
+
+#### Hardening — Fix 16 — Backup History + Audit Logs UI (Jul 2026)
+- [x] **16.1** Backend schemas: `BackupFileRead`, `BackupHistoryRead` with `filename`, `started_at`, `finished_at`, `size_bytes`, `size_label`, `success`, `s3_uploaded`, `message`.
+- [x] **16.2** Backend service: `list_backup_files()`, `safe_backup_file_path()` with path traversal prevention; returns filename only (not full path) in responses.
+- [x] **16.3** Backend API: `GET /admin/backups/history` with pagination; `GET /admin/backups/{filename}/download` with `FileResponse`, filename validation, and `backup.downloaded` audit log entry.
+- [x] **16.4** Frontend: Updated `BackupsList` page with latest status card, history table (with download buttons), pagination, and restoration instructions explaining `pg_restore` manual process.
+- [x] **16.5** Audit logs backend: Extended `AuditLogRead` schema with `user_display_name`, `user_email`, `branch_name` enrichment via SQL joins.
+- [x] **16.6** Audit logs backend: New filters `action`, `resource_id`, `date_from`, `date_to`, `q` (search across action/resource_type/resource_id) on `GET /audit-logs`.
+- [x] **16.7** Frontend: New `AuditLogsPage` with filters (user, branch, resource type, action, resource ID, date range, search), paginated table, and detail Sheet showing `old_value`/`new_value` JSON, `user_agent`, `request_id`.
+- [x] **16.8** Navigation: Added `admin_audit_logs` menu item under Admin section; i18n keys added for AR/EN.
+
 ### Web Frontend Completed Epics
 
 #### Epic W-1 — Foundations and Layout
@@ -284,7 +301,7 @@
 |----|------------|----------------|-------|
 | **D-1** | Refresh token in `sessionStorage` not httpOnly cookie | Backend Epic 15.3 + Frontend W-7.2 | Backend |
 | **D-2** | Dashboard permission is `analytics:read` not `bi:read` | None — correction applied | Web |
-| **D-3** | Backups UI shows last run only, not history | Optional `GET /admin/backups/history` | Backend |
+| **D-3** | Backups UI shows last run only, not history | **Completed** — Backend: `GET /admin/backups/history` + download endpoint; Web: history table, download, restore instructions | Backend + Web |
 | **D-4** | AI advisory idempotency: client header only | Add Redis/DB idempotency store | Backend |
 | **D-5** | Branch admin fields match model only | Extend model + migration if needed | Backend |
 | **D-6** | Effective permissions client-computed | Optional read-only endpoint | Backend |
@@ -516,7 +533,7 @@ Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
 
 #### Epic W-13 — Accounting UI Overhaul (Odoo/Manager.io style)
 - [x] **W-13.1** Chart of Accounts admin UI (`/accounting/chart-accounts`): dual-panel BS/P&L tree, group/account dialogs, code suggestion API, `subledger_kind` on create/update — closes `GAP-ACC-003` frontend gap.
-- [x] **W-13.2** Generic Voucher (receipt / payment) wizard — `GAP-ACC-008`.
+- [x] **W-13.2** Generic Voucher (receipt / payment) wizard — `GAP-ACC-008`. **Hardening (Jul 2026):** Expanded to four voucher types (receipt, payment, expense, transfer) with proper API types, `SubledgerEntityPicker` for customers/suppliers, `PostableAccountPicker` for cash/expense accounts, and unified workspace UI at `/accounting/operations`. Linked vouchers (with open-item allocations) route through AR/AP payment application path to avoid duplicate GL postings.
 - [x] **W-13.3** Opening Balance screen — `GAP-ACC-007`.
 - [x] **W-13.4** FX Revaluation runs screen — `GAP-ACC-011`.
 - [x] **W-13.5** Inventory adjustment posting impact display — `GAP-ACC-010`.
@@ -530,6 +547,7 @@ Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
 - [x] Navigation structure (GoRouter)
 - [x] State management (Provider + ChangeNotifier)
 - [x] Theme system (light/dark/system, RTL) with profile settings tile
+- [x] Floating bottom navigation: `MezanFloatingNavBar` shared widget (white pill container, rounded 30px corners, soft shadow) replaces the stock `NavigationBar` in `EmployeeShell`; active tab expands into an animated brand-green capsule with white icon + label, inactive tabs show icon-only in muted gray; tab order is Home, Leaves, Payroll, (Stock for floor staff), Profile.
 
 #### Epic M-2 — Auth
 - [ ] JWT in secure enclave (Flutter Secure Storage)
@@ -546,6 +564,7 @@ Resolves all `GAP-POS-*` frontend gaps. Depends on Epic 21 backend contracts.
 - [x] **M-4.1** Kiosk explicit QR generation (`POST /attendance-devices/me/qr/generate`) with TTL display and single-use consumption.
 - [x] **M-4.2** Mobile dashboard dynamic check-in/check-out intent from today's open attendance log; sends `action` with scanned QR.
 - [x] **M-4.3** Backend guards: today's open check-in required for check-out; branch match; QR invalidation after successful scan.
+- [x] **M-4.3a** Kiosk QR reliability hardening: migration `h4i5j6k7l8m9` scopes legacy `attendance_devices`/`two_factor_challenges` constraint drops by `conrelid` inside `DO $$ ... END $$;` blocks (avoids `InFailedSQLTransactionError` on partially-migrated DBs); web kiosk display (`AttendanceKioskDisplay.tsx`) now calls `POST /attendance-devices/me/qr/generate` directly (same single-use rotation endpoint as mobile) instead of a cached-`deviceId` `GET` lookup, removing the now-deleted `kioskDeviceStorage.ts` workaround; refetch cadence tracks the server `expires_in_seconds` TTL instead of a fixed 4-minute timer.
 - [ ] **M-4.4** Clock in/out with GPS verification
 - [ ] **M-4.5** Photo capture for clock events
 

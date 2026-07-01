@@ -6,7 +6,6 @@ import '../../core/i18n/app_strings.dart';
 import '../../shared/widgets/mezan_badge.dart';
 import '../../shared/widgets/mezan_read_only_field.dart';
 import '../../shared/widgets/mezan_detail_scaffold.dart';
-import '../requests/models/leave_request.dart';
 import '../requests/requests_controller.dart';
 
 class LeaveRequestDetailPage extends StatelessWidget {

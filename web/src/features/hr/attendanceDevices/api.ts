@@ -1,14 +1,4 @@
-import { isAxiosError } from 'axios';
-
 import { apiClient } from '@/api/client';
-import { env } from '@/config/env';
-
-import {
-  clearCachedKioskDeviceId,
-  DEV_DEFAULT_DEVICE_ID,
-  resolveKioskDeviceId,
-  setCachedKioskDeviceId,
-} from './kioskDeviceStorage';
 
 export type AttendanceDeviceRead = {
   id: number;
@@ -100,31 +90,15 @@ export async function updateAttendanceDevice(
   return data;
 }
 
-export async function getAttendanceKioskQr(deviceId?: number): Promise<AttendanceQrPayloadRead> {
-  const isDev = env.VITE_ENVIRONMENT === 'dev';
-  const id = deviceId ?? resolveKioskDeviceId(isDev);
-
-  const fetchById = async (targetId: number): Promise<AttendanceQrPayloadRead> => {
-    const { data } = await apiClient.get<AttendanceQrPayloadRead>(
-      `/attendance-devices/${targetId}/qr`,
-    );
-    setCachedKioskDeviceId(data.device_id);
-    return data;
-  };
-
-  try {
-    return await fetchById(id);
-  } catch (error) {
-    if (
-      isAxiosError(error) &&
-      error.response != null &&
-      [403, 404].includes(error.response.status)
-    ) {
-      clearCachedKioskDeviceId();
-      if (isDev && id !== DEV_DEFAULT_DEVICE_ID) {
-        return fetchById(DEV_DEFAULT_DEVICE_ID);
-      }
-    }
-    throw error;
-  }
+/**
+ * Rotates and returns a fresh single-use attendance QR for the currently
+ * authenticated kiosk user. Resolution of the kiosk's own device happens
+ * server-side from the auth token, so no locally cached `deviceId` is
+ * required (mirrors the mobile kiosk's `POST /me/qr/generate` flow).
+ */
+export async function getAttendanceKioskQr(): Promise<AttendanceQrPayloadRead> {
+  const { data } = await apiClient.post<AttendanceQrPayloadRead>(
+    '/attendance-devices/me/qr/generate',
+  );
+  return data;
 }

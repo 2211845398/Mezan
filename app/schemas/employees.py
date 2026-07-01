@@ -18,8 +18,8 @@ from app.utils.libyan_validators import (
 class EmployeeProfileCreate(BaseModel):
     user_id: int
     hire_date: date
-    base_salary: Decimal | None = None
-    hourly_rate: Decimal | None = None
+    base_salary: Decimal | None = Field(default=None, ge=0)
+    hourly_rate: Decimal | None = Field(default=None, ge=0)
     bank_account: str | None = None
     annual_leave_entitlement_days: Decimal | None = None
     identity_document_type: str | None = Field(default=None, max_length=32)
@@ -41,8 +41,8 @@ class EmployeeProfileCreate(BaseModel):
 
 class EmployeeProfileUpdate(BaseModel):
     hire_date: date | None = None
-    base_salary: Decimal | None = None
-    hourly_rate: Decimal | None = None
+    base_salary: Decimal | None = Field(default=None, ge=0)
+    hourly_rate: Decimal | None = Field(default=None, ge=0)
     bank_account: str | None = None
     annual_leave_entitlement_days: Decimal | None = None
     identity_document_type: str | None = Field(default=None, max_length=32)
@@ -75,8 +75,8 @@ class EmployeeProfileRead(BaseModel):
     id: int
     user_id: int
     hire_date: date
-    base_salary: Decimal | None = None
-    hourly_rate: Decimal | None = None
+    base_salary: Decimal | None = Field(default=None, ge=0)
+    hourly_rate: Decimal | None = Field(default=None, ge=0)
     bank_account: str | None = None
     annual_leave_entitlement_days: Decimal | None = None
     identity_document_type: str | None = None

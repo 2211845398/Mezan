@@ -275,11 +275,40 @@ async def post_sales_invoice_gl(
             await _post_full_settlement(idempotency_key=key, description=desc)
             return
 
-        # Customer + partial tender: cash (or card/transfer clearing) + AR remainder
+        # Customer + zero tender: full AR accrual (on account)
         if paid <= Decimal("0"):
-            raise ValidationError(
-                "Recorded payments must be greater than zero for partial settlement"
+            if invoice.customer_id is None:
+                raise ValidationError(
+                    "Recorded payments must be greater than zero without a customer on the cart",
+                    details={"invoice_id": invoice.id},
+                )
+            ar_account = await resolve_ar_account_id(db, settings, customer_id=invoice.customer_id)
+            ar_line: dict = {
+                "account_id": ar_account,
+                "branch_id": branch_id,
+                "debit": remainder,
+                "credit": Decimal("0"),
+                "memo": "AR balance",
+                "customer_id": invoice.customer_id,
+            }
+            lines_payload = [ar_line, *_revenue_discount_tax_lines()]
+            rounding_line = _rounding_line()
+            if rounding_line is not None:
+                lines_payload.append(rounding_line)
+            await post_journal_entry(
+                db,
+                entry_date=entry_date,
+                description=f"Sales invoice {invoice.invoice_number} accrual",
+                source_type="sales_invoice",
+                source_id=str(invoice.id),
+                idempotency_key=f"sales_invoice:{invoice.id}:accrual",
+                lines=lines_payload,
+                strict_subledger=True,
             )
+            await _post_cogs_if_needed()
+            return
+
+        # Customer + partial tender: cash (or card/transfer clearing) + AR remainder
         tender = await _first_invoice_payment_tender(db, invoice.id)
         settle_id = await _settlement_account_id(
             db, settings, tender, branch_id=branch_id, terminal_id=terminal_id

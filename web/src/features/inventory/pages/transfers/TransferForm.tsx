@@ -10,6 +10,7 @@ import { notifyApiError } from '@/api/errorMessages';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { StatusStepper } from '@/components/shared/StatusStepper';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
+import { NonNegativeIntegerInput } from '@/components/shared/form/NonNegativeIntegerInput';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,9 +30,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { parseNonNegativeInt } from '@/lib/numericInput';
 import {
   Table,
   TableBody,
@@ -637,11 +638,10 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
           </div>
           <div className="md:col-span-1">
             <Label>{t('transfers.line.qty')}</Label>
-            <Input
+            <NonNegativeIntegerInput
               value={lineQty}
-              onChange={(e) => setLineQty(e.target.value)}
+              onValueChange={setLineQty}
               className="h-9 w-full"
-              type="number"
               min={1}
               disabled={lineVariantId == null || lineVariantId <= 0}
             />
@@ -749,36 +749,34 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
             </Button>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {!from
-            ? t('transfers.errors.select_from_branch')
-            : lineVariantId != null && lineVariantId > 0 && lineUomId > 0
-              ? lineVariantStockLoading
-                ? t('transfers.errors.stock_loading')
-                : (() => {
-                    const row = lineVariantStockRows[0];
-                    const uomOpt = lineUomOptions.find((o) => o.id === lineUomId);
-                    const uomSym = uomOpt?.label ?? '';
-                    if (!row) {
-                      return `${fromBranchName ?? t('transfers.from')}: 0`;
-                    }
-                    return t('transfers.line.stock_hint', {
-                      available: formatQtyWithUom(
-                        baseUnitsToDisplayQty(row.available, lineUomId, lineUomOptions),
-                        uomSym,
-                      ),
-                      reserved: formatQtyWithUom(
-                        baseUnitsToDisplayQty(row.reserved, lineUomId, lineUomOptions),
-                        uomSym,
-                      ),
-                      on_hand: formatQtyWithUom(
-                        baseUnitsToDisplayQty(row.on_hand, lineUomId, lineUomOptions),
-                        uomSym,
-                      ),
-                    });
-                  })()
-                : null}
-        </p>
+        {from && lineVariantId != null && lineVariantId > 0 && lineUomId > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {lineVariantStockLoading
+              ? t('transfers.errors.stock_loading')
+              : (() => {
+                  const row = lineVariantStockRows[0];
+                  const uomOpt = lineUomOptions.find((o) => o.id === lineUomId);
+                  const uomSym = uomOpt?.label ?? '';
+                  if (!row) {
+                    return `${fromBranchName ?? t('transfers.from')}: 0`;
+                  }
+                  return t('transfers.line.stock_hint', {
+                    available: formatQtyWithUom(
+                      baseUnitsToDisplayQty(row.available, lineUomId, lineUomOptions),
+                      uomSym,
+                    ),
+                    reserved: formatQtyWithUom(
+                      baseUnitsToDisplayQty(row.reserved, lineUomId, lineUomOptions),
+                      uomSym,
+                    ),
+                    on_hand: formatQtyWithUom(
+                      baseUnitsToDisplayQty(row.on_hand, lineUomId, lineUomOptions),
+                      uomSym,
+                    ),
+                  });
+                })()}
+          </p>
+        ) : null}
         </>
         ) : null}
         <div className="overflow-x-auto rounded-md border">
@@ -833,20 +831,19 @@ export default function TransferForm({ variant = 'page', onDismiss }: TransferFo
                     </TableCell>
                     <TableCell className="align-middle text-end tabular-nums num-latin">
                       {isEdit ? (
-                        <Input
-                          type="number"
+                        <NonNegativeIntegerInput
                           min={1}
                           className="ms-auto h-8 w-20 text-end"
                           value={l.qty}
                           onFocus={() => {
                             lineQtySnapshotRef.current = { qty: l.qty, qty_base: l.qty_base };
                           }}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            const next = raw === '' ? 0 : Number(raw);
+                          onValueChange={(raw) => {
+                            const n = parseNonNegativeInt(raw);
+                            const next = n != null && n >= 1 ? n : l.qty;
                             setLines((prev) =>
                               prev.map((row, idx) =>
-                                idx === i ? { ...row, qty: Number.isFinite(next) ? next : row.qty } : row,
+                                idx === i ? { ...row, qty: next } : row,
                               ),
                             );
                           }}

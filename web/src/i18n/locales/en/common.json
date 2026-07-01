@@ -69,6 +69,7 @@
     "admin_branches": "Branches",
     "admin_terminals": "POS devices",
     "admin_backups": "Backups",
+    "admin_audit_logs": "Audit Logs",
     "admin_notifications": "Notifications",
     "notifications_inbox": "My notifications",
     "correspondence": "Correspondence"
@@ -201,6 +202,11 @@
     "validation_password_short": "Password must be at least 8 characters.",
     "validation_required": "This field is required.",
     "validation_generic": "Invalid input. Please check the value and try again.",
+    "numeric_invalid": "Enter a valid number.",
+    "numeric_negative_not_allowed": "Value cannot be negative.",
+    "numeric_must_be_positive": "Value must be greater than zero.",
+    "integer_non_negative": "Quantity cannot be negative.",
+    "integer_must_be_positive": "Quantity must be at least 1.",
     "request_failed": "Request failed. Please review the details and try again.",
     "request_timeout": "The server took too long to respond. Check your connection and try again.",
     "try_again": "Please try again."

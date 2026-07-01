@@ -12,7 +12,8 @@
     "cancel": "إلغاء",
     "close": "إغلاق",
     "confirm": "تأكيد",
-    "open_menu": "قائمة"
+    "open_menu": "قائمة",
+    "download": "تنزيل"
   },
   "confirm": {
     "type_keyword": "اكتب «{{keyword}}» للتأكيد"
@@ -159,7 +160,28 @@
     "empty": "لا بيانات",
     "trigger": "تشغيل نسخ",
     "status": { "ok": "ناجح", "fail": "فشل" },
-    "col": { "started": "بداية", "finished": "نهاية", "status": "الحالة", "file": "الملف", "s3": "رفع S3" }
+    "col": { "started": "بداية", "finished": "نهاية", "status": "الحالة", "file": "الملف", "s3": "رفع S3", "message": "الرسالة", "size": "الحجم" },
+    "noFile": "لا يوجد ملف",
+    "noStatus": "لا توجد حالة",
+    "lastStatus": {
+      "title": "آخر نسخة احتياطية",
+      "description": "حالة آخر نسخ احتياطي تم تنفيذه"
+    },
+    "history": {
+      "title": "سجل النسخ الاحتياطي",
+      "description": "قائمة جميع النسخ الاحتياطية المتاحة للتنزيل",
+      "empty": "لا توجد نسخ احتياطية",
+      "showing": "عرض {{from}}-{{to}} من {{total}}"
+    },
+    "download": {
+      "button": "تنزيل النسخة",
+      "success": "تم التنزيل بنجاح",
+      "error": "فشل التنزيل"
+    }
+  },
+  "pagination": {
+    "prev": "السابق",
+    "next": "التالي"
   },
   "notifications": {
     "title": "الإشعارات",
@@ -287,6 +309,66 @@
       "target_group": "المجموعة المستهدفة",
       "error": "الخطأ",
       "run_id": "المعرّف"
+    }
+  },
+  "audit": {
+    "title": "سجل العمليات",
+    "clearFilters": "مسح الفلاتر",
+    "filters": {
+      "title": "الفلاتر",
+      "search": "البحث",
+      "searchPlaceholder": "ابحث في الإجراء أو نوع المورد أو المعرف...",
+      "user": "المستخدم",
+      "allUsers": "جميع المستخدمين",
+      "branch": "الفرع",
+      "allBranches": "جميع الفروع",
+      "resourceType": "نوع المورد",
+      "allTypes": "جميع الأنواع",
+      "action": "الإجراء",
+      "actionPlaceholder": "مثال: user.created",
+      "resourceId": "معرف المورد",
+      "resourceIdPlaceholder": "ابحث في المعرف...",
+      "dateFrom": "من تاريخ",
+      "dateTo": "إلى تاريخ"
+    },
+    "resourceTypes": {
+      "user": "مستخدم",
+      "branch": "فرع",
+      "terminal": "جهاز",
+      "customer": "عميل",
+      "supplier": "مورد",
+      "product": "منتج",
+      "invoice": "فاتورة",
+      "journalEntry": "قيد يومية",
+      "backupJob": "مهمة نسخ",
+      "backupFile": "ملف نسخ"
+    },
+    "results": {
+      "title": "النتائج",
+      "total": "{{total}} سجل",
+      "empty": "لا توجد سجلات"
+    },
+    "col": {
+      "time": "الوقت",
+      "user": "المستخدم",
+      "action": "الإجراء",
+      "resource": "المورد",
+      "branch": "الفرع",
+      "ip": "عنوان IP"
+    },
+    "viewDetails": "عرض التفاصيل",
+    "details": {
+      "title": "تفاصيل السجل",
+      "technical": "تفاصيل تقنية",
+      "requestId": "معرف الطلب",
+      "userAgent": "المتصفح / التطبيق",
+      "changes": "التغييرات",
+      "oldValue": "القيمة القديمة",
+      "newValue": "القيمة الجديدة"
+    },
+    "pagination": {
+      "page": "صفحة {{page}} من {{pages}}",
+      "pageSize": "الحجم"
     }
   }
 }

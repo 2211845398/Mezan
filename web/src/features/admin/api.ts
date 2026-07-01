@@ -2,7 +2,9 @@ import { apiClient } from '@/api/client';
 import type { PaginatedList } from '@/api/pagination';
 
 import type {
+  AuditLogListResponse,
   BackupStatusRead,
+  BackupHistoryRead,
   BranchCreateBody,
   BranchRead,
   BranchUpdateBody,
@@ -249,6 +251,23 @@ export async function getBackupStatus(): Promise<BackupStatusRead> {
   return data;
 }
 
+export async function listBackupHistory(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<BackupHistoryRead> {
+  const { data } = await apiClient.get<BackupHistoryRead>('/admin/backups/history', {
+    params: { limit: params?.limit ?? 100, offset: params?.offset ?? 0 },
+  });
+  return data;
+}
+
+export async function downloadBackup(filename: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/admin/backups/${encodeURIComponent(filename)}/download`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
 export async function runBackup(): Promise<BackupStatusRead> {
   const { data } = await apiClient.post<BackupStatusRead>('/admin/backups/run');
   return data;
@@ -325,5 +344,25 @@ export async function triggerNotificationSchedule(scheduleId: number): Promise<u
   const { data } = await apiClient.post(
     `/admin/notifications/schedules/${scheduleId}/run`,
   );
+  return data;
+}
+
+export type AuditLogFilters = {
+  page?: number;
+  page_size?: number;
+  user_id?: number;
+  branch_id?: number;
+  resource_type?: string;
+  action?: string;
+  resource_id?: string;
+  date_from?: string;
+  date_to?: string;
+  q?: string;
+};
+
+export async function listAuditLogs(filters: AuditLogFilters = {}): Promise<AuditLogListResponse> {
+  const { data } = await apiClient.get<AuditLogListResponse>('/audit-logs', {
+    params: filters,
+  });
   return data;
 }

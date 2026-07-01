@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -34,3 +34,6 @@ class AuditLog(Base):
     ip_address: Mapped[str] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str] = mapped_column(Text, nullable=True)
     request_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+
+    user = relationship("User", back_populates="audit_logs")
+    branch = relationship("Branch")

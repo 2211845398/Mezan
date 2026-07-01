@@ -10,6 +10,8 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SectionCard } from '@/components/shared/ContentSurface';
 import { BackButton, PageHeader } from '@/components/shared/PageHeader';
 import { DateField } from '@/components/shared/form/DateField';
+import { NonNegativeIntegerInput } from '@/components/shared/form/NonNegativeIntegerInput';
+import { parseNonNegativeInt } from '@/lib/numericInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -522,17 +524,18 @@ export default function OrderForm({ variant = 'page', onDismiss }: OrderFormProp
             </div>
             <div className="grid gap-2 md:col-span-2">
               <Label>{t('orders.form.qty')}</Label>
-              <Input
+              <NonNegativeIntegerInput
                 className="h-9"
-                type="number"
                 min={1}
                 value={ln.qty}
                 disabled={formDisabled}
-                onChange={(e) =>
+                onValueChange={(raw) => {
+                  const n = parseNonNegativeInt(raw);
+                  const qty = n != null && n >= 1 ? n : 1;
                   setLines((prev) =>
-                    prev.map((x, i) => (i === idx ? { ...x, qty: Number(e.target.value) || 1 } : x)),
-                  )
-                }
+                    prev.map((x, i) => (i === idx ? { ...x, qty } : x)),
+                  );
+                }}
               />
             </div>
             <div className="grid min-w-0 gap-2 md:col-span-1">

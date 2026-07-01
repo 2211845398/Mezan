@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/i18n/app_strings.dart';
+import '../shared/widgets/mezan_floating_nav_bar.dart';
 import '../shared/widgets/mezan_number_text.dart';
 import '../core/theme/mezan_theme.dart';
 import '../features/auth/auth_session.dart';
@@ -28,12 +29,12 @@ class EmployeeShell extends StatefulWidget {
 class _EmployeeShellState extends State<EmployeeShell> {
   static const _branchNamesWithStock = [
     'home',
-    'payroll',
     'myLeaves',
+    'payroll',
     'stock',
     'profile',
   ];
-  static const _branchNamesNoStock = ['home', 'payroll', 'myLeaves', 'profile'];
+  static const _branchNamesNoStock = ['home', 'myLeaves', 'payroll', 'profile'];
 
   @override
   void initState() {
@@ -64,36 +65,36 @@ class _EmployeeShellState extends State<EmployeeShell> {
     final scheme = Theme.of(context).colorScheme;
     final ext = MezanThemeExtension.of(context);
     final inactive = ext.mutedForeground;
-    final active = scheme.secondary;
+    final active = scheme.primary;
 
     final branchKey = (showStock ? _branchNamesWithStock : _branchNamesNoStock)[
         branchIndex];
 
-    final destinations = <NavigationDestination>[
-      NavigationDestination(
-        icon: Icon(Icons.home_outlined, color: inactive),
-        selectedIcon: Icon(Icons.home, color: active),
+    final navItems = <MezanFloatingNavItem>[
+      MezanFloatingNavItem(
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home,
         label: strings.navHome,
       ),
-      NavigationDestination(
-        icon: Icon(Icons.payments_outlined, color: inactive),
-        selectedIcon: Icon(Icons.payments, color: active),
-        label: strings.navPayroll,
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.event_note_outlined, color: inactive),
-        selectedIcon: Icon(Icons.event_note, color: active),
+      MezanFloatingNavItem(
+        icon: Icons.event_note_outlined,
+        activeIcon: Icons.event_note,
         label: strings.navMyLeaves,
       ),
+      MezanFloatingNavItem(
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments,
+        label: strings.navPayroll,
+      ),
       if (showStock)
-        NavigationDestination(
-          icon: Icon(Icons.inventory_2_outlined, color: inactive),
-          selectedIcon: Icon(Icons.inventory_2, color: active),
+        MezanFloatingNavItem(
+          icon: Icons.inventory_2_outlined,
+          activeIcon: Icons.inventory_2,
           label: strings.navStock,
         ),
-      NavigationDestination(
-        icon: Icon(Icons.person_outline, color: inactive),
-        selectedIcon: Icon(Icons.person, color: active),
+      MezanFloatingNavItem(
+        icon: Icons.person_outline,
+        activeIcon: Icons.person,
         label: strings.navProfile,
       ),
     ];
@@ -135,17 +136,13 @@ class _EmployeeShellState extends State<EmployeeShell> {
         ],
       ),
       body: widget.navigationShell,
-      bottomNavigationBar: NavigationBar(
-        indicatorColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        overlayColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.pressed)) {
-            return active.withValues(alpha: 0.08);
-          }
-          return Colors.transparent;
-        }),
+      bottomNavigationBar: MezanFloatingNavBar(
+        items: navItems,
         selectedIndex: navIndex,
-        onDestinationSelected: (index) {
+        activeColor: active,
+        activeForegroundColor: Colors.white,
+        inactiveColor: inactive,
+        onSelected: (index) {
           if (index == 0) {
             context.read<NotificationsController>().refreshUnreadCount();
           }
@@ -154,7 +151,6 @@ class _EmployeeShellState extends State<EmployeeShell> {
             initialLocation: index == navIndex,
           );
         },
-        destinations: destinations,
       ),
     );
   }
@@ -189,14 +185,6 @@ List<StatefulShellBranch> buildEmployeeBranches({required bool showStock}) {
     StatefulShellBranch(
       routes: [
         GoRoute(
-          path: '/payroll',
-          builder: (context, state) => const PayrollPage(),
-        ),
-      ],
-    ),
-    StatefulShellBranch(
-      routes: [
-        GoRoute(
           path: '/my-leaves',
           builder: (context, state) => const MyLeavesPage(),
           routes: [
@@ -212,6 +200,14 @@ List<StatefulShellBranch> buildEmployeeBranches({required bool showStock}) {
               },
             ),
           ],
+        ),
+      ],
+    ),
+    StatefulShellBranch(
+      routes: [
+        GoRoute(
+          path: '/payroll',
+          builder: (context, state) => const PayrollPage(),
         ),
       ],
     ),

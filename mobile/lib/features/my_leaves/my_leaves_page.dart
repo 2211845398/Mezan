@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/format/format_leave.dart';
 import '../../core/i18n/app_strings.dart';
+import '../../core/theme/mezan_radii.dart';
 import '../../core/theme/mezan_theme.dart';
 import '../../shared/widgets/mezan_badge.dart';
 import '../../shared/widgets/mezan_card.dart';
@@ -58,8 +59,13 @@ class _MyLeavesPageState extends State<MyLeavesPage> {
         onPressed: controller.canSubmitLeave ? _openCreateLeave : null,
         icon: const Icon(Icons.add),
         label: Text(strings.leaveRequestAction),
-        backgroundColor: scheme.secondary,
-        foregroundColor: scheme.onSecondary,
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.secondary,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(MezanRadii.xl),
+          side: BorderSide(color: scheme.secondary),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: controller.load,
@@ -109,25 +115,25 @@ class _MyLeavesPageState extends State<MyLeavesPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                FilterChip(
-                  label: Text(strings.leaveFilterAll),
+                _LeaveStatusFilterChip(
+                  label: strings.leaveFilterAll,
                   selected: _statusFilter == null,
-                  onSelected: (_) => setState(() => _statusFilter = null),
+                  onSelected: () => setState(() => _statusFilter = null),
                 ),
-                FilterChip(
-                  label: Text(strings.leaveStatusPending),
+                _LeaveStatusFilterChip(
+                  label: strings.leaveStatusPending,
                   selected: _statusFilter == 'pending',
-                  onSelected: (_) => setState(() => _statusFilter = 'pending'),
+                  onSelected: () => setState(() => _statusFilter = 'pending'),
                 ),
-                FilterChip(
-                  label: Text(strings.leaveStatusApproved),
+                _LeaveStatusFilterChip(
+                  label: strings.leaveStatusApproved,
                   selected: _statusFilter == 'approved',
-                  onSelected: (_) => setState(() => _statusFilter = 'approved'),
+                  onSelected: () => setState(() => _statusFilter = 'approved'),
                 ),
-                FilterChip(
-                  label: Text(strings.leaveStatusRejected),
+                _LeaveStatusFilterChip(
+                  label: strings.leaveStatusRejected,
                   selected: _statusFilter == 'rejected',
-                  onSelected: (_) => setState(() => _statusFilter = 'rejected'),
+                  onSelected: () => setState(() => _statusFilter = 'rejected'),
                 ),
               ],
             ),
@@ -158,6 +164,34 @@ class _MyLeavesPageState extends State<MyLeavesPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LeaveStatusFilterChip extends StatelessWidget {
+  const _LeaveStatusFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return FilterChip(
+      label: Text(
+        label,
+        style: selected ? TextStyle(color: scheme.secondary) : null,
+      ),
+      selected: selected,
+      selectedColor: scheme.surface,
+      checkmarkColor: scheme.secondary,
+      side: selected ? BorderSide(color: scheme.secondary) : null,
+      onSelected: (_) => onSelected(),
     );
   }
 }
