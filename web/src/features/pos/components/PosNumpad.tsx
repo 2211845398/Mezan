@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { sanitiseIntegerInput } from '@/lib/numericInput';
 
 export type PosNumpadProps = {
   disabled?: boolean;
@@ -12,7 +13,7 @@ export type PosNumpadProps = {
   onClear: () => void;
 };
 
-const DIGIT_KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', '.'] as const;
+const DIGIT_KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'] as const;
 
 const keyBtnClass =
   'h-11 border-border bg-background text-base font-semibold shadow-sm hover:bg-muted';
@@ -22,12 +23,11 @@ export function PosNumpad({ disabled, buffer, onBufferChange, onApply, onClear }
 
   function appendKey(key: string) {
     if (disabled) return;
-    if (key === '.' && buffer.includes('.')) return;
-    if (buffer === '0' && key !== '.') {
+    if (buffer === '0') {
       onBufferChange(key);
       return;
     }
-    onBufferChange(buffer + key);
+    onBufferChange(sanitiseIntegerInput(buffer + key));
   }
 
   function backspace() {

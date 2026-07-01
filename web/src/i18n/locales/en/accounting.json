@@ -273,14 +273,65 @@
     "title": "Accounting operations",
     "loading": "Loading…",
     "tab": {
-      "vouchers": "Vouchers",
+      "receipt": "Receipt voucher",
+      "payment": "Payment voucher",
+      "expense": "Expense voucher",
+      "transfer": "Cash transfer",
       "opening": "Opening balances",
+      "vouchers": "Vouchers",
       "fx": "FX revaluation",
       "production": "Production"
     },
     "tree": {
       "title": "Chart of accounts",
       "link_hint": "Chart of accounts management now lives on a dedicated dual-panel page (balance sheet and income statement)."
+    },
+    "common": {
+      "date": "Date",
+      "amount": "Amount",
+      "description": "Description",
+      "reference": "Reference",
+      "reference_placeholder": "Reference number (optional)",
+      "cash_account": "Cash/Bank account",
+      "posting": "Posting…",
+      "view_journal_entry": "View journal entry",
+      "entries_created": "Entries created"
+    },
+    "receipt": {
+      "title": "Receipt Voucher — Cash received from customer",
+      "customer": "Customer",
+      "post": "Post receipt voucher",
+      "ok": "Receipt voucher posted",
+      "default_desc": "Cash receipt from customer",
+      "description_placeholder": "Transaction description (e.g., cash received from customer)",
+      "view_journal_entry": "View journal entry"
+    },
+    "payment": {
+      "title": "Payment Voucher — Payment to supplier",
+      "supplier": "Supplier",
+      "post": "Post payment voucher",
+      "ok": "Payment voucher posted",
+      "default_desc": "Payment to supplier",
+      "description_placeholder": "Transaction description (e.g., payment of supplier dues)",
+      "view_journal_entry": "View journal entry"
+    },
+    "expense": {
+      "title": "Expense Voucher — Operating expense payment",
+      "expense_account": "Expense account",
+      "post": "Post expense voucher",
+      "ok": "Expense voucher posted",
+      "default_desc": "Operating expense",
+      "description_placeholder": "Expense description (e.g., rent, electricity, maintenance)"
+    },
+    "transfer": {
+      "title": "Internal Transfer — Move between cash accounts",
+      "from_account": "From account",
+      "to_account": "To account",
+      "post": "Post transfer",
+      "ok": "Transfer posted",
+      "default_desc": "Internal cash transfer",
+      "description_placeholder": "Transfer description (optional)",
+      "same_account_error": "Cannot transfer from and to the same account"
     },
     "voucher": {
       "title": "Receipt / Payment voucher",

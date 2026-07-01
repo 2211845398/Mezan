@@ -25,6 +25,7 @@ import {
 import { AccountingBranchFilter } from '@/features/accounting/components/AccountingBranchFilter';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { formatMoney } from '@/lib/format';
+import { parsePositiveDecimal } from '@/lib/numericInput';
 
 import type { PricingEvaluationRow } from '../../api';
 import { commitProductSellPrice, evaluatePricingMatrix } from '../../api';
@@ -380,8 +381,12 @@ export default function PricingEvaluationPage() {
                           <Button
                             type="button"
                             size="sm"
-                            disabled={isCommitting || !draft.finalPrice || Number(draft.finalPrice) <= 0}
+                            disabled={isCommitting || parsePositiveDecimal(draft.finalPrice) == null}
                             onClick={() => {
+                              if (parsePositiveDecimal(draft.finalPrice) == null) {
+                                toast.error(t('pricingEvaluation.price_must_be_positive'));
+                                return;
+                              }
                               setCommittingKey(key);
                               commitM.mutate({
                                 product_id: row.product_id,

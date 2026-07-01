@@ -102,6 +102,12 @@ async def set_product_sell_price(
     valid_from = valid_from or datetime.now(UTC)
     currency_id = await _resolve_currency_id(db, currency_id)
     normalized_amount = q2(amount)
+    if normalized_amount <= Decimal("0"):
+        validation_error(
+            "sell_price_not_positive",
+            "sell price must be greater than zero",
+            amount=str(normalized_amount),
+        )
 
     current = await get_active_product_price(
         db,

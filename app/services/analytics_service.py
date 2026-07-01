@@ -25,6 +25,7 @@ async def get_top_selling_products(
     limit: int = 10,
     period_start: datetime | None = None,
     period_end: datetime | None = None,
+    branch_id: int | None = None,
 ) -> list[dict]:
     """Top products by total quantity sold within inclusive calendar-day bounds."""
     stmt = (
@@ -50,6 +51,8 @@ async def get_top_selling_products(
                 end=period_end,
             )
         )
+    if branch_id is not None:
+        stmt = stmt.where(SalesInvoice.branch_id == branch_id)
 
     result = await db.execute(stmt)
     return [
@@ -68,9 +71,12 @@ async def get_slow_moving_products(
     *,
     threshold_qty: int = 5,
     limit: int = 20,
+    period_start: datetime | None = None,
+    period_end: datetime | None = None,
+    branch_id: int | None = None,
 ) -> list[dict]:
     """Products whose total sold quantity is at or below the threshold."""
-    sold_subq = (
+    sold_base = (
         select(
             SalesInvoiceLine.product_id,
             func.coalesce(func.sum(SalesInvoiceLine.qty), 0).label("total_qty_sold"),
@@ -78,9 +84,18 @@ async def get_slow_moving_products(
         )
         .join(SalesInvoice, SalesInvoice.id == SalesInvoiceLine.sales_invoice_id)
         .where(SalesInvoice.voided_at.is_(None))
-        .group_by(SalesInvoiceLine.product_id)
-        .subquery()
     )
+    if period_start is not None or period_end is not None:
+        sold_base = sold_base.where(
+            *calendar_day_range(
+                SalesInvoice.created_at,
+                start=period_start,
+                end=period_end,
+            )
+        )
+    if branch_id is not None:
+        sold_base = sold_base.where(SalesInvoice.branch_id == branch_id)
+    sold_subq = sold_base.group_by(SalesInvoiceLine.product_id).subquery()
 
     stmt = (
         select(
@@ -178,3 +193,84 @@ async def get_promotion_performance(
         }
         for row in result.all()
     ]
+
+
+async def get_sales_period_summary(
+    db: AsyncSession,
+    *,
+    period_start: datetime,
+    period_end: datetime,
+    branch_id: int | None = None,
+) -> dict:
+    """Invoice count, revenue, and average basket for a calendar-day window."""
+    stmt = (
+        select(
+            func.count(SalesInvoice.id).label("invoice_count"),
+            func.coalesce(func.sum(SalesInvoice.total), 0).label("total_revenue"),
+            func.coalesce(func.avg(SalesInvoice.total), 0).label("avg_basket"),
+        )
+        .where(SalesInvoice.voided_at.is_(None))
+        .where(
+            *calendar_day_range(
+                SalesInvoice.created_at,
+                start=period_start,
+                end=period_end,
+            )
+        )
+    )
+    if branch_id is not None:
+        stmt = stmt.where(SalesInvoice.branch_id == branch_id)
+    result = await db.execute(stmt)
+    row = result.one()
+    return {
+        "invoice_count": int(row.invoice_count or 0),
+        "total_revenue": q2(row.total_revenue or Decimal("0")),
+        "avg_basket": q2(row.avg_basket or Decimal("0")),
+    }
+
+
+async def get_customer_purchase_aggregates(
+    db: AsyncSession,
+    *,
+    period_start: datetime,
+    period_end: datetime,
+    branch_id: int | None = None,
+) -> dict:
+    """Anonymous customer KPIs — no names, phones, or individual IDs in output."""
+    stmt = (
+        select(
+            SalesInvoice.customer_id,
+            func.count().label("purchase_count"),
+            func.sum(SalesInvoice.total).label("total_spent"),
+        )
+        .where(SalesInvoice.voided_at.is_(None))
+        .where(SalesInvoice.customer_id.isnot(None))
+        .where(
+            *calendar_day_range(
+                SalesInvoice.created_at,
+                start=period_start,
+                end=period_end,
+            )
+        )
+        .group_by(SalesInvoice.customer_id)
+    )
+    if branch_id is not None:
+        stmt = stmt.where(SalesInvoice.branch_id == branch_id)
+    result = await db.execute(stmt)
+    rows = result.all()
+    if not rows:
+        return {
+            "active_customers": 0,
+            "repeat_customers": 0,
+            "repeat_rate_pct": 0.0,
+            "avg_order_value": q2(Decimal("0")),
+        }
+    total_invoices = sum(int(r.purchase_count) for r in rows)
+    repeat = sum(1 for r in rows if int(r.purchase_count) >= 2)
+    total_rev = sum(Decimal(r.total_spent or 0) for r in rows)
+    return {
+        "active_customers": len(rows),
+        "repeat_customers": repeat,
+        "repeat_rate_pct": round(repeat / len(rows) * 100, 1),
+        "avg_order_value": q2(total_rev / total_invoices) if total_invoices else q2(Decimal("0")),
+    }

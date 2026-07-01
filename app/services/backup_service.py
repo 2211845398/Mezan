@@ -12,11 +12,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from app.core.config import settings
-from app.core.errors import ExternalServiceError, _details_with_code
+from app.core.errors import ExternalServiceError, NotFoundError, _details_with_code
 
 logger = logging.getLogger(__name__)
 
 STATUS_FILE = "last_backup_status.json"
+_DUMP_EXTENSION = ".dump"
 _PGDUMP_MISSING_MESSAGE = "pg_dump binary not found; install postgresql-client in the API container"
 
 
@@ -166,3 +167,80 @@ async def backup_scheduler_loop(stop_event: asyncio.Event) -> None:
             await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
         except TimeoutError:
             continue
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format bytes to human-readable string."""
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}" if unit != "B" else f"{size_bytes} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} PB"
+
+
+def _is_valid_backup_filename(filename: str) -> bool:
+    """Validate backup filename to prevent path traversal."""
+    if not filename:
+        return False
+    # Only allow filenames matching our pattern: mezan_YYYYMMDD_HHMMSS.dump
+    if not filename.startswith("mezan_") or not filename.endswith(_DUMP_EXTENSION):
+        return False
+    # No path separators allowed
+    if "/" in filename or "\\" in filename or ".." in filename:
+        return False
+    # Only alphanumeric, underscore, and extension dot
+    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.")
+    if not all(c in allowed_chars for c in filename):
+        return False
+    return True
+
+
+def safe_backup_file_path(filename: str) -> Path:
+    """Return safe path to backup file, or raise NotFoundError if invalid."""
+    if not _is_valid_backup_filename(filename):
+        raise NotFoundError(f"Invalid backup filename: {filename}")
+    path = _backup_dir() / filename
+    if not path.exists():
+        raise NotFoundError(f"Backup file not found: {filename}")
+    return path
+
+
+def list_backup_files(limit: int = 100, offset: int = 0) -> dict:
+    """List backup files in the backup directory.
+
+    Returns dict with items, total, limit, offset.
+    Items are sorted by modification time (newest first).
+    """
+    backup_dir = _backup_dir()
+    if not backup_dir.exists():
+        return {"items": [], "total": 0, "limit": limit, "offset": offset}
+
+    files = []
+    for file_path in backup_dir.glob(f"*{_DUMP_EXTENSION}"):
+        if not file_path.is_file():
+            continue
+        stat = file_path.stat()
+        mtime = datetime.fromtimestamp(stat.st_mtime, tz=UTC)
+        started_at = mtime.isoformat()
+        size_bytes = stat.st_size
+
+        files.append(
+            {
+                "filename": file_path.name,
+                "started_at": started_at,
+                "finished_at": started_at,  # Best approximation
+                "size_bytes": size_bytes,
+                "size_label": _format_size(size_bytes),
+                "success": True,  # Assume success if file exists
+                "s3_uploaded": False,  # Cannot determine from file alone
+                "message": "Backup file available",
+            }
+        )
+
+    # Sort by started_at descending (newest first)
+    files.sort(key=lambda x: x["started_at"], reverse=True)
+
+    total = len(files)
+    items = files[offset : offset + limit]
+
+    return {"items": items, "total": total, "limit": limit, "offset": offset}

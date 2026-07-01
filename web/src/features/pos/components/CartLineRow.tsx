@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { NonNegativeIntegerInput } from '@/components/shared/form/NonNegativeIntegerInput';
+import { parseNonNegativeInt } from '@/lib/numericInput';
 import { formatCurrency } from '@/lib/format';
 import { formatQtyWithLocalizedUom } from '@/lib/localizedUom';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
@@ -181,16 +182,16 @@ export function CartLineRow({
           >
             <Minus className="size-3.5" aria-hidden />
           </Button>
-          <Input
-            type="number"
+          <NonNegativeIntegerInput
             min={0}
-            className="h-8 w-10 min-w-10 border-0 bg-transparent px-0.5 text-center text-xs font-semibold tabular-nums shadow-none focus-visible:ring-0 sm:h-8 sm:w-11 sm:min-w-11 sm:text-sm"
+            {...(maxQty != null ? { max: maxQty } : {})}
+            className="h-8 w-10 min-w-10 border-0 bg-transparent px-0.5 text-center text-xs font-semibold shadow-none focus-visible:ring-0 sm:h-8 sm:w-11 sm:min-w-11 sm:text-sm"
             value={line.qty}
             disabled={!editable}
             aria-label={t('register.qty')}
-            onChange={(e) => {
-              const n = Number.parseInt(e.target.value, 10);
-              if (Number.isFinite(n) && n >= 0) applyQty(n);
+            onValueChange={(raw) => {
+              const n = parseNonNegativeInt(raw);
+              if (n != null) applyQty(n);
             }}
           />
           <Button

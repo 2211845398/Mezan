@@ -27,16 +27,32 @@ def upgrade() -> None:
     op.execute("""
         DO $$
         BEGIN
-            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'attendance_devices_device_code_key') THEN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'attendance_devices_device_code_key'
+                    AND conrelid = 'attendance_devices'::regclass
+            ) THEN
                 ALTER TABLE attendance_devices DROP CONSTRAINT attendance_devices_device_code_key;
             END IF;
-            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'attendance_devices_user_id_key') THEN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'attendance_devices_user_id_key'
+                    AND conrelid = 'attendance_devices'::regclass
+            ) THEN
                 ALTER TABLE attendance_devices DROP CONSTRAINT attendance_devices_user_id_key;
             END IF;
-            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_attendance_devices_device_code') THEN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'uq_attendance_devices_device_code'
+                    AND conrelid = 'attendance_devices'::regclass
+            ) THEN
                 ALTER TABLE attendance_devices DROP CONSTRAINT uq_attendance_devices_device_code;
             END IF;
-            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_attendance_devices_user_id') THEN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'uq_attendance_devices_user_id'
+                    AND conrelid = 'attendance_devices'::regclass
+            ) THEN
                 ALTER TABLE attendance_devices DROP CONSTRAINT uq_attendance_devices_user_id;
             END IF;
         END $$;
@@ -77,6 +93,7 @@ def upgrade() -> None:
             IF EXISTS (
                 SELECT 1 FROM pg_constraint
                 WHERE conname = 'two_factor_challenges_token_hash_key'
+                    AND conrelid = 'two_factor_challenges'::regclass
             ) THEN
                 ALTER TABLE two_factor_challenges
                     DROP CONSTRAINT two_factor_challenges_token_hash_key;
@@ -84,6 +101,7 @@ def upgrade() -> None:
             IF NOT EXISTS (
                 SELECT 1 FROM pg_constraint
                 WHERE conname = 'uq_two_factor_challenges_token_hash'
+                    AND conrelid = 'two_factor_challenges'::regclass
             ) THEN
                 ALTER TABLE two_factor_challenges
                     ADD CONSTRAINT uq_two_factor_challenges_token_hash UNIQUE (token_hash);
@@ -121,6 +139,7 @@ def downgrade() -> None:
             IF EXISTS (
                 SELECT 1 FROM pg_constraint
                 WHERE conname = 'uq_two_factor_challenges_token_hash'
+                    AND conrelid = 'two_factor_challenges'::regclass
             ) THEN
                 ALTER TABLE two_factor_challenges
                     DROP CONSTRAINT uq_two_factor_challenges_token_hash;
@@ -128,6 +147,7 @@ def downgrade() -> None:
             IF NOT EXISTS (
                 SELECT 1 FROM pg_constraint
                 WHERE conname = 'two_factor_challenges_token_hash_key'
+                    AND conrelid = 'two_factor_challenges'::regclass
             ) THEN
                 ALTER TABLE two_factor_challenges
                     ADD CONSTRAINT two_factor_challenges_token_hash_key UNIQUE (token_hash);
@@ -149,13 +169,17 @@ def downgrade() -> None:
         DO $$
         BEGIN
             IF NOT EXISTS (
-                SELECT 1 FROM pg_constraint WHERE conname = 'attendance_devices_user_id_key'
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'attendance_devices_user_id_key'
+                    AND conrelid = 'attendance_devices'::regclass
             ) THEN
                 ALTER TABLE attendance_devices
                     ADD CONSTRAINT attendance_devices_user_id_key UNIQUE (user_id);
             END IF;
             IF NOT EXISTS (
-                SELECT 1 FROM pg_constraint WHERE conname = 'attendance_devices_device_code_key'
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'attendance_devices_device_code_key'
+                    AND conrelid = 'attendance_devices'::regclass
             ) THEN
                 ALTER TABLE attendance_devices
                     ADD CONSTRAINT attendance_devices_device_code_key UNIQUE (device_code);

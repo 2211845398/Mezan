@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getProduct } from '@/features/catalog/api';
 import { catalogKeys } from '@/features/catalog/queries';
@@ -10,6 +9,8 @@ import PoLineVariantSelect from '@/features/purchasing/components/PoLineVariantS
 import PoLineUomSelect from '@/features/purchasing/components/PoLineUomSelect';
 import { buildProductUomOptions } from '@/features/purchasing/lib/productUomOptions';
 import { ProductSearch } from '@/features/pos/components/ProductSearch';
+import { NonNegativeIntegerInput } from '@/components/shared/form/NonNegativeIntegerInput';
+import { parseNonNegativeInt } from '@/lib/numericInput';
 
 type Props = {
   productId: number | null;
@@ -95,13 +96,15 @@ export default function InventoryProductLineFields({
       ) : null}
       <div className="md:col-span-2">
         <Label>{t('adjustments.field.quantity')}</Label>
-        <Input
+        <NonNegativeIntegerInput
           className="h-9"
-          type="number"
           min={1}
           value={qty}
           disabled={disabled}
-          onChange={(e) => onQty(e.target.value)}
+          onValueChange={(raw) => {
+            const n = parseNonNegativeInt(raw);
+            if (n != null && n >= 1) onQty(String(n));
+          }}
         />
       </div>
       <div className="md:col-span-3">

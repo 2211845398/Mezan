@@ -57,3 +57,4 @@ class User(Base):
     password_reset_challenges = relationship(
         "PasswordResetChallenge", back_populates="user", cascade="all, delete-orphan"
     )
+    audit_logs = relationship("AuditLog", back_populates="user")

@@ -114,6 +114,19 @@ Create a `.env` file based on `.env.example` with the following variables:
 - `DATABASE_URL`: PostgreSQL connection string
 - `POSTGRES_*`: Database configuration variables
 
+### AI advisory (OpenAI)
+
+Marketing advisory, campaign advisor, and related AI endpoints read aggregated facts from PostgreSQL and optionally call OpenAI. Without a key, the API returns deterministic Arabic fallback suggestions.
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | OpenAI API key — **server only** (`.env` / deployment secrets). Never put in frontend code or git. |
+| `OPENAI_MODEL` | Model name (default `gpt-4o-mini`) |
+| `OPENAI_BASE_URL` | OpenAI-compatible API base (default `https://api.openai.com/v1`) |
+| `OPENAI_REQUEST_TIMEOUT_SECONDS` | HTTP timeout for LLM calls (default `20`) |
+
+If a key was exposed (chat, screenshot, commit), **revoke/rotate it** in the OpenAI dashboard before setting a new value in `.env`.
+
 ### Email (purchase order PDF to suppliers)
 
 When sending a purchase order to a supplier, the API attaches a PDF and emails the supplier's `contact.email`. Sending is atomic: if delivery fails, the PO stays in `draft`.

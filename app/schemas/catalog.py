@@ -155,7 +155,7 @@ class ProductBase(BaseModel):
     sku: str = Field(min_length=1, max_length=128)
     barcode: str | None = Field(default=None, max_length=128)
     status: str = Field(default="active", max_length=32)
-    standard_cost: Decimal | None = None
+    standard_cost: Decimal | None = Field(default=None, ge=0)
     output_vat_rate: Decimal = Field(
         default=Decimal("0"),
         ge=Decimal("0"),
@@ -181,7 +181,7 @@ class ProductCreate(BaseModel):
     )
     barcode: str | None = Field(default=None, max_length=128)
     status: str = Field(default="active", max_length=32)
-    standard_cost: Decimal | None = None
+    standard_cost: Decimal | None = Field(default=None, ge=0)
     output_vat_rate: Decimal = Field(
         default=Decimal("0"),
         ge=Decimal("0"),
@@ -191,6 +191,7 @@ class ProductCreate(BaseModel):
     image_url: str | None = Field(default=None, max_length=1024)
     sell_price: Decimal | None = Field(
         default=None,
+        gt=0,
         description="Preferred sell-price input.",
     )
     sell_price_currency_id: int | None = None
@@ -228,7 +229,7 @@ class ProductUpdate(BaseModel):
     sku: str | None = Field(default=None, min_length=1, max_length=128)
     barcode: str | None = Field(default=None, max_length=128)
     status: str | None = Field(default=None, max_length=32)
-    standard_cost: Decimal | None = None
+    standard_cost: Decimal | None = Field(default=None, ge=0)
     output_vat_rate: Decimal | None = Field(
         default=None,
         ge=Decimal("0"),
@@ -236,6 +237,7 @@ class ProductUpdate(BaseModel):
     )
     sell_price: Decimal | None = Field(
         default=None,
+        gt=0,
         description="Preferred sell-price input.",
     )
     sell_price_currency_id: int | None = None

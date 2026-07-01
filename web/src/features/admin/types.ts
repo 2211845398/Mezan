@@ -2,7 +2,7 @@ import type { components } from '@/api/generated/schema';
 
 type Schemas = components['schemas'];
 
-export type UserRead = Schemas['UserRead'] & { branch_name?: string | null };
+export type UserRead = Schemas['UserRead'] & { branch_name?: string | null; display_name?: string | null };
 export type UserCreateBody = Schemas['UserCreate'];
 export type UserUpdateBody = Schemas['UserUpdate'];
 
@@ -31,6 +31,33 @@ export type TerminalUpdateBody = Schemas['TerminalUpdate'];
 export type TerminalCreateResponse = Schemas['TerminalCreateResponse'];
 
 export type BackupStatusRead = Schemas['BackupStatusRead'];
+
+// Local types for backup history (not yet in generated schema)
+export type BackupFileRead = {
+  filename: string;
+  started_at: string | null;
+  finished_at: string | null;
+  size_bytes: number;
+  size_label: string;
+  success: boolean;
+  s3_uploaded: boolean;
+  message: string;
+};
+
+export type BackupHistoryRead = {
+  items: BackupFileRead[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+// Extended AuditLogRead with enriched fields from backend joins
+export type AuditLogRead = Schemas['AuditLogRead'] & {
+  user_display_name?: string | null;
+  user_email?: string | null;
+  branch_name?: string | null;
+};
+export type AuditLogListResponse = Schemas['AuditLogListResponse'];
 
 export type NotificationTemplateRead = Schemas['NotificationTemplateRead'];
 export type NotificationTemplateUpsert = Schemas['NotificationTemplateUpsert'];

@@ -69,15 +69,15 @@ class DiscountRuleUpdate(BaseModel):
     code: str | None = Field(default=None, min_length=1, max_length=64)
     discount_type: DiscountType | None = None
     value: Decimal | None = Field(default=None, gt=0)
-    min_order_amount: Decimal | None = None
-    max_discount_amount: Decimal | None = None
+    min_order_amount: Decimal | None = Field(default=None, ge=0)
+    max_discount_amount: Decimal | None = Field(default=None, gt=0)
     target_product_ids: list[int] | None = None
-    buy_qty: int | None = None
-    get_qty: int | None = None
+    buy_qty: int | None = Field(default=None, ge=1)
+    get_qty: int | None = Field(default=None, ge=1)
     status: DiscountStatus | None = None
     start_date: datetime | None = None
     end_date: datetime | None = None
-    usage_limit: int | None = None
+    usage_limit: int | None = Field(default=None, ge=1)
     stackable: bool | None = None
 
 

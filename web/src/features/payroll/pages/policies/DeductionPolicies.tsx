@@ -7,6 +7,8 @@ import { notifyApiError } from '@/api/errorMessages';
 import { DataTable } from '@/components/shared/DataTable';
 import { defineColumns } from '@/components/shared/DataTable/columns';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { MoneyInput } from '@/components/shared/form/MoneyInput';
+import { NonNegativeIntegerInput } from '@/components/shared/form/NonNegativeIntegerInput';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -190,38 +191,41 @@ export default function DeductionPolicies() {
             </div>
             <div className="grid gap-1">
               <Label>{t('policies.form.grace')}</Label>
-              <Input
-                type="number"
+              <NonNegativeIntegerInput
+                min={0}
                 value={form.grace_minutes}
-                onChange={(e) => setForm((f) => ({ ...f, grace_minutes: Number(e.target.value) }))}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, grace_minutes: Number.parseInt(v, 10) || 0 }))
+                }
               />
             </div>
             <div className="grid gap-1">
               <Label>{t('policies.form.absence')}</Label>
-              <Input
+              <MoneyInput
                 value={form.absence_deduction_amount}
-                onChange={(e) => setForm((f) => ({ ...f, absence_deduction_amount: e.target.value }))}
+                onValueChange={(v) => setForm((f) => ({ ...f, absence_deduction_amount: v }))}
               />
             </div>
             <div className="grid gap-1">
               <Label>{t('policies.form.late')}</Label>
-              <Input
+              <MoneyInput
                 value={form.late_deduction_amount}
-                onChange={(e) => setForm((f) => ({ ...f, late_deduction_amount: e.target.value }))}
+                onValueChange={(v) => setForm((f) => ({ ...f, late_deduction_amount: v }))}
               />
             </div>
             <div className="grid gap-1">
               <Label>{t('policies.form.early')}</Label>
-              <Input
+              <MoneyInput
                 value={form.early_close_deduction_amount}
-                onChange={(e) => setForm((f) => ({ ...f, early_close_deduction_amount: e.target.value }))}
+                onValueChange={(v) => setForm((f) => ({ ...f, early_close_deduction_amount: v }))}
               />
             </div>
             <div className="grid gap-1">
               <Label>{t('policies.form.ot_mult')}</Label>
-              <Input
+              <MoneyInput
+                fractionDigits={2}
                 value={form.overtime_multiplier}
-                onChange={(e) => setForm((f) => ({ ...f, overtime_multiplier: e.target.value }))}
+                onValueChange={(v) => setForm((f) => ({ ...f, overtime_multiplier: v }))}
               />
             </div>
           </div>

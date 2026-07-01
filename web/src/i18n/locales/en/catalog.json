@@ -396,6 +396,7 @@
     "no_breakdown": "No valuation breakdown available for this product.",
     "commit": "Commit & publish",
     "commit_ok": "Sell price published",
+    "price_must_be_positive": "Sell price must be greater than zero.",
     "page_info": "Page {{page}} of {{total}} ({{count}} products)",
     "prev": "Previous",
     "next": "Next",

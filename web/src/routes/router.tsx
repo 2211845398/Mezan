@@ -92,6 +92,7 @@ const AdminNotificationHistory = lazy(
 const AdminNotificationsLayout = lazy(
   () => import('@/features/admin/pages/notifications/NotificationsLayout'),
 );
+const AdminAuditLogsPage = lazy(() => import('@/features/admin/pages/audit/AuditLogsPage'));
 
 const CatalogProductsList = lazy(() => import('@/features/catalog/pages/products/ProductsList'));
 const CatalogProductFormPage = lazy(() => import('@/features/catalog/pages/products/ProductFormPage'));
@@ -1589,6 +1590,14 @@ export const router = createBrowserRouter([
                 element: (
                   <RequirePermission resource="backups" action="read">
                     {withSuspense(AdminBackupsList)}
+                  </RequirePermission>
+                ),
+              },
+              {
+                path: 'audit-logs',
+                element: (
+                  <RequirePermission resource="audit_log" action="read">
+                    {withSuspense(AdminAuditLogsPage)}
                   </RequirePermission>
                 ),
               },

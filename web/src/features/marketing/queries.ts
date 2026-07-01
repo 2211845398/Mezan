@@ -71,7 +71,6 @@ export function salesInvoicesRegisterSummaryQueryOptions(args: {
     queryKey: marketingKeys.salesRegister({ ...args, scope: 'summary' }),
     queryFn: () =>
       api.getSalesInvoicesRegister({ ...args, limit: 1, offset: 0 }),
-    placeholderData: undefined,
     staleTime: 0,
   });
 }
@@ -86,7 +85,6 @@ export function salesInvoicesRegisterTableQueryOptions(args: {
   return queryOptions({
     queryKey: marketingKeys.salesRegister({ ...args, scope: 'table' }),
     queryFn: () => api.getSalesInvoicesRegister(args),
-    placeholderData: undefined,
     staleTime: 0,
   });
 }

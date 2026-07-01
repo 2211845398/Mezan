@@ -52,6 +52,14 @@ export default function AttendanceKioskDisplay() {
       <p className="text-muted-foreground mt-8 text-sm">
         {t('attendanceDevices.kioskRefresh', { seconds: expires_in_seconds })}
       </p>
+      <Button
+        variant="outline"
+        className="mt-4"
+        disabled={query.isFetching}
+        onClick={() => void query.refetch()}
+      >
+        {t('attendanceDevices.retry')}
+      </Button>
     </div>
   );
 }

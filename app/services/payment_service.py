@@ -90,7 +90,7 @@ async def create_payment_intent(
         is_partial = False
         if cash_tendered is not None:
             ct = q2(cash_tendered)
-            if ct > Decimal("0") and ct < rounded:
+            if ct < rounded:
                 is_partial = True
         if not is_partial:
             amount = rounded
@@ -183,9 +183,9 @@ async def capture_payment(
         if method != "cash":
             raise ValidationError("cash_tendered is only valid for cash payments")
         ct = q2(cash_tendered)
-        if ct <= Decimal("0"):
+        if ct < Decimal("0"):
             raise ValidationError(
-                "cash_tendered must be greater than zero", details={"cash_tendered": str(ct)}
+                "cash_tendered cannot be negative", details={"cash_tendered": str(ct)}
             )
         if ct > amount:
             raise ValidationError(

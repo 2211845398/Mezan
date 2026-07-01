@@ -12,7 +12,8 @@
     "cancel": "Cancel",
     "close": "Close",
     "confirm": "Confirm",
-    "open_menu": "Open menu"
+    "open_menu": "Open menu",
+    "download": "Download"
   },
   "confirm": {
     "type_keyword": "Type “{{keyword}}” to confirm"
@@ -183,7 +184,28 @@
     "empty": "No backup status",
     "trigger": "Run backup",
     "status": { "ok": "OK", "fail": "Failed" },
-    "col": { "started": "Started", "finished": "Finished", "status": "Status", "file": "File", "s3": "Uploaded to S3" }
+    "col": { "started": "Started", "finished": "Finished", "status": "Status", "file": "File", "s3": "Uploaded to S3", "message": "Message", "size": "Size" },
+    "noFile": "No file",
+    "noStatus": "No status available",
+    "lastStatus": {
+      "title": "Latest Backup",
+      "description": "Status of the most recent backup operation"
+    },
+    "history": {
+      "title": "Backup History",
+      "description": "List of all available backups for download",
+      "empty": "No backups available",
+      "showing": "Showing {{from}}-{{to}} of {{total}}"
+    },
+    "download": {
+      "button": "Download backup",
+      "success": "Download successful",
+      "error": "Download failed"
+    }
+  },
+  "pagination": {
+    "prev": "Previous",
+    "next": "Next"
   },
   "notifications": {
     "title": "Notifications",
@@ -309,6 +331,66 @@
       "target_group": "Target group",
       "error": "Error",
       "run_id": "ID"
+    }
+  },
+  "audit": {
+    "title": "Audit Logs",
+    "clearFilters": "Clear filters",
+    "filters": {
+      "title": "Filters",
+      "search": "Search",
+      "searchPlaceholder": "Search action, resource type, or ID...",
+      "user": "User",
+      "allUsers": "All users",
+      "branch": "Branch",
+      "allBranches": "All branches",
+      "resourceType": "Resource Type",
+      "allTypes": "All types",
+      "action": "Action",
+      "actionPlaceholder": "e.g., user.created",
+      "resourceId": "Resource ID",
+      "resourceIdPlaceholder": "Search by ID...",
+      "dateFrom": "From Date",
+      "dateTo": "To Date"
+    },
+    "resourceTypes": {
+      "user": "User",
+      "branch": "Branch",
+      "terminal": "Terminal",
+      "customer": "Customer",
+      "supplier": "Supplier",
+      "product": "Product",
+      "invoice": "Invoice",
+      "journalEntry": "Journal Entry",
+      "backupJob": "Backup Job",
+      "backupFile": "Backup File"
+    },
+    "results": {
+      "title": "Results",
+      "total": "{{total}} records",
+      "empty": "No records found"
+    },
+    "col": {
+      "time": "Time",
+      "user": "User",
+      "action": "Action",
+      "resource": "Resource",
+      "branch": "Branch",
+      "ip": "IP Address"
+    },
+    "viewDetails": "View details",
+    "details": {
+      "title": "Log Details",
+      "technical": "Technical Details",
+      "requestId": "Request ID",
+      "userAgent": "User Agent",
+      "changes": "Changes",
+      "oldValue": "Old Value",
+      "newValue": "New Value"
+    },
+    "pagination": {
+      "page": "Page {{page}} of {{pages}}",
+      "pageSize": "Page size"
     }
   }
 }
